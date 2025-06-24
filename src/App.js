@@ -9,7 +9,7 @@ const API_BASE_URL = window.location.hostname === 'localhost' || window.location
 
 console.log('🌐 UMO Repository - API Base URL:', API_BASE_URL);
 
-// Authentication Context (keeping the same)
+// Authentication Context
 const AuthContext = createContext();
 
 const useAuth = () => {
@@ -109,6 +109,30 @@ const useDebounce = (value, delay) => {
   return debouncedValue;
 };
 
+// Shared moment fetching utility
+const fetchMoments = async (endpoint, errorContext = 'moments') => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/moments/${endpoint}`, {
+      signal: createTimeoutSignal(8000),
+      headers: {
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache'
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.moments || [];
+    } else {
+      console.warn(`Failed to load ${errorContext}: ${response.status}`);
+      return [];
+    }
+  } catch (err) {
+    console.error(`Error loading ${errorContext}:`, err);
+    return [];
+  }
+};
+
 // UMO Song Search Component
 const UMOSongSearch = ({ onSongSelect, currentSong }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -125,31 +149,23 @@ const UMOSongSearch = ({ onSongSelect, currentSong }) => {
     const loadUMOSongs = async () => {
       try {
         setLoading(true);
-        console.log('🎵 Loading all UMO songs from setlists...');
-        
-        // Fetch multiple pages of UMO setlists to get comprehensive song list
         const allSongs = new Set();
         let page = 1;
         let hasMore = true;
         
-        while (hasMore && page <= 10) { // Limit to first 10 pages for now
+        while (hasMore && page <= 10) {
           try {
-            console.log(`📄 Loading page ${page}...`);
             const data = await fetchUMOSetlists(page, API_BASE_URL);
             
             if (data && data.setlist && data.setlist.length > 0) {
-              // Extract songs using utility function
               const songsFromPage = extractUMOSongs(data.setlist);
               songsFromPage.forEach(song => allSongs.add(song));
-              
-              console.log(`📄 Page ${page}: found ${songsFromPage.length} unique songs, total: ${allSongs.size}`);
               page++;
             } else {
-              console.log(`📄 Page ${page}: no more setlists found`);
               hasMore = false;
             }
           } catch (err) {
-            console.error(`❌ Error fetching page ${page}:`, err);
+            console.error(`Error fetching page ${page}:`, err);
             hasMore = false;
           }
         }
@@ -158,14 +174,12 @@ const UMOSongSearch = ({ onSongSelect, currentSong }) => {
         setAllSongs(songList);
         setFilteredSongs(songList);
         
-        console.log(`✅ Loaded ${songList.length} unique UMO songs`);
-        
         if (songList.length === 0) {
           setError('No UMO songs found. Check if the server is running.');
         }
         
       } catch (err) {
-        console.error('❌ Error loading UMO songs:', err);
+        console.error('Error loading UMO songs:', err);
         setError(`Failed to load UMO songs: ${err.message}`);
       } finally {
         setLoading(false);
@@ -184,7 +198,7 @@ const UMOSongSearch = ({ onSongSelect, currentSong }) => {
       const query = debouncedSearchQuery.toLowerCase();
       const filtered = allSongs.filter(song => 
         song.toLowerCase().includes(query)
-      ).slice(0, 20); // Limit to 20 results
+      ).slice(0, 20);
       
       setFilteredSongs(filtered);
       setShowResults(true);
@@ -1115,15 +1129,15 @@ const Login = () => {
   );
 };
 
-// Enhanced UMOLatestPerformances Component with moment counts and setlist.fm note
+// Enhanced UMOLatestPerformances Component
 const UMOLatestPerformances = ({ onPerformanceSelect }) => {
   const [allPerformances, setAllPerformances] = useState([]);
   const [displayedPerformances, setDisplayedPerformances] = useState([]);
-  const [momentCounts, setMomentCounts] = useState({}); // New state for moment counts
+  const [momentCounts, setMomentCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [loadingMoments, setLoadingMoments] = useState(false); // New state for moment loading
+  const [loadingMoments, setLoadingMoments] = useState(false);
   const [error, setError] = useState('');
   const [hasMore, setHasMore] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -1137,8 +1151,6 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
     if (performances.length === 0) return;
     
     setLoadingMoments(true);
-    console.log(`🎵 Loading moment counts for ${performances.length} performances...`);
-    
     const newMomentCounts = {};
     
     // Process in batches to avoid overwhelming the server
@@ -1148,19 +1160,9 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
       
       await Promise.all(batch.map(async (performance) => {
         try {
-          const response = await fetch(
-            `${API_BASE_URL}/moments/performance/${performance.id}`,
-            { signal: createTimeoutSignal(5000) }
-          );
-          
-          if (response.ok) {
-            const data = await response.json();
-            newMomentCounts[performance.id] = data.moments?.length || 0;
-          } else {
-            newMomentCounts[performance.id] = 0;
-          }
+          const moments = await fetchMoments(`performance/${performance.id}`, `performance ${performance.id}`);
+          newMomentCounts[performance.id] = moments.length;
         } catch (err) {
-          console.error(`Error loading moments for performance ${performance.id}:`, err);
           newMomentCounts[performance.id] = 0;
         }
       }));
@@ -1173,15 +1175,11 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
     
     setMomentCounts(prev => ({ ...prev, ...newMomentCounts }));
     setLoadingMoments(false);
-    
-    const totalMoments = Object.values(newMomentCounts).reduce((sum, count) => sum + count, 0);
-    console.log(`✅ Loaded moment counts: ${totalMoments} total moments across ${performances.length} performances`);
   };
 
   // Load moment counts whenever displayed performances change
   useEffect(() => {
     if (displayedPerformances.length > 0 && !loading && !searching) {
-      // Only load moment counts for performances we don't already have
       const performancesToLoad = displayedPerformances.filter(p => !(p.id in momentCounts));
       if (performancesToLoad.length > 0) {
         loadMomentCounts(performancesToLoad);
@@ -1200,7 +1198,6 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
       setIsSearchMode(false);
       setDisplayedPerformances(allPerformances);
     } else {
-      // Show immediate results from loaded performances while comprehensive search runs
       const immediateResults = allPerformances.filter(setlist => 
         setlist.venue.city.name.toLowerCase().includes(debouncedCitySearch.toLowerCase()) ||
         setlist.venue.name.toLowerCase().includes(debouncedCitySearch.toLowerCase()) ||
@@ -1208,9 +1205,7 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
       );
       
       setIsSearchMode(true);
-      setDisplayedPerformances(immediateResults); // Show immediate results
-      
-      // Then run comprehensive search
+      setDisplayedPerformances(immediateResults);
       performSearch(debouncedCitySearch);
     }
   }, [debouncedCitySearch, allPerformances]);
@@ -1228,14 +1223,12 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
         setDisplayedPerformances(performances);
         setCurrentPage(1);
         setHasMore(performances.length >= 20);
-        
-        console.log(`✅ Loaded ${performances.length} UMO performances`);
       } else {
         setError('No UMO performances found');
         setHasMore(false);
       }
     } catch (err) {
-      console.error('❌ Error loading performances:', err);
+      console.error('Error loading performances:', err);
       setError(`Failed to load performances: ${err.message}`);
     } finally {
       setLoading(false);
@@ -1249,14 +1242,11 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
     setIsSearchMode(true);
     
     try {
-      console.log(`🔍 Comprehensive search for: "${searchTerm}"`);
-      
       const searchResults = [];
       let page = 1;
       let hasMorePages = true;
       let consecutiveEmptyPages = 0;
       
-      // More thorough search - go deeper to catch all historical matches
       while (hasMorePages && page <= 200 && searchResults.length < 500) {
         try {
           const data = await fetchUMOSetlists(page, API_BASE_URL);
@@ -1270,26 +1260,17 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
             
             if (matches.length > 0) {
               searchResults.push(...matches);
-              consecutiveEmptyPages = 0; // Reset counter when we find matches
-              console.log(`📄 Page ${page}: Found ${matches.length} more matches (total: ${searchResults.length})`);
+              consecutiveEmptyPages = 0;
             } else {
               consecutiveEmptyPages++;
             }
             
-            // Progress indicator every 25 pages
-            if (page % 25 === 0) {
-              console.log(`📄 Searched ${page} pages, found ${searchResults.length} total matches for "${searchTerm}"`);
-            }
-            
             page++;
             
-            // Stop if we get 20 consecutive pages with no matches (likely reached end of relevant data)
             if (consecutiveEmptyPages >= 20) {
-              console.log(`📄 Stopping search - no matches found in last 20 pages`);
               hasMorePages = false;
             }
             
-            // Stop if we get less than a full page (end of all data)
             if (data.setlist.length < 20) {
               hasMorePages = false;
             }
@@ -1298,25 +1279,13 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
           }
         } catch (err) {
           console.error(`Error on page ${page}:`, err);
-          // Don't stop on single page errors, try next page
           page++;
           if (page > 200) hasMorePages = false;
         }
       }
       
-      // Sort by date (newest first)
       searchResults.sort((a, b) => new Date(b.eventDate) - new Date(a.eventDate));
-      
       setDisplayedPerformances(searchResults);
-      
-      console.log(`✅ Search complete: Found ${searchResults.length} total performances for "${searchTerm}"`);
-      
-      // Show some date range info for user confidence
-      if (searchResults.length > 0) {
-        const oldestDate = searchResults[searchResults.length - 1]?.eventDate;
-        const newestDate = searchResults[0]?.eventDate;
-        console.log(`📅 Date range: ${oldestDate} to ${newestDate}`);
-      }
       
     } catch (err) {
       console.error('Search error:', err);
@@ -1344,13 +1313,11 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
         setDisplayedPerformances(updatedPerformances);
         setCurrentPage(nextPage);
         setHasMore(newPerformances.length >= 20);
-        
-        console.log(`✅ Loaded ${newPerformances.length} more performances`);
       } else {
         setHasMore(false);
       }
     } catch (err) {
-      console.error(`❌ Error loading page ${nextPage}:`, err);
+      console.error(`Error loading page ${nextPage}:`, err);
       setError(`Failed to load more: ${err.message}`);
     } finally {
       setLoadingMore(false);
@@ -1453,7 +1420,7 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
         </div>
       )}
       
-      {/* Performance grid with enhanced moment counts */}
+      {/* Performance grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {displayedPerformances.map((setlist) => {
           const songCount = setlist.sets?.set?.reduce((total, set) => total + (set.song?.length || 0), 0) || 0;
@@ -1478,7 +1445,6 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
                 {formatShortDate(setlist.eventDate)}
               </div>
               
-              {/* Enhanced stats with both songs and moments */}
               <div className="space-y-1">
                 <div className="text-xs text-gray-500">
                   {songCount} song{songCount !== 1 ? 's' : ''}
@@ -1574,73 +1540,76 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
     </div>
   );
 };
-// Enhanced loading display component
-const UMOBrowseBySongLoadingDisplay = ({ loadingProgress }) => {
-  return (
-    <div className="mb-8">
-      <h3 className="text-xl font-bold mb-4">🎵 Browse UMO Songs</h3>
-      <div className="text-center py-12">
-        <div className="inline-flex flex-col items-center text-gray-500 max-w-md">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-          
-          <div className="text-xl font-bold text-gray-700 mb-3">
-            Building Complete UMO Database
-          </div>
-          
-          <div className="text-sm text-gray-600 mb-4 text-center leading-relaxed">
-            Scanning 15+ years of performance history to ensure we capture every song from every show, including those hard-to-find 2011-2012 performances.
-          </div>
-          
-          {loadingProgress.status && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 w-full">
-              <div className="text-sm font-medium text-blue-800 mb-2">
-                {loadingProgress.status}
-              </div>
-              
-              {loadingProgress.dateRange && (
-                <div className="text-xs text-green-700 font-medium mb-2">
-                  📅 Historical Coverage: {loadingProgress.dateRange}
-                </div>
-              )}
-              
-              {loadingProgress.total > 0 && (
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-500" 
-                    style={{ width: `${(loadingProgress.current / loadingProgress.total) * 100}%` }}
-                  ></div>
-                </div>
-              )}
-            </div>
-          )}
-          
-          <div className="text-xs text-gray-400 text-center space-y-1">
-            <div>⏱️ This comprehensive scan takes 1-3 minutes</div>
-            <div>🔍 We scan up to 500 pages to ensure complete historical coverage</div>
-            <div>🎵 The song count may increase as we discover more historical performances</div>
-          </div>
-          
-          <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-800">
-            <div className="font-medium mb-1">💡 Why This Takes Time:</div>
-            <div>We're building the most comprehensive UMO song database ever created, scanning every available setlist from 2010-2025 to ensure we don't miss any historical performances.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-// Enhanced UMOBrowseBySong Component with deeper historical search
+
+// Enhanced UMOBrowseBySong Component
 const UMOBrowseBySong = ({ onSongSelect }) => {
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sortBy, setSortBy] = useState('alphabetical');
   const [sortDirection, setSortDirection] = useState('asc');
-const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, status: '', dateRange: '' });
+  const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, status: '' });
+
+  // Date parsing helper
+  const parseSetlistDate = (dateString) => {
+    if (!dateString) return null;
+    
+    try {
+      if (dateString.includes('-')) {
+        const parts = dateString.split('-');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0]);
+          const month = parseInt(parts[1]) - 1;
+          const year = parseInt(parts[2]);
+          return new Date(year, month, day);
+        }
+      }
+      return new Date(dateString);
+    } catch (err) {
+      console.error('Error parsing date:', dateString, err);
+      return null;
+    }
+  };
+
+  // Date formatter that always shows year
+  const formatShortDateWithYear = (dateString) => {
+    if (!dateString) return 'Unknown date';
+    
+    try {
+      if (dateString.includes('-')) {
+        const parts = dateString.split('-');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0]);
+          const month = parseInt(parts[1]) - 1;
+          const year = parseInt(parts[2]);
+          const date = new Date(year, month, day);
+          
+          return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          });
+        }
+      }
+      
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+      }
+    } catch (err) {
+      // Return original if parsing fails
+    }
+    
+    return dateString;
+  };
+
   useEffect(() => {
     const loadComprehensiveSongData = async () => {
       try {
-        console.log('🎵 Loading comprehensive UMO song history...');
         setLoading(true);
         setLoadingProgress({ current: 0, total: 0, status: 'Initializing...' });
         
@@ -1650,8 +1619,7 @@ const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, s
         let consecutiveEmptyPages = 0;
         let totalProcessed = 0;
         
-        // Much more comprehensive search - UMO has been active since ~2010
-        // We'll go deeper to ensure we get all historical performances
+        // Comprehensive search through UMO's performance history
         while (hasMore && page <= 200 && consecutiveEmptyPages < 10) {
           try {
             setLoadingProgress({ 
@@ -1660,15 +1628,11 @@ const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, s
               status: `Loading page ${page}... (${totalProcessed} songs found)` 
             });
             
-            console.log(`📄 Processing setlist page ${page} for comprehensive song data...`);
             const data = await fetchUMOSetlists(page, API_BASE_URL);
             
             if (data && data.setlist && data.setlist.length > 0) {
-              console.log(`📄 Page ${page}: Found ${data.setlist.length} setlists`);
-              
               let songsFoundOnPage = 0;
               
-              // Process each setlist on this page
               for (const setlist of data.setlist) {
                 if (setlist.sets && setlist.sets.set) {
                   setlist.sets.set.forEach(set => {
@@ -1690,7 +1654,6 @@ const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, s
                             });
                           }
                           
-                          // Add this performance to the song
                           const performance = {
                             id: setlist.id,
                             venue: setlist.venue.name,
@@ -1699,7 +1662,6 @@ const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, s
                             date: setlist.eventDate,
                             setName: set.name,
                             songPosition: songIndex + 1,
-                            // Additional context for better detail pages
                             venueFull: setlist.venue,
                             totalSongsInSet: set.song.length
                           };
@@ -1707,19 +1669,25 @@ const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, s
                           const songData = allSongs.get(song.name);
                           songData.performances.push(performance);
                           
-                          // Update aggregated data
                           songData.venues.add(setlist.venue.name);
                           songData.cities.add(setlist.venue.city.name);
                           if (setlist.venue.city.country?.name) {
                             songData.countries.add(setlist.venue.city.country.name);
                           }
                           
-                          // Update first/last performed dates
-                          if (!songData.lastPerformed || performance.date > songData.lastPerformed) {
-                            songData.lastPerformed = performance.date;
-                          }
-                          if (!songData.firstPerformed || performance.date < songData.firstPerformed) {
-                            songData.firstPerformed = performance.date;
+                          // Proper date comparison using Date objects
+                          const performanceDate = parseSetlistDate(performance.date);
+                          if (performanceDate) {
+                            const lastPerformedDate = songData.lastPerformed ? parseSetlistDate(songData.lastPerformed) : null;
+                            const firstPerformedDate = songData.firstPerformed ? parseSetlistDate(songData.firstPerformed) : null;
+                            
+                            if (!lastPerformedDate || performanceDate > lastPerformedDate) {
+                              songData.lastPerformed = performance.date;
+                            }
+                            
+                            if (!firstPerformedDate || performanceDate < firstPerformedDate) {
+                              songData.firstPerformed = performance.date;
+                            }
                           }
                         }
                       });
@@ -1732,118 +1700,89 @@ const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, s
               
               if (songsFoundOnPage > 0) {
                 consecutiveEmptyPages = 0;
-                console.log(`📄 Page ${page}: Added songs, total unique songs now: ${totalProcessed}`);
               } else {
                 consecutiveEmptyPages++;
-                console.log(`📄 Page ${page}: No songs found, consecutive empty: ${consecutiveEmptyPages}`);
-              }
-              
-              // Progress update every 10 pages
-              if (page % 10 === 0) {
-                console.log(`📊 Progress: ${page} pages processed, ${totalProcessed} unique songs found`);
               }
               
               page++;
               
-              // Stop if we get less than a full page (likely end of data)
               if (data.setlist.length < 20) {
-                console.log(`📄 Reached end of data (page ${page-1} had ${data.setlist.length} setlists)`);
                 hasMore = false;
               }
             } else {
               consecutiveEmptyPages++;
-              console.log(`📄 Page ${page}: No setlists found, consecutive empty: ${consecutiveEmptyPages}`);
               
               if (consecutiveEmptyPages >= 10) {
-                console.log(`📄 Stopping search - ${consecutiveEmptyPages} consecutive empty pages`);
                 hasMore = false;
               } else {
                 page++;
               }
             }
           } catch (err) {
-            console.error(`❌ Error fetching page ${page}:`, err);
+            console.error(`Error fetching page ${page}:`, err);
             consecutiveEmptyPages++;
             
             if (consecutiveEmptyPages >= 5) {
-              console.log(`❌ Too many consecutive errors, stopping search`);
               hasMore = false;
             } else {
-              page++; // Try next page on error
+              page++;
             }
           }
         }
 
-        // Convert to array and process venue/city data
+        // Convert to array and process data
         const songArray = Array.from(allSongs.values()).map(song => ({
           ...song,
           venues: Array.from(song.venues),
           cities: Array.from(song.cities),
           countries: Array.from(song.countries),
-          // Sort performances by date (newest first)
-          performances: song.performances.sort((a, b) => new Date(b.date) - new Date(a.date))
+          performances: song.performances.sort((a, b) => {
+            const dateA = parseSetlistDate(a.date);
+            const dateB = parseSetlistDate(b.date);
+            if (!dateA || !dateB) return 0;
+            return dateB - dateA;
+          })
         }));
         
-        console.log(`🎵 Comprehensive scan complete: ${songArray.length} unique songs found`);
-        console.log(`📊 Date range: ${songArray.reduce((earliest, song) => 
-          !earliest || song.firstPerformed < earliest ? song.firstPerformed : earliest, null
-        )} to ${songArray.reduce((latest, song) => 
-          !latest || song.lastPerformed > latest ? song.lastPerformed : latest, null
-        )}`);
-        
-        // Load moment counts in batches (this is the expensive part)
+        // Load moment counts
         setLoadingProgress({ 
           current: 0, 
           total: songArray.length, 
           status: 'Loading moment counts...' 
         });
         
-        const batchSize = 15; // Increased batch size for better performance
+        const batchSize = 10;
+        let totalMomentsFound = 0;
+        
         for (let i = 0; i < songArray.length; i += batchSize) {
           const batch = songArray.slice(i, i + batchSize);
           
           setLoadingProgress({ 
             current: i + batch.length, 
             total: songArray.length, 
-            status: `Loading moments... (${i + batch.length}/${songArray.length})` 
+            status: `Loading moments... (${i + batch.length}/${songArray.length}) - Found ${totalMomentsFound} total` 
           });
           
           await Promise.all(batch.map(async (song) => {
             try {
-              const response = await fetch(
-                `${API_BASE_URL}/moments/song/${encodeURIComponent(song.songName)}`,
-                { signal: createTimeoutSignal(3000) }
-              );
-              
-              if (response.ok) {
-                const data = await response.json();
-                song.totalMoments = data.moments?.length || 0;
-              }
+              const moments = await fetchMoments(`song/${encodeURIComponent(song.songName)}`, `song "${song.songName}"`);
+              song.totalMoments = moments.length;
+              totalMomentsFound += moments.length;
             } catch (err) {
               song.totalMoments = 0;
             }
           }));
           
-          // Small delay between batches
           if (i + batchSize < songArray.length) {
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise(resolve => setTimeout(resolve, 100));
           }
         }
 
         setSongs(songArray);
-        console.log(`✅ Complete song analysis finished: ${songArray.length} songs with performance and moment data`);
-        
-        // Log some interesting stats
-        const mostPerformed = songArray.reduce((max, song) => 
-          song.performances.length > (max?.performances.length || 0) ? song : max, null);
-        const mostMoments = songArray.reduce((max, song) => 
-          song.totalMoments > (max?.totalMoments || 0) ? song : max, null);
-        
-        console.log(`📊 Most performed: "${mostPerformed?.songName}" (${mostPerformed?.performances.length} times)`);
-        console.log(`📊 Most moments: "${mostMoments?.songName}" (${mostMoments?.totalMoments} moments)`);
+        console.log(`✅ Complete song analysis finished: ${songArray.length} songs, ${totalMomentsFound} total moments`);
         
       } catch (err) {
-        console.error('❌ Error loading comprehensive song data:', err);
+        console.error('Error loading comprehensive song data:', err);
         setError(`Failed to load song data: ${err.message}`);
       } finally {
         setLoading(false);
@@ -1854,7 +1793,7 @@ const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, s
     loadComprehensiveSongData();
   }, []);
 
-  // Enhanced sorting with more metrics
+  // Enhanced sorting
   const sortedSongs = useMemo(() => {
     const sorted = [...songs];
     
@@ -1869,10 +1808,14 @@ const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, s
           comparison = b.totalMoments - a.totalMoments;
           break;
         case 'lastPerformed':
-          comparison = new Date(b.lastPerformed || 0) - new Date(a.lastPerformed || 0);
+          const dateA = parseSetlistDate(a.lastPerformed);
+          const dateB = parseSetlistDate(b.lastPerformed);
+          comparison = (dateB || 0) - (dateA || 0);
           break;
         case 'firstPerformed':
-          comparison = new Date(a.firstPerformed || 0) - new Date(b.firstPerformed || 0);
+          const firstA = parseSetlistDate(a.firstPerformed);
+          const firstB = parseSetlistDate(b.firstPerformed);
+          comparison = (firstA || 0) - (firstB || 0);
           break;
         case 'mostVenues':
           comparison = b.venues.length - a.venues.length;
@@ -1939,7 +1882,6 @@ const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, s
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
         <h3 className="text-xl font-bold">🎵 UMO Complete Songbook ({songs.length} songs)</h3>
         
-        {/* Enhanced sort controls */}
         <div className="flex items-center gap-3">
           <select
             value={sortBy}
@@ -1964,7 +1906,18 @@ const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, s
         </div>
       </div>
       
-      {/* Enhanced song grid with more information */}
+      {/* Summary info */}
+      {songs.length > 0 && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+          <div className="text-sm text-blue-800">
+            <strong>📊 Moment Summary:</strong> 
+            {` Total moments found: ${songs.reduce((total, song) => total + song.totalMoments, 0)}`}
+            {` • Songs with moments: ${songs.filter(song => song.totalMoments > 0).length}`}
+          </div>
+        </div>
+      )}
+      
+      {/* Song grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {sortedSongs.map((song) => (
           <button
@@ -1977,29 +1930,30 @@ const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, s
             </div>
             
             <div className="space-y-2 text-sm">
-              {/* Performance stats */}
               <div className="flex items-center justify-between">
                 <span className="text-blue-600 font-medium">
                   {song.performances.length} show{song.performances.length !== 1 ? 's' : ''}
                 </span>
-                {song.totalMoments > 0 && (
-                  <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">
+                {song.totalMoments > 0 ? (
+                  <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full font-medium">
                     {song.totalMoments} moment{song.totalMoments !== 1 ? 's' : ''}
+                  </span>
+                ) : (
+                  <span className="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded-full">
+                    No moments yet
                   </span>
                 )}
               </div>
               
-              {/* Venue/city stats */}
               <div className="text-gray-500 text-xs">
                 {song.venues.length} venue{song.venues.length !== 1 ? 's' : ''} • {song.cities.length} cit{song.cities.length !== 1 ? 'ies' : 'y'}
               </div>
               
-              {/* Date range */}
               <div className="text-gray-500 text-xs">
                 {song.firstPerformed === song.lastPerformed ? (
-                  <span>Only: {formatShortDate(song.lastPerformed)}</span>
+                  <span>Only: {formatShortDateWithYear(song.lastPerformed)}</span>
                 ) : (
-                  <span>{formatShortDate(song.firstPerformed)} - {formatShortDate(song.lastPerformed)}</span>
+                  <span>{formatShortDateWithYear(song.firstPerformed)} - {formatShortDateWithYear(song.lastPerformed)}</span>
                 )}
               </div>
             </div>
@@ -2016,33 +1970,21 @@ const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, s
   );
 };
 
-// Enhanced SongDetail component with cleaner UI and optional position display
+// Enhanced SongDetail component
 const SongDetail = ({ songData, onBack }) => {
   const [moments, setMoments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [uploadingMoment, setUploadingMoment] = useState(null);
   const [viewMode, setViewMode] = useState('chronological');
-  const [showPositions, setShowPositions] = useState(false); // Toggle for showing song positions
+  const [showPositions, setShowPositions] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
     const loadSongMoments = async () => {
       try {
-        console.log(`🎵 Loading moments for song: ${songData.songName}`);
-        
-        const response = await fetch(
-          `${API_BASE_URL}/moments/song/${encodeURIComponent(songData.songName)}`,
-          { signal: createTimeoutSignal(5000) }
-        );
-        
-        if (response.ok) {
-          const data = await response.json();
-          setMoments(data.moments || []);
-          console.log(`✅ Loaded ${data.moments?.length || 0} moments for "${songData.songName}"`);
-        } else {
-          console.log('No moments found for this song');
-        }
+        const momentList = await fetchMoments(`song/${encodeURIComponent(songData.songName)}`, `song "${songData.songName}"`);
+        setMoments(momentList);
       } catch (err) {
         console.error('Error loading song moments:', err);
       } finally {
@@ -2146,16 +2088,13 @@ const SongDetail = ({ songData, onBack }) => {
             </div>
           </div>
           
-          {/* Date Range & Years */}
+          {/* Date Range */}
           <div className="mt-4 text-center text-gray-600 space-y-2">
             <div className="text-sm">
               First performed: <strong>{formatDate(songData.firstPerformed)}</strong>
               {songData.firstPerformed !== songData.lastPerformed && (
                 <> • Last performed: <strong>{formatDate(songData.lastPerformed)}</strong></>
               )}
-            </div>
-            <div className="text-xs text-blue-600">
-              Active years: <strong>{songData.years?.join(', ') || 'Unknown'}</strong>
             </div>
           </div>
         </div>
@@ -2234,7 +2173,6 @@ const SongDetail = ({ songData, onBack }) => {
                             </span>
                           </div>
                           
-                          {/* Conditional details based on toggles */}
                           <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
                             {performance.setName && (
                               <span>Set: {performance.setName}</span>
@@ -2315,13 +2253,6 @@ const SongDetail = ({ songData, onBack }) => {
   );
 };
 
-// Also update the loading check in UMOBrowseBySong to use the enhanced display
-// Replace the loading return statement in UMOBrowseBySong with:
-/*
-if (loading) {
-  return <UMOBrowseBySongLoadingDisplay loadingProgress={loadingProgress} />;
-}
-*/
 const PerformanceDetail = ({ performance, onBack }) => {
   const [moments, setMoments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2332,20 +2263,8 @@ const PerformanceDetail = ({ performance, onBack }) => {
   useEffect(() => {
     const loadPerformanceMoments = async () => {
       try {
-        console.log(`🎪 Loading moments for performance: ${performance.id}`);
-        
-        const response = await fetch(
-          `${API_BASE_URL}/moments/performance/${performance.id}`,
-          { signal: createTimeoutSignal(5000) }
-        );
-        
-        if (response.ok) {
-          const data = await response.json();
-          setMoments(data.moments || []);
-          console.log(`✅ Loaded ${data.moments?.length || 0} moments for this performance`);
-        } else {
-          console.log('No moments found for this performance');
-        }
+        const momentList = await fetchMoments(`performance/${performance.id}`, `performance ${performance.id}`);
+        setMoments(momentList);
       } catch (err) {
         console.error('Error loading performance moments:', err);
       } finally {
@@ -2637,15 +2556,12 @@ function MainApp() {
               <UMOBrowseBySong onSongSelect={handleSongBrowseSelect} />
             )}
 
-            {/* Info Section */}
+            {/* Simplified Info Section */}
             <div className="text-center py-12 mt-8 border-t border-gray-200">
-              <div className="text-xl text-gray-600 mb-4">
-                The ultimate Unknown Mortal Orchestra fan archive
-              </div>
               <p className="text-gray-500 max-w-2xl mx-auto">
                 {browseMode === 'performances' 
                   ? 'Explore UMO\'s entire performance history, search by city or venue, and upload your own moments from concerts.'
-                  : 'Discover every UMO song, see where and when they\'ve been performed, and explore fan moments from across their entire live catalog.'
+                  : 'Browse every UMO song with complete performance history and fan-uploaded moments.'
                 }
               </p>
               
@@ -2664,11 +2580,12 @@ function MainApp() {
           </>
         )}
 
-        {/* Updated Song Detail View - now passes the complete songData object */}
+        {/* Song Detail View */}
         {currentView === 'song' && selectedSong && (
           <SongDetail songData={selectedSong} onBack={handleBackToHome} />
         )}
 
+        {/* Performance Detail View */}
         {currentView === 'performance' && selectedPerformance && (
           <PerformanceDetail performance={selectedPerformance} onBack={handleBackToHome} />
         )}
