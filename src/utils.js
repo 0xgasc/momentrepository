@@ -1,6 +1,6 @@
-// Updated utils.js with complete featured artists and mobile Safari fixes
+// Updated utils.js for UMO Repository
 
-// Utility functions for Concert Moments Platform
+// Utility functions for UMO Repository
 
 export const formatFileSize = (bytes) => {
   if (!bytes || bytes === 0) return '0 Bytes';
@@ -86,17 +86,9 @@ export const formatShortDate = (dateString) => {
   return dateString;
 };
 
-// Featured Artists with official setlist.fm MBIDs
-// These are artists with verified high activity and tour presence
-export const FEATURED_ARTISTS = [
-  { name: 'Muse', mbid: '9c9f1380-2516-4fc9-a3e6-f9f61941d090' },
-  { name: 'Green Day', mbid: '084308bd-1654-436f-ba03-df6697104e19' },
-  { name: 'Pearl Jam', mbid: '83b9cbe7-9857-49e2-ab8e-b57b01038103' },
-  { name: 'Metallica', mbid: '65f4f0c5-ef9e-490c-aee3-909e7ae6b2ab' },
-  { name: 'Unknown Mortal Orchestra', mbid: '33d2ccc9-7e64-44b2-ad8c-618d9499bf42' },
-  { name: 'Fontaines D.C.', mbid: '2bcac0f6-ee1b-4856-8264-a8b3262b9d3c' },
-  { name: 'Daniel Me Estas Matando', mbid: '63f31a0f-2756-43e4-b58f-61e7b0e83b57' }
-];
+// UMO specific constants  
+export const UMO_MBID = 'e2305342-0bde-4a2c-aed0-4b88694834de'; // Correct MusicBrainz ID
+export const UMO_ARTIST = { name: 'Unknown Mortal Orchestra', mbid: UMO_MBID };
 
 // Mobile Safari detection utility
 export const isMobileSafari = () => {
@@ -173,4 +165,90 @@ export const mobileButtonStyles = {
   minWidth: '44px',
   touchAction: 'manipulation',
   WebkitTapHighlightColor: 'transparent'
+};
+
+// Missing button styles for modals
+export const additionalButtonStyles = {
+  success: {
+    backgroundColor: '#10b981',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '0.875rem 1.5rem',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    fontWeight: '600',
+    minHeight: '44px',
+    touchAction: 'manipulation'
+  },
+  
+  disabled: {
+    backgroundColor: '#9ca3af',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '0.875rem 1.5rem',
+    cursor: 'not-allowed',
+    fontSize: '1rem',
+    fontWeight: '600',
+    minHeight: '44px',
+    opacity: 0.6
+  }
+};
+
+// UMO API helpers
+export const fetchUMOSetlists = async (page = 1, apiBaseUrl) => {
+  try {
+    console.log(`🎸 Fetching UMO setlists page ${page}...`);
+    
+    const url = `${apiBaseUrl}/api/rest/1.0/artist/${UMO_MBID}/setlists?p=${page}`;
+    console.log(`📡 API URL: ${url}`);
+    
+    const response = await fetch(url, {
+      headers: { 
+        Accept: 'application/json',
+        'Cache-Control': 'no-cache'
+      },
+      signal: createTimeoutSignal(15000)
+    });
+
+    console.log(`📊 Response status: ${response.status}`);
+    
+    if (!response.ok) {
+      throw new Error(`API responded with ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log(`📋 Data received:`, {
+      total: data.total,
+      setlistCount: data.setlist?.length || 0,
+      page: data.page
+    });
+
+    return data;
+  } catch (error) {
+    console.error(`❌ Error fetching UMO setlists:`, error);
+    throw error;
+  }
+};
+
+// UMO song extraction helper
+export const extractUMOSongs = (setlists) => {
+  const allSongs = new Set();
+  
+  setlists.forEach(setlist => {
+    if (setlist.sets && setlist.sets.set) {
+      setlist.sets.set.forEach(set => {
+        if (set.song) {
+          set.song.forEach(song => {
+            if (song.name) {
+              allSongs.add(song.name);
+            }
+          });
+        }
+      });
+    }
+  });
+  
+  return Array.from(allSongs).sort();
 };

@@ -15,7 +15,6 @@ const PORT = 5050;
 // Enhanced CORS setup for file uploads
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow localhost and any local network IP (192.168.x.x, 10.x.x.x, etc.)
     if (!origin || /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin)) {
       callback(null, true);
     } else {
@@ -24,7 +23,13 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization',
+    'Accept',           // Added for API requests
+    'Cache-Control',    // Added for caching control
+    'Pragma'            // Added for caching control
+  ]
 }));
 
 app.use(express.json({ limit: '6gb' })); // Increase JSON limit to 6GB

@@ -1,4 +1,4 @@
-// Shared styles for Concert Moments Platform
+// Shared styles for UMO Repository
 
 export const styles = {
   // Form inputs
@@ -86,18 +86,18 @@ export const styles = {
   },
   
   // Buttons
-   button: {
+  button: {
     primary: {
       backgroundColor: '#3b82f6',
       color: 'white',
       border: 'none',
       borderRadius: '6px',
-      padding: '0.875rem 1.5rem', // CHANGED: Larger padding
+      padding: '0.875rem 1.5rem',
       cursor: 'pointer',
       fontSize: '1rem',
       fontWeight: '600',
-      minHeight: '44px', // ADDED: iOS minimum
-      touchAction: 'manipulation' // ADDED: Prevent double-tap zoom
+      minHeight: '44px',
+      touchAction: 'manipulation'
     },
     
     secondary: {
@@ -105,11 +105,38 @@ export const styles = {
       color: 'white',
       border: 'none',
       borderRadius: '6px',
-      padding: '0.875rem 1.5rem', // CHANGED: Larger padding
+      padding: '0.875rem 1.5rem',
       cursor: 'pointer',
       fontSize: '1rem',
-      minHeight: '44px', // ADDED: iOS minimum
-      touchAction: 'manipulation' // ADDED
+      minHeight: '44px',
+      touchAction: 'manipulation'
+    },
+    
+    success: {
+      backgroundColor: '#10b981',
+      color: 'white',
+      border: 'none',
+      borderRadius: '6px',
+      padding: '0.875rem 1.5rem',
+      cursor: 'pointer',
+      fontSize: '1rem',
+      fontWeight: '600',
+      minHeight: '44px',
+      touchAction: 'manipulation'
+    },
+    
+    disabled: {
+      backgroundColor: '#9ca3af',
+      color: 'white',
+      border: 'none',
+      borderRadius: '6px',
+      padding: '0.875rem 1.5rem',
+      cursor: 'not-allowed',
+      fontSize: '1rem',
+      fontWeight: '600',
+      minHeight: '44px',
+      opacity: 0.6,
+      touchAction: 'manipulation'
     },
     
     small: {
@@ -117,13 +144,14 @@ export const styles = {
       color: 'white',
       border: 'none',
       borderRadius: '4px',
-      padding: '0.5rem 1rem', // CHANGED: Larger padding
+      padding: '0.5rem 1rem',
       cursor: 'pointer',
       fontSize: '0.875rem',
-      minHeight: '36px', // ADDED: Smaller but still touch-friendly
-      touchAction: 'manipulation' // ADDED
+      minHeight: '36px',
+      touchAction: 'manipulation'
     }
   },
+  
   // Section styles
   section: {
     container: {
@@ -291,4 +319,5 @@ export const mobileOptimizedStyles = {
       overflow: 'auto',
       margin: window.innerWidth <= 640 ? '0' : '20px auto' // ADDED: No margin on mobile
     }
-  },}
+  }
+};

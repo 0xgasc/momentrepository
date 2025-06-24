@@ -1,15 +1,15 @@
 import React, { useEffect, useState, createContext, useContext, useCallback, useMemo } from 'react';
 import { styles } from './styles';
-import { formatDate, formatShortDate, formatFileSize, FEATURED_ARTISTS } from './utils';
+import { formatDate, formatShortDate, formatFileSize, UMO_MBID, UMO_ARTIST, fetchUMOSetlists, extractUMOSongs, createTimeoutSignal } from './utils';
 
 // API Base URL - automatically detects if running on mobile
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:5050'  // Local development
   : `http://${window.location.hostname}:5050`;  // Use same hostname as frontend
 
-console.log('🌐 Current hostname:', window.location.hostname);
-console.log('🌐 Using API Base URL:', API_BASE_URL);
-// Authentication Context
+console.log('🌐 UMO Repository - API Base URL:', API_BASE_URL);
+
+// Authentication Context (keeping the same)
 const AuthContext = createContext();
 
 const useAuth = () => {
@@ -58,7 +58,7 @@ const AuthProvider = ({ children }) => {
 
   const register = async (email, password, displayName) => {
     try {
-      const response = await fetch('${API_BASE_URL}/register', {
+      const response = await fetch(`${API_BASE_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, displayName }),
@@ -92,7 +92,7 @@ const AuthProvider = ({ children }) => {
   );
 };
 
-// Custom hook for proper debouncing
+// Custom hook for debouncing
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
@@ -109,310 +109,116 @@ const useDebounce = (value, delay) => {
   return debouncedValue;
 };
 
-// Improved getMajorArtistStatus function with better date parsing
-const getMajorArtistStatus = async (artist) => {
-  try {
-    console.log(`🔍 Fetching setlists for ${artist.name} (${artist.mbid})...`);
-    
-    const response = await fetch(
-      `${API_BASE_URL}/api/rest/1.0/artist/${artist.mbid}/setlists?p=1`,
-      { 
-        headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(8000)
-      }
-    );
-
-    if (response.ok) {
-      const data = await response.json();
-      const totalSetlists = data.total || 0;
-      const setlists = data.setlist || [];
-      
-      console.log(`✅ Successfully fetched ${totalSetlists} setlists for ${artist.name}`);
-      
-      // Check if artist is currently on tour (concert in last 90 days)
-      const ninetyDaysAgo = new Date();
-      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-      
-      console.log(`📅 Checking tour status against date: ${ninetyDaysAgo.toISOString().split('T')[0]}`);
-      
-      // Improved date parsing function
-      const parseSetlistDate = (eventDate) => {
-        if (!eventDate) return null;
-        
-        try {
-          // Handle DD-MM-YYYY format from setlist.fm
-          if (eventDate.includes('-')) {
-            const parts = eventDate.split('-');
-            if (parts.length === 3) {
-              const day = parseInt(parts[0], 10);
-              const month = parseInt(parts[1], 10);
-              const year = parseInt(parts[2], 10);
-              
-              // Validate the date parts
-              if (year >= 1900 && year <= 2030 && 
-                  month >= 1 && month <= 12 && 
-                  day >= 1 && day <= 31) {
-                
-                const date = new Date(year, month - 1, day); // month is 0-indexed
-                
-                // Double-check the date is valid (handles invalid dates like Feb 30)
-                if (date.getFullYear() === year && 
-                    date.getMonth() === month - 1 && 
-                    date.getDate() === day) {
-                  return date;
-                }
-              }
-            }
-          }
-          
-          // Fallback: try parsing as ISO date or other format
-          const fallbackDate = new Date(eventDate);
-          if (!isNaN(fallbackDate.getTime())) {
-            return fallbackDate;
-          }
-          
-          return null;
-        } catch (err) {
-          console.warn(`Failed to parse date: ${eventDate}`, err);
-          return null;
-        }
-      };
-      
-      // Check recent concerts with improved logging
-      const recentConcerts = setlists.filter(setlist => {
-        const concertDate = parseSetlistDate(setlist.eventDate);
-        if (concertDate) {
-          const isRecent = concertDate >= ninetyDaysAgo;
-          console.log(`  📅 ${setlist.eventDate} (${concertDate.toISOString().split('T')[0]}) -> ${isRecent ? '✅ RECENT' : '❌ OLD'}`);
-          return isRecent;
-        } else {
-          console.log(`  📅 ${setlist.eventDate} -> ❌ INVALID DATE`);
-          return false;
-        }
-      });
-      
-      const isOnTour = recentConcerts.length > 0;
-      
-      console.log(`🎪 ${artist.name} tour status: ${isOnTour ? '✅ ON TOUR' : '❌ NOT ON TOUR'} (${recentConcerts.length} recent concerts)`);
-      
-      return {
-        ...artist,
-        totalSetlists,
-        isMajorArtist: totalSetlists >= 50,
-        isOnTour,
-        recentConcerts: recentConcerts.length // Add for debugging
-      };
-    } else if (response.status === 404) {
-      console.log(`⚠️ No setlists found for ${artist.name} (this is normal for some artists)`);
-      return { ...artist, totalSetlists: 0, isMajorArtist: false, isOnTour: false };
-    } else {
-      console.error(`❌ Failed to fetch setlists for ${artist.name}:`, response.status, response.statusText);
-      return { ...artist, totalSetlists: 0, isMajorArtist: false, isOnTour: false };
-    }
-  } catch (err) {
-    console.error('❌ Error fetching setlist count for', artist.name, ':', err);
-    return { ...artist, totalSetlists: 0, isMajorArtist: false, isOnTour: false };
-  }
-};
-
-// Enhanced Artist Search Component with improved sorting
-const ArtistSearch = ({ onArtistSelect, currentArtist }) => {
+// UMO Song Search Component
+const UMOSongSearch = ({ onSongSelect, currentSong }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
+  const [allSongs, setAllSongs] = useState([]);
+  const [filteredSongs, setFilteredSongs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showResults, setShowResults] = useState(false);
   const [error, setError] = useState('');
 
-  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // Improved artist sorting function
-  const sortArtistResults = (artists, query) => {
-    const queryLower = query.toLowerCase().trim();
-    
-    return artists.sort((a, b) => {
-      const aName = a.name.toLowerCase();
-      const bName = b.name.toLowerCase();
-      const aDisambiguation = (a.disambiguation || '').toLowerCase();
-      const bDisambiguation = (b.disambiguation || '').toLowerCase();
-      
-      // 1. HIGHEST PRIORITY: Exact match gets top spot
-      const aExact = aName === queryLower;
-      const bExact = bName === queryLower;
-      if (aExact && !bExact) return -1;
-      if (bExact && !aExact) return 1;
-      
-      // 2. Main artist without disambiguation vs. artists with disambiguation
-      const aHasDisambig = a.disambiguation && a.disambiguation.trim().length > 0;
-      const bHasDisambig = b.disambiguation && b.disambiguation.trim().length > 0;
-      
-      // Prefer artists without disambiguation (usually the main artist)
-      if (!aHasDisambig && bHasDisambig) return -1;
-      if (!bHasDisambig && aHasDisambig) return 1;
-      
-      // 3. Penalize obvious collaboration/side project indicators
-      const collaborationWords = ['feat.', 'featuring', 'ft.', '&', ' and ', ' with ', 'vs.', 'versus'];
-      const sideProjectWords = ['tribute', 'cover', 'plays', 'experience', 'society', 'duo', 'cover band'];
-      
-      const aIsCollaboration = collaborationWords.some(word => 
-        aName.includes(word) || aDisambiguation.includes(word)
-      );
-      const bIsCollaboration = collaborationWords.some(word => 
-        bName.includes(word) || bDisambiguation.includes(word)
-      );
-      
-      const aIsSideProject = sideProjectWords.some(word => 
-        aName.includes(word) || aDisambiguation.includes(word)
-      );
-      const bIsSideProject = sideProjectWords.some(word => 
-        bName.includes(word) || bDisambiguation.includes(word)
-      );
-      
-      // Penalize collaborations and side projects
-      if (!aIsCollaboration && bIsCollaboration) return -1;
-      if (!bIsCollaboration && aIsCollaboration) return 1;
-      if (!aIsSideProject && bIsSideProject) return -1;
-      if (!bIsSideProject && aIsSideProject) return 1;
-      
-      // 4. Prefer names that start with the query
-      const aStarts = aName.startsWith(queryLower);
-      const bStarts = bName.startsWith(queryLower);
-      if (aStarts && !bStarts) return -1;
-      if (bStarts && !aStarts) return 1;
-      
-      // 5. For artists with similar names, prefer shorter disambiguation
-      if (aHasDisambig && bHasDisambig) {
-        // Prefer disambiguation that suggests main artist activity
-        const mainArtistIndicators = ['rapper', 'singer', 'musician', 'band', 'us rapper', 'american rapper'];
-        const aIsMainArtist = mainArtistIndicators.some(indicator => 
-          aDisambiguation.includes(indicator)
-        );
-        const bIsMainArtist = mainArtistIndicators.some(indicator => 
-          bDisambiguation.includes(indicator)
-        );
+  // Load all UMO songs from setlists
+  useEffect(() => {
+    const loadUMOSongs = async () => {
+      try {
+        setLoading(true);
+        console.log('🎵 Loading all UMO songs from setlists...');
         
-        if (aIsMainArtist && !bIsMainArtist) return -1;
-        if (bIsMainArtist && !aIsMainArtist) return 1;
+        // Fetch multiple pages of UMO setlists to get comprehensive song list
+        const allSongs = new Set();
+        let page = 1;
+        let hasMore = true;
         
-        // Otherwise prefer shorter disambiguation
-        return a.disambiguation.length - b.disambiguation.length;
-      }
-      
-      // 6. Shorter name = more likely to be main artist
-      const nameLengthDiff = a.name.length - b.name.length;
-      if (Math.abs(nameLengthDiff) > 10) return nameLengthDiff;
-      
-      // 7. Alphabetical as final tiebreaker
-      return a.name.localeCompare(b.name);
-    });
-  };
-
-  const searchArtists = useCallback(async (query) => {
-    if (!query.trim()) {
-      setSearchResults([]);
-      setShowResults(false);
-      setError('');
-      return;
-    }
-
-    setSearching(true);
-    setError('');
-    
-    try {
-      // Special handling for known artists that might have search issues
-      const knownArtistMappings = {
-        'muse': { name: 'Muse', mbid: '9c9f1380-2516-4fc9-a3e6-f9f61941d090' },
-        'tyler the creator': { name: 'Tyler, The Creator', mbid: 'f6beac20-5dfe-4d1f-ae02-0b0a740aafd6' },
-        'tyler, the creator': { name: 'Tyler, The Creator', mbid: 'f6beac20-5dfe-4d1f-ae02-0b0a740aafd6' }
-      };
-      
-      const queryKey = query.toLowerCase().trim();
-      if (knownArtistMappings[queryKey]) {
-        console.log(`🎯 Using known mapping for "${query}"`);
-        const knownArtist = knownArtistMappings[queryKey];
-        
-        try {
-          const artistWithStatus = await getMajorArtistStatus(knownArtist);
-          setSearchResults([artistWithStatus]);
-          setShowResults(true);
-          setSearching(false);
-          return;
-        } catch (err) {
-          console.error(`❌ Error with known artist mapping - will try API search:`, err);
+        while (hasMore && page <= 10) { // Limit to first 10 pages for now
+          try {
+            console.log(`📄 Loading page ${page}...`);
+            const data = await fetchUMOSetlists(page, API_BASE_URL);
+            
+            if (data && data.setlist && data.setlist.length > 0) {
+              // Extract songs using utility function
+              const songsFromPage = extractUMOSongs(data.setlist);
+              songsFromPage.forEach(song => allSongs.add(song));
+              
+              console.log(`📄 Page ${page}: found ${songsFromPage.length} unique songs, total: ${allSongs.size}`);
+              page++;
+            } else {
+              console.log(`📄 Page ${page}: no more setlists found`);
+              hasMore = false;
+            }
+          } catch (err) {
+            console.error(`❌ Error fetching page ${page}:`, err);
+            hasMore = false;
+          }
         }
-      }
 
-      // Regular API search
-      const response = await fetch(
-        `${API_BASE_URL}/api/rest/1.0/search/artists?artistName=${encodeURIComponent(query)}`,
-        { 
-          headers: { Accept: 'application/json' },
-          signal: AbortSignal.timeout(10000)
+        const songList = Array.from(allSongs).sort();
+        setAllSongs(songList);
+        setFilteredSongs(songList);
+        
+        console.log(`✅ Loaded ${songList.length} unique UMO songs`);
+        
+        if (songList.length === 0) {
+          setError('No UMO songs found. Check if the server is running.');
         }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.status}`);
+        
+      } catch (err) {
+        console.error('❌ Error loading UMO songs:', err);
+        setError(`Failed to load UMO songs: ${err.message}`);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const data = await response.json();
-      let artists = (data.artist || []).filter(artist => artist.name && artist.mbid);
-
-      console.log('🔍 Raw API search results for "' + query + '":', artists.length, 'artists');
-
-      if (artists.length === 0) {
-        setError(`No artists found for "${query}". Try searching for a different artist.`);
-        setSearchResults([]);
-        setShowResults(true);
-        return;
-      }
-
-      // Apply improved sorting
-      const sortedArtists = sortArtistResults(artists, query).slice(0, 10);
-
-      console.log('🎯 Top sorted results:', sortedArtists.slice(0, 3).map(a => 
-        `${a.name} ${a.disambiguation ? '(' + a.disambiguation + ')' : ''}`
-      ));
-
-      // Get major artist status for top results
-      const artistsWithStatus = await Promise.all(
-        sortedArtists.map(getMajorArtistStatus)
-      );
-
-      setSearchResults(artistsWithStatus);
-      setShowResults(true);
-      
-    } catch (err) {
-      console.error('Artist search error:', err);
-      setError(err.name === 'AbortError' ? 'Search timed out. Try again.' : 'Search failed. Check your connection.');
-      setSearchResults([]);
-      setShowResults(true);
-    } finally {
-      setSearching(false);
-    }
+    loadUMOSongs();
   }, []);
 
+  // Filter songs based on search query
   useEffect(() => {
-    searchArtists(debouncedSearchQuery);
-  }, [debouncedSearchQuery, searchArtists]);
+    if (!debouncedSearchQuery.trim()) {
+      setFilteredSongs(allSongs);
+      setShowResults(false);
+    } else {
+      const query = debouncedSearchQuery.toLowerCase();
+      const filtered = allSongs.filter(song => 
+        song.toLowerCase().includes(query)
+      ).slice(0, 20); // Limit to 20 results
+      
+      setFilteredSongs(filtered);
+      setShowResults(true);
+    }
+  }, [debouncedSearchQuery, allSongs]);
 
   const handleSearch = (e) => {
     setSearchQuery(e.target.value);
   };
 
-  const selectArtist = (artist) => {
-    onArtistSelect(artist);
+  const selectSong = (songName) => {
+    onSongSelect(songName);
     setSearchQuery('');
-    setSearchResults([]);
     setShowResults(false);
-    setError('');
   };
 
   const clearSearch = () => {
     setSearchQuery('');
-    setSearchResults([]);
+    setFilteredSongs(allSongs);
     setShowResults(false);
-    setError('');
   };
+
+  if (loading) {
+    return (
+      <div className="relative max-w-md mx-auto">
+        <div className="text-center py-4">
+          <div className="inline-flex items-center text-gray-500">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+            Loading UMO songs...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative max-w-md mx-auto">
@@ -421,14 +227,11 @@ const ArtistSearch = ({ onArtistSelect, currentArtist }) => {
           type="text"
           value={searchQuery}
           onChange={handleSearch}
-          placeholder="Search for any artist..."
+          placeholder="Search UMO songs..."
           className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
         />
         
         <div className="absolute right-3 top-3 flex items-center gap-2">
-          {searching && (
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-          )}
           {searchQuery && (
             <button
               onClick={clearSearch}
@@ -440,60 +243,38 @@ const ArtistSearch = ({ onArtistSelect, currentArtist }) => {
         </div>
       </div>
 
+      {error && (
+        <div className="mt-2 text-red-600 text-center text-sm">
+          {error}
+        </div>
+      )}
+
       {showResults && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-80 overflow-y-auto">
-          {error ? (
-            <div className="px-4 py-3 text-red-600 text-center text-sm">
-              {error}
-            </div>
-          ) : searchResults.length === 0 ? (
+          {filteredSongs.length === 0 ? (
             <div className="px-4 py-3 text-gray-500 text-center">
-              No artists found
+              No songs found matching "{searchQuery}"
             </div>
           ) : (
-            searchResults.map((artist) => (
+            filteredSongs.map((songName, index) => (
               <button
-                key={artist.mbid}
-                onClick={() => selectArtist(artist)}
+                key={index}
+                onClick={() => selectSong(songName)}
                 className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium flex items-center gap-2 flex-wrap">
-                      {artist.name}
-                      {artist.isMajorArtist && (
-                        <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
-                          50+ shows
-                        </span>
-                      )}
-                      {artist.isOnTour && (
-                        <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                          on tour
-                        </span>
-                      )}
-                    </div>
-                    {artist.disambiguation && (
-                      <div className="text-sm text-gray-500">{artist.disambiguation}</div>
-                    )}
-                  </div>
-                  {artist.totalSetlists > 0 && (
-                    <div className="text-xs text-gray-400">
-                      {artist.totalSetlists} concerts
-                    </div>
-                  )}
-                </div>
+                <div className="font-medium">{songName}</div>
               </button>
             ))
           )}
         </div>
       )}
 
-      {currentArtist && (
+      {currentSong && (
         <div className="mt-4 text-center">
           <div className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-800 rounded-full">
-            <span className="font-medium">Viewing: {currentArtist.name}</span>
+            <span className="font-medium">Viewing: {currentSong}</span>
             <button
-              onClick={() => onArtistSelect(null)}
+              onClick={() => onSongSelect(null)}
               className="ml-2 text-blue-600 hover:text-blue-800"
             >
               ×
@@ -501,487 +282,12 @@ const ArtistSearch = ({ onArtistSelect, currentArtist }) => {
           </div>
         </div>
       )}
-    </div>
-  );
-};
 
-// Enhanced Featured Artists Component with name-based status checking
-const FeaturedArtists = ({ onArtistSelect }) => {
-  const [loading, setLoading] = useState({});
-  const [artistCache, setArtistCache] = useState(new Map());
-  const [artistStatuses, setArtistStatuses] = useState(new Map());
-
-  const getCachedArtistData = useCallback(async (artistName) => {
-    // Check cache first
-    if (artistCache.has(artistName)) {
-      return artistCache.get(artistName);
-    }
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/rest/1.0/search/artists?artistName=${encodeURIComponent(artistName)}`,
-        { headers: { Accept: 'application/json' } }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        const artists = data.artist || [];
-        
-        const exactMatch = artists.find(a => 
-          a.name.toLowerCase() === artistName.toLowerCase()
-        );
-        
-        const result = exactMatch || (artists.length > 0 ? artists[0] : null);
-        
-        // Cache the result
-        if (result) {
-          setArtistCache(prev => new Map(prev).set(artistName, result));
-        }
-        
-        return result;
-      }
-    } catch (err) {
-      console.error('Error fetching artist:', err);
-    }
-    
-    return null;
-  }, [artistCache]);
-
-  // Smart status checker that tries multiple approaches
-  const getArtistStatus = useCallback(async (artist) => {
-    console.log(`🔍 Getting status for ${artist.name}...`);
-    
-    // Method 1: Try the original MBID first (works for Muse and major artists)
-    try {
-      console.log(`  📋 Method 1: Trying original MBID ${artist.mbid}`);
-      const statusWithOriginalMbid = await getMajorArtistStatus(artist);
-      
-      // If we get setlist data, use it
-      if (statusWithOriginalMbid.totalSetlists > 0) {
-        console.log(`  ✅ Method 1 SUCCESS: ${statusWithOriginalMbid.totalSetlists} setlists found`);
-        return statusWithOriginalMbid;
-      } else {
-        console.log(`  ❌ Method 1 FAILED: No setlists found`);
-      }
-    } catch (err) {
-      console.log(`  ❌ Method 1 ERROR:`, err.message);
-    }
-    
-    // Method 2: Search by name and use that MBID
-    try {
-      console.log(`  🔍 Method 2: Searching by name "${artist.name}"`);
-      const artistData = await getCachedArtistData(artist.name);
-      
-      if (artistData && artistData.mbid) {
-        console.log(`  📋 Method 2: Found MBID ${artistData.mbid} (${artistData.mbid === artist.mbid ? 'SAME' : 'DIFFERENT'})`);
-        const statusWithSearchMbid = await getMajorArtistStatus(artistData);
-        
-        if (statusWithSearchMbid.totalSetlists > 0) {
-          console.log(`  ✅ Method 2 SUCCESS: ${statusWithSearchMbid.totalSetlists} setlists found`);
-          return statusWithSearchMbid;
-        } else {
-          console.log(`  ❌ Method 2 FAILED: No setlists found with search MBID`);
-        }
-      } else {
-        console.log(`  ⚠️ Method 2 SKIPPED: No search result found`);
-      }
-    } catch (err) {
-      console.log(`  ❌ Method 2 ERROR:`, err.message);
-    }
-    
-    // Method 3: Try alternative name searches (for artists with special characters)
-    if (artist.name.includes('.') || artist.name.includes('&')) {
-      try {
-        console.log(`  🔍 Method 3: Trying alternative name searches`);
-        
-        const alternatives = [];
-        
-        // For "Fontaines D.C." try "Fontaines DC" 
-        if (artist.name.includes('D.C.')) {
-          alternatives.push(artist.name.replace('D.C.', 'DC'));
-        }
-        
-        // Try without periods
-        if (artist.name.includes('.')) {
-          alternatives.push(artist.name.replace(/\./g, ''));
-        }
-        
-        for (const altName of alternatives) {
-          console.log(`    🔍 Trying alternative: "${altName}"`);
-          const artistData = await getCachedArtistData(altName);
-          
-          if (artistData && artistData.mbid) {
-            console.log(`    📋 Found MBID ${artistData.mbid} for "${altName}"`);
-            const statusWithAltMbid = await getMajorArtistStatus(artistData);
-            
-            if (statusWithAltMbid.totalSetlists > 0) {
-              console.log(`    ✅ Method 3 SUCCESS: ${statusWithAltMbid.totalSetlists} setlists found`);
-              return statusWithAltMbid;
-            }
-          }
-        }
-        
-        console.log(`  ❌ Method 3 FAILED: No alternatives worked`);
-      } catch (err) {
-        console.log(`  ❌ Method 3 ERROR:`, err.message);
-      }
-    }
-    
-    // Method 4: Return default (no status)
-    console.log(`  🚫 All methods failed for ${artist.name}`);
-    return { ...artist, totalSetlists: 0, isMajorArtist: false, isOnTour: false };
-  }, [getCachedArtistData]);
-
-  // Load artist statuses on mount
-  useEffect(() => {
-    const loadArtistStatuses = async () => {
-      const statusPromises = FEATURED_ARTISTS.map(async (artist) => {
-        try {
-          const status = await getArtistStatus(artist);
-          return { name: artist.name, status };
-        } catch (err) {
-          console.error(`❌ Final error getting status for ${artist.name}:`, err);
-          return { name: artist.name, status: { ...artist, totalSetlists: 0, isMajorArtist: false, isOnTour: false } };
-        }
-      });
-
-      const results = await Promise.all(statusPromises);
-      const statusMap = new Map();
-      results.forEach(({ name, status }) => {
-        statusMap.set(name, status);
-      });
-      setArtistStatuses(statusMap);
-    };
-
-    loadArtistStatuses();
-  }, [getArtistStatus]);
-
-  const handleFeaturedArtistClick = async (artistName) => {
-    setLoading(prev => ({ ...prev, [artistName]: true }));
-    
-    try {
-      // Special case for Muse
-      if (artistName.toLowerCase() === 'muse') {
-        const museArtist = { name: 'Muse', mbid: '9c9f1380-2516-4fc9-a3e6-f9f61941d090' };
-        console.log('🎯 Using direct MBID for Muse:', museArtist);
-        onArtistSelect(museArtist);
-        return;
-      }
-      
-      // For all other artists: use search API
-      const artistData = await getCachedArtistData(artistName);
-      
-      if (artistData) {
-        onArtistSelect(artistData);
-      } else {
-        console.error('Artist not found:', artistName);
-        alert(`Could not find artist: ${artistName}`);
-      }
-    } catch (err) {
-      console.error('Error loading artist:', err);
-      alert('Error loading artist data');
-    } finally {
-      setLoading(prev => ({ ...prev, [artistName]: false }));
-    }
-  };
-
-  return (
-    <div className="mb-8">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-        {FEATURED_ARTISTS.map((artist) => {
-          const status = artistStatuses.get(artist.name);
-          
-          return (
-            <button
-              key={artist.mbid}
-              onClick={() => handleFeaturedArtistClick(artist.name)}
-              disabled={loading[artist.name]}
-              className="p-3 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div className="text-sm font-medium text-center text-gray-900 leading-tight mb-2">
-                {loading[artist.name] ? (
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                    Loading...
-                  </div>
-                ) : (
-                  artist.name
-                )}
-              </div>
-              
-              {/* Status Tags */}
-              {status && !loading[artist.name] && (
-                <div className="flex flex-wrap gap-1 justify-center">
-                  {status.totalSetlists > 0 && (
-                    <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">
-                      {status.totalSetlists} shows
-                    </span>
-                  )}
-                  {status.isOnTour && (
-                    <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
-                      on tour
-                    </span>
-                  )}
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-// Improved Login Component with better user workflow
-const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState('login'); // 'login', 'register', 'userNotFound'
-  const [message, setMessage] = useState('');
-  const { login, register } = useAuth();
-
-  const handleLogin = async () => {
-    setLoading(true);
-    setError('');
-    setMessage('');
-
-    try {
-      await login(email, password);
-      setMessage('Login successful! Refreshing page...');
-      
-      // Refresh the page after successful login
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-      
-    } catch (err) {
-      console.log('Login error:', err.message);
-      
-      // Check if it's a "user not found" error
-      if (err.message.includes('User not found') || err.message.includes('not found')) {
-        setMode('userNotFound');
-        setError('');
-        setMessage(''); // Clear message when switching to userNotFound mode
-      } else {
-        setError(err.message);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRegister = async () => {
-    setLoading(true);
-    setError('');
-    setMessage('');
-
-    // Validation
-    if (!displayName.trim()) {
-      setError('Display name is required');
-      setLoading(false);
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      await register(email, password, displayName);
-      setMessage('Account created successfully! Refreshing page...');
-      
-      // Refresh the page after successful registration
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-      
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    if (mode === 'login') {
-      handleLogin();
-    } else if (mode === 'register' || mode === 'userNotFound') {
-      handleRegister();
-    }
-  };
-
-  const switchToRegister = () => {
-    setMode('register');
-    setError('');
-    setMessage('');
-    if (!displayName) {
-      // Auto-suggest display name from email
-      const emailName = email.split('@')[0];
-      setDisplayName(emailName);
-    }
-  };
-
-  const switchToLogin = () => {
-    setMode('login');
-    setError('');
-    setMessage('');
-    setDisplayName('');
-  };
-
-  const startOver = () => {
-    setMode('login');
-    setError('');
-    setMessage('');
-    setEmail('');
-    setPassword('');
-    setDisplayName('');
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {mode === 'login' ? 'Welcome Back' : 
-             mode === 'userNotFound' ? 'Create Account' : 
-             'Create Account'}
-          </h2>
-          <p className="text-gray-600 mt-2">
-            {mode === 'login' ? 'Sign in to upload and manage your concert moments' :
-             mode === 'userNotFound' ? 'Set up your new account to get started' :
-             'Join the community of concert moment collectors'}
-          </p>
+      {!showResults && !currentSong && (
+        <div className="mt-4 text-center text-gray-500 text-sm">
+          Comprehensive song catalog from live performances
         </div>
-        
-        {/* Success Message */}
-        {message && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 text-center">
-            <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
-              {message}
-            </div>
-          </div>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
-          </div>
-        )}
-
-        {/* User Not Found Message - only show in userNotFound mode */}
-        {mode === 'userNotFound' && (
-          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4 text-center">
-            <p className="font-medium">No account found for {email}</p>
-            <p className="text-sm mt-1">Would you like to create a new account with this email?</p>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Display Name - only for register modes */}
-          {(mode === 'register' || mode === 'userNotFound') && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Display Name *
-              </label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="How others will see you"
-                required
-              />
-            </div>
-          )}
-          
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email *
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="your@email.com"
-              required
-              disabled={mode === 'userNotFound' && loading} // Only disable when loading in userNotFound mode
-            />
-          </div>
-          
-          {/* Password */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password *
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder={mode === 'login' ? 'Enter your password' : 'Create a password (min 6 characters)'}
-              required
-              minLength={mode !== 'login' ? 6 : undefined}
-            />
-          </div>
-          
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading || !email || !password || ((mode === 'register' || mode === 'userNotFound') && !displayName)}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                {mode === 'login' ? 'Signing In...' : 'Creating Account...'}
-              </div>
-            ) : (
-              mode === 'login' ? 'Sign In' : 'Create Account'
-            )}
-          </button>
-        </form>
-        
-        {/* Mode Switching */}
-        <div className="text-center mt-6">
-          {mode === 'login' ? (
-            <button
-              onClick={switchToRegister}
-              className="text-blue-600 hover:text-blue-800 underline"
-              disabled={loading}
-            >
-              Don't have an account? Create one
-            </button>
-          ) : mode === 'userNotFound' ? (
-            <button
-              onClick={startOver}
-              className="text-gray-600 hover:text-gray-800 underline"
-              disabled={loading}
-            >
-              Try different email address
-            </button>
-          ) : (
-            <button
-              onClick={switchToLogin}
-              className="text-blue-600 hover:text-blue-800 underline"
-              disabled={loading}
-            >
-              Already have an account? Sign in
-            </button>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 };
@@ -1388,7 +694,7 @@ const EnhancedUploadModal = ({ uploadingMoment, onClose }) => {
       <div style={styles.modal.content} onClick={(e) => e.stopPropagation()}>
         {step === 'form' && (
           <div>
-            <h2 style={styles.modal.title}>🎵 Upload a Moment</h2>
+            <h2 style={styles.modal.title}>🎵 Upload a UMO Moment</h2>
             <p style={styles.modal.subtitle}>Create a detailed record of this musical moment for NFT metadata</p>
 
             {error && <div style={styles.message.error}>{error}</div>}
@@ -1535,7 +841,7 @@ const EnhancedUploadModal = ({ uploadingMoment, onClose }) => {
 
         {step === 'uploading' && (
           <div style={{ textAlign: 'center', padding: '2rem' }}>
-            <h2 style={styles.modal.title}>🚀 Creating Your NFT-Ready Moment</h2>
+            <h2 style={styles.modal.title}>🚀 Creating Your NFT-Ready UMO Moment</h2>
             
             <div style={{
               backgroundColor: '#f3f4f6',
@@ -1567,354 +873,1121 @@ const EnhancedUploadModal = ({ uploadingMoment, onClose }) => {
           <div style={{ textAlign: 'center', padding: '2rem' }}>
             <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
             <h2 style={{ ...styles.modal.title, color: '#059669' }}>
-              NFT-Ready Moment Created!
+              NFT-Ready UMO Moment Created!
             </h2>
-            <p style={{ color: '#6b7280' }}>Your moment is ready for NFT minting.</p>
+            <p style={{ color: '#6b7280' }}>Your UMO moment is ready for NFT minting.</p>
           </div>
         )}
       </div>
     </div>
   );
 };
-
-// Smart Song Display Component
-const SmartSongDisplay = ({ song, songIndex, setlist, setInfo, handleUploadMoment, user }) => {
-  const [moments, setMoments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showMoments, setShowMoments] = useState(false);
-  const [selectedMoment, setSelectedMoment] = useState(null);
-  const [error, setError] = useState(null);
-
-  const momentsFetch = useMemo(() => {
-    return async () => {
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/moments/performance/${setlist.id}`,
-          { signal: AbortSignal.timeout(5000) }
-        );
-        
-        if (response.ok) {
-          const data = await response.json();
-          const filteredMoments = data.moments.filter(
-            moment => moment.songName === song.name
-          );
-          setMoments(filteredMoments);
-        } else {
-          throw new Error('Failed to fetch moments');
-        }
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          console.error('Failed to load moments:', err);
-          setError('Failed to load moments');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-  }, [setlist.id, song.name]);
-
-  useEffect(() => {
-    momentsFetch();
-  }, [momentsFetch]);
-
-  if (loading) {
-    return (
-      <li className="border-b border-gray-100 pb-3">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-400">{song.name}</span>
-            <div className="animate-pulse w-4 h-4 bg-gray-300 rounded"></div>
-          </div>
-          {user && (
-            <button
-              onClick={() => handleUploadMoment(setlist, song, { name: setInfo.name, songIndex: songIndex + 1 })}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-            >
-              Upload Moment
-            </button>
-          )}
-        </div>
-      </li>
-    );
-  }
-
-  if (error) {
-    return (
-      <li className="border-b border-gray-100 pb-3">
-        <div className="flex justify-between items-center">
-          <span className="font-medium text-gray-900">{song.name}</span>
-          {user && (
-            <button
-              onClick={() => handleUploadMoment(setlist, song, { name: setInfo.name, songIndex: songIndex + 1 })}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
-            >
-              Upload Moment
-            </button>
-          )}
-        </div>
-      </li>
-    );
-  }
-
-  return (
-    <li className="border-b border-gray-100 pb-3">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-3 flex-1">
-          {moments.length > 0 ? (
-            <button
-              onClick={() => setShowMoments(!showMoments)}
-              className="font-medium text-blue-600 hover:text-blue-800 transition-colors text-left flex items-center gap-2"
-            >
-              {song.name} 
-              <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                {moments.length} moment{moments.length !== 1 ? 's' : ''}
-              </span>
-              <span className="text-gray-400">{showMoments ? '▼' : '▶'}</span>
-            </button>
-          ) : (
-            <span className="font-medium text-gray-900">{song.name}</span>
-          )}
-
-          {user && (
-            <button
-              onClick={() => handleUploadMoment(setlist, song, { name: setInfo.name, songIndex: songIndex + 1 })}
-              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-            >
-              Upload Moment
-            </button>
-          )}
-        </div>
-      </div>
-
-      {showMoments && moments.length > 0 && (
-        <div className="mt-3 ml-4">
-          <div className="flex flex-wrap gap-2">
-            {moments.slice(0, 10).map((moment) => (
-              <button
-                key={moment._id}
-                onClick={() => setSelectedMoment(moment)}
-                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded border transition-colors"
-              >
-                by {moment.user?.displayName || 'Anonymous'}
-                {moment.momentType && (
-                  <span className="ml-2 text-xs text-gray-500">
-                    ({moment.momentType})
-                  </span>
-                )}
-              </button>
-            ))}
-            {moments.length > 10 && (
-              <span className="px-3 py-2 text-gray-500 text-sm">+{moments.length - 10} more</span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {selectedMoment && (
-        <MomentDetailModal moment={selectedMoment} onClose={() => setSelectedMoment(null)} />
-      )}
-    </li>
-  );
-};
-
-// Main Setlists Component
-function Setlists({ selectedArtist }) {
-  const [setlists, setSetlists] = useState([]);
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [expandedSetlistId, setExpandedSetlistId] = useState(null);
-  const [uploadingMoment, setUploadingMoment] = useState(null);
-  const { user } = useAuth();
+  const [mode, setMode] = useState('login');
+  const [message, setMessage] = useState('');
+  const { login, register } = useAuth();
 
-  const fetchSetlists = async (pageToFetch, artist) => {
-    if (!artist) return;
-    
+  const handleLogin = async () => {
     setLoading(true);
-    setError(null);
+    setError('');
+    setMessage('');
+
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/rest/1.0/artist/${artist.mbid}/setlists?p=${pageToFetch}`,
-        { 
-          headers: { Accept: 'application/json' },
-          signal: AbortSignal.timeout(15000)
-        }
-      );
-
-      if (!response.ok) throw new Error(`Failed to fetch setlists: ${response.status}`);
-
-      const data = await response.json();
-      if (data && data.setlist) {
-        const newSetlists = data.setlist;
-        setSetlists((prev) => (pageToFetch === 1 ? newSetlists : [...prev, ...newSetlists]));
-        if (newSetlists.length === 0) setHasMore(false);
-      } else {
-        setError('No setlists found for this artist');
-        setHasMore(false);
-      }
+      await login(email, password);
+      setMessage('Login successful! Refreshing page...');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (err) {
-      setError(err.name === 'AbortError' ? 'Request timed out' : err.message);
-      setHasMore(false);
+      if (err.message.includes('User not found') || err.message.includes('not found')) {
+        setMode('userNotFound');
+        setError('');
+        setMessage('');
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (selectedArtist) {
-      setSetlists([]);
-      setPage(1);
-      setHasMore(true);
-      setError(null);
-      fetchSetlists(1, selectedArtist);
-    }
-  }, [selectedArtist]);
+  const handleRegister = async () => {
+    setLoading(true);
+    setError('');
+    setMessage('');
 
-  const handleUploadMoment = (setlist, song, setInfo) => {
+    if (!displayName.trim()) {
+      setError('Display name is required');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      await register(email, password, displayName);
+      setMessage('Account created successfully! Refreshing page...');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (mode === 'login') {
+      handleLogin();
+    } else if (mode === 'register' || mode === 'userNotFound') {
+      handleRegister();
+    }
+  };
+
+  const switchToRegister = () => {
+    setMode('register');
+    setError('');
+    setMessage('');
+    if (!displayName) {
+      const emailName = email.split('@')[0];
+      setDisplayName(emailName);
+    }
+  };
+
+  const switchToLogin = () => {
+    setMode('login');
+    setError('');
+    setMessage('');
+    setDisplayName('');
+  };
+
+  const startOver = () => {
+    setMode('login');
+    setError('');
+    setMessage('');
+    setEmail('');
+    setPassword('');
+    setDisplayName('');
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">
+            {mode === 'login' ? 'Welcome Back' : 
+             mode === 'userNotFound' ? 'Create Account' : 
+             'Create Account'}
+          </h2>
+          <p className="text-gray-600 mt-2">
+            {mode === 'login' ? 'Sign in to upload and manage your UMO moments' :
+             mode === 'userNotFound' ? 'Set up your new account to get started' :
+             'Join the UMO community and start collecting moments'}
+          </p>
+        </div>
+        
+        {message && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 text-center">
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+              {message}
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
+
+        {mode === 'userNotFound' && (
+          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4 text-center">
+            <p className="font-medium">No account found for {email}</p>
+            <p className="text-sm mt-1">Would you like to create a new account with this email?</p>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {(mode === 'register' || mode === 'userNotFound') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Display Name *
+              </label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="How others will see you"
+                required
+              />
+            </div>
+          )}
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email *
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="your@email.com"
+              required
+              disabled={mode === 'userNotFound' && loading}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Password *
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder={mode === 'login' ? 'Enter your password' : 'Create a password (min 6 characters)'}
+              required
+              minLength={mode !== 'login' ? 6 : undefined}
+            />
+          </div>
+          
+          <button
+            type="submit"
+            disabled={loading || !email || !password || ((mode === 'register' || mode === 'userNotFound') && !displayName)}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                {mode === 'login' ? 'Signing In...' : 'Creating Account...'}
+              </div>
+            ) : (
+              mode === 'login' ? 'Sign In' : 'Create Account'
+            )}
+          </button>
+        </form>
+        
+        <div className="text-center mt-6">
+          {mode === 'login' ? (
+            <button
+              onClick={switchToRegister}
+              className="text-blue-600 hover:text-blue-800 underline"
+              disabled={loading}
+            >
+              Don't have an account? Create one
+            </button>
+          ) : mode === 'userNotFound' ? (
+            <button
+              onClick={startOver}
+              className="text-gray-600 hover:text-gray-800 underline"
+              disabled={loading}
+            >
+              Try different email address
+            </button>
+          ) : (
+            <button
+              onClick={switchToLogin}
+              className="text-blue-600 hover:text-blue-800 underline"
+              disabled={loading}
+            >
+              Already have an account? Sign in
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Optimized UMO Performances Component
+const UMOLatestPerformances = ({ onPerformanceSelect }) => {
+  const [allPerformances, setAllPerformances] = useState([]);
+  const [displayedPerformances, setDisplayedPerformances] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState('');
+  const [hasMore, setHasMore] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [citySearch, setCitySearch] = useState('');
+  const [isSearchMode, setIsSearchMode] = useState(false);
+
+  const debouncedCitySearch = useDebounce(citySearch, 600);
+
+  // Initial load
+  useEffect(() => {
+    loadInitialPerformances();
+  }, []);
+
+  // Search effect with immediate local filtering + comprehensive search
+  useEffect(() => {
+    if (!debouncedCitySearch.trim()) {
+      setIsSearchMode(false);
+      setDisplayedPerformances(allPerformances);
+    } else {
+      // Show immediate results from loaded performances while comprehensive search runs
+      const immediateResults = allPerformances.filter(setlist => 
+        setlist.venue.city.name.toLowerCase().includes(debouncedCitySearch.toLowerCase()) ||
+        setlist.venue.name.toLowerCase().includes(debouncedCitySearch.toLowerCase()) ||
+        (setlist.venue.city.country?.name || '').toLowerCase().includes(debouncedCitySearch.toLowerCase())
+      );
+      
+      setIsSearchMode(true);
+      setDisplayedPerformances(immediateResults); // Show immediate results
+      
+      // Then run comprehensive search
+      performSearch(debouncedCitySearch);
+    }
+  }, [debouncedCitySearch, allPerformances]);
+
+  const loadInitialPerformances = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const data = await fetchUMOSetlists(1, API_BASE_URL);
+      
+      if (data?.setlist?.length > 0) {
+        const performances = data.setlist;
+        setAllPerformances(performances);
+        setDisplayedPerformances(performances);
+        setCurrentPage(1);
+        setHasMore(performances.length >= 20);
+        
+        console.log(`✅ Loaded ${performances.length} UMO performances`);
+      } else {
+        setError('No UMO performances found');
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error('❌ Error loading performances:', err);
+      setError(`Failed to load performances: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const performSearch = async (searchTerm) => {
+    if (searching) return;
+    
+    setSearching(true);
+    setIsSearchMode(true);
+    
+    try {
+      console.log(`🔍 Comprehensive search for: "${searchTerm}"`);
+      
+      const searchResults = [];
+      let page = 1;
+      let hasMorePages = true;
+      let consecutiveEmptyPages = 0;
+      
+      // More thorough search - go deeper to catch all historical matches
+      while (hasMorePages && page <= 200 && searchResults.length < 500) {
+        try {
+          const data = await fetchUMOSetlists(page, API_BASE_URL);
+          
+          if (data?.setlist?.length > 0) {
+            const matches = data.setlist.filter(setlist => 
+              setlist.venue.city.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              setlist.venue.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              (setlist.venue.city.country?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            
+            if (matches.length > 0) {
+              searchResults.push(...matches);
+              consecutiveEmptyPages = 0; // Reset counter when we find matches
+              console.log(`📄 Page ${page}: Found ${matches.length} more matches (total: ${searchResults.length})`);
+            } else {
+              consecutiveEmptyPages++;
+            }
+            
+            // Progress indicator every 25 pages
+            if (page % 25 === 0) {
+              console.log(`📄 Searched ${page} pages, found ${searchResults.length} total matches for "${searchTerm}"`);
+            }
+            
+            page++;
+            
+            // Stop if we get 20 consecutive pages with no matches (likely reached end of relevant data)
+            if (consecutiveEmptyPages >= 20) {
+              console.log(`📄 Stopping search - no matches found in last 20 pages`);
+              hasMorePages = false;
+            }
+            
+            // Stop if we get less than a full page (end of all data)
+            if (data.setlist.length < 20) {
+              hasMorePages = false;
+            }
+          } else {
+            hasMorePages = false;
+          }
+        } catch (err) {
+          console.error(`Error on page ${page}:`, err);
+          // Don't stop on single page errors, try next page
+          page++;
+          if (page > 200) hasMorePages = false;
+        }
+      }
+      
+      // Sort by date (newest first)
+      searchResults.sort((a, b) => new Date(b.eventDate) - new Date(a.eventDate));
+      
+      setDisplayedPerformances(searchResults);
+      
+      console.log(`✅ Search complete: Found ${searchResults.length} total performances for "${searchTerm}"`);
+      
+      // Show some date range info for user confidence
+      if (searchResults.length > 0) {
+        const oldestDate = searchResults[searchResults.length - 1]?.eventDate;
+        const newestDate = searchResults[0]?.eventDate;
+        console.log(`📅 Date range: ${oldestDate} to ${newestDate}`);
+      }
+      
+    } catch (err) {
+      console.error('Search error:', err);
+      setError(`Search failed: ${err.message}`);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const loadMorePerformances = async () => {
+    if (loadingMore || !hasMore || isSearchMode) return;
+    
+    const nextPage = currentPage + 1;
+    
+    try {
+      setLoadingMore(true);
+      
+      const data = await fetchUMOSetlists(nextPage, API_BASE_URL);
+      
+      if (data?.setlist?.length > 0) {
+        const newPerformances = data.setlist;
+        const updatedPerformances = [...allPerformances, ...newPerformances];
+        
+        setAllPerformances(updatedPerformances);
+        setDisplayedPerformances(updatedPerformances);
+        setCurrentPage(nextPage);
+        setHasMore(newPerformances.length >= 20);
+        
+        console.log(`✅ Loaded ${newPerformances.length} more performances`);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error(`❌ Error loading page ${nextPage}:`, err);
+      setError(`Failed to load more: ${err.message}`);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const clearSearch = () => {
+    setCitySearch('');
+    setIsSearchMode(false);
+    setDisplayedPerformances(allPerformances);
+  };
+
+  if (loading) {
+    return (
+      <div className="mb-8">
+        <h3 className="text-xl font-bold mb-4">🎸 UMO Performances</h3>
+        <div className="text-center py-8">
+          <div className="inline-flex items-center text-gray-500">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+            Loading performances...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !displayedPerformances.length) {
+    return (
+      <div className="mb-8">
+        <h3 className="text-xl font-bold mb-4">🎸 UMO Performances</h3>
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <p className="mb-2">⚠️ {error}</p>
+          <button
+            onClick={loadInitialPerformances}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <h3 className="text-xl font-bold">🎸 UMO Performances</h3>
+        
+        <div className="relative w-full sm:w-80">
+          <input
+            type="text"
+            value={citySearch}
+            onChange={(e) => setCitySearch(e.target.value)}
+            placeholder="Search all UMO shows (2010-2025) by city or venue..."
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <div className="absolute right-3 top-2 flex items-center gap-1">
+            {searching && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            )}
+            {citySearch && (
+              <button
+                onClick={clearSearch}
+                className="text-gray-400 hover:text-gray-600 ml-1"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Search results info */}
+      {isSearchMode && (
+        <div className="mb-4 text-sm">
+          {searching ? (
+            <div className="flex items-center text-blue-600">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+              <span>Searching entire UMO history for "{citySearch}"...</span>
+            </div>
+          ) : (
+            <div className="text-green-600">
+              ✅ Found {displayedPerformances.length} performances matching "{citySearch}"
+              {displayedPerformances.length > 0 && (
+                <span className="text-gray-500 ml-2">
+                  ({displayedPerformances[displayedPerformances.length - 1]?.eventDate} - {displayedPerformances[0]?.eventDate})
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Performance grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {displayedPerformances.map((setlist) => {
+          const songCount = setlist.sets?.set?.reduce((total, set) => total + (set.song?.length || 0), 0) || 0;
+          
+          return (
+            <button
+              key={setlist.id}
+              onClick={() => onPerformanceSelect(setlist)}
+              className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-blue-300 text-left group"
+            >
+              <div className="font-medium text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                {setlist.venue.name}
+              </div>
+              <div className="text-sm text-gray-600 mb-1">
+                {setlist.venue.city.name}
+                {setlist.venue.city.country && (
+                  <span className="text-gray-500">, {setlist.venue.city.country.name}</span>
+                )}
+              </div>
+              <div className="text-sm text-blue-600 font-medium mb-2">
+                {formatShortDate(setlist.eventDate)}
+              </div>
+              <div className="text-xs text-gray-500">
+                {songCount} song{songCount !== 1 ? 's' : ''}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      
+      {/* No results */}
+      {displayedPerformances.length === 0 && !loading && !searching && (
+        <div className="text-center py-12 text-gray-500">
+          {isSearchMode ? (
+            <>
+              No performances found matching "{citySearch}"
+              <br />
+              <button
+                onClick={clearSearch}
+                className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Show all performances
+              </button>
+            </>
+          ) : (
+            'No performances available'
+          )}
+        </div>
+      )}
+      
+      {/* Load more button */}
+      {hasMore && !isSearchMode && !searching && (
+        <div className="text-center mt-8">
+          <button
+            onClick={loadMorePerformances}
+            disabled={loadingMore}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loadingMore ? (
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Loading more...
+              </div>
+            ) : (
+              'Load More Performances'
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Browse by Song Component - shows all songs with performance stats
+const UMOBrowseBySong = ({ onSongSelect }) => {
+  const [songs, setSongs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [sortBy, setSortBy] = useState('alphabetical');
+  const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
+
+  useEffect(() => {
+    const loadSongPerformanceData = async () => {
+      try {
+        console.log('🎵 Loading all UMO songs with performance data...');
+        setLoading(true);
+        
+        // Get all setlists to analyze song performance frequency
+        const allSongs = new Map(); // songName -> {performances: [], totalMoments: 0}
+        let page = 1;
+        let hasMore = true;
+        
+        while (hasMore && page <= 20) { // Increased to get more comprehensive data
+          try {
+            console.log(`📄 Processing page ${page} for song analysis...`);
+            const data = await fetchUMOSetlists(page, API_BASE_URL);
+            
+            if (data && data.setlist && data.setlist.length > 0) {
+              // Process each setlist
+              for (const setlist of data.setlist) {
+                if (setlist.sets && setlist.sets.set) {
+                  setlist.sets.set.forEach(set => {
+                    if (set.song) {
+                      set.song.forEach(song => {
+                        if (song.name) {
+                          if (!allSongs.has(song.name)) {
+                            allSongs.set(song.name, {
+                              songName: song.name,
+                              performances: [],
+                              totalMoments: 0,
+                              lastPerformed: null,
+                              firstPerformed: null
+                            });
+                          }
+                          
+                          // Add this performance to the song
+                          const performance = {
+                            id: setlist.id,
+                            venue: setlist.venue.name,
+                            city: setlist.venue.city.name,
+                            country: setlist.venue.city.country?.name,
+                            date: setlist.eventDate,
+                            setName: set.name
+                          };
+                          
+                          allSongs.get(song.name).performances.push(performance);
+                          
+                          // Update first/last performed dates
+                          const songData = allSongs.get(song.name);
+                          if (!songData.lastPerformed || performance.date > songData.lastPerformed) {
+                            songData.lastPerformed = performance.date;
+                          }
+                          if (!songData.firstPerformed || performance.date < songData.firstPerformed) {
+                            songData.firstPerformed = performance.date;
+                          }
+                        }
+                      });
+                    }
+                  });
+                }
+              }
+              
+              page++;
+            } else {
+              hasMore = false;
+            }
+          } catch (err) {
+            console.error(`❌ Error fetching page ${page}:`, err);
+            hasMore = false;
+          }
+        }
+
+        // Convert to array and get moment counts
+        const songArray = Array.from(allSongs.values());
+        console.log(`🎵 Found ${songArray.length} unique songs across all performances`);
+        
+        // Load moment counts for each song (batch process for performance)
+        const batchSize = 10;
+        for (let i = 0; i < songArray.length; i += batchSize) {
+          const batch = songArray.slice(i, i + batchSize);
+          
+          await Promise.all(batch.map(async (song) => {
+            try {
+              const response = await fetch(
+                `${API_BASE_URL}/moments/song/${encodeURIComponent(song.songName)}`,
+                { signal: createTimeoutSignal(3000) }
+              );
+              
+              if (response.ok) {
+                const data = await response.json();
+                song.totalMoments = data.moments?.length || 0;
+              }
+            } catch (err) {
+              song.totalMoments = 0;
+            }
+          }));
+          
+          // Small delay between batches to avoid overwhelming the server
+          if (i + batchSize < songArray.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+
+        setSongs(songArray);
+        console.log(`✅ Processed ${songArray.length} songs with performance and moment data`);
+        
+      } catch (err) {
+        console.error('❌ Error loading song performance data:', err);
+        setError(`Failed to load song data: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSongPerformanceData();
+  }, []);
+
+  // Sort songs based on selected criteria and direction
+  const sortedSongs = useMemo(() => {
+    const sorted = [...songs];
+    
+    sorted.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'mostPerformed':
+          comparison = b.performances.length - a.performances.length;
+          break;
+        case 'mostMoments':
+          comparison = b.totalMoments - a.totalMoments;
+          break;
+        case 'lastPerformed':
+          comparison = new Date(b.lastPerformed || 0) - new Date(a.lastPerformed || 0);
+          break;
+        case 'firstPerformed':
+          comparison = new Date(a.firstPerformed || 0) - new Date(b.firstPerformed || 0);
+          break;
+        case 'alphabetical':
+        default:
+          comparison = a.songName.localeCompare(b.songName);
+          break;
+      }
+      
+      return sortDirection === 'desc' ? -comparison : comparison;
+    });
+    
+    return sorted;
+  }, [songs, sortBy, sortDirection]);
+
+  const toggleSortDirection = () => {
+    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+  };
+
+  if (loading) {
+    return (
+      <div className="mb-8">
+        <h3 className="text-xl font-bold mb-4">🎵 Browse UMO Songs</h3>
+        <div className="text-center py-8">
+          <div className="inline-flex items-center text-gray-500">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+            Analyzing song performance data...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mb-8">
+        <h3 className="text-xl font-bold mb-4">🎵 Browse UMO Songs</h3>
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          ⚠️ {error}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+        <h3 className="text-xl font-bold">🎵 Browse UMO Songs ({songs.length} total)</h3>
+        
+        {/* Sort controls */}
+        <div className="flex items-center gap-3">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="alphabetical">Alphabetical</option>
+            <option value="mostPerformed">Most Performed</option>
+            <option value="mostMoments">Most Moments</option>
+            <option value="lastPerformed">Last Performed</option>
+            <option value="firstPerformed">First Performed</option>
+          </select>
+          
+          <button
+            onClick={toggleSortDirection}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors"
+            title={`Sort ${sortDirection === 'asc' ? 'Descending' : 'Ascending'}`}
+          >
+            {sortDirection === 'asc' ? '↑' : '↓'}
+          </button>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {sortedSongs.map((song) => (
+          <button
+            key={song.songName}
+            onClick={() => onSongSelect(song)}
+            className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-blue-300 text-left"
+          >
+            <div className="font-medium text-gray-900 mb-3 line-clamp-2 leading-tight">
+              {song.songName}
+            </div>
+            
+            <div className="space-y-2 text-sm">
+              {/* Performance stats */}
+              <div className="flex items-center justify-between">
+                <span className="text-blue-600 font-medium">
+                  {song.performances.length} show{song.performances.length !== 1 ? 's' : ''}
+                </span>
+                {song.totalMoments > 0 && (
+                  <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">
+                    {song.totalMoments} moment{song.totalMoments !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              
+              {/* Date info */}
+              {song.lastPerformed && (
+                <div className="text-gray-500 text-xs">
+                  Last: {formatShortDate(song.lastPerformed)}
+                </div>
+              )}
+              
+              {song.firstPerformed && song.firstPerformed !== song.lastPerformed && (
+                <div className="text-gray-400 text-xs">
+                  First: {formatShortDate(song.firstPerformed)}
+                </div>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+      
+      {sortedSongs.length === 0 && !loading && (
+        <div className="text-center py-8 text-gray-500">
+          No songs found
+        </div>
+      )}
+    </div>
+  );
+};
+const SongDetail = ({ songName, onBack }) => {
+  const [performances, setPerformances] = useState([]);
+  const [moments, setMoments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadSongData = async () => {
+      try {
+        console.log(`🎵 Loading data for song: ${songName}`);
+        
+        // For now, let's just show a placeholder
+        // We'll implement the full functionality in the next step
+        
+        setTimeout(() => {
+          setLoading(false);
+        }, 1000);
+        
+      } catch (err) {
+        console.error('Error loading song data:', err);
+        setLoading(false);
+      }
+    };
+
+    loadSongData();
+  }, [songName]);
+
+  if (loading) {
+    return (
+      <div className="text-center py-8">
+        <div className="inline-flex items-center text-gray-500">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+          Loading {songName} data...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-6">
+        <button
+          onClick={onBack}
+          className="mb-4 text-blue-600 hover:text-blue-800 flex items-center"
+        >
+          ← Back to song search
+        </button>
+        <h2 className="text-2xl sm:text-3xl font-bold">{songName}</h2>
+        <p className="text-gray-600">All performances and moments for this song</p>
+      </div>
+
+      <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6">
+        🚧 Song detail page coming soon! This will show all performances of "{songName}" and allow uploading moments.
+      </div>
+    </div>
+  );
+};
+const PerformanceDetail = ({ performance, onBack }) => {
+  const [moments, setMoments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [uploadingMoment, setUploadingMoment] = useState(null);
+  const [selectedMoment, setSelectedMoment] = useState(null);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const loadPerformanceMoments = async () => {
+      try {
+        console.log(`🎪 Loading moments for performance: ${performance.id}`);
+        
+        const response = await fetch(
+          `${API_BASE_URL}/moments/performance/${performance.id}`,
+          { signal: createTimeoutSignal(5000) }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          setMoments(data.moments || []);
+          console.log(`✅ Loaded ${data.moments?.length || 0} moments for this performance`);
+        } else {
+          console.log('No moments found for this performance');
+        }
+      } catch (err) {
+        console.error('Error loading performance moments:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPerformanceMoments();
+  }, [performance.id]);
+
+  const handleUploadMoment = (song, setInfo, songIndex) => {
     if (!user) {
       alert('Please log in to upload moments');
       return;
     }
     
     setUploadingMoment({ 
-      performanceId: setlist.id,
-      performanceDate: setlist.eventDate,
-      venueName: setlist.venue.name,
-      venueCity: setlist.venue.city.name,
-      venueCountry: setlist.venue.city.country?.name || '',
+      performanceId: performance.id,
+      performanceDate: performance.eventDate,
+      venueName: performance.venue.name,
+      venueCity: performance.venue.city.name,
+      venueCountry: performance.venue.city.country?.name || '',
       songName: song.name,
       setName: setInfo?.name || '',
-      songPosition: setInfo?.songIndex || 0
+      songPosition: songIndex + 1
     });
   };
 
-  if (!selectedArtist) return null;
+  const getSongMoments = (songName) => {
+    return moments.filter(moment => moment.songName === songName);
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-8">
+        <div className="inline-flex items-center text-gray-500">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+          Loading performance details...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold">{selectedArtist.name} Setlists</h2>
-        <p className="text-gray-600">Upload moments from their performances</p>
+        <button
+          onClick={onBack}
+          className="mb-4 text-blue-600 hover:text-blue-800 flex items-center"
+        >
+          ← Back to latest performances
+        </button>
+        <h2 className="text-2xl sm:text-3xl font-bold">{performance.venue.name}</h2>
+        <p className="text-gray-600">
+          {performance.venue.city.name}{performance.venue.city.country ? `, ${performance.venue.city.country.name}` : ''} • {formatDate(performance.eventDate)}
+        </p>
+        {moments.length > 0 && (
+          <p className="text-sm text-blue-600 mt-2">
+            {moments.length} moment{moments.length !== 1 ? 's' : ''} uploaded for this show
+          </p>
+        )}
       </div>
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          <p>⚠️ {error}</p>
-          <button
-            onClick={() => fetchSetlists(1, selectedArtist)}
-            className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-      
-      <div className="space-y-4">
-        {setlists.map((setlist) => (
-          <div key={setlist.id} className="border border-gray-200 rounded-lg bg-white shadow-sm">
-            <div
-              onClick={() => setExpandedSetlistId(prev => prev === setlist.id ? null : setlist.id)}
-              className="cursor-pointer p-4 hover:bg-gray-50 transition-colors"
-            >
-              <div className="font-semibold text-lg">
-                {setlist.eventDate} - {setlist.venue.name}, {setlist.venue.city.name}
-                <span className="ml-2 text-gray-400 text-sm">
-                  {expandedSetlistId === setlist.id ? '▼' : '▶'}
-                </span>
-              </div>
+      {/* Setlist */}
+      {performance.sets?.set ? (
+        <div className="space-y-6">
+          {performance.sets.set.map((set, index) => (
+            <div key={index} className="border border-gray-200 rounded-lg bg-white shadow-sm p-4">
+              {set.name && (
+                <h4 className="text-lg font-semibold mb-3 text-blue-600">{set.name}</h4>
+              )}
+              
+              <ol className="space-y-3">
+                {set.song?.map((song, i) => {
+                  const songMoments = getSongMoments(song.name);
+                  
+                  return (
+                    <li key={`${song.name}-${i}`} className="border-b border-gray-100 pb-3 last:border-b-0">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3 flex-1">
+                          <span className="text-sm text-gray-500 w-8">{i + 1}.</span>
+                          
+                          <div className="flex items-center gap-3 flex-1">
+                            <span className="font-medium text-gray-900">{song.name}</span>
+                            
+                            {songMoments.length > 0 && (
+                              <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                                {songMoments.length} moment{songMoments.length !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </div>
+
+                          {user && (
+                            <button
+                              onClick={() => handleUploadMoment(song, set, i)}
+                              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                            >
+                              Upload Moment
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Show moments for this song */}
+                      {songMoments.length > 0 && (
+                        <div className="mt-3 ml-11">
+                          <div className="flex flex-wrap gap-2">
+                            {songMoments.map((moment) => (
+                              <button
+                                key={moment._id}
+                                onClick={() => setSelectedMoment(moment)}
+                                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded border transition-colors"
+                              >
+                                by {moment.user?.displayName || 'Anonymous'}
+                                {moment.momentType && (
+                                  <span className="ml-2 text-xs text-gray-500">
+                                    ({moment.momentType})
+                                  </span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
             </div>
-
-            {expandedSetlistId === setlist.id && (
-              <div className="border-t border-gray-200 p-4">
-                {setlist.sets?.set?.map((set, index) => (
-                  <div key={index} className="mb-6">
-                    {set.name && <h4 className="text-lg font-semibold mb-3">{set.name}</h4>}
-                    <ol className="space-y-3">
-                      {set.song.map((song, i) => (
-                        <SmartSongDisplay
-                          key={`${song.name}-${i}`}
-                          song={song}
-                          songIndex={i}
-                          setlist={setlist}
-                          setInfo={set}
-                          handleUploadMoment={handleUploadMoment}
-                          user={user}
-                        />
-                      ))}
-                    </ol>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {loading && (
-        <div className="text-center py-4">
-          <div className="inline-flex items-center text-gray-500">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
-            Loading setlists...
-          </div>
+          ))}
         </div>
-      )}
-      
-      {!loading && hasMore && setlists.length > 0 && (
-        <div className="text-center mt-6">
-          <button 
-            onClick={() => {
-              const nextPage = page + 1;
-              fetchSetlists(nextPage, selectedArtist);
-              setPage(nextPage);
-            }} 
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Load More Setlists
-          </button>
+      ) : (
+        <div className="text-center py-8 text-gray-500">
+          No setlist available for this performance
         </div>
       )}
 
+      {/* Upload Modal */}
       {uploadingMoment && user && (
         <EnhancedUploadModal
           uploadingMoment={uploadingMoment}
           onClose={() => setUploadingMoment(null)}
         />
       )}
+
+      {/* Moment Detail Modal */}
+      {selectedMoment && (
+        <MomentDetailModal moment={selectedMoment} onClose={() => setSelectedMoment(null)} />
+      )}
     </div>
   );
-}
+};
 
 // Main App Component
 function MainApp() {
-  const [selectedArtist, setSelectedArtist] = useState(null);
+  const [currentView, setCurrentView] = useState('home'); // 'home', 'song', 'performance'
+  const [browseMode, setBrowseMode] = useState('performances'); // 'performances', 'songs'
+  const [selectedSong, setSelectedSong] = useState(null); // Song object from browse
+  const [selectedPerformance, setSelectedPerformance] = useState(null);
   const [showLogin, setShowLogin] = useState(false);
   const { user, logout, loading } = useAuth();
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const artistId = urlParams.get('artist');
-    const artistName = urlParams.get('name');
-    
-    if (artistId && artistName) {
-      setSelectedArtist({ mbid: artistId, name: artistName });
-    }
-  }, []);
+  // Handle song selection from browse view (object with performance data)
+  const handleSongBrowseSelect = (songData) => {
+    setSelectedSong(songData);
+    setCurrentView('song');
+  };
 
-  const handleArtistSelect = (artist) => {
-    setSelectedArtist(artist);
-    
-    if (artist) {
-      const url = new URL(window.location);
-      url.searchParams.set('artist', artist.mbid);
-      url.searchParams.set('name', artist.name);
-      window.history.pushState({}, '', url);
-    } else {
-      const url = new URL(window.location);
-      url.searchParams.delete('artist');
-      url.searchParams.delete('name');
-      window.history.pushState({}, '', url);
-    }
+  const handlePerformanceSelect = (performance) => {
+    console.log('Selected performance:', performance);
+    setSelectedPerformance(performance);
+    setCurrentView('performance');
+  };
+
+  const handleBackToHome = () => {
+    setCurrentView('home');
+    setSelectedSong(null);
+    setSelectedPerformance(null);
+  };
+
+  const switchBrowseMode = (mode) => {
+    setBrowseMode(mode);
+    // Reset any selections when switching modes
+    setSelectedSong(null);
+    setSelectedPerformance(null);
+    setCurrentView('home');
   };
 
   if (loading) {
@@ -1922,7 +1995,7 @@ function MainApp() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-xl flex items-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
-          Loading...
+          Loading UMO Repository...
         </div>
       </div>
     );
@@ -1951,7 +2024,11 @@ function MainApp() {
       <div className="p-4 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl sm:text-4xl font-bold">mmnts</h1>
+          <button onClick={handleBackToHome} className="flex items-center">
+            <h1 className="text-2xl sm:text-4xl font-bold text-blue-600 hover:text-blue-800 transition-colors">
+              UMO Repository
+            </h1>
+          </button>
           <div className="flex items-center gap-4">
             {user ? (
               <>
@@ -1977,28 +2054,65 @@ function MainApp() {
           </div>
         </div>
 
-        {/* Artist Search */}
-        <div className="mb-8">
-          <ArtistSearch onArtistSelect={handleArtistSelect} currentArtist={selectedArtist} />
-        </div>
+        {/* Content based on current view */}
+        {currentView === 'home' && (
+          <>
+            {/* View Toggle */}
+            <div className="mb-6">
+              <div className="flex items-center justify-center">
+                <div className="bg-white rounded-lg border border-gray-200 p-1 inline-flex">
+                  <button
+                    onClick={() => switchBrowseMode('performances')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      browseMode === 'performances' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    🎸 Browse by Performance
+                  </button>
+                  <button
+                    onClick={() => switchBrowseMode('songs')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      browseMode === 'songs' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    🎵 Browse by Song
+                  </button>
+                </div>
+              </div>
+            </div>
 
-        {/* Conditional Layout */}
-        {selectedArtist ? (
-          <>
-            <Setlists selectedArtist={selectedArtist} />
-            
-            <div className="mt-12 pt-8 border-t border-gray-200">
-              <FeaturedArtists onArtistSelect={handleArtistSelect} />
+            {/* Content based on browse mode */}
+            {browseMode === 'performances' ? (
+              <UMOLatestPerformances onPerformanceSelect={handlePerformanceSelect} />
+            ) : (
+              <UMOBrowseBySong onSongSelect={handleSongBrowseSelect} />
+            )}
+
+            {/* Info Section */}
+            <div className="text-center py-12 mt-8 border-t border-gray-200">
+              <div className="text-xl text-gray-600 mb-4">
+                The ultimate Unknown Mortal Orchestra fan archive
+              </div>
+              <p className="text-gray-500 max-w-2xl mx-auto">
+                {browseMode === 'performances' 
+                  ? 'Explore UMO\'s entire performance history, search by city or venue, and upload your own moments from concerts.'
+                  : 'Discover every UMO song, see where and when they\'ve been performed, and explore fan moments from across their entire live catalog.'
+                }
+              </p>
             </div>
           </>
-        ) : (
-          <>
-            <FeaturedArtists onArtistSelect={handleArtistSelect} />
-            
-            <div className="text-center py-12 mt-8">
-              <div className="text-xl text-gray-600 mb-4">Search for any artist above to view their setlists</div>
-            </div>
-          </>
+        )}
+
+        {currentView === 'song' && selectedSong && (
+          <SongDetail songData={selectedSong} onBack={handleBackToHome} />
+        )}
+
+        {currentView === 'performance' && selectedPerformance && (
+          <PerformanceDetail performance={selectedPerformance} onBack={handleBackToHome} />
         )}
       </div>
     </div>
