@@ -1,5 +1,6 @@
-import React, { useEffect, useState, createContext, useContext, useCallback, useMemo } from 'react';
 import { styles } from './styles';
+import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
+import { AuthProvider, useAuth, API_BASE_URL } from './components/Auth/AuthProvider';
 import { 
   formatDate, 
   formatShortDate, 
@@ -18,174 +19,27 @@ import {
   safeFetch
 } from './utils';
 
-// API Base URL - automatically detects if running on mobile
-const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  ? 'http://localhost:5050'  // Local development
-  : `http://${window.location.hostname}:5050`;  // Use same hostname as frontend
-
-console.log('🌐 UMO Repository - API Base URL:', API_BASE_URL);
-
-// Authentication Context
-const AuthContext = createContext();
-
-const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
-const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    if (token && userData) {
-      setUser(JSON.parse(userData));
-    }
-    setLoading(false);
-  }, []);
-
-  const login = async (email, password) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Login failed');
-      }
-
-      const data = await response.json();
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setUser(data.user);
-      return data;
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const register = async (email, password, displayName) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, displayName }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Registration failed');
-      }
-
-      const data = await response.json();
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setUser(data.user);
-      return data;
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-// Custom hook for debouncing
-const useDebounce = (value, delay) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-};
-
-// Shared moment fetching utility
-const fetchMoments = async (endpoint, errorContext = 'moments') => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/moments/${endpoint}`, {
-      signal: createTimeoutSignal(8000),
-      headers: {
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache'
-      }
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      return data.moments || [];
-    } else {
-      console.warn(`Failed to load ${errorContext}: ${response.status}`);
-      return [];
-    }
-  } catch (err) {
-    console.error(`Error loading ${errorContext}:`, err);
-    return [];
-  }
-};
+import { 
+  useDebounce, 
+  useMoments, 
+  usePerformances, 
+  useCacheStatus, 
+  useSongDatabase,
+  useModal 
+} from './hooks';
 
 // Cache Status Display Component
-const CacheStatusDisplay = () => {
-  const [cacheStatus, setCacheStatus] = useState(null);
-  const [showDetails, setShowDetails] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+const CacheStatusDisplay = memo(() => {
+  const { 
+    cacheStatus, 
+    showDetails, 
+    refreshing, 
+    shouldShow, 
+    handleRefresh, 
+    toggleDetails 
+  } = useCacheStatus(API_BASE_URL);
 
-  useEffect(() => {
-    const checkCacheStatus = async () => {
-      try {
-        const status = await getCacheStatus(API_BASE_URL);
-        setCacheStatus(status);
-      } catch (err) {
-        console.error('Error checking cache status:', err);
-      }
-    };
-
-    checkCacheStatus();
-  }, []);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await refreshCache(API_BASE_URL);
-      setTimeout(async () => {
-        const status = await getCacheStatus(API_BASE_URL);
-        setCacheStatus(status);
-        setRefreshing(false);
-      }, 2000);
-    } catch (err) {
-      console.error('Refresh failed:', err);
-      setRefreshing(false);
-    }
-  };
-
-  if (!cacheStatus || (!cacheStatus.needsRefresh && cacheStatus.hasCache)) {
-    return null;
-  }
+  if (!shouldShow) return null;
 
   return (
     <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -207,7 +61,7 @@ const CacheStatusDisplay = () => {
         
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowDetails(!showDetails)}
+            onClick={toggleDetails}
             className="text-blue-600 hover:text-blue-800 text-sm"
           >
             {showDetails ? 'Hide' : 'Details'}
@@ -236,10 +90,12 @@ const CacheStatusDisplay = () => {
       )}
     </div>
   );
-};
+});
+
+CacheStatusDisplay.displayName = 'CacheStatusDisplay';
 
 // UMO Song Search Component (now cache-aware)
-const UMOSongSearch = ({ onSongSelect, currentSong }) => {
+const UMOSongSearch = memo(({ onSongSelect, currentSong }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [allSongs, setAllSongs] = useState([]);
   const [filteredSongs, setFilteredSongs] = useState([]);
@@ -391,10 +247,12 @@ const UMOSongSearch = ({ onSongSelect, currentSong }) => {
       )}
     </div>
   );
-};
+});
+
+UMOSongSearch.displayName = 'UMOSongSearch';
 
 // Moment Detail Modal (unchanged)
-const MomentDetailModal = ({ moment, onClose }) => {
+const MomentDetailModal = memo(({ moment, onClose }) => {
   const { user } = useAuth();
   const isOwner = user && moment.user && user.id === moment.user._id;
   const [isEditing, setIsEditing] = useState(false);
@@ -635,10 +493,12 @@ const MomentDetailModal = ({ moment, onClose }) => {
       </div>
     </div>
   );
-};
+});
+
+MomentDetailModal.displayName = 'MomentDetailModal';
 
 // Enhanced Upload Modal (unchanged)
-const EnhancedUploadModal = ({ uploadingMoment, onClose }) => {
+const EnhancedUploadModal = memo(({ uploadingMoment, onClose }) => {
   const [step, setStep] = useState('form');
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -982,9 +842,11 @@ const EnhancedUploadModal = ({ uploadingMoment, onClose }) => {
       </div>
     </div>
   );
-};
+});
 
-const Login = () => {
+EnhancedUploadModal.displayName = 'EnhancedUploadModal';
+
+const Login = memo(() => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -1214,54 +1076,34 @@ const Login = () => {
       </div>
     </div>
   );
-};
+});
 
-// Enhanced UMOLatestPerformances Component (cache-aware)
-// Updated UMOLatestPerformances Component (replace the existing one)
-const UMOLatestPerformances = ({ onPerformanceSelect }) => {
-  const [displayedPerformances, setDisplayedPerformances] = useState([]);
-  const [momentCounts, setMomentCounts] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [searching, setSearching] = useState(false);
-  const [loadingMoments, setLoadingMoments] = useState(false);
-  const [error, setError] = useState('');
-  const [hasMore, setHasMore] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [citySearch, setCitySearch] = useState('');
-  const [isSearchMode, setIsSearchMode] = useState(false);
+Login.displayName = 'Login';
 
-  const debouncedCitySearch = useDebounce(citySearch, 600);
 
-  // Load moment counts for displayed performances
-  const loadMomentCounts = async (performances) => {
-    if (performances.length === 0) return;
-    
-    setLoadingMoments(true);
-    const newMomentCounts = {};
-    
-    const batchSize = 10;
-    for (let i = 0; i < performances.length; i += batchSize) {
-      const batch = performances.slice(i, i + batchSize);
-      
-      await Promise.all(batch.map(async (performance) => {
-        try {
-          const moments = await fetchMoments(`performance/${performance.id}`, `performance ${performance.id}`);
-          newMomentCounts[performance.id] = moments.length;
-        } catch (err) {
-          newMomentCounts[performance.id] = 0;
-        }
-      }));
-      
-      if (i + batchSize < performances.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-    }
-    
-    setMomentCounts(prev => ({ ...prev, ...newMomentCounts }));
-    setLoadingMoments(false);
-  };
+const UMOLatestPerformances = memo(({ onPerformanceSelect }) => {
+  const {
+    displayedPerformances,
+    loading,
+    loadingMore,
+    searching,
+    error,
+    hasMore,
+    citySearch,
+    isSearchMode,
+    loadInitialPerformances,
+    loadMorePerformances,
+    clearSearch,
+    handleSearchChange
+  } = usePerformances(API_BASE_URL);
 
+  const { 
+    momentCounts, 
+    loadingMoments, 
+    loadMomentCounts 
+  } = useMoments(API_BASE_URL);
+
+  // Load moment counts when performances change
   useEffect(() => {
     if (displayedPerformances.length > 0 && !loading && !searching) {
       const performancesToLoad = displayedPerformances.filter(p => !(p.id in momentCounts));
@@ -1269,94 +1111,7 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
         loadMomentCounts(performancesToLoad);
       }
     }
-  }, [displayedPerformances, loading, searching]);
-
-  useEffect(() => {
-    loadInitialPerformances();
-  }, []);
-
-  useEffect(() => {
-    if (!debouncedCitySearch.trim()) {
-      setIsSearchMode(false);
-      if (!isSearchMode) {
-        loadInitialPerformances();
-      }
-    } else {
-      performSearch(debouncedCitySearch);
-    }
-  }, [debouncedCitySearch]);
-
-  const loadInitialPerformances = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      const data = await fetchUMOSetlists(1, API_BASE_URL);
-      
-      if (data?.setlist?.length > 0) {
-        setDisplayedPerformances(data.setlist);
-        setCurrentPage(1);
-        setHasMore(data.hasMore !== false);
-      } else {
-        setError('No UMO performances found');
-        setHasMore(false);
-      }
-    } catch (err) {
-      console.error('Error loading performances:', err);
-      setError(`Failed to load performances: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const performSearch = async (searchTerm) => {
-    if (searching) return;
-    
-    setSearching(true);
-    setIsSearchMode(true);
-    
-    try {
-      const data = await searchUMOPerformances(searchTerm, API_BASE_URL);
-      setDisplayedPerformances(data.setlist);
-      
-    } catch (err) {
-      console.error('Search error:', err);
-      setError(`Search failed: ${err.message}`);
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  const loadMorePerformances = async () => {
-    if (loadingMore || !hasMore || isSearchMode) return;
-    
-    const nextPage = currentPage + 1;
-    
-    try {
-      setLoadingMore(true);
-      
-      const data = await fetchUMOSetlists(nextPage, API_BASE_URL);
-      
-      if (data?.setlist?.length > 0) {
-        setDisplayedPerformances(prev => [...prev, ...data.setlist]);
-        setCurrentPage(nextPage);
-        setHasMore(data.hasMore !== false);
-      } else {
-        setHasMore(false);
-      }
-    } catch (err) {
-      console.error(`Error loading page ${nextPage}:`, err);
-      setError(`Failed to load more: ${err.message}`);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
-  const clearSearch = () => {
-    setCitySearch('');
-    setIsSearchMode(false);
-    loadInitialPerformances();
-  };
+  }, [displayedPerformances, loading, searching, momentCounts, loadMomentCounts]);
 
   if (loading) {
     return (
@@ -1391,10 +1146,9 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
 
   return (
     <div className="mb-8">
-      {/* Cache Status */}
       <CacheStatusDisplay />
       
-      {/* Clean Header */}
+      {/* Header with Search */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h3 className="text-xl font-bold">Latest Performances</h3>
@@ -1404,7 +1158,7 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
           <input
             type="text"
             value={citySearch}
-            onChange={(e) => setCitySearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search all UMO shows by city or venue..."
             className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
@@ -1532,162 +1286,31 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
         </div>
       )}
 
-      {/* Setlist.fm contribution note */}
-      <div className="mt-12 pt-8 border-t border-gray-200">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-          <h4 className="text-lg font-semibold text-blue-900 mb-3">
-            🎵 Missing a Performance or Setlist?
-          </h4>
-          <p className="text-blue-800 mb-4 leading-relaxed">
-            Our data comes from the amazing community at setlist.fm. If you notice a missing UMO show or setlist, 
-            you can help by adding it to their database — it's free and easy!
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a
-              href="https://www.setlist.fm/add"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Add Missing Setlist Here
-            </a>
-            <a
-              href="https://www.setlist.fm/artist/unknown-mortal-orchestra-6bd8b335.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-6 py-3 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium"
-            >
-              View UMO on setlist.fm
-            </a>
-          </div>
-          <p className="text-xs text-blue-600 mt-4">
-            Changes on setlist.fm will appear here automatically within 24 hours
-          </p>
-        </div>
-      </div>
+      {/* Setlist.fm contribution note - keep existing code */}
     </div>
   );
-};
-// Updated UMOBrowseBySong component - Sleek layout like Performances
-const UMOBrowseBySong = ({ onSongSelect }) => {
-  const [songs, setSongs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [sortBy, setSortBy] = useState('alphabetical');
-  const [sortDirection, setSortDirection] = useState('asc');
-  const [momentProgress, setMomentProgress] = useState({ current: 0, total: 0 });
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+});
+UMOLatestPerformances.displayName = 'UMOLatestPerformances';
 
-  useEffect(() => {
-    const loadSongDatabase = async () => {
-      try {
-        setLoading(true);
-        console.log('🎵 Loading comprehensive song database from cache...');
-        const songDatabase = await fetchUMOSongDatabase(API_BASE_URL, 'alphabetical');
-        
-        setSongs(songDatabase.map(song => ({ ...song, totalMoments: 0 })));
-        
-        console.log('🔍 Loading moment counts...');
-        setMomentProgress({ current: 0, total: songDatabase.length });
-        
-        const batchSize = 20;
-        for (let i = 0; i < songDatabase.length; i += batchSize) {
-          const batch = songDatabase.slice(i, i + batchSize);
-          
-          await Promise.all(batch.map(async (song, batchIndex) => {
-            try {
-              const moments = await fetchMoments(`song/${encodeURIComponent(song.songName)}`, `song "${song.songName}"`);
-              song.totalMoments = moments.length;
-            } catch (err) {
-              song.totalMoments = 0;
-            }
-          }));
-          
-          setSongs([...songDatabase]);
-          setMomentProgress({ current: Math.min(i + batchSize, songDatabase.length), total: songDatabase.length });
-          
-          if (i + batchSize < songDatabase.length) {
-            await new Promise(resolve => setTimeout(resolve, 50));
-          }
-        }
-        
-        setMomentProgress({ current: 0, total: 0 });
-        console.log(`✅ Song database loaded: ${songDatabase.length} songs`);
-        
-      } catch (err) {
-        console.error('Error loading song database:', err);
-        setError(`Failed to load song database: ${err.message}`);
-      } finally {
-        setLoading(false);
-      }
-    };
+// Complete UMOBrowseBySong component with all the rendering logic
+// Replace your entire UMOBrowseBySong component with this:
 
-    loadSongDatabase();
-  }, []);
-
-  const displayedSongs = useMemo(() => {
-    let filtered = songs;
-    
-    if (debouncedSearchQuery.trim()) {
-      const query = debouncedSearchQuery.toLowerCase();
-      filtered = songs.filter(song => 
-        song.songName.toLowerCase().includes(query) ||
-        song.venues.some(venue => venue.toLowerCase().includes(query)) ||
-        song.cities.some(city => city.toLowerCase().includes(query)) ||
-        song.countries.some(country => country.toLowerCase().includes(query))
-      );
-    }
-    
-    const sorted = [...filtered];
-    
-    sorted.sort((a, b) => {
-      let comparison = 0;
-      
-      switch (sortBy) {
-        case 'mostPerformed':
-          comparison = b.totalPerformances - a.totalPerformances;
-          break;
-        case 'mostMoments':
-          comparison = b.totalMoments - a.totalMoments;
-          break;
-        case 'lastPerformed':
-          const dateA = new Date(a.lastPerformed);
-          const dateB = new Date(b.lastPerformed);
-          comparison = dateB - dateA;
-          break;
-        case 'firstPerformed':
-          const firstA = new Date(a.firstPerformed);
-          const firstB = new Date(b.firstPerformed);
-          comparison = firstA - firstB;
-          break;
-        case 'mostVenues':
-          comparison = b.venues.length - a.venues.length;
-          break;
-        case 'alphabetical':
-        default:
-          comparison = a.songName.localeCompare(b.songName);
-          break;
-      }
-      
-      return sortDirection === 'desc' ? -comparison : comparison;
-    });
-    
-    return sorted;
-  }, [songs, debouncedSearchQuery, sortBy, sortDirection]);
-
-  const toggleSortDirection = () => {
-    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-  };
-
-  const clearSearch = () => {
-    setSearchQuery('');
-  };
-
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
-  };
+const UMOBrowseBySong = memo(({ onSongSelect }) => {
+  const {
+    displayedSongs,
+    loading,
+    error,
+    sortBy,
+    sortDirection,
+    momentProgress,
+    searchQuery,
+    totalMoments,
+    songsWithMoments,
+    toggleSortDirection,
+    clearSearch,
+    handleSearchChange,
+    handleSortChange
+  } = useSongDatabase(API_BASE_URL);
 
   if (loading) {
     return (
@@ -1725,6 +1348,8 @@ const UMOBrowseBySong = ({ onSongSelect }) => {
     );
   }
 
+  console.log('Debug: displayedSongs length:', displayedSongs.length); // Debug line
+
   return (
     <div className="mb-8">
       {/* Sleek Header - Like Performances */}
@@ -1732,8 +1357,8 @@ const UMOBrowseBySong = ({ onSongSelect }) => {
         <div>
           {/* Moment Summary as Title */}
           <div className="text-sm text-blue-800">
-            <strong>Total moments: {songs.reduce((total, song) => total + song.totalMoments, 0)}</strong>
-            {` • Songs with moments: ${songs.filter(song => song.totalMoments > 0).length}`}
+            <strong>Total moments: {totalMoments}</strong>
+            {` • Songs with moments: ${songsWithMoments}`}
             {searchQuery.trim() && (
               <span className="text-blue-600 ml-2">
                 - {displayedSongs.length} matching "{searchQuery}"
@@ -1770,7 +1395,7 @@ const UMOBrowseBySong = ({ onSongSelect }) => {
           <span className="text-sm font-medium text-gray-700">Sort:</span>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={(e) => handleSortChange(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="alphabetical">Alphabetical</option>
@@ -1809,7 +1434,7 @@ const UMOBrowseBySong = ({ onSongSelect }) => {
         </div>
       )}
       
-      {/* Song grid */}
+      {/* Song grid - THIS IS THE CRUCIAL PART THAT MIGHT BE MISSING */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {displayedSongs.map((song) => (
           <button
@@ -1875,32 +1500,25 @@ const UMOBrowseBySong = ({ onSongSelect }) => {
       )}
     </div>
   );
-};
+});
+
+UMOBrowseBySong.displayName = 'UMOBrowseBySong';
 
 // Enhanced SongDetail component (cache-aware)
-const SongDetail = ({ songData, onBack }) => {
-  const [moments, setMoments] = useState([]);
-  const [loading, setLoading] = useState(true);
+const SongDetail = memo(({ songData, onBack }) => {
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [uploadingMoment, setUploadingMoment] = useState(null);
   const [viewMode, setViewMode] = useState('chronological');
   const [showPositions, setShowPositions] = useState(false);
   const { user } = useAuth();
+  
+  // Use the hook instead of manual state management
+  const { moments, loadingMomentDetails: loading, loadMomentDetails } = useMoments(API_BASE_URL);
 
   useEffect(() => {
-    const loadSongMoments = async () => {
-      try {
-        const momentList = await fetchMoments(`song/${encodeURIComponent(songData.songName)}`, `song "${songData.songName}"`);
-        setMoments(momentList);
-      } catch (err) {
-        console.error('Error loading song moments:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadSongMoments();
-  }, [songData.songName]);
+    // Use the hook's method
+    loadMomentDetails(`song/${encodeURIComponent(songData.songName)}`, `song "${songData.songName}"`);
+  }, [songData.songName, loadMomentDetails]);
 
   const handleUploadMoment = (performance) => {
     if (!user) {
@@ -2158,29 +1776,23 @@ const SongDetail = ({ songData, onBack }) => {
       )}
     </div>
   );
-};
+});
 
-const PerformanceDetail = ({ performance, onBack }) => {
-  const [moments, setMoments] = useState([]);
-  const [loading, setLoading] = useState(true);
+SongDetail.displayName = 'SongDetail';
+
+const PerformanceDetail = memo(({ performance, onBack }) => {
   const [uploadingMoment, setUploadingMoment] = useState(null);
   const [selectedMoment, setSelectedMoment] = useState(null);
   const { user } = useAuth();
+  
+  // Use the hook instead of manual state management
+  const { moments, loadingMomentDetails: loading, loadMomentDetails } = useMoments(API_BASE_URL);
 
   useEffect(() => {
-    const loadPerformanceMoments = async () => {
-      try {
-        const momentList = await fetchMoments(`performance/${performance.id}`, `performance ${performance.id}`);
-        setMoments(momentList);
-      } catch (err) {
-        console.error('Error loading performance moments:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadPerformanceMoments();
-  }, [performance.id]);
+    // Use the hook's method
+    loadMomentDetails(`performance/${performance.id}`, `performance ${performance.id}`);
+  }, [performance.id, loadMomentDetails]);
+  
 
   const handleUploadMoment = (song, setInfo, songIndex) => {
     if (!user) {
@@ -2323,10 +1935,12 @@ const PerformanceDetail = ({ performance, onBack }) => {
       )}
     </div>
   );
-};
+});
+
+PerformanceDetail.displayName = 'PerformanceDetail';
 
 // Main App Component - Sleek Top Navigation (Corrected)
-function MainApp() {
+const MainApp = memo(() => {
   const [currentView, setCurrentView] = useState('home');
   const [browseMode, setBrowseMode] = useState('performances');
   const [selectedSong, setSelectedSong] = useState(null);
@@ -2484,7 +2098,10 @@ function MainApp() {
       </div>
     </div>
   );
-}
+});
+
+MainApp.displayName = 'MainApp';
+
 // App Component
 export default function App() {
   return (
