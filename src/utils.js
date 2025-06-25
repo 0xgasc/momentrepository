@@ -1,4 +1,4 @@
-// Updated utils.js for UMO Repository
+// Complete src/utils.js with cache support
 
 // Utility functions for UMO Repository
 
@@ -49,6 +49,9 @@ export const formatDate = (dateString) => {
   return dateString;
 };
 
+// Updated formatShortDate function for src/utils.js
+// Replace the existing formatShortDate function with this:
+
 export const formatShortDate = (dateString) => {
   if (!dateString) return 'Unknown date';
   
@@ -62,10 +65,11 @@ export const formatShortDate = (dateString) => {
         const year = parseInt(parts[2]);
         const date = new Date(year, month, day);
         
+        // Always show year for concert archive clarity
         return date.toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
-          year: year === new Date().getFullYear() ? undefined : 'numeric'
+          year: 'numeric'  // Always show year
         });
       }
     }
@@ -76,7 +80,7 @@ export const formatShortDate = (dateString) => {
       return date.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
-        year: 'numeric'
+        year: 'numeric'  // Always show year
       });
     }
   } catch (err) {
@@ -87,7 +91,7 @@ export const formatShortDate = (dateString) => {
 };
 
 // UMO specific constants  
-export const UMO_MBID = 'e2305342-0bde-4a2c-aed0-4b88694834de'; // Correct MusicBrainz ID
+export const UMO_MBID = 'e2305342-0bde-4a2c-aed0-4b88694834de';
 export const UMO_ARTIST = { name: 'Unknown Mortal Orchestra', mbid: UMO_MBID };
 
 // Mobile Safari detection utility
@@ -103,10 +107,8 @@ export const isMobileSafari = () => {
 // Enhanced timeout signal for Safari compatibility
 export const createTimeoutSignal = (timeout) => {
   if (typeof AbortSignal.timeout === 'function') {
-    // Modern browsers
     return AbortSignal.timeout(timeout);
   } else {
-    // Safari fallback
     const controller = new AbortController();
     setTimeout(() => controller.abort(), timeout);
     return controller.signal;
@@ -135,7 +137,6 @@ export const safeFetch = async (url, options = {}) => {
     
     return response;
   } catch (error) {
-    // Enhanced error handling for Safari
     if (error.name === 'AbortError') {
       throw new Error('Request timed out. Please check your connection and try again.');
     } else if (error.message.includes('Failed to fetch')) {
@@ -167,72 +168,156 @@ export const mobileButtonStyles = {
   WebkitTapHighlightColor: 'transparent'
 };
 
-// Missing button styles for modals
-export const additionalButtonStyles = {
-  success: {
-    backgroundColor: '#10b981',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    padding: '0.875rem 1.5rem',
-    cursor: 'pointer',
-    fontSize: '1rem',
-    fontWeight: '600',
-    minHeight: '44px',
-    touchAction: 'manipulation'
-  },
-  
-  disabled: {
-    backgroundColor: '#9ca3af',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    padding: '0.875rem 1.5rem',
-    cursor: 'not-allowed',
-    fontSize: '1rem',
-    fontWeight: '600',
-    minHeight: '44px',
-    opacity: 0.6
-  }
-};
+// =============================================================================
+// CACHE-AWARE API HELPERS
+// =============================================================================
 
-// UMO API helpers
+// Main function to get UMO performances from cache
 export const fetchUMOSetlists = async (page = 1, apiBaseUrl) => {
   try {
-    console.log(`🎸 Fetching UMO setlists page ${page}...`);
+    console.log(`🎸 Fetching UMO performances from cache (page ${page})...`);
     
-    const url = `${apiBaseUrl}/api/rest/1.0/artist/${UMO_MBID}/setlists?p=${page}`;
-    console.log(`📡 API URL: ${url}`);
+    const url = `${apiBaseUrl}/cached/performances?page=${page}&limit=20`;
+    console.log(`📡 Cache URL: ${url}`);
     
-    const response = await fetch(url, {
-      headers: { 
-        Accept: 'application/json',
-        'Cache-Control': 'no-cache'
-      },
-      signal: createTimeoutSignal(15000)
-    });
-
-    console.log(`📊 Response status: ${response.status}`);
-    
-    if (!response.ok) {
-      throw new Error(`API responded with ${response.status}: ${response.statusText}`);
-    }
-
+    const response = await safeFetch(url);
     const data = await response.json();
-    console.log(`📋 Data received:`, {
-      total: data.total,
-      setlistCount: data.setlist?.length || 0,
-      page: data.page
+    
+    console.log(`📋 Cache data received:`, {
+      total: data.pagination.total,
+      performanceCount: data.performances.length,
+      page: data.pagination.page,
+      fromCache: data.fromCache,
+      lastUpdated: data.lastUpdated
     });
 
-    return data;
+    // Transform to match original setlist.fm API format
+    return {
+      setlist: data.performances,
+      total: data.pagination.total,
+      page: data.pagination.page,
+      fromCache: data.fromCache,
+      hasMore: data.pagination.hasMore
+    };
+    
   } catch (error) {
-    console.error(`❌ Error fetching UMO setlists:`, error);
+    console.error(`❌ Error fetching cached UMO setlists:`, error);
     throw error;
   }
 };
 
-// UMO song extraction helper
+// Search function for city/venue using cache
+export const searchUMOPerformances = async (cityQuery, apiBaseUrl) => {
+  try {
+    console.log(`🔍 Searching UMO performances for "${cityQuery}"...`);
+    
+    const url = `${apiBaseUrl}/cached/performances?city=${encodeURIComponent(cityQuery)}`;
+    
+    const response = await safeFetch(url);
+    const data = await response.json();
+    
+    console.log(`📍 Search results: ${data.performances.length} performances found`);
+    
+    return {
+      setlist: data.performances,
+      total: data.performances.length,
+      fromCache: data.fromCache,
+      searchQuery: cityQuery
+    };
+    
+  } catch (error) {
+    console.error(`❌ Error searching UMO performances:`, error);
+    throw error;
+  }
+};
+
+// Function to get comprehensive song database from cache
+export const fetchUMOSongDatabase = async (apiBaseUrl, sortBy = 'alphabetical') => {
+  try {
+    console.log(`🎵 Fetching UMO song database from cache...`);
+    
+    const url = `${apiBaseUrl}/cached/songs?sortBy=${sortBy}`;
+    
+    const response = await safeFetch(url);
+    const data = await response.json();
+    
+    console.log(`📊 Song database loaded: ${data.songs.length} songs`);
+    
+    return data.songs;
+    
+  } catch (error) {
+    console.error(`❌ Error fetching song database:`, error);
+    throw error;
+  }
+};
+
+// Function to get specific song data with all performances
+export const fetchUMOSongDetail = async (songName, apiBaseUrl) => {
+  try {
+    console.log(`🎵 Fetching song detail for "${songName}"...`);
+    
+    const url = `${apiBaseUrl}/cached/song/${encodeURIComponent(songName)}`;
+    
+    const response = await safeFetch(url);
+    const data = await response.json();
+    
+    console.log(`📊 Song detail loaded: ${data.song.totalPerformances} performances`);
+    
+    return data.song;
+    
+  } catch (error) {
+    console.error(`❌ Error fetching song detail:`, error);
+    throw error;
+  }
+};
+
+// Function to get cache status and stats
+export const getCacheStatus = async (apiBaseUrl) => {
+  try {
+    const response = await safeFetch(`${apiBaseUrl}/cache/status`);
+    const data = await response.json();
+    
+    return {
+      hasCache: data.hasCache,
+      needsRefresh: data.needsRefresh,
+      stats: data.stats,
+      lastUpdated: data.lastUpdated
+    };
+    
+  } catch (error) {
+    console.error(`❌ Error fetching cache status:`, error);
+    return { hasCache: false, needsRefresh: true };
+  }
+};
+
+// Function to trigger cache refresh (admin use)
+export const refreshCache = async (apiBaseUrl) => {
+  try {
+    const response = await fetch(`${apiBaseUrl}/cache/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const data = await response.json();
+    return data;
+    
+  } catch (error) {
+    console.error(`❌ Error refreshing cache:`, error);
+    throw error;
+  }
+};
+
+// Helper to check if we should show cache status to user
+export const shouldShowCacheStatus = async (apiBaseUrl) => {
+  try {
+    const status = await getCacheStatus(apiBaseUrl);
+    return !status.hasCache || status.needsRefresh;
+  } catch (error) {
+    return true;
+  }
+};
+
+// Backward compatibility function
 export const extractUMOSongs = (setlists) => {
   const allSongs = new Set();
   

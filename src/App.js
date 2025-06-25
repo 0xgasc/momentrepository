@@ -1,6 +1,22 @@
 import React, { useEffect, useState, createContext, useContext, useCallback, useMemo } from 'react';
 import { styles } from './styles';
-import { formatDate, formatShortDate, formatFileSize, UMO_MBID, UMO_ARTIST, fetchUMOSetlists, extractUMOSongs, createTimeoutSignal } from './utils';
+import { 
+  formatDate, 
+  formatShortDate, 
+  formatFileSize, 
+  UMO_MBID, 
+  UMO_ARTIST, 
+  fetchUMOSetlists, 
+  searchUMOPerformances,
+  fetchUMOSongDatabase,
+  fetchUMOSongDetail,
+  getCacheStatus,
+  refreshCache,
+  shouldShowCacheStatus,
+  extractUMOSongs, 
+  createTimeoutSignal,
+  safeFetch
+} from './utils';
 
 // API Base URL - automatically detects if running on mobile
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
@@ -133,7 +149,96 @@ const fetchMoments = async (endpoint, errorContext = 'moments') => {
   }
 };
 
-// UMO Song Search Component
+// Cache Status Display Component
+const CacheStatusDisplay = () => {
+  const [cacheStatus, setCacheStatus] = useState(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    const checkCacheStatus = async () => {
+      try {
+        const status = await getCacheStatus(API_BASE_URL);
+        setCacheStatus(status);
+      } catch (err) {
+        console.error('Error checking cache status:', err);
+      }
+    };
+
+    checkCacheStatus();
+  }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshCache(API_BASE_URL);
+      setTimeout(async () => {
+        const status = await getCacheStatus(API_BASE_URL);
+        setCacheStatus(status);
+        setRefreshing(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Refresh failed:', err);
+      setRefreshing(false);
+    }
+  };
+
+  if (!cacheStatus || (!cacheStatus.needsRefresh && cacheStatus.hasCache)) {
+    return null;
+  }
+
+  return (
+    <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <div className="text-blue-600 mr-3">📊</div>
+          <div>
+            <div className="font-medium text-blue-900">
+              {!cacheStatus.hasCache ? 'Building UMO Database...' : 'Cache Update Available'}
+            </div>
+            <div className="text-sm text-blue-700">
+              {!cacheStatus.hasCache 
+                ? 'First-time setup: Loading all UMO performance data'
+                : `Last updated: ${cacheStatus.lastUpdated ? new Date(cacheStatus.lastUpdated).toLocaleDateString() : 'Unknown'}`
+              }
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className="text-blue-600 hover:text-blue-800 text-sm"
+          >
+            {showDetails ? 'Hide' : 'Details'}
+          </button>
+          {cacheStatus.hasCache && (
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
+            >
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+          )}
+        </div>
+      </div>
+      
+      {showDetails && cacheStatus.stats && (
+        <div className="mt-3 pt-3 border-t border-blue-200 text-sm text-blue-700">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>Performances: {cacheStatus.stats.totalPerformances || 0}</div>
+            <div>Songs: {cacheStatus.stats.totalSongs || 0}</div>
+            <div>API Calls Used: {cacheStatus.stats.apiCallsUsed || 0}</div>
+            <div>Date Range: {cacheStatus.stats.dateRange?.earliest} - {cacheStatus.stats.dateRange?.latest}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// UMO Song Search Component (now cache-aware)
 const UMOSongSearch = ({ onSongSelect, currentSong }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [allSongs, setAllSongs] = useState([]);
@@ -144,38 +249,20 @@ const UMOSongSearch = ({ onSongSelect, currentSong }) => {
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // Load all UMO songs from setlists
+  // Load all UMO songs from cache
   useEffect(() => {
     const loadUMOSongs = async () => {
       try {
         setLoading(true);
-        const allSongs = new Set();
-        let page = 1;
-        let hasMore = true;
         
-        while (hasMore && page <= 10) {
-          try {
-            const data = await fetchUMOSetlists(page, API_BASE_URL);
-            
-            if (data && data.setlist && data.setlist.length > 0) {
-              const songsFromPage = extractUMOSongs(data.setlist);
-              songsFromPage.forEach(song => allSongs.add(song));
-              page++;
-            } else {
-              hasMore = false;
-            }
-          } catch (err) {
-            console.error(`Error fetching page ${page}:`, err);
-            hasMore = false;
-          }
-        }
-
-        const songList = Array.from(allSongs).sort();
-        setAllSongs(songList);
-        setFilteredSongs(songList);
+        const songDatabase = await fetchUMOSongDatabase(API_BASE_URL, 'alphabetical');
+        const songNames = songDatabase.map(song => song.songName).sort();
         
-        if (songList.length === 0) {
-          setError('No UMO songs found. Check if the server is running.');
+        setAllSongs(songNames);
+        setFilteredSongs(songNames);
+        
+        if (songNames.length === 0) {
+          setError('No UMO songs found in cache. Cache may be building...');
         }
         
       } catch (err) {
@@ -227,7 +314,7 @@ const UMOSongSearch = ({ onSongSelect, currentSong }) => {
         <div className="text-center py-4">
           <div className="inline-flex items-center text-gray-500">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
-            Loading UMO songs...
+            Loading UMO songs from cache...
           </div>
         </div>
       </div>
@@ -299,14 +386,14 @@ const UMOSongSearch = ({ onSongSelect, currentSong }) => {
 
       {!showResults && !currentSong && (
         <div className="mt-4 text-center text-gray-500 text-sm">
-          Comprehensive song catalog from live performances
+          ⚡ Instant search from cached song database
         </div>
       )}
     </div>
   );
 };
 
-// Moment Detail Modal
+// Moment Detail Modal (unchanged)
 const MomentDetailModal = ({ moment, onClose }) => {
   const { user } = useAuth();
   const isOwner = user && moment.user && user.id === moment.user._id;
@@ -550,7 +637,7 @@ const MomentDetailModal = ({ moment, onClose }) => {
   );
 };
 
-// Enhanced Upload Modal
+// Enhanced Upload Modal (unchanged)
 const EnhancedUploadModal = ({ uploadingMoment, onClose }) => {
   const [step, setStep] = useState('form');
   const [file, setFile] = useState(null);
@@ -1129,9 +1216,9 @@ const Login = () => {
   );
 };
 
-// Enhanced UMOLatestPerformances Component
+// Enhanced UMOLatestPerformances Component (cache-aware)
+// Updated UMOLatestPerformances Component (replace the existing one)
 const UMOLatestPerformances = ({ onPerformanceSelect }) => {
-  const [allPerformances, setAllPerformances] = useState([]);
   const [displayedPerformances, setDisplayedPerformances] = useState([]);
   const [momentCounts, setMomentCounts] = useState({});
   const [loading, setLoading] = useState(true);
@@ -1153,7 +1240,6 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
     setLoadingMoments(true);
     const newMomentCounts = {};
     
-    // Process in batches to avoid overwhelming the server
     const batchSize = 10;
     for (let i = 0; i < performances.length; i += batchSize) {
       const batch = performances.slice(i, i + batchSize);
@@ -1167,7 +1253,6 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
         }
       }));
       
-      // Small delay between batches
       if (i + batchSize < performances.length) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
@@ -1177,7 +1262,6 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
     setLoadingMoments(false);
   };
 
-  // Load moment counts whenever displayed performances change
   useEffect(() => {
     if (displayedPerformances.length > 0 && !loading && !searching) {
       const performancesToLoad = displayedPerformances.filter(p => !(p.id in momentCounts));
@@ -1187,28 +1271,20 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
     }
   }, [displayedPerformances, loading, searching]);
 
-  // Initial load
   useEffect(() => {
     loadInitialPerformances();
   }, []);
 
-  // Search effect with immediate local filtering + comprehensive search
   useEffect(() => {
     if (!debouncedCitySearch.trim()) {
       setIsSearchMode(false);
-      setDisplayedPerformances(allPerformances);
+      if (!isSearchMode) {
+        loadInitialPerformances();
+      }
     } else {
-      const immediateResults = allPerformances.filter(setlist => 
-        setlist.venue.city.name.toLowerCase().includes(debouncedCitySearch.toLowerCase()) ||
-        setlist.venue.name.toLowerCase().includes(debouncedCitySearch.toLowerCase()) ||
-        (setlist.venue.city.country?.name || '').toLowerCase().includes(debouncedCitySearch.toLowerCase())
-      );
-      
-      setIsSearchMode(true);
-      setDisplayedPerformances(immediateResults);
       performSearch(debouncedCitySearch);
     }
-  }, [debouncedCitySearch, allPerformances]);
+  }, [debouncedCitySearch]);
 
   const loadInitialPerformances = async () => {
     try {
@@ -1218,11 +1294,9 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
       const data = await fetchUMOSetlists(1, API_BASE_URL);
       
       if (data?.setlist?.length > 0) {
-        const performances = data.setlist;
-        setAllPerformances(performances);
-        setDisplayedPerformances(performances);
+        setDisplayedPerformances(data.setlist);
         setCurrentPage(1);
-        setHasMore(performances.length >= 20);
+        setHasMore(data.hasMore !== false);
       } else {
         setError('No UMO performances found');
         setHasMore(false);
@@ -1242,50 +1316,8 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
     setIsSearchMode(true);
     
     try {
-      const searchResults = [];
-      let page = 1;
-      let hasMorePages = true;
-      let consecutiveEmptyPages = 0;
-      
-      while (hasMorePages && page <= 200 && searchResults.length < 500) {
-        try {
-          const data = await fetchUMOSetlists(page, API_BASE_URL);
-          
-          if (data?.setlist?.length > 0) {
-            const matches = data.setlist.filter(setlist => 
-              setlist.venue.city.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              setlist.venue.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              (setlist.venue.city.country?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
-            );
-            
-            if (matches.length > 0) {
-              searchResults.push(...matches);
-              consecutiveEmptyPages = 0;
-            } else {
-              consecutiveEmptyPages++;
-            }
-            
-            page++;
-            
-            if (consecutiveEmptyPages >= 20) {
-              hasMorePages = false;
-            }
-            
-            if (data.setlist.length < 20) {
-              hasMorePages = false;
-            }
-          } else {
-            hasMorePages = false;
-          }
-        } catch (err) {
-          console.error(`Error on page ${page}:`, err);
-          page++;
-          if (page > 200) hasMorePages = false;
-        }
-      }
-      
-      searchResults.sort((a, b) => new Date(b.eventDate) - new Date(a.eventDate));
-      setDisplayedPerformances(searchResults);
+      const data = await searchUMOPerformances(searchTerm, API_BASE_URL);
+      setDisplayedPerformances(data.setlist);
       
     } catch (err) {
       console.error('Search error:', err);
@@ -1306,13 +1338,9 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
       const data = await fetchUMOSetlists(nextPage, API_BASE_URL);
       
       if (data?.setlist?.length > 0) {
-        const newPerformances = data.setlist;
-        const updatedPerformances = [...allPerformances, ...newPerformances];
-        
-        setAllPerformances(updatedPerformances);
-        setDisplayedPerformances(updatedPerformances);
+        setDisplayedPerformances(prev => [...prev, ...data.setlist]);
         setCurrentPage(nextPage);
-        setHasMore(newPerformances.length >= 20);
+        setHasMore(data.hasMore !== false);
       } else {
         setHasMore(false);
       }
@@ -1327,13 +1355,13 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
   const clearSearch = () => {
     setCitySearch('');
     setIsSearchMode(false);
-    setDisplayedPerformances(allPerformances);
+    loadInitialPerformances();
   };
 
   if (loading) {
     return (
       <div className="mb-8">
-        <h3 className="text-xl font-bold mb-4">🎸 UMO Performances</h3>
+        <h3 className="text-xl font-bold mb-4">Latest Performances</h3>
         <div className="text-center py-8">
           <div className="inline-flex items-center text-gray-500">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
@@ -1347,7 +1375,7 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
   if (error && !displayedPerformances.length) {
     return (
       <div className="mb-8">
-        <h3 className="text-xl font-bold mb-4">🎸 UMO Performances</h3>
+        <h3 className="text-xl font-bold mb-4">Latest Performances</h3>
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           <p className="mb-2">⚠️ {error}</p>
           <button
@@ -1363,16 +1391,21 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
 
   return (
     <div className="mb-8">
-      {/* Header */}
+      {/* Cache Status */}
+      <CacheStatusDisplay />
+      
+      {/* Clean Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h3 className="text-xl font-bold">🎸 UMO Performances</h3>
+        <div>
+          <h3 className="text-xl font-bold">Latest Performances</h3>
+        </div>
         
         <div className="relative w-full sm:w-80">
           <input
             type="text"
             value={citySearch}
             onChange={(e) => setCitySearch(e.target.value)}
-            placeholder="Search all UMO shows (2010-2025) by city or venue..."
+            placeholder="Search all UMO shows by city or venue..."
             className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           <div className="absolute right-3 top-2 flex items-center gap-1">
@@ -1395,7 +1428,7 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
       {loadingMoments && (
         <div className="mb-4 text-sm text-blue-600 flex items-center">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-          Loading moment counts for performances...
+          Loading moment counts...
         </div>
       )}
 
@@ -1405,16 +1438,11 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
           {searching ? (
             <div className="flex items-center text-blue-600">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-              <span>Searching entire UMO history for "{citySearch}"...</span>
+              <span>Searching for "{citySearch}"...</span>
             </div>
           ) : (
-            <div className="text-green-600">
-              ✅ Found {displayedPerformances.length} performances matching "{citySearch}"
-              {displayedPerformances.length > 0 && (
-                <span className="text-gray-500 ml-2">
-                  ({displayedPerformances[displayedPerformances.length - 1]?.eventDate} - {displayedPerformances[0]?.eventDate})
-                </span>
-              )}
+            <div className="text-blue-600">
+              Found {displayedPerformances.length} performances matching "{citySearch}"
             </div>
           )}
         </div>
@@ -1540,282 +1568,99 @@ const UMOLatestPerformances = ({ onPerformanceSelect }) => {
     </div>
   );
 };
-
-// Enhanced UMOBrowseBySong Component
+// Updated UMOBrowseBySong component - Sleek layout like Performances
 const UMOBrowseBySong = ({ onSongSelect }) => {
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sortBy, setSortBy] = useState('alphabetical');
   const [sortDirection, setSortDirection] = useState('asc');
-  const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, status: '' });
-
-  // Date parsing helper
-  const parseSetlistDate = (dateString) => {
-    if (!dateString) return null;
-    
-    try {
-      if (dateString.includes('-')) {
-        const parts = dateString.split('-');
-        if (parts.length === 3) {
-          const day = parseInt(parts[0]);
-          const month = parseInt(parts[1]) - 1;
-          const year = parseInt(parts[2]);
-          return new Date(year, month, day);
-        }
-      }
-      return new Date(dateString);
-    } catch (err) {
-      console.error('Error parsing date:', dateString, err);
-      return null;
-    }
-  };
-
-  // Date formatter that always shows year
-  const formatShortDateWithYear = (dateString) => {
-    if (!dateString) return 'Unknown date';
-    
-    try {
-      if (dateString.includes('-')) {
-        const parts = dateString.split('-');
-        if (parts.length === 3) {
-          const day = parseInt(parts[0]);
-          const month = parseInt(parts[1]) - 1;
-          const year = parseInt(parts[2]);
-          const date = new Date(year, month, day);
-          
-          return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          });
-        }
-      }
-      
-      const date = new Date(dateString);
-      if (!isNaN(date.getTime())) {
-        return date.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        });
-      }
-    } catch (err) {
-      // Return original if parsing fails
-    }
-    
-    return dateString;
-  };
+  const [momentProgress, setMomentProgress] = useState({ current: 0, total: 0 });
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   useEffect(() => {
-    const loadComprehensiveSongData = async () => {
+    const loadSongDatabase = async () => {
       try {
         setLoading(true);
-        setLoadingProgress({ current: 0, total: 0, status: 'Initializing...' });
+        console.log('🎵 Loading comprehensive song database from cache...');
+        const songDatabase = await fetchUMOSongDatabase(API_BASE_URL, 'alphabetical');
         
-        const allSongs = new Map();
-        let page = 1;
-        let hasMore = true;
-        let consecutiveEmptyPages = 0;
-        let totalProcessed = 0;
+        setSongs(songDatabase.map(song => ({ ...song, totalMoments: 0 })));
         
-        // Comprehensive search through UMO's performance history
-        while (hasMore && page <= 200 && consecutiveEmptyPages < 10) {
-          try {
-            setLoadingProgress({ 
-              current: page, 
-              total: '200+', 
-              status: `Loading page ${page}... (${totalProcessed} songs found)` 
-            });
-            
-            const data = await fetchUMOSetlists(page, API_BASE_URL);
-            
-            if (data && data.setlist && data.setlist.length > 0) {
-              let songsFoundOnPage = 0;
-              
-              for (const setlist of data.setlist) {
-                if (setlist.sets && setlist.sets.set) {
-                  setlist.sets.set.forEach(set => {
-                    if (set.song) {
-                      set.song.forEach((song, songIndex) => {
-                        if (song.name) {
-                          songsFoundOnPage++;
-                          
-                          if (!allSongs.has(song.name)) {
-                            allSongs.set(song.name, {
-                              songName: song.name,
-                              performances: [],
-                              totalMoments: 0,
-                              lastPerformed: null,
-                              firstPerformed: null,
-                              venues: new Set(),
-                              cities: new Set(),
-                              countries: new Set()
-                            });
-                          }
-                          
-                          const performance = {
-                            id: setlist.id,
-                            venue: setlist.venue.name,
-                            city: setlist.venue.city.name,
-                            country: setlist.venue.city.country?.name,
-                            date: setlist.eventDate,
-                            setName: set.name,
-                            songPosition: songIndex + 1,
-                            venueFull: setlist.venue,
-                            totalSongsInSet: set.song.length
-                          };
-                          
-                          const songData = allSongs.get(song.name);
-                          songData.performances.push(performance);
-                          
-                          songData.venues.add(setlist.venue.name);
-                          songData.cities.add(setlist.venue.city.name);
-                          if (setlist.venue.city.country?.name) {
-                            songData.countries.add(setlist.venue.city.country.name);
-                          }
-                          
-                          // Proper date comparison using Date objects
-                          const performanceDate = parseSetlistDate(performance.date);
-                          if (performanceDate) {
-                            const lastPerformedDate = songData.lastPerformed ? parseSetlistDate(songData.lastPerformed) : null;
-                            const firstPerformedDate = songData.firstPerformed ? parseSetlistDate(songData.firstPerformed) : null;
-                            
-                            if (!lastPerformedDate || performanceDate > lastPerformedDate) {
-                              songData.lastPerformed = performance.date;
-                            }
-                            
-                            if (!firstPerformedDate || performanceDate < firstPerformedDate) {
-                              songData.firstPerformed = performance.date;
-                            }
-                          }
-                        }
-                      });
-                    }
-                  });
-                }
-              }
-              
-              totalProcessed = allSongs.size;
-              
-              if (songsFoundOnPage > 0) {
-                consecutiveEmptyPages = 0;
-              } else {
-                consecutiveEmptyPages++;
-              }
-              
-              page++;
-              
-              if (data.setlist.length < 20) {
-                hasMore = false;
-              }
-            } else {
-              consecutiveEmptyPages++;
-              
-              if (consecutiveEmptyPages >= 10) {
-                hasMore = false;
-              } else {
-                page++;
-              }
-            }
-          } catch (err) {
-            console.error(`Error fetching page ${page}:`, err);
-            consecutiveEmptyPages++;
-            
-            if (consecutiveEmptyPages >= 5) {
-              hasMore = false;
-            } else {
-              page++;
-            }
-          }
-        }
-
-        // Convert to array and process data
-        const songArray = Array.from(allSongs.values()).map(song => ({
-          ...song,
-          venues: Array.from(song.venues),
-          cities: Array.from(song.cities),
-          countries: Array.from(song.countries),
-          performances: song.performances.sort((a, b) => {
-            const dateA = parseSetlistDate(a.date);
-            const dateB = parseSetlistDate(b.date);
-            if (!dateA || !dateB) return 0;
-            return dateB - dateA;
-          })
-        }));
+        console.log('🔍 Loading moment counts...');
+        setMomentProgress({ current: 0, total: songDatabase.length });
         
-        // Load moment counts
-        setLoadingProgress({ 
-          current: 0, 
-          total: songArray.length, 
-          status: 'Loading moment counts...' 
-        });
-        
-        const batchSize = 10;
-        let totalMomentsFound = 0;
-        
-        for (let i = 0; i < songArray.length; i += batchSize) {
-          const batch = songArray.slice(i, i + batchSize);
+        const batchSize = 20;
+        for (let i = 0; i < songDatabase.length; i += batchSize) {
+          const batch = songDatabase.slice(i, i + batchSize);
           
-          setLoadingProgress({ 
-            current: i + batch.length, 
-            total: songArray.length, 
-            status: `Loading moments... (${i + batch.length}/${songArray.length}) - Found ${totalMomentsFound} total` 
-          });
-          
-          await Promise.all(batch.map(async (song) => {
+          await Promise.all(batch.map(async (song, batchIndex) => {
             try {
               const moments = await fetchMoments(`song/${encodeURIComponent(song.songName)}`, `song "${song.songName}"`);
               song.totalMoments = moments.length;
-              totalMomentsFound += moments.length;
             } catch (err) {
               song.totalMoments = 0;
             }
           }));
           
-          if (i + batchSize < songArray.length) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+          setSongs([...songDatabase]);
+          setMomentProgress({ current: Math.min(i + batchSize, songDatabase.length), total: songDatabase.length });
+          
+          if (i + batchSize < songDatabase.length) {
+            await new Promise(resolve => setTimeout(resolve, 50));
           }
         }
-
-        setSongs(songArray);
-        console.log(`✅ Complete song analysis finished: ${songArray.length} songs, ${totalMomentsFound} total moments`);
+        
+        setMomentProgress({ current: 0, total: 0 });
+        console.log(`✅ Song database loaded: ${songDatabase.length} songs`);
         
       } catch (err) {
-        console.error('Error loading comprehensive song data:', err);
-        setError(`Failed to load song data: ${err.message}`);
+        console.error('Error loading song database:', err);
+        setError(`Failed to load song database: ${err.message}`);
       } finally {
         setLoading(false);
-        setLoadingProgress({ current: 0, total: 0, status: '' });
       }
     };
 
-    loadComprehensiveSongData();
+    loadSongDatabase();
   }, []);
 
-  // Enhanced sorting
-  const sortedSongs = useMemo(() => {
-    const sorted = [...songs];
+  const displayedSongs = useMemo(() => {
+    let filtered = songs;
+    
+    if (debouncedSearchQuery.trim()) {
+      const query = debouncedSearchQuery.toLowerCase();
+      filtered = songs.filter(song => 
+        song.songName.toLowerCase().includes(query) ||
+        song.venues.some(venue => venue.toLowerCase().includes(query)) ||
+        song.cities.some(city => city.toLowerCase().includes(query)) ||
+        song.countries.some(country => country.toLowerCase().includes(query))
+      );
+    }
+    
+    const sorted = [...filtered];
     
     sorted.sort((a, b) => {
       let comparison = 0;
       
       switch (sortBy) {
         case 'mostPerformed':
-          comparison = b.performances.length - a.performances.length;
+          comparison = b.totalPerformances - a.totalPerformances;
           break;
         case 'mostMoments':
           comparison = b.totalMoments - a.totalMoments;
           break;
         case 'lastPerformed':
-          const dateA = parseSetlistDate(a.lastPerformed);
-          const dateB = parseSetlistDate(b.lastPerformed);
-          comparison = (dateB || 0) - (dateA || 0);
+          const dateA = new Date(a.lastPerformed);
+          const dateB = new Date(b.lastPerformed);
+          comparison = dateB - dateA;
           break;
         case 'firstPerformed':
-          const firstA = parseSetlistDate(a.firstPerformed);
-          const firstB = parseSetlistDate(b.firstPerformed);
-          comparison = (firstA || 0) - (firstB || 0);
+          const firstA = new Date(a.firstPerformed);
+          const firstB = new Date(b.firstPerformed);
+          comparison = firstA - firstB;
           break;
         case 'mostVenues':
           comparison = b.venues.length - a.venues.length;
@@ -1830,36 +1675,40 @@ const UMOBrowseBySong = ({ onSongSelect }) => {
     });
     
     return sorted;
-  }, [songs, sortBy, sortDirection]);
+  }, [songs, debouncedSearchQuery, sortBy, sortDirection]);
 
   const toggleSortDirection = () => {
     setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
+  const clearSearch = () => {
+    setSearchQuery('');
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
+
   if (loading) {
     return (
       <div className="mb-8">
-        <h3 className="text-xl font-bold mb-4">🎵 Browse UMO Songs</h3>
         <div className="text-center py-8">
           <div className="inline-flex flex-col items-center text-gray-500">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mb-3"></div>
-            <div className="text-lg font-medium mb-2">Building comprehensive song database...</div>
-            {loadingProgress.status && (
+            <div className="text-lg font-medium mb-2">
+              {momentProgress.total > 0 ? 'Loading moment counts...' : 'Loading song database...'}
+            </div>
+            {momentProgress.total > 0 && (
               <div className="text-sm">
-                {loadingProgress.status}
-                {loadingProgress.total > 0 && (
-                  <div className="w-64 bg-gray-200 rounded-full h-2 mt-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                      style={{ width: `${(loadingProgress.current / loadingProgress.total) * 100}%` }}
-                    ></div>
-                  </div>
-                )}
+                {momentProgress.current} of {momentProgress.total} songs processed
+                <div className="w-64 bg-gray-200 rounded-full h-2 mt-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${(momentProgress.current / momentProgress.total) * 100}%` }}
+                  ></div>
+                </div>
               </div>
             )}
-            <div className="text-xs text-gray-400 mt-2">
-              Scanning UMO's entire performance history (2010-2025)
-            </div>
           </div>
         </div>
       </div>
@@ -1869,7 +1718,6 @@ const UMOBrowseBySong = ({ onSongSelect }) => {
   if (error) {
     return (
       <div className="mb-8">
-        <h3 className="text-xl font-bold mb-4">🎵 Browse UMO Songs</h3>
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           ⚠️ {error}
         </div>
@@ -1879,14 +1727,51 @@ const UMOBrowseBySong = ({ onSongSelect }) => {
 
   return (
     <div className="mb-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-        <h3 className="text-xl font-bold">🎵 UMO Complete Songbook ({songs.length} songs)</h3>
+      {/* Sleek Header - Like Performances */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div>
+          {/* Moment Summary as Title */}
+          <div className="text-sm text-blue-800">
+            <strong>Total moments: {songs.reduce((total, song) => total + song.totalMoments, 0)}</strong>
+            {` • Songs with moments: ${songs.filter(song => song.totalMoments > 0).length}`}
+            {searchQuery.trim() && (
+              <span className="text-blue-600 ml-2">
+                - {displayedSongs.length} matching "{searchQuery}"
+              </span>
+            )}
+          </div>
+        </div>
         
+        {/* Search + Sort Controls - Right Side */}
         <div className="flex items-center gap-3">
+          {/* Search Bar */}
+          <div className="relative w-80">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Search songs, venues, or cities..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <div className="absolute right-3 top-2 flex items-center gap-1">
+              {searchQuery && (
+                <button
+                  onClick={clearSearch}
+                  className="text-gray-400 hover:text-gray-600"
+                  title="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Sort Controls */}
+          <span className="text-sm font-medium text-gray-700">Sort:</span>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="alphabetical">Alphabetical</option>
             <option value="mostPerformed">Most Performed</option>
@@ -1898,28 +1783,35 @@ const UMOBrowseBySong = ({ onSongSelect }) => {
           
           <button
             onClick={toggleSortDirection}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors"
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
             title={`Sort ${sortDirection === 'asc' ? 'Descending' : 'Ascending'}`}
           >
             {sortDirection === 'asc' ? '↑' : '↓'}
           </button>
         </div>
       </div>
-      
-      {/* Summary info */}
-      {songs.length > 0 && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
-          <div className="text-sm text-blue-800">
-            <strong>📊 Moment Summary:</strong> 
-            {` Total moments found: ${songs.reduce((total, song) => total + song.totalMoments, 0)}`}
-            {` • Songs with moments: ${songs.filter(song => song.totalMoments > 0).length}`}
-          </div>
+
+      {/* Search Results Info */}
+      {searchQuery.trim() && (
+        <div className="mb-4 text-sm">
+          {displayedSongs.length === 0 ? (
+            <div className="text-red-600">
+              No songs found matching "{searchQuery}"
+            </div>
+          ) : (
+            <div className="text-blue-600">
+              Found {displayedSongs.length} song{displayedSongs.length !== 1 ? 's' : ''} matching "{searchQuery}"
+              {sortBy !== 'alphabetical' && (
+                <span className="text-gray-500"> (sorted by {sortBy.replace(/([A-Z])/g, ' $1').toLowerCase()})</span>
+              )}
+            </div>
+          )}
         </div>
       )}
       
       {/* Song grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {sortedSongs.map((song) => (
+        {displayedSongs.map((song) => (
           <button
             key={song.songName}
             onClick={() => onSongSelect(song)}
@@ -1932,7 +1824,7 @@ const UMOBrowseBySong = ({ onSongSelect }) => {
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-blue-600 font-medium">
-                  {song.performances.length} show{song.performances.length !== 1 ? 's' : ''}
+                  {song.totalPerformances} show{song.totalPerformances !== 1 ? 's' : ''}
                 </span>
                 {song.totalMoments > 0 ? (
                   <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full font-medium">
@@ -1951,9 +1843,9 @@ const UMOBrowseBySong = ({ onSongSelect }) => {
               
               <div className="text-gray-500 text-xs">
                 {song.firstPerformed === song.lastPerformed ? (
-                  <span>Only: {formatShortDateWithYear(song.lastPerformed)}</span>
+                  <span>Only: {formatShortDate(song.lastPerformed)}</span>
                 ) : (
-                  <span>{formatShortDateWithYear(song.firstPerformed)} - {formatShortDateWithYear(song.lastPerformed)}</span>
+                  <span>{formatShortDate(song.firstPerformed)} - {formatShortDate(song.lastPerformed)}</span>
                 )}
               </div>
             </div>
@@ -1961,16 +1853,31 @@ const UMOBrowseBySong = ({ onSongSelect }) => {
         ))}
       </div>
       
-      {sortedSongs.length === 0 && !loading && (
+      {/* No results */}
+      {displayedSongs.length === 0 && !loading && (
         <div className="text-center py-8 text-gray-500">
-          No songs found
+          {searchQuery.trim() ? (
+            <>
+              <div className="text-4xl mb-4">🔍</div>
+              <h3 className="text-lg font-medium mb-2">No songs found</h3>
+              <p className="mb-4">No songs match your search "{searchQuery}"</p>
+              <button
+                onClick={clearSearch}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Clear Search
+              </button>
+            </>
+          ) : (
+            'No songs found'
+          )}
         </div>
       )}
     </div>
   );
 };
 
-// Enhanced SongDetail component
+// Enhanced SongDetail component (cache-aware)
 const SongDetail = ({ songData, onBack }) => {
   const [moments, setMoments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2071,7 +1978,7 @@ const SongDetail = ({ songData, onBack }) => {
           {/* Song Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
             <div className="bg-blue-50 rounded-lg p-3">
-              <div className="text-2xl font-bold text-blue-600">{songData.performances.length}</div>
+              <div className="text-2xl font-bold text-blue-600">{songData.totalPerformances}</div>
               <div className="text-sm text-gray-600">Performances</div>
             </div>
             <div className="bg-green-50 rounded-lg p-3">
@@ -2418,16 +2325,15 @@ const PerformanceDetail = ({ performance, onBack }) => {
   );
 };
 
-// Main App Component
+// Main App Component - Sleek Top Navigation (Corrected)
 function MainApp() {
-  const [currentView, setCurrentView] = useState('home'); // 'home', 'song', 'performance'
-  const [browseMode, setBrowseMode] = useState('performances'); // 'performances', 'songs'
-  const [selectedSong, setSelectedSong] = useState(null); // Song object from browse with full performance data
+  const [currentView, setCurrentView] = useState('home');
+  const [browseMode, setBrowseMode] = useState('performances');
+  const [selectedSong, setSelectedSong] = useState(null);
   const [selectedPerformance, setSelectedPerformance] = useState(null);
   const [showLogin, setShowLogin] = useState(false);
   const { user, logout, loading } = useAuth();
 
-  // Handle song selection from browse view (object with complete performance data)
   const handleSongBrowseSelect = (songData) => {
     console.log('Selected song data:', songData);
     setSelectedSong(songData);
@@ -2448,7 +2354,6 @@ function MainApp() {
 
   const switchBrowseMode = (mode) => {
     setBrowseMode(mode);
-    // Reset any selections when switching modes
     setSelectedSong(null);
     setSelectedPerformance(null);
     setCurrentView('home');
@@ -2486,97 +2391,84 @@ function MainApp() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="p-4 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <button onClick={handleBackToHome} className="flex items-center">
-            <h1 className="text-2xl sm:text-4xl font-bold text-blue-600 hover:text-blue-800 transition-colors">
-              UMO Repository
-            </h1>
-          </button>
-          <div className="flex items-center gap-4">
-            {user ? (
-              <>
-                <span className="text-gray-600">Welcome, {user.displayName}!</span>
+        {/* Sleek Top Navigation */}
+        <div className="relative mb-4">
+          {/* Top Right Controls */}
+          <div className="absolute top-0 right-0 flex flex-col items-end gap-3">
+            {/* User Info */}
+            <div className="flex items-center gap-4">
+              {user ? (
+                <>
+                  <span className="text-gray-600">Welcome, {user.displayName}!</span>
+                  <button
+                    onClick={logout}
+                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                  >
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <div className="text-gray-600">
+                  <span className="mr-3">Browse read-only</span>
+                  <button
+                    onClick={() => setShowLogin(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  >
+                    Login to Upload
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {/* Browse Mode Toggle - Now in top right */}
+            {currentView === 'home' && (
+              <div className="bg-white rounded-lg border border-gray-200 p-1 inline-flex shadow-sm">
                 <button
-                  onClick={logout}
-                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                  onClick={() => switchBrowseMode('performances')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    browseMode === 'performances' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
                 >
-                  Logout
+                  🎸 Performances
                 </button>
-              </>
-            ) : (
-              <div className="text-gray-600">
-                <span className="mr-3">Browse read-only</span>
                 <button
-                  onClick={() => setShowLogin(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  onClick={() => switchBrowseMode('songs')}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    browseMode === 'songs' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
                 >
-                  Login to Upload
+                  🎵 Songs
                 </button>
               </div>
             )}
           </div>
+          
+          {/* Minimal Title & Description */}
+          <div className="pt-4 pr-64">
+            <button onClick={handleBackToHome} className="block mb-2">
+              <h1 className="text-xl font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                UMO - the best band in the world
+              </h1>
+            </button>
+            <p className="text-sm text-gray-600 max-w-xl leading-relaxed">
+              Explore UMO's entire performance history, search by city or venue, and upload your own moments from concerts.
+            </p>
+          </div>
         </div>
 
-        {/* Content based on current view */}
+        {/* Content - Now starts much higher */}
         {currentView === 'home' && (
           <>
-            {/* View Toggle */}
-            <div className="mb-6">
-              <div className="flex items-center justify-center">
-                <div className="bg-white rounded-lg border border-gray-200 p-1 inline-flex">
-                  <button
-                    onClick={() => switchBrowseMode('performances')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      browseMode === 'performances' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    🎸 Browse by Performance
-                  </button>
-                  <button
-                    onClick={() => switchBrowseMode('songs')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      browseMode === 'songs' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    🎵 Browse by Song
-                  </button>
-                </div>
-              </div>
-            </div>
-
             {/* Content based on browse mode */}
             {browseMode === 'performances' ? (
               <UMOLatestPerformances onPerformanceSelect={handlePerformanceSelect} />
             ) : (
               <UMOBrowseBySong onSongSelect={handleSongBrowseSelect} />
             )}
-
-            {/* Simplified Info Section */}
-            <div className="text-center py-12 mt-8 border-t border-gray-200">
-              <p className="text-gray-500 max-w-2xl mx-auto">
-                {browseMode === 'performances' 
-                  ? 'Explore UMO\'s entire performance history, search by city or venue, and upload your own moments from concerts.'
-                  : 'Browse every UMO song with complete performance history and fan-uploaded moments.'
-                }
-              </p>
-              
-              {/* Add some stats if we're in song mode */}
-              {browseMode === 'songs' && (
-                <div className="mt-6 bg-blue-50 rounded-lg p-4 max-w-md mx-auto">
-                  <div className="text-sm text-blue-800 font-medium mb-2">
-                    📊 Comprehensive Database
-                  </div>
-                  <div className="text-xs text-blue-600">
-                    Complete performance history from 2010-2025 • Deep historical analysis • Real-time moment uploads
-                  </div>
-                </div>
-              )}
-            </div>
           </>
         )}
 
@@ -2593,7 +2485,6 @@ function MainApp() {
     </div>
   );
 }
-
 // App Component
 export default function App() {
   return (
