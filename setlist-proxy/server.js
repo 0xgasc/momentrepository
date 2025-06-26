@@ -147,36 +147,48 @@ app.post('/cache/refresh', async (req, res) => {
   }
 });
 
-// Cached data endpoints
 app.get('/cached/performances', async (req, res) => {
   try {
     const { page = 1, limit = 20, city } = req.query;
     
-    let performances;
+    let result;
     
     if (city) {
-      performances = await umoCache.searchPerformancesByCity(city);
-      console.log(`🔍 City search "${city}": ${performances.length} results`);
+      // Search with pagination
+      result = await umoCache.searchPerformancesByCity(city, parseInt(page), parseInt(limit));
+      console.log(`🔍 Search "${city}" page ${page}: ${result.results.length}/${result.totalResults} results`);
+      
+      res.json({
+        performances: result.results,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: result.totalResults,
+          hasMore: result.hasMore
+        },
+        fromCache: true,
+        lastUpdated: umoCache.cache?.lastUpdated,
+        searchQuery: city
+      });
     } else {
-      performances = await umoCache.getPerformances();
+      // Regular pagination (no search)
+      const performances = await umoCache.getPerformances();
+      const startIndex = (parseInt(page) - 1) * parseInt(limit);
+      const endIndex = startIndex + parseInt(limit);
+      const paginatedPerformances = performances.slice(startIndex, endIndex);
+      
+      res.json({
+        performances: paginatedPerformances,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: performances.length,
+          hasMore: endIndex < performances.length
+        },
+        fromCache: true,
+        lastUpdated: umoCache.cache?.lastUpdated
+      });
     }
-    
-    // Handle pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + parseInt(limit);
-    const paginatedPerformances = performances.slice(startIndex, endIndex);
-    
-    res.json({
-      performances: paginatedPerformances,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: performances.length,
-        hasMore: endIndex < performances.length
-      },
-      fromCache: true,
-      lastUpdated: umoCache.cache?.lastUpdated
-    });
     
   } catch (err) {
     console.error('❌ Error fetching cached performances:', err);
@@ -745,6 +757,37 @@ const initializeCache = async () => {
     console.log('⚠️ Server will continue with limited functionality');
   }
 };
+app.get('/test-search/:query', async (req, res) => {
+  try {
+    const { query } = req.params;
+    console.log(`🧪 TEST SEARCH for: "${query}"`);
+    
+    // Load cache and search
+    await umoCache.loadCache();
+    const results = await umoCache.searchPerformancesByCity(query);
+    
+    console.log(`🧪 TEST RESULTS: ${results.length} performances found`);
+    
+    // Show first few results for debugging
+    const samples = results.slice(0, 3).map(r => ({
+      venue: r.venue.name,
+      city: r.venue.city.name,
+      date: r.eventDate,
+      songCount: r.sets?.set?.reduce((total, set) => total + (set.song?.length || 0), 0) || 0,
+      firstSong: r.sets?.set?.[0]?.song?.[0]?.name || 'No songs'
+    }));
+    
+    res.json({
+      query,
+      totalResults: results.length,
+      samples
+    });
+    
+  } catch (err) {
+    console.error('❌ Test search error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 const scheduleDailyRefresh = () => {
   const now = new Date();

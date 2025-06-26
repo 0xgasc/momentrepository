@@ -357,15 +357,87 @@ class UMOCache {
     return this.cache?.stats || {};
   }
 
-  async searchPerformancesByCity(cityQuery) {
+// Enhanced search method with pagination support
+  async searchPerformancesByCity(cityQuery, page = 1, limit = 20) {
     const performances = await this.getPerformances();
-    const query = cityQuery.toLowerCase();
+    const query = cityQuery.toLowerCase().trim();
     
-    return performances.filter(setlist => 
-      setlist.venue.city.name.toLowerCase().includes(query) ||
-      setlist.venue.name.toLowerCase().includes(query) ||
-      (setlist.venue.city.country?.name || '').toLowerCase().includes(query)
-    );
+    if (!query) {
+      // Return paginated results for empty query
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      return {
+        results: performances.slice(startIndex, endIndex),
+        totalResults: performances.length,
+        hasMore: endIndex < performances.length,
+        page,
+        limit
+      };
+    }
+    
+    console.log(`🔍 Enhanced search for: "${query}" (page ${page})`);
+    
+    const allResults = performances.filter(setlist => {
+      // Search in city and venue (original functionality)
+      const cityMatch = setlist.venue.city.name.toLowerCase().includes(query);
+      const venueMatch = setlist.venue.name.toLowerCase().includes(query);
+      const countryMatch = (setlist.venue.city.country?.name || '').toLowerCase().includes(query);
+      
+      // NEW: Search in year (e.g., "2023", "2024")
+      const eventDate = setlist.eventDate || '';
+      const year = eventDate.split('-')[2] || '';
+      const yearMatch = year.includes(query);
+      
+      // NEW: Search in full date string
+      const dateMatch = eventDate.toLowerCase().includes(query);
+      
+      // NEW: Search in song names
+      let songMatch = false;
+      if (setlist.sets && setlist.sets.set) {
+        songMatch = setlist.sets.set.some(set => {
+          if (set.song && Array.isArray(set.song)) {
+            return set.song.some(song => {
+              if (song && song.name) {
+                return song.name.toLowerCase().includes(query);
+              }
+              return false;
+            });
+          }
+          return false;
+        });
+      }
+      
+      const matched = cityMatch || venueMatch || countryMatch || yearMatch || songMatch || dateMatch;
+      
+      if (matched) {
+        let matchType = 'unknown';
+        if (cityMatch) matchType = 'city';
+        else if (venueMatch) matchType = 'venue';
+        else if (countryMatch) matchType = 'country';
+        else if (yearMatch) matchType = 'year';
+        else if (songMatch) matchType = 'song';
+        else if (dateMatch) matchType = 'date';
+        
+        console.log(`✅ Match found: ${setlist.venue.name} (${setlist.eventDate}) - matched by ${matchType}`);
+      }
+      
+      return matched;
+    });
+    
+    // Apply pagination to search results
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedResults = allResults.slice(startIndex, endIndex);
+    
+    console.log(`🎯 Enhanced search results: ${paginatedResults.length}/${allResults.length} performances for "${query}" (page ${page})`);
+    
+    return {
+      results: paginatedResults,
+      totalResults: allResults.length,
+      hasMore: endIndex < allResults.length,
+      page,
+      limit
+    };
   }
 }
 

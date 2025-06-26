@@ -73,11 +73,13 @@ const PerformanceList = memo(({ onPerformanceSelect }) => {
         />
       )}
       
-      {/* Load More Button */}
-      {hasMore && !isSearchMode && !searching && (
+      {/* Load More Button - NOW WORKS FOR SEARCH TOO! */}
+      {hasMore && !searching && (
         <LoadMoreButton 
           loading={loadingMore}
           onClick={loadMorePerformances}
+          isSearchMode={isSearchMode}
+          searchQuery={citySearch}
         />
       )}
     </div>
@@ -134,13 +136,13 @@ const PerformanceHeader = memo(({
         <h3 className="text-xl font-bold">Latest Performances</h3>
       </div>
       
-      <div className="relative w-full sm:w-80">
+      <div className="relative w-full sm:w-96">
         <input
           type="text"
           value={citySearch}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search all UMO shows by city or venue..."
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Search by city, venue, song name, or year (e.g., 'melbourne', 'hunnybee', '2024')..."
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         />
         <div className="absolute right-3 top-2 flex items-center gap-1">
           {searching && (
@@ -263,7 +265,7 @@ const NoResultsState = memo(({ isSearchMode, searchQuery, onClearSearch }) => (
 
 NoResultsState.displayName = 'NoResultsState';
 
-const LoadMoreButton = memo(({ loading, onClick }) => (
+const LoadMoreButton = memo(({ loading, onClick, isSearchMode, searchQuery }) => (
   <div className="text-center mt-8">
     <button
       onClick={onClick}
@@ -276,7 +278,7 @@ const LoadMoreButton = memo(({ loading, onClick }) => (
           Loading more...
         </div>
       ) : (
-        'Load More Performances'
+        isSearchMode ? `Load More Results for "${searchQuery}"` : 'Load More Performances'
       )}
     </button>
   </div>

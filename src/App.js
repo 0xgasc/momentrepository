@@ -8,6 +8,7 @@ import SongBrowser from './components/Song/SongBrowser';
 import SongDetail from './components/Song/SongDetail';
 import PerformanceDetail from './components/Performance/PerformanceDetail';
 import LoginModal from './components/Auth/LoginModal';
+import CreditsFooter from './components/UI/CreditsFooter';
 
 // Main App Component with Clean Navigation
 const MainApp = memo(() => {
@@ -104,6 +105,9 @@ const MainApp = memo(() => {
           onSongSelect={handleSongBrowseSelect}
           onBack={handleBackToHome}
         />
+
+        {/* Credits Footer */}
+        <CreditsFooter />
       </div>
     </div>
   );

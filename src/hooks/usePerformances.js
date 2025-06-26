@@ -1,7 +1,5 @@
-// ===================================================================
-// src/hooks/usePerformances.js
-// ===================================================================
-import { useState, useCallback, useEffect } from 'react';
+// src/hooks/usePerformances.js - FIXED VERSION
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { fetchUMOSetlists, searchUMOPerformances } from '../utils';
 import { useDebounce } from './useDebounce';
 
@@ -15,6 +13,13 @@ export const usePerformances = (apiBaseUrl) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [citySearch, setCitySearch] = useState('');
   const [isSearchMode, setIsSearchMode] = useState(false);
+  
+  const [currentSearchPage, setCurrentSearchPage] = useState(1);
+  const [currentSearchQuery, setCurrentSearchQuery] = useState('');
+
+  // Use ref to track if we're already searching to prevent loops
+  const isSearchingRef = useRef(false);
+  const lastSearchQuery = useRef('');
 
   const debouncedCitySearch = useDebounce(citySearch, 600);
 
@@ -31,88 +36,167 @@ export const usePerformances = (apiBaseUrl) => {
         setCurrentPage(1);
         setHasMore(data.hasMore !== false);
       } else {
+        setDisplayedPerformances([]);
         setError('No UMO performances found');
         setHasMore(false);
       }
     } catch (err) {
       console.error('Error loading performances:', err);
       setError(`Failed to load performances: ${err.message}`);
+      setDisplayedPerformances([]);
     } finally {
       setLoading(false);
     }
   }, [apiBaseUrl]);
 
-  // Perform search
-  const performSearch = useCallback(async (searchTerm) => {
-    if (searching) return;
+  // Perform search - UPDATED to support pagination
+  const performSearch = useCallback(async (searchTerm, page = 1, append = false) => {
+    // Prevent duplicate searches
+    if (isSearchingRef.current && !append) {
+      return;
+    }
     
-    setSearching(true);
-    setIsSearchMode(true);
+    isSearchingRef.current = true;
+    
+    if (!append) {
+      setSearching(true);
+      setIsSearchMode(true);
+      setCurrentSearchQuery(searchTerm);
+      setCurrentSearchPage(1);
+    } else {
+      setLoadingMore(true);
+    }
+    
+    setError('');
     
     try {
-      const data = await searchUMOPerformances(searchTerm, apiBaseUrl);
-      setDisplayedPerformances(data.setlist);
+      console.log(`🔍 ${append ? 'Loading more' : 'Starting'} search for: "${searchTerm}" (page ${page})`);
+      const data = await searchUMOPerformances(searchTerm, apiBaseUrl, page);
+      
+      if (data && data.setlist) {
+        if (append) {
+          // Append results for "load more"
+          setDisplayedPerformances(prev => [...prev, ...data.setlist]);
+          setCurrentSearchPage(page);
+        } else {
+          // New search results
+          setDisplayedPerformances(data.setlist);
+          setCurrentSearchPage(1);
+        }
+        
+        // Update hasMore based on pagination info
+        setHasMore(data.hasMore !== false);
+        
+        console.log(`✅ Search ${append ? 'append' : 'complete'}: ${data.setlist.length} results for "${searchTerm}" (page ${page})`);
+      } else {
+        if (!append) {
+          setDisplayedPerformances([]);
+        }
+        setHasMore(false);
+        console.log(`✅ Search complete: 0 results for "${searchTerm}"`);
+      }
     } catch (err) {
       console.error('Search error:', err);
       setError(`Search failed: ${err.message}`);
-    } finally {
-      setSearching(false);
-    }
-  }, [searching, apiBaseUrl]);
-
-  // Load more performances (pagination)
-  const loadMorePerformances = useCallback(async () => {
-    if (loadingMore || !hasMore || isSearchMode) return;
-    
-    const nextPage = currentPage + 1;
-    
-    try {
-      setLoadingMore(true);
-      
-      const data = await fetchUMOSetlists(nextPage, apiBaseUrl);
-      
-      if (data?.setlist?.length > 0) {
-        setDisplayedPerformances(prev => [...prev, ...data.setlist]);
-        setCurrentPage(nextPage);
-        setHasMore(data.hasMore !== false);
-      } else {
-        setHasMore(false);
+      if (!append) {
+        setDisplayedPerformances([]);
       }
-    } catch (err) {
-      console.error(`Error loading page ${nextPage}:`, err);
-      setError(`Failed to load more: ${err.message}`);
+      setHasMore(false);
     } finally {
-      setLoadingMore(false);
+      if (append) {
+        setLoadingMore(false);
+      } else {
+        setSearching(false);
+      }
+      isSearchingRef.current = false;
     }
-  }, [loadingMore, hasMore, isSearchMode, currentPage, apiBaseUrl]);
+  }, [apiBaseUrl]);
 
-  // Clear search
+  // Load more performances - UPDATED to support search pagination
+  const loadMorePerformances = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    
+    if (isSearchMode && currentSearchQuery) {
+      // Load more search results
+      const nextPage = currentSearchPage + 1;
+      await performSearch(currentSearchQuery, nextPage, true);
+    } else {
+      // Load more regular results
+      const nextPage = currentPage + 1;
+      
+      try {
+        setLoadingMore(true);
+        
+        const data = await fetchUMOSetlists(nextPage, apiBaseUrl);
+        
+        if (data?.setlist?.length > 0) {
+          setDisplayedPerformances(prev => [...prev, ...data.setlist]);
+          setCurrentPage(nextPage);
+          setHasMore(data.hasMore !== false);
+        } else {
+          setHasMore(false);
+        }
+      } catch (err) {
+        console.error(`Error loading page ${nextPage}:`, err);
+        setError(`Failed to load more: ${err.message}`);
+      } finally {
+        setLoadingMore(false);
+      }
+    }
+  }, [loadingMore, hasMore, isSearchMode, currentSearchQuery, currentSearchPage, currentPage, apiBaseUrl, performSearch]);
+
+  // Clear search - UPDATED
   const clearSearch = useCallback(() => {
+    console.log('🧹 Clearing search');
     setCitySearch('');
     setIsSearchMode(false);
+    setError('');
+    setSearching(false);
+    setCurrentSearchQuery('');
+    setCurrentSearchPage(1);
+    isSearchingRef.current = false;
+    lastSearchQuery.current = '';
     loadInitialPerformances();
   }, [loadInitialPerformances]);
 
   // Handle search input
   const handleSearchChange = useCallback((value) => {
     setCitySearch(value);
+    setError('');
+    
+    // Reset search tracking when user types
+    if (!value.trim()) {
+      lastSearchQuery.current = '';
+    }
   }, []);
 
-  // Effects
+  // Load initial data on mount
   useEffect(() => {
     loadInitialPerformances();
-  }, [loadInitialPerformances]);
+  }, []); // Only run once on mount
 
+  // Handle search with proper dependency management
   useEffect(() => {
-    if (!debouncedCitySearch.trim()) {
-      setIsSearchMode(false);
+    const searchTerm = debouncedCitySearch.trim();
+    
+    if (!searchTerm) {
+      // User cleared search
       if (isSearchMode) {
+        console.log('🧹 Clearing search due to empty search term');
+        setIsSearchMode(false);
+        setSearching(false);
+        isSearchingRef.current = false;
+        lastSearchQuery.current = '';
         loadInitialPerformances();
       }
     } else {
-      performSearch(debouncedCitySearch);
+      // User entered search term
+      if (lastSearchQuery.current !== searchTerm) {
+        console.log(`🔍 New search triggered: "${searchTerm}"`);
+        performSearch(searchTerm);
+      }
     }
-  }, [debouncedCitySearch, isSearchMode, loadInitialPerformances, performSearch]);
+  }, [debouncedCitySearch]); // Only depend on the debounced search term
 
   return {
     // State
