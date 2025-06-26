@@ -2,6 +2,9 @@
 import React, { useState, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { formatFileSize } from '../../utils';
+//web3 components
+import MomentMint from '../Web3/MomentMint';
+import { WalletConnectCompact } from '../Web3/WalletConnect';
 
 const MomentDetailModal = memo(({ moment, onClose }) => {
   const { user } = useAuth();
@@ -630,7 +633,9 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
           overflow-y: auto;
           position: relative;
         }
-
+<div style={{background: 'blue', color: 'white', padding: '5px'}}>
+  DEBUG: User={user?.username || 'null'}, Owner={isOwner ? 'YES' : 'NO'}, MomentUser={moment.user?.displayName || 'null'}
+</div>
         .card-header {
           color: white;
           padding: 1.5rem;
@@ -1041,6 +1046,27 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
           flex: 1;
           text-align: right;
         }
+{/* Debug - remove this later */}
+{console.log('Debug: isOwner =', isOwner, 'user =', user?.username, 'moment.user =', moment.user?.displayName)}
+
+{/* NFT Creation/Minting Section */}
+{isOwner && (
+  <div className="nft-section" style={{ width: '100%', marginTop: '1rem', background: 'red', padding: '10px' }}>
+    <p style={{color: 'white', fontWeight: 'bold'}}>DEBUG: NFT Section should show here</p>
+    <MomentMint 
+      moment={moment} 
+      user={user} 
+      isExpanded={true}
+    />
+  </div>
+)}
+
+{/* If not owner, show why */}
+{!isOwner && (
+  <div style={{ background: 'yellow', padding: '10px', marginTop: '1rem' }}>
+    <p>DEBUG: Not owner - Current user: {user?.username || 'Not logged in'}, Moment uploader: {moment.user?.displayName || 'Unknown'}</p>
+  </div>
+)}
 
         .download-link {
           background: none;

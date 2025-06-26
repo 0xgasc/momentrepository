@@ -10,6 +10,10 @@ import PerformanceDetail from './components/Performance/PerformanceDetail';
 import LoginModal from './components/Auth/LoginModal';
 import CreditsFooter from './components/UI/CreditsFooter';
 
+import { WagmiConfig } from 'wagmi';
+import { wagmiConfig } from './config/web3Config';
+
+
 // Main App Component with Clean Navigation
 const MainApp = memo(() => {
   // View state management
@@ -282,8 +286,10 @@ MainContent.displayName = 'MainContent';
 // Main App Export
 export default function App() {
   return (
-    <AuthProvider>
-      <MainApp />
-    </AuthProvider>
+    <WagmiConfig config={wagmiConfig}>
+      <AuthProvider>
+        <MainApp />
+      </AuthProvider>
+    </WagmiConfig>
   );
 }
