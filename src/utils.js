@@ -207,20 +207,22 @@ export const fetchUMOSetlists = async (page = 1, apiBaseUrl) => {
 };
 
 // Search function for city/venue using cache
-export const searchUMOPerformances = async (cityQuery, apiBaseUrl) => {
+export const searchUMOPerformances = async (cityQuery, apiBaseUrl, page = 1, limit = 20) => {
   try {
-    console.log(`🔍 Searching UMO performances for "${cityQuery}"...`);
+    console.log(`🔍 Searching UMO performances for "${cityQuery}" (page ${page})...`);
     
-    const url = `${apiBaseUrl}/cached/performances?city=${encodeURIComponent(cityQuery)}`;
+    const url = `${apiBaseUrl}/cached/performances?city=${encodeURIComponent(cityQuery)}&page=${page}&limit=${limit}`;
     
     const response = await safeFetch(url);
     const data = await response.json();
     
-    console.log(`📍 Search results: ${data.performances.length} performances found`);
+    console.log(`📍 Search results: ${data.performances.length} performances found (page ${page}/${Math.ceil(data.pagination.total / limit)})`);
     
     return {
       setlist: data.performances,
-      total: data.performances.length,
+      total: data.pagination.total,
+      page: data.pagination.page,
+      hasMore: data.pagination.hasMore,
       fromCache: data.fromCache,
       searchQuery: cityQuery
     };

@@ -1,4 +1,4 @@
-// src/components/Song/SongDetail.jsx
+// src/components/Song/SongDetail.jsx - UPDATED with performance navigation
 import React, { useState, useEffect, useMemo, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useMoments } from '../../hooks';
@@ -6,7 +6,7 @@ import { formatDate, formatShortDate } from '../../utils';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import UploadModal from '../Moment/UploadModal';
 
-const SongDetail = memo(({ songData, onBack }) => {
+const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [uploadingMoment, setUploadingMoment] = useState(null);
   const [viewMode, setViewMode] = useState('chronological');
@@ -37,6 +37,35 @@ const SongDetail = memo(({ songData, onBack }) => {
       setName: performance.setName || '',
       songPosition: performance.songPosition || 1
     });
+  };
+
+  // NEW: Handle performance click - fetch full performance and navigate
+  const handlePerformanceClick = async (performance) => {
+    if (!onPerformanceSelect) {
+      console.warn('No onPerformanceSelect handler provided');
+      return;
+    }
+
+    try {
+      console.log(`🎸 Loading full performance: ${performance.id}`);
+      
+      // Fetch the full performance data from cache
+      const response = await fetch(`${API_BASE_URL}/cached/performance/${performance.id}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`✅ Loaded performance:`, data.performance);
+        
+        // Navigate to performance detail view
+        onPerformanceSelect(data.performance);
+      } else {
+        console.error('❌ Failed to load performance:', response.status);
+        alert('Failed to load performance details. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Error loading performance:', error);
+      alert('Error loading performance. Please check your connection.');
+    }
   };
 
   const groupedPerformances = useMemo(() => {
@@ -106,6 +135,7 @@ const SongDetail = memo(({ songData, onBack }) => {
         getPerformanceMoments={getPerformanceMoments}
         onUploadMoment={handleUploadMoment}
         onSelectMoment={setSelectedMoment}
+        onPerformanceClick={handlePerformanceClick}
       />
 
       {/* Modals */}
@@ -214,6 +244,13 @@ const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShow
         Show song positions in setlist
       </label>
     </div>
+
+    {/* NEW: Instructions */}
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+      <p className="text-sm text-blue-800">
+        💡 <strong>Tip:</strong> Click on any performance date/venue to view the complete setlist for that show!
+      </p>
+    </div>
   </div>
 ));
 
@@ -226,7 +263,8 @@ const PerformancesList = memo(({
   user, 
   getPerformanceMoments, 
   onUploadMoment, 
-  onSelectMoment 
+  onSelectMoment,
+  onPerformanceClick
 }) => (
   <div className="space-y-6">
     {groupedPerformances.map(([groupName, performances]) => (
@@ -248,31 +286,41 @@ const PerformancesList = memo(({
                 <div key={`${performance.id}-${index}`} className="border-b border-gray-100 pb-3 last:border-b-0">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2 flex-wrap">
-                        <h5 className="font-medium text-gray-900">
-                          {performance.venue}
-                        </h5>
-                        <span className="text-sm text-gray-500">
-                          {performance.city}{performance.country ? `, ${performance.country}` : ''}
-                        </span>
-                        <span className="text-sm font-medium text-blue-600">
-                          {formatShortDate(performance.date)}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
-                        {performance.setName && (
-                          <span>Set: {performance.setName}</span>
-                        )}
-                        {showPositions && performance.songPosition && (
-                          <span>Position: #{performance.songPosition}</span>
-                        )}
-                        {performanceMoments.length > 0 && (
-                          <span className="text-green-600 font-medium">
-                            {performanceMoments.length} moment{performanceMoments.length !== 1 ? 's' : ''}
+                      {/* UPDATED: Make performance info clickable */}
+                      <button 
+                        onClick={() => onPerformanceClick(performance)}
+                        className="text-left hover:bg-blue-50 rounded-lg p-2 -m-2 transition-colors group w-full"
+                      >
+                        <div className="flex items-center gap-3 mb-2 flex-wrap">
+                          <h5 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+                            {performance.venue}
+                          </h5>
+                          <span className="text-sm text-gray-500">
+                            {performance.city}{performance.country ? `, ${performance.country}` : ''}
                           </span>
-                        )}
-                      </div>
+                          <span className="text-sm font-medium text-blue-600 group-hover:text-blue-800">
+                            {formatShortDate(performance.date)}
+                          </span>
+                          {/* NEW: Click indicator */}
+                          <span className="text-xs text-gray-400 group-hover:text-blue-500">
+                            Click to view full setlist →
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+                          {performance.setName && (
+                            <span>Set: {performance.setName}</span>
+                          )}
+                          {showPositions && performance.songPosition && (
+                            <span>Position: #{performance.songPosition}</span>
+                          )}
+                          {performanceMoments.length > 0 && (
+                            <span className="text-green-600 font-medium">
+                              {performanceMoments.length} moment{performanceMoments.length !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                      </button>
                     </div>
                     
                     {user && (

@@ -1,4 +1,4 @@
-// setlist-proxy/utils/umoCache.js
+// setlist-proxy/utils/umoCache.js - WORKING VERSION with direct API + medley processing
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -60,9 +60,13 @@ class UMOCache {
     try {
       console.log('🔍 Quick check for new UMO shows...');
       
-      // Use the proxy endpoint, not direct API
-      const response = await fetch(`${apiBaseUrl}/api/rest/1.0/artist/e2305342-0bde-4a2c-aed0-4b88694834de/setlists?p=1`, {
-        headers: { Accept: 'application/json' },
+      // DIRECT API CALL - not through proxy
+      const response = await fetch(`https://api.setlist.fm/rest/1.0/artist/e2305342-0bde-4a2c-aed0-4b88694834de/setlists?p=1`, {
+        headers: { 
+          Accept: 'application/json',
+          'x-api-key': process.env.SETLIST_FM_API_KEY,
+          'User-Agent': 'UMORepository/1.0'
+        },
         signal: this.createTimeoutSignal(10000)
       });
       
@@ -94,6 +98,33 @@ class UMOCache {
     }
   }
 
+  // NEW: Helper function to split medley songs
+  splitMedleySongs(songName) {
+    if (!songName || typeof songName !== 'string') {
+      return [];
+    }
+    
+    // Split on "/" and clean up each song name
+    const songs = songName.split('/')
+      .map(song => song.trim())
+      .filter(song => song.length > 0)
+      .filter(song => {
+        // Filter out common non-song medley indicators
+        const lowercased = song.toLowerCase();
+        return !lowercased.includes('medley') && 
+               !lowercased.includes('intro') && 
+               !lowercased.includes('outro') &&
+               !lowercased.includes('jam') &&
+               !lowercased.includes('reprise') &&
+               song.length > 1; // Avoid single character splits
+      });
+    
+    if (songs.length > 1) {
+      console.log(`🎵 Split "${songName}" → [${songs.join(', ')}]`);
+    }
+    return songs;
+  }
+
   async buildFreshCache(apiBaseUrl, progressCallback) {
     if (this.isLoading) {
       console.log('⏳ Cache build already in progress...');
@@ -103,7 +134,7 @@ class UMOCache {
     this.isLoading = true;
     
     try {
-      console.log('🏗️ Building fresh UMO cache...');
+      console.log('🏗️ Building fresh UMO cache with medley processing...');
       
       const allPerformances = [];
       const allSongs = new Map();
@@ -128,10 +159,14 @@ class UMOCache {
           
           console.log(`📄 Fetching page ${page}...`);
           
-          // Use proxy endpoint with longer timeout
-          const response = await fetch(`${apiBaseUrl}/api/rest/1.0/artist/e2305342-0bde-4a2c-aed0-4b88694834de/setlists?p=${page}`, {
-            headers: { Accept: 'application/json' },
-            signal: this.createTimeoutSignal(20000) // Increased timeout
+          // DIRECT API CALL - not through proxy
+          const response = await fetch(`https://api.setlist.fm/rest/1.0/artist/e2305342-0bde-4a2c-aed0-4b88694834de/setlists?p=${page}`, {
+            headers: { 
+              Accept: 'application/json',
+              'x-api-key': process.env.SETLIST_FM_API_KEY,
+              'User-Agent': 'UMORepository/1.0'
+            },
+            signal: this.createTimeoutSignal(20000)
           });
 
           console.log(`📡 Page ${page} response: ${response.status} ${response.statusText}`);
@@ -149,8 +184,12 @@ class UMOCache {
               
               // Retry once
               console.log(`🔄 Retrying page ${page}...`);
-              const retryResponse = await fetch(`${apiBaseUrl}/api/rest/1.0/artist/e2305342-0bde-4a2c-aed0-4b88694834de/setlists?p=${page}`, {
-                headers: { Accept: 'application/json' },
+              const retryResponse = await fetch(`https://api.setlist.fm/rest/1.0/artist/e2305342-0bde-4a2c-aed0-4b88694834de/setlists?p=${page}`, {
+                headers: { 
+                  Accept: 'application/json',
+                  'x-api-key': process.env.SETLIST_FM_API_KEY,
+                  'User-Agent': 'UMORepository/1.0'
+                },
                 signal: this.createTimeoutSignal(20000)
               });
               
@@ -272,6 +311,7 @@ class UMOCache {
     }
   }
 
+  // UPDATED: Process page data with medley splitting
   processPageData(data, allPerformances, allSongs, cities, venues, years) {
     data.setlist.forEach(setlist => {
       allPerformances.push(setlist);
@@ -287,38 +327,65 @@ class UMOCache {
           if (set.song) {
             set.song.forEach((song, songIndex) => {
               if (song.name) {
-                if (!allSongs.has(song.name)) {
-                  allSongs.set(song.name, {
-                    songName: song.name,
-                    performances: [],
-                    venues: new Set(),
-                    cities: new Set(),
-                    countries: new Set()
+                // NEW: Split medley songs
+                const individualSongs = this.splitMedleySongs(song.name);
+                
+                // If it's a medley (multiple songs), process each individually
+                if (individualSongs.length > 1) {
+                  console.log(`🎭 Processing medley: "${song.name}" → ${individualSongs.length} songs`);
+                  
+                  individualSongs.forEach((individualSongName, medleyIndex) => {
+                    this.addSongToDatabase(
+                      allSongs, 
+                      individualSongName, 
+                      setlist, 
+                      set, 
+                      songIndex, 
+                      `${song.name} (medley part ${medleyIndex + 1})`
+                    );
                   });
+                } else if (individualSongs.length === 1) {
+                  // Single song (not a medley)
+                  this.addSongToDatabase(allSongs, individualSongs[0], setlist, set, songIndex);
                 }
-                
-                const songData = allSongs.get(song.name);
-                songData.performances.push({
-                  id: setlist.id,
-                  venue: setlist.venue.name,
-                  city: setlist.venue.city.name,
-                  country: setlist.venue.city.country?.name,
-                  date: setlist.eventDate,
-                  setName: set.name,
-                  songPosition: songIndex + 1
-                });
-                
-                songData.venues.add(setlist.venue.name);
-                songData.cities.add(setlist.venue.city.name);
-                if (setlist.venue.city.country?.name) {
-                  songData.countries.add(setlist.venue.city.country.name);
-                }
+                // If length is 0, it was filtered out (probably not a real song)
               }
             });
           }
         });
       }
     });
+  }
+
+  // NEW: Helper function to add song to database
+  addSongToDatabase(allSongs, songName, setlist, set, songIndex, originalName = null) {
+    if (!allSongs.has(songName)) {
+      allSongs.set(songName, {
+        songName: songName,
+        performances: [],
+        venues: new Set(),
+        cities: new Set(),
+        countries: new Set()
+      });
+    }
+    
+    const songData = allSongs.get(songName);
+    songData.performances.push({
+      id: setlist.id,
+      venue: setlist.venue.name,
+      city: setlist.venue.city.name,
+      country: setlist.venue.city.country?.name,
+      date: setlist.eventDate,
+      setName: set.name,
+      songPosition: songIndex + 1,
+      originalName: originalName || songName // Track if this came from a medley
+    });
+    
+    songData.venues.add(setlist.venue.name);
+    songData.cities.add(setlist.venue.city.name);
+    if (setlist.venue.city.country?.name) {
+      songData.countries.add(setlist.venue.city.country.name);
+    }
   }
 
   parseDate(dateString) {
@@ -357,7 +424,7 @@ class UMOCache {
     return this.cache?.stats || {};
   }
 
-// Enhanced search method with pagination support
+  // Enhanced search method with pagination support
   async searchPerformancesByCity(cityQuery, page = 1, limit = 20) {
     const performances = await this.getPerformances();
     const query = cityQuery.toLowerCase().trim();
@@ -391,14 +458,23 @@ class UMOCache {
       // NEW: Search in full date string
       const dateMatch = eventDate.toLowerCase().includes(query);
       
-      // NEW: Search in song names
+      // NEW: Search in song names (including split medley songs)
       let songMatch = false;
       if (setlist.sets && setlist.sets.set) {
         songMatch = setlist.sets.set.some(set => {
           if (set.song && Array.isArray(set.song)) {
             return set.song.some(song => {
               if (song && song.name) {
-                return song.name.toLowerCase().includes(query);
+                // Check original song name
+                if (song.name.toLowerCase().includes(query)) {
+                  return true;
+                }
+                
+                // Also check split medley songs
+                const splitSongs = this.splitMedleySongs(song.name);
+                return splitSongs.some(splitSong => 
+                  splitSong.toLowerCase().includes(query)
+                );
               }
               return false;
             });

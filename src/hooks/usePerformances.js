@@ -1,4 +1,4 @@
-// src/hooks/usePerformances.js - FIXED VERSION
+// src/hooks/usePerformances.js - FIXED VERSION without duplicates
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { fetchUMOSetlists, searchUMOPerformances } from '../utils';
 import { useDebounce } from './useDebounce';
@@ -14,8 +14,13 @@ export const usePerformances = (apiBaseUrl) => {
   const [citySearch, setCitySearch] = useState('');
   const [isSearchMode, setIsSearchMode] = useState(false);
   
-  const [currentSearchPage, setCurrentSearchPage] = useState(1);
-  const [currentSearchQuery, setCurrentSearchQuery] = useState('');
+  // FIXED: Better search state tracking
+  const [searchState, setSearchState] = useState({
+    query: '',
+    page: 1,
+    hasMore: true,
+    results: []
+  });
 
   // Use ref to track if we're already searching to prevent loops
   const isSearchingRef = useRef(false);
@@ -49,7 +54,7 @@ export const usePerformances = (apiBaseUrl) => {
     }
   }, [apiBaseUrl]);
 
-  // Perform search - UPDATED to support pagination
+  // FIXED: Perform search with proper state management
   const performSearch = useCallback(async (searchTerm, page = 1, append = false) => {
     // Prevent duplicate searches
     if (isSearchingRef.current && !append) {
@@ -61,8 +66,6 @@ export const usePerformances = (apiBaseUrl) => {
     if (!append) {
       setSearching(true);
       setIsSearchMode(true);
-      setCurrentSearchQuery(searchTerm);
-      setCurrentSearchPage(1);
     } else {
       setLoadingMore(true);
     }
@@ -75,22 +78,48 @@ export const usePerformances = (apiBaseUrl) => {
       
       if (data && data.setlist) {
         if (append) {
-          // Append results for "load more"
-          setDisplayedPerformances(prev => [...prev, ...data.setlist]);
-          setCurrentSearchPage(page);
+          // FIXED: Check if we already have these results to prevent duplicates
+          const existingIds = new Set(searchState.results.map(p => p.id));
+          const newResults = data.setlist.filter(p => !existingIds.has(p.id));
+          
+          if (newResults.length > 0) {
+            const updatedResults = [...searchState.results, ...newResults];
+            setSearchState(prev => ({
+              ...prev,
+              page: page,
+              results: updatedResults,
+              hasMore: data.hasMore !== false && newResults.length > 0
+            }));
+            setDisplayedPerformances(updatedResults);
+          } else {
+            // No new results, we've reached the end
+            setSearchState(prev => ({ ...prev, hasMore: false }));
+            setHasMore(false);
+          }
         } else {
           // New search results
+          setSearchState({
+            query: searchTerm,
+            page: 1,
+            results: data.setlist,
+            hasMore: data.hasMore !== false
+          });
           setDisplayedPerformances(data.setlist);
-          setCurrentSearchPage(1);
         }
         
-        // Update hasMore based on pagination info
+        // Update global hasMore based on search state
         setHasMore(data.hasMore !== false);
         
         console.log(`✅ Search ${append ? 'append' : 'complete'}: ${data.setlist.length} results for "${searchTerm}" (page ${page})`);
       } else {
         if (!append) {
           setDisplayedPerformances([]);
+          setSearchState({
+            query: searchTerm,
+            page: 1,
+            results: [],
+            hasMore: false
+          });
         }
         setHasMore(false);
         console.log(`✅ Search complete: 0 results for "${searchTerm}"`);
@@ -100,6 +129,12 @@ export const usePerformances = (apiBaseUrl) => {
       setError(`Search failed: ${err.message}`);
       if (!append) {
         setDisplayedPerformances([]);
+        setSearchState({
+          query: searchTerm,
+          page: 1,
+          results: [],
+          hasMore: false
+        });
       }
       setHasMore(false);
     } finally {
@@ -110,16 +145,20 @@ export const usePerformances = (apiBaseUrl) => {
       }
       isSearchingRef.current = false;
     }
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, searchState.results]);
 
-  // Load more performances - UPDATED to support search pagination
+  // FIXED: Load more performances with proper state tracking
   const loadMorePerformances = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
+    if (loadingMore || !hasMore) {
+      console.log('🚫 Load more blocked:', { loadingMore, hasMore });
+      return;
+    }
     
-    if (isSearchMode && currentSearchQuery) {
-      // Load more search results
-      const nextPage = currentSearchPage + 1;
-      await performSearch(currentSearchQuery, nextPage, true);
+    if (isSearchMode && searchState.query) {
+      // FIXED: Load more search results using search state
+      const nextPage = searchState.page + 1;
+      console.log(`📄 Loading more search results for "${searchState.query}" page ${nextPage}`);
+      await performSearch(searchState.query, nextPage, true);
     } else {
       // Load more regular results
       const nextPage = currentPage + 1;
@@ -130,30 +169,43 @@ export const usePerformances = (apiBaseUrl) => {
         const data = await fetchUMOSetlists(nextPage, apiBaseUrl);
         
         if (data?.setlist?.length > 0) {
-          setDisplayedPerformances(prev => [...prev, ...data.setlist]);
-          setCurrentPage(nextPage);
-          setHasMore(data.hasMore !== false);
+          // FIXED: Check for duplicates in regular results too
+          const existingIds = new Set(displayedPerformances.map(p => p.id));
+          const newResults = data.setlist.filter(p => !existingIds.has(p.id));
+          
+          if (newResults.length > 0) {
+            setDisplayedPerformances(prev => [...prev, ...newResults]);
+            setCurrentPage(nextPage);
+            setHasMore(data.hasMore !== false);
+          } else {
+            setHasMore(false);
+          }
         } else {
           setHasMore(false);
         }
       } catch (err) {
         console.error(`Error loading page ${nextPage}:`, err);
         setError(`Failed to load more: ${err.message}`);
+        setHasMore(false);
       } finally {
         setLoadingMore(false);
       }
     }
-  }, [loadingMore, hasMore, isSearchMode, currentSearchQuery, currentSearchPage, currentPage, apiBaseUrl, performSearch]);
+  }, [loadingMore, hasMore, isSearchMode, searchState, currentPage, apiBaseUrl, performSearch, displayedPerformances]);
 
-  // Clear search - UPDATED
+  // FIXED: Clear search with proper state reset
   const clearSearch = useCallback(() => {
     console.log('🧹 Clearing search');
     setCitySearch('');
     setIsSearchMode(false);
     setError('');
     setSearching(false);
-    setCurrentSearchQuery('');
-    setCurrentSearchPage(1);
+    setSearchState({
+      query: '',
+      page: 1,
+      results: [],
+      hasMore: true
+    });
     isSearchingRef.current = false;
     lastSearchQuery.current = '';
     loadInitialPerformances();
@@ -175,7 +227,7 @@ export const usePerformances = (apiBaseUrl) => {
     loadInitialPerformances();
   }, []); // Only run once on mount
 
-  // Handle search with proper dependency management
+  // FIXED: Handle search with proper dependency management
   useEffect(() => {
     const searchTerm = debouncedCitySearch.trim();
     
@@ -185,6 +237,12 @@ export const usePerformances = (apiBaseUrl) => {
         console.log('🧹 Clearing search due to empty search term');
         setIsSearchMode(false);
         setSearching(false);
+        setSearchState({
+          query: '',
+          page: 1,
+          results: [],
+          hasMore: true
+        });
         isSearchingRef.current = false;
         lastSearchQuery.current = '';
         loadInitialPerformances();
@@ -193,10 +251,11 @@ export const usePerformances = (apiBaseUrl) => {
       // User entered search term
       if (lastSearchQuery.current !== searchTerm) {
         console.log(`🔍 New search triggered: "${searchTerm}"`);
+        lastSearchQuery.current = searchTerm;
         performSearch(searchTerm);
       }
     }
-  }, [debouncedCitySearch]); // Only depend on the debounced search term
+  }, [debouncedCitySearch, isSearchMode, loadInitialPerformances, performSearch]);
 
   return {
     // State
@@ -205,7 +264,7 @@ export const usePerformances = (apiBaseUrl) => {
     loadingMore,
     searching,
     error,
-    hasMore,
+    hasMore: isSearchMode ? searchState.hasMore : hasMore,
     citySearch,
     isSearchMode,
     

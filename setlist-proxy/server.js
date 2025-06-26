@@ -3,8 +3,8 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
-const { createProxyMiddleware } = require('http-proxy-middleware');
 require('dotenv').config();
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const User = require('./models/User');
 const Moment = require('./models/Moment');
@@ -17,23 +17,12 @@ const PORT = 5050;
 const umoCache = new UMOCache();
 
 // Enhanced CORS setup for file uploads
+// TEMPORARY - Replace existing CORS with this:
 app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin || /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: '*', // Allow all origins for testing
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization',
-    'Accept',
-    'Cache-Control',
-    'Pragma'
-  ]
+  allowedHeaders: ['*']
 }));
 
 app.use(express.json({ limit: '6gb' }));
@@ -146,6 +135,30 @@ app.post('/cache/refresh', async (req, res) => {
     res.status(500).json({ error: 'Failed to start cache refresh' });
   }
 });
+// Add this RIGHT AFTER the existing cache endpoints in server.js:
+
+app.post('/cache/force-rebuild', async (req, res) => {
+  try {
+    console.log('🔄 Force rebuild cache requested with medley processing...');
+    
+    res.json({ 
+      message: 'Cache rebuild started in background with medley processing',
+      status: 'started'
+    });
+    
+    // Start rebuild in background
+    const API_BASE_URL = `http://localhost:${PORT}`;
+    umoCache.buildFreshCache(API_BASE_URL, (progress) => {
+      console.log(`📊 Cache rebuild progress:`, progress);
+    }).catch(err => {
+      console.error('❌ Background cache rebuild failed:', err);
+    });
+    
+  } catch (err) {
+    console.error('❌ Cache force rebuild error:', err);
+    res.status(500).json({ error: 'Failed to start cache rebuild' });
+  }
+});
 
 app.get('/cached/performances', async (req, res) => {
   try {
@@ -154,7 +167,7 @@ app.get('/cached/performances', async (req, res) => {
     let result;
     
     if (city) {
-      // Search with pagination
+      // FIXED: Search with proper pagination support
       result = await umoCache.searchPerformancesByCity(city, parseInt(page), parseInt(limit));
       console.log(`🔍 Search "${city}" page ${page}: ${result.results.length}/${result.totalResults} results`);
       
@@ -303,20 +316,6 @@ app.get('/cached/search-indexes', async (req, res) => {
 // ORIGINAL SETLIST.FM PROXY (still available as fallback)
 // =============================================================================
 
-app.use(
-  '/api',
-  createProxyMiddleware({
-    target: 'https://api.setlist.fm',
-    changeOrigin: true,
-    pathRewrite: { '^/api': '' },
-    headers: {
-      Accept: 'application/json',
-      'x-api-key': process.env.SETLIST_FM_API_KEY,
-      'User-Agent': 'SetlistProxy/1.0',
-    },
-    logLevel: 'debug',
-  })
-);
 
 // =============================================================================
 // AUTH ENDPOINTS
@@ -451,45 +450,6 @@ app.post('/upload-file', authenticateToken, (req, res, next) => {
     });
   }
 });
-
-app.get('/test-file/:fileId', async (req, res) => {
-  try {
-    const fileId = req.params.fileId;
-    const url = `https://gateway.irys.xyz/${fileId}`;
-    
-    console.log(`🔍 Testing file: ${url}`);
-    
-    const fetch = (await import('node-fetch')).default;
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      return res.status(404).json({ error: 'File not found' });
-    }
-    
-    const contentType = response.headers.get('content-type');
-    const contentLength = response.headers.get('content-length');
-    
-    console.log(`📊 File info:`, {
-      contentType,
-      contentLength,
-      status: response.status
-    });
-    
-    res.json({
-      success: true,
-      fileId,
-      url,
-      contentType,
-      contentLength,
-      headers: Object.fromEntries(response.headers.entries())
-    });
-    
-  } catch (err) {
-    console.error('❌ Test file error:', err);
-    res.status(500).json({ error: 'Failed to test file' });
-  }
-});
-
 // =============================================================================
 // MOMENT ENDPOINTS
 // =============================================================================
@@ -1175,38 +1135,6 @@ const initializeCache = async () => {
     console.log('⚠️ Server will continue with limited functionality');
   }
 };
-app.get('/test-search/:query', async (req, res) => {
-  try {
-    const { query } = req.params;
-    console.log(`🧪 TEST SEARCH for: "${query}"`);
-    
-    // Load cache and search
-    await umoCache.loadCache();
-    const results = await umoCache.searchPerformancesByCity(query);
-    
-    console.log(`🧪 TEST RESULTS: ${results.length} performances found`);
-    
-    // Show first few results for debugging
-    const samples = results.slice(0, 3).map(r => ({
-      venue: r.venue.name,
-      city: r.venue.city.name,
-      date: r.eventDate,
-      songCount: r.sets?.set?.reduce((total, set) => total + (set.song?.length || 0), 0) || 0,
-      firstSong: r.sets?.set?.[0]?.song?.[0]?.name || 'No songs'
-    }));
-    
-    res.json({
-      query,
-      totalResults: results.length,
-      samples
-    });
-    
-  } catch (err) {
-    console.error('❌ Test search error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 const scheduleDailyRefresh = () => {
   const now = new Date();
   const tomorrow = new Date(now);
@@ -1235,7 +1163,23 @@ const scheduleDailyRefresh = () => {
   
   console.log(`⏰ Next cache refresh scheduled for ${tomorrow.toLocaleString()}`);
 };
-
+// =============================================================================
+// TEMPORARY API PROXY FOR CACHE REBUILD
+// =============================================================================
+app.use(
+  '/api',
+  createProxyMiddleware({
+    target: 'https://api.setlist.fm',
+    changeOrigin: true,
+    pathRewrite: { '^/api': '' },
+    headers: {
+      Accept: 'application/json',
+      'x-api-key': process.env.SETLIST_FM_API_KEY,
+      'User-Agent': 'SetlistProxy/1.0',
+    },
+    logLevel: 'warn',
+  })
+);
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server listening at http://0.0.0.0:${PORT}`);

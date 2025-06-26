@@ -5,6 +5,12 @@ const API_BASE_URL = window.location.hostname === 'localhost' || window.location
   ? 'http://localhost:5050'  
   : `http://${window.location.hostname}:5050`;
 
+  
+// ADD THIS TEMPORARY DEBUG:
+console.log('🔍 API_BASE_URL:', API_BASE_URL);
+console.log('🔍 hostname:', window.location.hostname);
+console.log('🔍 full location:', window.location.href);
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
