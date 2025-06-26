@@ -1,3 +1,4 @@
+// setlist-proxy/models/Moment.js - UPDATED VERSION
 const mongoose = require('mongoose');
 
 const momentSchema = new mongoose.Schema({
@@ -40,6 +41,16 @@ const momentSchema = new mongoose.Schema({
   crowdReaction: { type: String }, // Description of crowd reaction
   uniqueElements: { type: String }, // Anything special about this moment
   
+  // Rarity Calculation Fields - calculated by server endpoints
+  rarityScore: { type: Number, default: 0 }, // Calculated automatically (0-200)
+  isFirstMomentForSong: { type: Boolean, default: false }, // First moment uploaded for this song
+  songTotalPerformances: { type: Number, default: 0 }, // How many times this song has been performed live
+  rarityTier: { 
+    type: String, 
+    enum: ['legendary', 'epic', 'rare', 'uncommon', 'common'], 
+    default: 'common' 
+  },
+  
   // NFT preparation fields
   nftMinted: { type: Boolean, default: false },
   nftTokenId: { type: String }, // Will be set when NFT is minted
@@ -64,17 +75,40 @@ momentSchema.index({ performanceDate: -1 });
 momentSchema.index({ nftMinted: 1 });
 momentSchema.index({ momentType: 1 });
 momentSchema.index({ audioQuality: 1, videoQuality: 1 });
+momentSchema.index({ rarityScore: -1 }); // Index for rarity queries
+momentSchema.index({ rarityTier: 1 }); // Index for tier queries
+momentSchema.index({ songName: 1, createdAt: 1 }); // For first moment detection
 
 // Virtual for getting full venue name
 momentSchema.virtual('fullVenueName').get(function() {
   return `${this.venueName}, ${this.venueCity}${this.venueCountry ? ', ' + this.venueCountry : ''}`;
 });
 
-// Method to generate NFT metadata
+// Virtual for rarity display
+momentSchema.virtual('rarityDisplay').get(function() {
+  const tierEmojis = {
+    legendary: '🌟',
+    epic: '💎',
+    rare: '🔥',
+    uncommon: '⭐',
+    common: '📀'
+  };
+  
+  return {
+    emoji: tierEmojis[this.rarityTier] || '📀',
+    tier: this.rarityTier,
+    score: this.rarityScore,
+    percentage: Math.round((this.rarityScore / 200) * 100)
+  };
+});
+
+// Method to generate NFT metadata (updated with rarity)
 momentSchema.methods.generateNFTMetadata = function() {
+  const rarityDisplay = this.rarityDisplay;
+  
   return {
     name: `${this.songName} - ${this.venueName} (${this.performanceDate})`,
-    description: this.momentDescription || `A moment from ${this.songName} performed at ${this.venueName} on ${this.performanceDate}`,
+    description: this.momentDescription || `A ${rarityDisplay.tier} moment from ${this.songName} performed at ${this.venueName} on ${this.performanceDate}`,
     image: this.mediaUrl,
     external_url: this.mediaUrl,
     attributes: [
@@ -127,6 +161,26 @@ momentSchema.methods.generateNFTMetadata = function() {
         trait_type: "File Size (MB)",
         value: Math.round((this.fileSize || 0) / 1024 / 1024),
         display_type: "number"
+      },
+      // Rarity attributes
+      {
+        trait_type: "Rarity Tier",
+        value: this.rarityTier
+      },
+      {
+        trait_type: "Rarity Score",
+        value: this.rarityScore,
+        display_type: "number",
+        max_value: 200
+      },
+      {
+        trait_type: "Song Total Performances",
+        value: this.songTotalPerformances,
+        display_type: "number"
+      },
+      {
+        trait_type: "First Moment for Song",
+        value: this.isFirstMomentForSong ? "Yes" : "No"
       }
     ].concat(
       // Add emotional tags as separate attributes if they exist
@@ -150,7 +204,10 @@ momentSchema.methods.generateNFTMetadata = function() {
       crowd_reaction: this.crowdReaction,
       special_occasion: this.specialOccasion,
       guest_appearances: this.guestAppearances,
-      unique_elements: this.uniqueElements
+      unique_elements: this.uniqueElements,
+      rarity_score: this.rarityScore,
+      rarity_tier: this.rarityTier,
+      is_first_moment: this.isFirstMomentForSong
     }
   };
 };
