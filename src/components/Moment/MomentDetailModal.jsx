@@ -1,134 +1,39 @@
-// src/components/Moment/MomentDetailModal.jsx - PROPERLY FIXED HOOKS
+// src/components/Moment/MomentDetailModal.jsx - FIXED OWNERSHIP LOGIC
 import React, { useState, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { formatFileSize } from '../../utils';
 //web3 components
 import MomentMint from '../Web3/MomentMint';
-import { WalletConnectCompact } from '../Web3/WalletConnect';
-
-// ✅ FIXED: Import wagmi hooks at module level (not inside component)
-import { useAccount, useChainId, useConfig } from 'wagmi';
-
-// ✅ FIXED: Separate component for Web3 debug that properly uses hooks
-const Web3DebugInfo = ({ moment, user }) => {
-  // ✅ FIXED: Hooks called unconditionally at component level
-  const { address, isConnected, connector } = useAccount();
-  const chainId = useChainId();
-  const config = useConfig();
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: '10px',
-      right: '10px',
-      background: 'rgba(0,0,0,0.9)',
-      color: 'white',
-      padding: '15px',
-      borderRadius: '8px',
-      fontSize: '12px',
-      fontFamily: 'monospace',
-      maxWidth: '300px',
-      zIndex: 100000,
-      border: '1px solid #444'
-    }}>
-      <h4 style={{ margin: '0 0 10px 0', color: '#00ff00' }}>🐛 Web3 Debug Info</h4>
-      
-      <div style={{ marginBottom: '10px' }}>
-        <strong>Wallet:</strong><br/>
-        Connected: {isConnected ? '✅ YES' : '❌ NO'}<br/>
-        Address: {address ? `${address.slice(0,6)}...${address.slice(-4)}` : 'None'}<br/>
-        Connector: {connector?.name || 'None'}<br/>
-        Chain ID: {chainId || 'None'}
-      </div>
-      
-      <div style={{ marginBottom: '10px' }}>
-        <strong>User Auth:</strong><br/>
-        Logged in: {user ? '✅ YES' : '❌ NO'}<br/>
-        User ID: {user?.id || 'None'}<br/>
-        Display: {user?.displayName || 'None'}
-      </div>
-      
-      <div style={{ marginBottom: '10px' }}>
-        <strong>Moment:</strong><br/>
-        ID: {moment?._id?.slice(0, 8) || 'None'}...<br/>
-        Uploader: {moment?.user?.displayName || 'None'}<br/>
-        User ID: {moment?.user?._id?.slice(0, 8) || 'None'}...
-      </div>
-      
-      <div style={{ marginBottom: '10px' }}>
-        <strong>Environment:</strong><br/>
-        Contract: {process.env.REACT_APP_UMO_MOMENTS_CONTRACT?.slice(0, 8) || 'None'}...<br/>
-        WC Project: {process.env.REACT_APP_WALLETCONNECT_PROJECT_ID ? '✅ SET' : '❌ MISSING'}
-      </div>
-      
-      <div>
-        <strong>Ownership Check:</strong><br/>
-        Is Owner: {user && moment?.user && (
-          user.id === moment.user._id ||  
-          user.id === moment.user.id ||   
-          user._id === moment.user._id || 
-          user.username === moment.user.username || 
-          user.email === moment.user.email
-        ) ? '✅ YES' : '❌ NO'}
-      </div>
-    </div>
-  );
-};
-
-// ✅ FIXED: Error boundary component for Web3 debug
-const Web3Debug = ({ moment, user }) => {
-  try {
-    return <Web3DebugInfo moment={moment} user={user} />;
-  } catch (error) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: '10px',
-        right: '10px',
-        background: 'red',
-        color: 'white',
-        padding: '15px',
-        borderRadius: '8px',
-        fontSize: '12px',
-        zIndex: 100000
-      }}>
-        ❌ Web3 Error: {error.message}
-      </div>
-    );
-  }
-};
 
 const MomentDetailModal = memo(({ moment, onClose }) => {
   const { user } = useAuth();
   
-  // ✅ FIXED: Better ownership check with multiple fallbacks
-  const isOwner = user && moment.user && (
-    user.id === moment.user._id ||  // Standard ObjectId comparison
-    user.id === moment.user.id ||   // Alternative ID format
-    user._id === moment.user._id || // Alternative user format
-    user.username === moment.user.username || // Username fallback
-    user.email === moment.user.email // Email fallback
-  );
-  
-  // ✅ FIXED: Add debugging
-  console.log('🔍 Ownership Debug:', {
-    userLoggedIn: !!user,
-    userInfo: user ? {
-      id: user.id,
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      displayName: user.displayName
-    } : null,
-    momentUser: moment.user ? {
-      _id: moment.user._id,
-      id: moment.user.id,
-      username: moment.user.username,
-      email: moment.user.email,
-      displayName: moment.user.displayName
-    } : null,
-    isOwner: isOwner
-  });
+  // ✅ FIXED: Simplified and more reliable ownership check
+  const isOwner = React.useMemo(() => {
+    if (!user || !moment?.user) {
+      console.log('🔍 Ownership: No user or moment.user');
+      return false;
+    }
+
+    // Primary check: Compare user IDs directly
+    const userLoggedInId = user.id || user._id;
+    const momentUploaderId = moment.user._id || moment.user.id;
+    
+    const isOwnerResult = userLoggedInId === momentUploaderId;
+    
+    console.log('🔍 FIXED Ownership Check:', {
+      userLoggedInId,
+      momentUploaderId,
+      isOwnerResult,
+      userDisplayName: user.displayName,
+      momentUploaderName: moment.user.displayName
+    });
+    
+    return isOwnerResult;
+  }, [user, moment]);
+
+  // ✅ NEW: Track NFT edition status (from moment data)
+  const hasNFTEdition = moment?.nftContractAddress && moment?.nftTokenId;
   
   const [isEditing, setIsEditing] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -358,9 +263,6 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
 
   return (
     <>
-      {/* ✅ FIXED: Debug overlay with proper hook usage */}
-      <Web3Debug moment={moment} user={user} />
-      
       <div className="modal-overlay" onClick={onClose}>
         <div className="trading-card-modal" onClick={(e) => e.stopPropagation()}>
           {/* Card Header with Rarity */}
@@ -401,16 +303,6 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             </div>
           )}
 
-          {/* Basic Debug section */}
-          <div style={{background: 'blue', color: 'white', padding: '10px', fontSize: '12px'}}>
-            <strong>BASIC DEBUG:</strong><br/>
-            User: {user?.displayName || 'Not logged in'}<br/>
-            Moment uploader: {moment.user?.displayName || 'Unknown'}<br/>
-            Is Owner: {isOwner ? 'YES' : 'NO'}<br/>
-            User ID: {user?.id}<br/>
-            Moment User ID: {moment.user?._id}
-          </div>
-
           {/* Rarity Details */}
           <div className="rarity-section">
             <div className="rarity-details">
@@ -438,7 +330,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             {getMediaComponent()}
           </div>
 
-          {/* ✅ FIXED: NFT Section - Now properly placed and visible */}
+          {/* NFT Section with Proper 4-Step Workflow */}
           {user && (
             <div style={{ 
               padding: '20px', 
@@ -456,7 +348,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                   alignItems: 'center'
                 }}>
                   <span style={{ marginRight: '8px' }}>🎯</span>
-                  NFT Minting
+                  NFT Status
                   {isOwner && (
                     <span style={{
                       marginLeft: '10px',
@@ -475,31 +367,27 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                   color: '#6b7280',
                   margin: '0'
                 }}>
-                  {isOwner 
-                    ? 'Create an NFT edition of your moment and earn 35% of mint revenue'
-                    : 'Mint this moment as an NFT to support the uploader and artist'
+                  {hasNFTEdition 
+                    ? 'This moment is available as an NFT'
+                    : isOwner 
+                      ? 'Create an NFT edition of your moment and earn revenue'
+                      : 'NFT not yet available for this moment'
                   }
                 </p>
               </div>
               
-              {/* ✅ FIXED: MomentMint component with proper props */}
-              <div style={{ background: 'yellow', padding: '10px', marginBottom: '10px' }}>
-                <strong>BEFORE MOMENTMINT COMPONENT</strong>
-              </div>
-              
+              {/* ✅ FIXED: Proper conditional logic based on workflow */}
               <MomentMint 
                 moment={moment} 
                 user={user} 
+                isOwner={isOwner}
+                hasNFTEdition={hasNFTEdition}
                 isExpanded={true}
               />
-              
-              <div style={{ background: 'green', padding: '10px', marginTop: '10px', color: 'white' }}>
-                <strong>AFTER MOMENTMINT COMPONENT</strong>
-              </div>
             </div>
           )}
 
-          {/* ✅ FIXED: Show wallet connect for non-logged in users */}
+          {/* Show basic info for non-logged in users */}
           {!user && (
             <div style={{ 
               padding: '20px', 
@@ -508,24 +396,32 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
               textAlign: 'center'
             }}>
               <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#374151' }}>
-                🎯 NFT Minting Available
+                🎯 NFT Features
               </h3>
               <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '15px' }}>
-                Login to create NFT editions or mint moments as collectibles
+                {hasNFTEdition 
+                  ? 'This moment is available as an NFT. Login to mint a copy.'
+                  : 'Login to access NFT features for this moment'
+                }
               </p>
-              <div style={{ display: 'inline-block' }}>
-                <WalletConnectCompact />
-              </div>
+              <button
+                onClick={() => window.alert('Please use the login button in the header')}
+                style={{
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Login Required
+              </button>
             </div>
           )}
 
-          {/* Simplified content for debugging */}
-          <div className="card-content">
-            <p style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-              📋 Modal content truncated for debugging - NFT section above should be visible
-            </p>
-          </div>
-
+          {/* Card Footer */}
           <div className="card-footer">
             <div className="uploader-info">
               <span className="uploader-text">

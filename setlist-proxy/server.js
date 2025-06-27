@@ -86,6 +86,269 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
+
+  // Add these endpoints to setlist-proxy/server.js
+
+// =============================================================================
+// NFT EDITION ENDPOINTS
+// =============================================================================
+
+// Create NFT edition for a moment (owner only)
+app.post('/moments/:momentId/create-nft-edition', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const userId = req.user.id;
+    const {
+      nftContractAddress,
+      nftTokenId,
+      nftMetadataHash,
+      splitsContract,
+      mintPrice,
+      mintDuration,
+      txHash
+    } = req.body;
+
+    console.log(`🎯 Creating NFT edition for moment ${momentId} by user ${userId}`);
+
+    // Find the moment and verify ownership
+    const moment = await Moment.findById(momentId);
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    // Verify the user owns this moment
+    if (moment.user.toString() !== userId) {
+      console.error(`❌ User ${userId} doesn't own moment ${momentId} (owned by ${moment.user})`);
+      return res.status(403).json({ error: 'Not authorized to create NFT for this moment' });
+    }
+
+    // Check if NFT edition already exists
+    if (moment.nftMinted || moment.nftContractAddress) {
+      return res.status(400).json({ error: 'NFT edition already exists for this moment' });
+    }
+
+    // Update moment with NFT edition data
+    const updatedMoment = await Moment.findByIdAndUpdate(
+      momentId,
+      {
+        $set: {
+          nftMinted: true,
+          nftTokenId: nftTokenId,
+          nftContractAddress: nftContractAddress,
+          nftMetadataHash: nftMetadataHash,
+          nftSplitsContract: splitsContract,
+          nftMintPrice: mintPrice,
+          nftMintDuration: mintDuration,
+          nftMintStartTime: new Date(),
+          nftMintEndTime: new Date(Date.now() + (mintDuration * 1000)),
+          nftCreationTxHash: txHash,
+          nftMintedCount: 0 // Start with 0 mints
+        }
+      },
+      { new: true }
+    ).populate('user', 'displayName email');
+
+    console.log(`✅ NFT edition created for moment "${updatedMoment.songName}" at ${updatedMoment.venueName}`);
+
+    res.json({
+      success: true,
+      moment: updatedMoment,
+      message: 'NFT edition created successfully'
+    });
+
+  } catch (err) {
+    console.error('❌ Create NFT edition error:', err);
+    res.status(500).json({ 
+      error: 'Failed to create NFT edition', 
+      details: err.message 
+    });
+  }
+});
+
+// Get NFT edition status for a moment
+app.get('/moments/:momentId/nft-status', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    
+    const moment = await Moment.findById(momentId)
+      .select('nftMinted nftTokenId nftContractAddress nftMintedCount nftMintStartTime nftMintEndTime nftMintPrice')
+      .populate('user', 'displayName');
+
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    const hasNFTEdition = !!(moment.nftContractAddress && moment.nftTokenId);
+    const isMintingActive = hasNFTEdition && 
+                           moment.nftMintEndTime && 
+                           new Date() < new Date(moment.nftMintEndTime);
+
+    res.json({
+      hasNFTEdition,
+      isMintingActive,
+      nftData: hasNFTEdition ? {
+        contractAddress: moment.nftContractAddress,
+        tokenId: moment.nftTokenId,
+        mintedCount: moment.nftMintedCount || 0,
+        mintPrice: moment.nftMintPrice,
+        mintStartTime: moment.nftMintStartTime,
+        mintEndTime: moment.nftMintEndTime,
+        uploader: moment.user.displayName
+      } : null
+    });
+
+  } catch (err) {
+    console.error('❌ Get NFT status error:', err);
+    res.status(500).json({ 
+      error: 'Failed to get NFT status', 
+      details: err.message 
+    });
+  }
+});
+
+// Record an NFT mint (called when someone mints)
+app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { quantity = 1, minterAddress, txHash } = req.body;
+
+    console.log(`🎯 Recording ${quantity} NFT mint(s) for moment ${momentId}`);
+
+    const moment = await Moment.findById(momentId);
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    if (!moment.nftMinted || !moment.nftContractAddress) {
+      return res.status(400).json({ error: 'No NFT edition exists for this moment' });
+    }
+
+    // Update mint count
+    const updatedMoment = await Moment.findByIdAndUpdate(
+      momentId,
+      {
+        $inc: { nftMintedCount: quantity },
+        $push: {
+          nftMintHistory: {
+            minter: req.user.id,
+            minterAddress: minterAddress,
+            quantity: quantity,
+            txHash: txHash,
+            mintedAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
+
+    console.log(`✅ Recorded ${quantity} mint(s). Total now: ${updatedMoment.nftMintedCount}`);
+
+    res.json({
+      success: true,
+      totalMinted: updatedMoment.nftMintedCount,
+      message: `Recorded ${quantity} mint(s)`
+    });
+
+  } catch (err) {
+    console.error('❌ Record mint error:', err);
+    res.status(500).json({ 
+      error: 'Failed to record mint', 
+      details: err.message 
+    });
+  }
+});
+
+// Get NFT edition analytics for owners
+app.get('/moments/:momentId/nft-analytics', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const userId = req.user.id;
+
+    const moment = await Moment.findById(momentId);
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    // Verify ownership
+    if (moment.user.toString() !== userId) {
+      return res.status(403).json({ error: 'Not authorized to view analytics' });
+    }
+
+    if (!moment.nftMinted) {
+      return res.status(400).json({ error: 'No NFT edition exists' });
+    }
+
+    // Calculate revenue (35% of total mints)
+    const totalMints = moment.nftMintedCount || 0;
+    const mintPrice = moment.nftMintPrice || 0;
+    const totalRevenue = totalMints * mintPrice;
+    const uploaderRevenue = totalRevenue * 0.35; // 35% share
+
+    // Time remaining
+    const now = new Date();
+    const endTime = new Date(moment.nftMintEndTime);
+    const timeRemaining = endTime > now ? endTime - now : 0;
+    const daysRemaining = Math.ceil(timeRemaining / (1000 * 60 * 60 * 24));
+
+    res.json({
+      totalMints,
+      totalRevenue: totalRevenue.toString(),
+      uploaderRevenue: uploaderRevenue.toString(),
+      mintPrice: mintPrice.toString(),
+      timeRemaining: {
+        milliseconds: timeRemaining,
+        days: daysRemaining,
+        isActive: timeRemaining > 0
+      },
+      mintHistory: moment.nftMintHistory || [],
+      contractAddress: moment.nftContractAddress,
+      tokenId: moment.nftTokenId
+    });
+
+  } catch (err) {
+    console.error('❌ Get NFT analytics error:', err);
+    res.status(500).json({ 
+      error: 'Failed to get NFT analytics', 
+      details: err.message 
+    });
+  }
+});
+
+// Update moment schema to include mint history
+// Add to setlist-proxy/models/Moment.js
+
+/*
+Add these fields to the momentSchema:
+
+  // NFT Edition fields (update existing ones)
+  nftMinted: { type: Boolean, default: false },
+  nftTokenId: { type: String }, 
+  nftContractAddress: { type: String }, 
+  nftMetadataHash: { type: String }, 
+  nftSplitsContract: { type: String }, // 0xSplits contract address
+  nftMintPrice: { type: String }, // Price in wei as string
+  nftMintDuration: { type: Number }, // Duration in seconds
+  nftMintStartTime: { type: Date },
+  nftMintEndTime: { type: Date },
+  nftCreationTxHash: { type: String }, // Transaction hash of NFT creation
+  nftMintedCount: { type: Number, default: 0 }, // How many have been minted
+  nftMintHistory: [{
+    minter: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    minterAddress: { type: String }, // Wallet address
+    quantity: { type: Number },
+    txHash: { type: String },
+    mintedAt: { type: Date, default: Date.now }
+  }],
+
+Add indexes:
+momentSchema.index({ nftMinted: 1 });
+momentSchema.index({ nftContractAddress: 1 });
+momentSchema.index({ nftMintEndTime: 1 });
+
+*/
+
+console.log('🎯 NFT edition endpoints added to server');
+
 // =============================================================================
 // CACHE ENDPOINTS
 // =============================================================================

@@ -1,4 +1,4 @@
-// setlist-proxy/models/Moment.js - UPDATED VERSION
+// setlist-proxy/models/Moment.js - UPDATED WITH NFT FIELDS
 const mongoose = require('mongoose');
 
 const momentSchema = new mongoose.Schema({
@@ -51,11 +51,27 @@ const momentSchema = new mongoose.Schema({
     default: 'common' 
   },
   
-  // NFT preparation fields
+  // ✅ EXISTING NFT fields (keep these as they are)
   nftMinted: { type: Boolean, default: false },
   nftTokenId: { type: String }, // Will be set when NFT is minted
   nftContractAddress: { type: String }, // NFT contract address
   nftMetadataHash: { type: String }, // IPFS hash of NFT metadata
+  
+  // ✅ NEW NFT EDITION FIELDS (add these)
+  nftSplitsContract: { type: String }, // 0xSplits contract address for revenue sharing
+  nftMintPrice: { type: String }, // Price in wei as string (e.g., "1000000000000000" for 0.001 ETH)
+  nftMintDuration: { type: Number }, // Duration in seconds (e.g., 604800 for 7 days)
+  nftMintStartTime: { type: Date }, // When minting window opened
+  nftMintEndTime: { type: Date }, // When minting window closes
+  nftCreationTxHash: { type: String }, // Transaction hash of NFT edition creation
+  nftMintedCount: { type: Number, default: 0 }, // How many have been minted by collectors
+  nftMintHistory: [{ // Track individual mints
+    minter: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    minterAddress: { type: String }, // Wallet address that minted
+    quantity: { type: Number }, // How many they minted
+    txHash: { type: String }, // Transaction hash of the mint
+    mintedAt: { type: Date, default: Date.now }
+  }],
   
   // Metadata
   createdAt: { type: Date, default: Date.now },
@@ -68,7 +84,7 @@ momentSchema.pre('save', function(next) {
   next();
 });
 
-// Index for efficient queries
+// ✅ EXISTING INDEXES (keep these)
 momentSchema.index({ performanceId: 1, songName: 1 });
 momentSchema.index({ user: 1 });
 momentSchema.index({ performanceDate: -1 });
@@ -78,6 +94,12 @@ momentSchema.index({ audioQuality: 1, videoQuality: 1 });
 momentSchema.index({ rarityScore: -1 }); // Index for rarity queries
 momentSchema.index({ rarityTier: 1 }); // Index for tier queries
 momentSchema.index({ songName: 1, createdAt: 1 }); // For first moment detection
+
+// ✅ NEW INDEXES for NFT features (add these)
+momentSchema.index({ nftContractAddress: 1 }); // Find moments by contract
+momentSchema.index({ nftMintEndTime: 1 }); // Find active minting windows
+momentSchema.index({ nftMintedCount: -1 }); // Sort by popularity
+momentSchema.index({ nftSplitsContract: 1 }); // Find by splits contract
 
 // Virtual for getting full venue name
 momentSchema.virtual('fullVenueName').get(function() {
@@ -100,6 +122,26 @@ momentSchema.virtual('rarityDisplay').get(function() {
     score: this.rarityScore,
     percentage: Math.round((this.rarityScore / 200) * 100)
   };
+});
+
+// ✅ NEW VIRTUAL: Check if NFT edition exists
+momentSchema.virtual('hasNFTEdition').get(function() {
+  return !!(this.nftContractAddress && this.nftTokenId);
+});
+
+// ✅ NEW VIRTUAL: Check if minting is currently active
+momentSchema.virtual('isMintingActive').get(function() {
+  if (!this.hasNFTEdition) return false;
+  if (!this.nftMintEndTime) return false;
+  return new Date() < new Date(this.nftMintEndTime);
+});
+
+// ✅ NEW VIRTUAL: Time remaining for minting
+momentSchema.virtual('mintingTimeRemaining').get(function() {
+  if (!this.isMintingActive) return 0;
+  const now = new Date();
+  const endTime = new Date(this.nftMintEndTime);
+  return Math.max(0, endTime - now); // milliseconds remaining
 });
 
 // Method to generate NFT metadata (updated with rarity)
@@ -181,6 +223,17 @@ momentSchema.methods.generateNFTMetadata = function() {
       {
         trait_type: "First Moment for Song",
         value: this.isFirstMomentForSong ? "Yes" : "No"
+      },
+      // ✅ NEW: NFT Edition attributes
+      {
+        trait_type: "Edition Size",
+        value: this.nftMintedCount || 0,
+        display_type: "number"
+      },
+      {
+        trait_type: "Mint Price (ETH)",
+        value: this.nftMintPrice ? parseFloat(this.nftMintPrice) / 1e18 : 0,
+        display_type: "number"
       }
     ].concat(
       // Add emotional tags as separate attributes if they exist
@@ -207,7 +260,12 @@ momentSchema.methods.generateNFTMetadata = function() {
       unique_elements: this.uniqueElements,
       rarity_score: this.rarityScore,
       rarity_tier: this.rarityTier,
-      is_first_moment: this.isFirstMomentForSong
+      is_first_moment: this.isFirstMomentForSong,
+      // ✅ NEW: NFT edition properties
+      nft_contract: this.nftContractAddress,
+      splits_contract: this.nftSplitsContract,
+      mint_count: this.nftMintedCount,
+      is_minting_active: this.isMintingActive
     }
   };
 };
