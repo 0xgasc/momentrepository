@@ -1,7 +1,7 @@
 import React, { useState, memo } from 'react';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 
-// Import the extracted components (we'll create these next)
+// Import the extracted components
 import CacheStatusDisplay from './components/Cache/CacheStatusDisplay';
 import PerformanceList from './components/Performance/PerformanceList';
 import SongBrowser from './components/Song/SongBrowser';
@@ -10,9 +10,13 @@ import PerformanceDetail from './components/Performance/PerformanceDetail';
 import LoginModal from './components/Auth/LoginModal';
 import CreditsFooter from './components/UI/CreditsFooter';
 
-import { WagmiConfig } from 'wagmi';
+// ✅ FIXED: Add missing imports for Web3
+import { WagmiProvider } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { wagmiConfig } from './config/web3Config';
 
+// ✅ FIXED: Create QueryClient for TanStack React Query
+const queryClient = new QueryClient();
 
 // Main App Component with Clean Navigation
 const MainApp = memo(() => {
@@ -283,13 +287,15 @@ const MainContent = memo(({
 
 MainContent.displayName = 'MainContent';
 
-// Main App Export
+// ✅ FIXED: Main App Export with proper providers
 export default function App() {
   return (
-    <WagmiConfig config={wagmiConfig}>
-      <AuthProvider>
-        <MainApp />
-      </AuthProvider>
-    </WagmiConfig>
+    <QueryClientProvider client={queryClient}>
+      <WagmiProvider config={wagmiConfig}>
+        <AuthProvider>
+          <MainApp />
+        </AuthProvider>
+      </WagmiProvider>
+    </QueryClientProvider>
   );
 }
