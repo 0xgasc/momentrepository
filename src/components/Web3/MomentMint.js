@@ -1,54 +1,74 @@
-// src/components/Web3/MomentMint.js - WITH BACKEND INTEGRATION
-import React, { useState } from 'react';
-import { useAccount, useConnect } from 'wagmi';
-import { Zap, AlertCircle, Plus, ExternalLink, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useReadContract, useChainId } from 'wagmi';
+import { parseEther, formatEther } from 'viem';
+import { Zap, Plus, CheckCircle, ExternalLink, AlertCircle } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
-
+import UMOMomentsContract from '../../contracts/UMOMoments.json';
+/* global BigInt */
 const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }) => {
-  const [showNFTCreator, setShowNFTCreator] = useState(false);
   const [isCreatingNFT, setIsCreatingNFT] = useState(false);
+  const [isMinting, setIsMinting] = useState(false);
   const [creationError, setCreationError] = useState('');
-  const [mintDuration, setMintDuration] = useState(7); // Default 7 days
+  const [mintDuration, setMintDuration] = useState(7);
+  const [txHash, setTxHash] = useState(null);
+  const [currentStep, setCurrentStep] = useState('ready');
   
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
+  const { writeContract } = useWriteContract();
+  const chainId = useChainId(); // ✅ FIXED: Use hook at component level
   
-  console.log('🎯 MomentMint rendering with workflow state:', {
-    isOwner,
-    hasNFTEdition,
-    isConnected,
-    userDisplayName: user?.displayName,
-    momentUploader: moment?.user?.displayName
+  // Wait for transaction confirmation
+  const { isLoading: isConfirming, isSuccess: isConfirmed, error: txError } = useWaitForTransactionReceipt({
+    hash: txHash,
   });
 
-  // ✅ NEW: Function to create NFT edition via backend
-  const handleCreateNFTEdition = async () => {
-    if (!isConnected) {
-      alert('Please connect your wallet first');
-      return;
+  // ✅ FIXED: Read contract data for testing connection
+  const { data: currentTokenId } = useReadContract({
+    address: UMOMomentsContract.address,
+    abi: UMOMomentsContract.abi,
+    functionName: 'getCurrentTokenId',
+    enabled: !!UMOMomentsContract.address
+  });
+
+  // Handle transaction confirmation
+  useEffect(() => {
+    if (isConfirmed && txHash) {
+      console.log('✅ Transaction confirmed:', txHash);
+      setCurrentStep('success');
+      
+      if (isCreatingNFT) {
+        updateBackendAfterCreation();
+      } else if (isMinting) {
+        recordMintInBackend();
+      }
     }
+  }, [isConfirmed, txHash, isCreatingNFT, isMinting]);
 
-    setIsCreatingNFT(true);
-    setCreationError('');
+  // Handle transaction errors
+  useEffect(() => {
+    if (txError) {
+      console.error('❌ Transaction failed:', txError);
+      setCreationError(txError.message || 'Transaction failed');
+      setCurrentStep('ready');
+      setIsCreatingNFT(false);
+      setIsMinting(false);
+    }
+  }, [txError]);
 
+  // Update backend after successful NFT creation
+  const updateBackendAfterCreation = async () => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Please log in to create NFT editions');
-      }
-
-      // Mock smart contract data for now (replace with real blockchain calls later)
       const nftEditionData = {
-        nftContractAddress: process.env.REACT_APP_UMO_MOMENTS_CONTRACT, // Your deployed contract
-        nftTokenId: `${moment._id}-${Date.now()}`, // Unique token ID
-        nftMetadataHash: `ipfs://${moment._id}-metadata`, // Placeholder IPFS hash
-        splitsContract: `0x${Math.random().toString(16).substr(2, 40)}`, // Mock splits contract
-        mintPrice: '1000000000000000', // 0.001 ETH in wei (≈$1)
-        mintDuration: mintDuration * 24 * 60 * 60, // Convert days to seconds
-        txHash: `0x${Math.random().toString(16).substr(2, 64)}` // Mock transaction hash
+        nftContractAddress: UMOMomentsContract.address,
+        nftTokenId: moment._id,
+        nftMetadataHash: `ipfs://metadata-${moment._id}`,
+        splitsContract: `0x742d35Cc6634C0532925a3b8D76C7DE9F45F6c96`,
+        mintPrice: parseEther('0.001').toString(),
+        mintDuration: mintDuration * 24 * 60 * 60,
+        txHash: txHash
       };
-
-      console.log('🚀 Creating NFT edition for moment:', moment._id);
 
       const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/create-nft-edition`, {
         method: 'POST',
@@ -59,31 +79,309 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
         body: JSON.stringify(nftEditionData)
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create NFT edition');
+      if (response.ok) {
+        console.log('✅ Backend updated successfully');
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        console.error('❌ Backend update failed');
+        setCreationError('NFT created but backend update failed. Please refresh the page.');
       }
-
-      const result = await response.json();
-      console.log('✅ NFT edition created successfully:', result);
-
-      // Show success message briefly
-      setCreationError(''); // Clear any previous errors
-      
-      // Refresh the page to show the updated moment with NFT edition
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-
     } catch (error) {
-      console.error('❌ Error creating NFT edition:', error);
-      setCreationError(error.message);
-    } finally {
-      setIsCreatingNFT(false);
+      console.error('❌ Backend update error:', error);
+      setCreationError('NFT created but backend sync failed. Please refresh the page.');
     }
   };
 
-  // Simple wallet connect button without icons
+  // Record mint in backend after successful mint
+  const recordMintInBackend = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const mintData = {
+        quantity: 1,
+        minterAddress: address,
+        txHash: txHash
+      };
+
+      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/record-mint`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(mintData)
+      });
+
+      if (response.ok) {
+        console.log('✅ Mint recorded in backend');
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('❌ Failed to record mint in backend:', error);
+    }
+  };
+
+// Replace your handleCreateNFTEdition function with this enhanced debug version:
+
+const handleCreateNFTEdition = async () => {
+  if (!isConnected) {
+    alert('Please connect your wallet first');
+    return;
+  }
+
+  setIsCreatingNFT(true);
+  setCreationError('');
+  setCurrentStep('creating');
+
+  try {
+    console.log('🚀 Creating NFT edition on blockchain for moment:', moment._id);
+
+    // Debug checks
+    console.log('🔍 Debug Info:');
+    console.log('- Wallet address:', address);
+    console.log('- Connected:', isConnected);
+    console.log('- Contract address:', UMOMomentsContract.address);
+    console.log('- Contract ABI length:', UMOMomentsContract.abi?.length);
+    console.log('- Current chain ID:', chainId);
+    console.log('- Expected chain ID (Base Sepolia):', 84532);
+    console.log('- Current token ID from contract:', currentTokenId?.toString());
+    
+    if (!UMOMomentsContract.address) {
+      throw new Error('Contract address not found. Check your UMOMoments.json file.');
+    }
+    
+    if (chainId !== 84532) {
+      throw new Error(`Wrong network. Please switch to Base Sepolia (Chain ID: 84532). Current: ${chainId}`);
+    }
+
+    // Contract parameters
+    const mintPriceWei = parseEther('0.001');
+    const mintDurationSeconds = mintDuration * 24 * 60 * 60;
+    const rarityScore = Math.min(7, Math.max(1, moment.rarityScore || 1));
+    const metadataURI = `ipfs://metadata-${moment._id}`;
+    const mockSplitsAddress = `0x742d35Cc6634C0532925a3b8D76C7DE9F45F6c96`;
+
+    console.log('📝 Creating edition with params:', {
+      momentId: moment._id,
+      metadataURI,
+      mintPrice: formatEther(mintPriceWei),
+      duration: mintDurationSeconds,
+      rarity: rarityScore,
+      splitsAddress: mockSplitsAddress
+    });
+
+    if (currentTokenId !== undefined) {
+      console.log('✅ Contract connection test successful. Current token ID:', currentTokenId.toString());
+    } else {
+      console.warn('⚠️ Cannot read from contract. This might be an issue.');
+    }
+
+    // ✅ NEW: Check if moment edition already exists
+    console.log('🔍 Checking if edition already exists...');
+    try {
+      const { readContract } = await import('wagmi/actions');
+      const editionExists = await readContract({
+        address: UMOMomentsContract.address,
+        abi: UMOMomentsContract.abi,
+        functionName: 'getEdition',
+        args: [moment._id]
+      });
+      
+      console.log('📋 Edition check result:', editionExists);
+      
+      // Check if edition already exists (momentId will be non-empty if it exists)
+      if (editionExists && editionExists[0] && editionExists[0].length > 0) {
+        throw new Error('NFT edition already exists for this moment. Please refresh the page.');
+      }
+    } catch (editionError) {
+      console.log('⚠️ Edition check failed (this might be expected):', editionError.message);
+      // Continue anyway - this might fail if edition doesn't exist yet
+    }
+
+    // ✅ NEW: Validate all parameters before sending
+    console.log('🧪 Validating parameters...');
+    console.log('- momentId type:', typeof moment._id, 'value:', moment._id);
+    console.log('- metadataURI type:', typeof metadataURI, 'value:', metadataURI);
+    console.log('- mintPrice type:', typeof mintPriceWei, 'value:', mintPriceWei.toString());
+    console.log('- duration type:', typeof mintDurationSeconds, 'value:', mintDurationSeconds);
+    console.log('- maxSupply type:', typeof BigInt(0), 'value:', BigInt(0).toString());
+    console.log('- splitsAddress type:', typeof mockSplitsAddress, 'value:', mockSplitsAddress);
+    console.log('- rarity type:', typeof rarityScore, 'value:', rarityScore);
+
+    // ✅ NEW: Check if function exists in ABI
+    const createMomentEditionFunction = UMOMomentsContract.abi.find(
+      func => func.name === 'createMomentEdition' && func.type === 'function'
+    );
+    
+    if (!createMomentEditionFunction) {
+      console.error('❌ Function createMomentEdition not found in ABI');
+      console.log('Available functions:', UMOMomentsContract.abi.filter(f => f.type === 'function').map(f => f.name));
+      throw new Error('Function createMomentEdition not found in contract ABI');
+    } else {
+      console.log('✅ Function found in ABI:', createMomentEditionFunction);
+    }
+
+    console.log('📤 Attempting write transaction...');
+    
+    // ✅ NEW: Enhanced writeContract call with more debugging
+    let hash;
+    try {
+      console.log('🔄 Calling writeContract...');
+      
+      hash = await writeContract({
+        address: UMOMomentsContract.address,
+        abi: UMOMomentsContract.abi,
+        functionName: 'createMomentEdition',
+        args: [
+          moment._id,
+          metadataURI,
+          mintPriceWei,
+          BigInt(mintDurationSeconds),
+          BigInt(0), // Unlimited supply
+          mockSplitsAddress,
+          rarityScore
+        ],
+      });
+      
+      console.log('📤 writeContract returned:', hash);
+      console.log('📤 hash type:', typeof hash);
+      console.log('📤 hash value:', hash);
+      
+    } catch (writeError) {
+      console.error('❌ writeContract threw an error:', writeError);
+      console.error('❌ Error details:', {
+        message: writeError.message,
+        code: writeError.code,
+        data: writeError.data,
+        stack: writeError.stack
+      });
+      throw writeError;
+    }
+
+    if (!hash) {
+      console.error('❌ Transaction hash is null/undefined after writeContract');
+      console.error('❌ This might indicate:');
+      console.error('   1. User rejected the transaction');
+      console.error('   2. Contract function reverted');
+      console.error('   3. Invalid parameters');
+      console.error('   4. Wallet connectivity issue');
+      throw new Error('Transaction hash is undefined. Transaction may have been rejected or failed.');
+    }
+
+    setTxHash(hash);
+    setCurrentStep('confirming');
+    console.log('✅ NFT edition creation transaction submitted:', hash);
+
+  } catch (error) {
+    console.error('❌ Detailed error creating NFT edition:', error);
+    
+    // Enhanced error messages
+    let userFriendlyError = error.message;
+    
+    if (error.message.includes('User rejected') || error.message.includes('user rejected')) {
+      userFriendlyError = 'Transaction was rejected in your wallet.';
+    } else if (error.message.includes('insufficient funds')) {
+      userFriendlyError = 'Insufficient ETH balance for gas fees.';
+    } else if (error.message.includes('already exists')) {
+      userFriendlyError = 'NFT edition already exists. Please refresh the page.';
+    } else if (error.message.includes('Function createMomentEdition not found')) {
+      userFriendlyError = 'Contract function not found. Contract may not be properly deployed.';
+    } else if (error.message.includes('execution reverted')) {
+      userFriendlyError = 'Transaction failed on blockchain. Check contract requirements.';
+    }
+    
+    setCreationError(userFriendlyError);
+    setCurrentStep('ready');
+    setIsCreatingNFT(false);
+  }
+};
+
+  // ✅ FIXED: Mint function with proper BigInt handling
+  const handleMintNFT = async (quantity = 1) => {
+    if (!isConnected) {
+      alert('Please connect your wallet first');
+      return;
+    }
+
+    setIsMinting(true);
+    setCreationError('');
+    setCurrentStep('creating');
+
+    try {
+      console.log(`🎯 Minting ${quantity} NFT(s) for moment:`, moment._id);
+
+      const mintPrice = parseEther('0.001');
+      const totalCost = mintPrice * BigInt(quantity); // ✅ FIXED: Explicit BigInt
+
+      console.log(`💰 Minting ${quantity} NFT(s) for ${formatEther(totalCost)} ETH`);
+
+      const hash = await writeContract({
+        address: UMOMomentsContract.address,
+        abi: UMOMomentsContract.abi,
+        functionName: 'mintMoment',
+        args: [moment._id, BigInt(quantity)], // ✅ FIXED: Explicit BigInt
+        value: totalCost
+      });
+
+      setTxHash(hash);
+      setCurrentStep('confirming');
+      console.log('✅ Mint transaction submitted:', hash);
+
+    } catch (error) {
+      console.error('❌ Error minting NFT:', error);
+      setCreationError(error.message || 'Failed to mint NFT');
+      setCurrentStep('ready');
+      setIsMinting(false);
+    }
+  };
+
+  // ✅ Function to view on OpenSea
+  const handleViewOnOpenSea = () => {
+    if (moment.nftContractAddress) {
+      const openSeaUrl = `https://testnets.opensea.io/assets/base-sepolia/${moment.nftContractAddress}/${moment._id}`;
+      window.open(openSeaUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      alert('Contract address not available yet. Please wait a moment and try again.');
+    }
+  };
+
+  // ✅ Function to handle management actions
+  const handleManageEdition = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/nft-analytics`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const analytics = await response.json();
+        const analyticsText = `
+NFT Edition Analytics:
+• Contract: ${moment.nftContractAddress?.slice(0, 10)}...
+• Total Minted: ${analytics.totalMints}
+• Your Revenue Share: 35%
+• Revenue Earned: ~${(analytics.totalMints * 0.35 * 0.001).toFixed(4)} ETH
+• Status: ${analytics.timeRemaining.isActive ? 'Active' : 'Ended'}
+• Days Remaining: ${analytics.timeRemaining.days}
+
+View full analytics and manage your edition in the dashboard.
+        `;
+        alert(analyticsText);
+      } else {
+        alert('Failed to load analytics. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error loading analytics:', error);
+      alert('Failed to load analytics. Please check your connection.');
+    }
+  };
+
+  // Simple wallet connect button
   const SimpleWalletConnect = () => {
     const handleConnect = async () => {
       if (connectors.length > 0) {
@@ -109,7 +407,39 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
       </button>
     );
   };
-
+const testSimpleWrite = async () => {
+  try {
+    console.log('🧪 Testing simple contract write...');
+    console.log('📋 Your address:', address);
+    console.log('📋 Chain ID:', chainId);
+    console.log('📋 Contract address:', UMOMomentsContract.address);
+    
+    // Check if we can read the current token ID (we know this works)
+    console.log('📋 Current token ID:', currentTokenId?.toString());
+    
+    // Try to check if you're the owner by looking at the contract
+    // Since we can't easily read the owner function, let's just try the actual write
+    console.log('🧪 Testing if createMomentEdition function exists...');
+    
+    const createFunction = UMOMomentsContract.abi.find(
+      func => func.name === 'createMomentEdition' && func.type === 'function'
+    );
+    
+    if (createFunction) {
+      console.log('✅ createMomentEdition function found in ABI');
+      console.log('📋 Function inputs:', createFunction.inputs);
+      
+      // Check if you're likely the owner by trying to call a simple owner function
+      console.log('🧪 Contract deployed and accessible. Ready to test actual write.');
+      console.log('📋 If the next Create NFT Edition fails, you might not be the contract owner.');
+    } else {
+      console.error('❌ createMomentEdition function not found in ABI');
+    }
+    
+  } catch (error) {
+    console.error('❌ Test failed:', error);
+  }
+};
   // ===================================================================
   // STEP 1: OWNER + NO NFT CREATED = Show "Create NFT Edition"
   // ===================================================================
@@ -128,6 +458,22 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
             display: 'flex',
             alignItems: 'center'
           }}>
+            <button
+        onClick={testSimpleWrite}
+        style={{
+          width: '100%',
+          background: 'rgba(255,255,255,0.2)',
+          border: '1px solid rgba(255,255,255,0.3)',
+          color: 'white',
+          padding: '8px',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontSize: '12px',
+          marginBottom: '10px'
+        }}
+      >
+        🧪 Test Contract Owner
+      </button>
             <Plus style={{ width: '20px', height: '20px', marginRight: '8px' }} />
             Create NFT Edition
             <span style={{
@@ -154,45 +500,38 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
           </div>
         ) : (
           <div>
-            {/* ✅ NEW: Metadata Preview Section */}
-            <div style={{
-              background: 'rgba(255,255,255,0.1)',
-              padding: '15px',
-              borderRadius: '8px',
-              marginBottom: '15px'
-            }}>
-              <h4 style={{ margin: '0 0 10px 0', fontSize: '14px' }}>📋 NFT Metadata Preview</h4>
-              <div style={{ fontSize: '12px', lineHeight: '1.4', color: 'rgba(255,255,255,0.9)' }}>
-                <div><strong>Song:</strong> {moment.songName}</div>
-                <div><strong>Venue:</strong> {moment.venueName}, {moment.venueCity}</div>
-                <div><strong>Date:</strong> {moment.performanceDate}</div>
-                <div><strong>Rarity:</strong> {moment.rarityTier || 'common'} ({moment.rarityScore || 0}/7)</div>
-                {moment.setName && <div><strong>Set:</strong> {moment.setName}</div>}
-                {moment.songPosition && <div><strong>Position:</strong> #{moment.songPosition}</div>}
-                {moment.momentDescription && <div><strong>Description:</strong> {moment.momentDescription}</div>}
-                {moment.emotionalTags && <div><strong>Tags:</strong> {moment.emotionalTags}</div>}
-                {moment.instruments && <div><strong>Instruments:</strong> {moment.instruments}</div>}
-                {moment.specialOccasion && <div><strong>Occasion:</strong> {moment.specialOccasion}</div>}
-                <div><strong>Quality:</strong> Audio: {moment.audioQuality || 'good'}, Video: {moment.videoQuality || 'good'}</div>
-                <div><strong>File Type:</strong> {moment.mediaType || 'unknown'} ({moment.fileName})</div>
-                {moment.isFirstMomentForSong && <div><strong>🏆 First Moment:</strong> Yes</div>}
+            {/* Progress indicator */}
+            {currentStep !== 'ready' && (
+              <div style={{
+                background: 'rgba(255,255,255,0.1)',
+                padding: '15px',
+                borderRadius: '8px',
+                marginBottom: '15px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '14px', marginBottom: '10px' }}>
+                  {currentStep === 'creating' && '📝 Preparing transaction...'}
+                  {currentStep === 'confirming' && '⏳ Waiting for confirmation...'}
+                  {currentStep === 'success' && '✅ NFT Edition Created!'}
+                </div>
+                {txHash && (
+                  <a
+                    href={`https://sepolia.basescan.org/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: 'rgba(255,255,255,0.8)',
+                      fontSize: '12px',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    View Transaction →
+                  </a>
+                )}
               </div>
-            </div>
+            )}
 
-            <div style={{
-              background: 'rgba(255,255,255,0.1)',
-              padding: '15px',
-              borderRadius: '8px',
-              marginBottom: '15px'
-            }}>
-              <h4 style={{ margin: '0 0 10px 0', fontSize: '14px' }}>💰 Revenue Split</h4>
-              <div style={{ fontSize: '13px', lineHeight: '1.4' }}>
-                <div>🎵 UMO (Artist): 55%</div>
-                <div>📤 You (Uploader): 35%</div>
-                <div>⚙️ Platform: 10%</div>
-              </div>
-            </div>
-
+            {/* Edition Settings */}
             <div style={{
               background: 'rgba(255,255,255,0.1)',
               padding: '15px',
@@ -201,12 +540,11 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
             }}>
               <h4 style={{ margin: '0 0 10px 0', fontSize: '14px' }}>⚙️ Edition Settings</h4>
               <div style={{ fontSize: '13px', lineHeight: '1.4', marginBottom: '10px' }}>
-                <div>💵 Price: ~$1 USD (in ETH)</div>
+                <div>💵 Price: ~$1 USD (0.001 ETH)</div>
                 <div>📊 Supply: Unlimited</div>
                 <div>🎯 Rarity: {moment.rarityScore || 0}/7</div>
               </div>
               
-              {/* ✅ NEW: Mint Duration Selector */}
               <div style={{ marginTop: '10px' }}>
                 <label style={{ 
                   display: 'block', 
@@ -219,6 +557,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
                 <select
                   value={mintDuration}
                   onChange={(e) => setMintDuration(parseInt(e.target.value))}
+                  disabled={currentStep !== 'ready'}
                   style={{
                     background: 'rgba(255,255,255,0.2)',
                     border: '1px solid rgba(255,255,255,0.3)',
@@ -235,13 +574,6 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
                   <option value={14} style={{ background: '#333', color: 'white' }}>14 Days</option>
                   <option value={30} style={{ background: '#333', color: 'white' }}>30 Days</option>
                 </select>
-                <p style={{ 
-                  margin: '5px 0 0 0', 
-                  fontSize: '11px', 
-                  opacity: '0.8' 
-                }}>
-                  How long collectors can mint this NFT
-                </p>
               </div>
             </div>
 
@@ -261,24 +593,24 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
 
             <button
               onClick={handleCreateNFTEdition}
-              disabled={isCreatingNFT}
+              disabled={isCreatingNFT || isConfirming || currentStep !== 'ready'}
               style={{
                 width: '100%',
-                background: isCreatingNFT ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)',
+                background: (isCreatingNFT || isConfirming) ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)',
                 border: '1px solid rgba(255,255,255,0.3)',
                 color: 'white',
                 padding: '12px',
                 borderRadius: '8px',
-                cursor: isCreatingNFT ? 'not-allowed' : 'pointer',
+                cursor: (isCreatingNFT || isConfirming) ? 'not-allowed' : 'pointer',
                 fontSize: '14px',
                 fontWeight: '600',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                opacity: isCreatingNFT ? 0.7 : 1
+                opacity: (isCreatingNFT || isConfirming) ? 0.7 : 1
               }}
             >
-              {isCreatingNFT ? (
+              {isCreatingNFT || isConfirming ? (
                 <>
                   <div style={{
                     width: '16px',
@@ -289,7 +621,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
                     animation: 'spin 1s linear infinite',
                     marginRight: '8px'
                   }} />
-                  Creating NFT Edition...
+                  {isCreatingNFT ? 'Creating NFT Edition...' : 'Confirming Transaction...'}
                 </>
               ) : (
                 <>
@@ -298,25 +630,8 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
                 </>
               )}
             </button>
-            
-            {isCreatingNFT && (
-              <p style={{ margin: '10px 0 0 0', fontSize: '12px', textAlign: 'center', opacity: '0.8' }}>
-                This will create a {mintDuration}-day minting window for collectors
-              </p>
-            )}
           </div>
         )}
-
-        {/* Debug info for owners */}
-        <div style={{
-          marginTop: '15px',
-          padding: '10px',
-          background: 'rgba(0,0,0,0.2)',
-          borderRadius: '6px',
-          fontSize: '12px'
-        }}>
-          🔧 <strong>Step 1:</strong> Owner can create NFT | Wallet {isConnected ? '✅' : '❌'} | NFT Edition ❌
-        </div>
         
         <style jsx>{`
           @keyframes spin {
@@ -372,14 +687,15 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
           <h4 style={{ margin: '0 0 10px 0', fontSize: '14px' }}>📊 Edition Stats</h4>
           <div style={{ fontSize: '13px', lineHeight: '1.4' }}>
             <div>💎 Total Minted: {moment.nftMintedCount || 0}</div>
-            <div>💰 Your Revenue: ~${((moment.nftMintedCount || 0) * 0.35).toFixed(2)}</div>
-            <div>⏰ Time Remaining: {moment.nftMintEndTime ? 'Active' : 'Ended'}</div>
+            <div>💰 Your Revenue: ~${((moment.nftMintedCount || 0) * 0.35 * 0.001 * 3500).toFixed(2)} USD</div>
+            <div>⏰ Status: {moment.nftMintEndTime && new Date() < new Date(moment.nftMintEndTime) ? 'Active' : 'Ended'}</div>
             <div>🔗 Contract: {moment.nftContractAddress?.slice(0, 8)}...</div>
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
+            onClick={handleViewOnOpenSea}
             style={{
               flex: 1,
               background: 'rgba(255,255,255,0.2)',
@@ -389,12 +705,17 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
               borderRadius: '8px',
               cursor: 'pointer',
               fontSize: '13px',
-              fontWeight: '600'
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
+            <ExternalLink style={{ width: '14px', height: '14px', marginRight: '6px' }} />
             View on OpenSea
           </button>
           <button
+            onClick={handleManageEdition}
             style={{
               flex: 1,
               background: 'rgba(255,255,255,0.2)',
@@ -407,7 +728,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
               fontWeight: '600'
             }}
           >
-            Manage Edition
+            View Analytics
           </button>
         </div>
       </div>
@@ -476,6 +797,37 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
           </div>
         ) : (
           <div>
+            {/* Minting progress */}
+            {currentStep !== 'ready' && (
+              <div style={{
+                background: 'rgba(255,255,255,0.1)',
+                padding: '15px',
+                borderRadius: '8px',
+                marginBottom: '15px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '14px', marginBottom: '10px' }}>
+                  {currentStep === 'creating' && '💰 Preparing mint...'}
+                  {currentStep === 'confirming' && '⏳ Confirming mint...'}
+                  {currentStep === 'success' && '🎉 NFT Minted Successfully!'}
+                </div>
+                {txHash && (
+                  <a
+                    href={`https://sepolia.basescan.org/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: 'rgba(255,255,255,0.8)',
+                      fontSize: '12px',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    View Transaction →
+                  </a>
+                )}
+              </div>
+            )}
+
             <div style={{
               background: 'rgba(255,255,255,0.1)',
               padding: '15px',
@@ -494,30 +846,72 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
               </div>
             </div>
 
+            {creationError && (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                color: '#dc2626',
+                padding: '10px',
+                borderRadius: '8px',
+                marginBottom: '15px',
+                fontSize: '13px'
+              }}>
+                ❌ {creationError}
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-              <button style={{
-                flex: 2,
-                background: '#8b5cf6',
-                color: 'white',
-                border: 'none',
-                padding: '12px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600'
-              }}>
-                Mint 1 NFT
+              <button 
+                onClick={() => handleMintNFT(1)}
+                disabled={isMinting || isConfirming || currentStep !== 'ready'}
+                style={{
+                  flex: 2,
+                  background: (isMinting || isConfirming) ? '#6b5b95' : '#8b5cf6',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  cursor: (isMinting || isConfirming) ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  opacity: (isMinting || isConfirming) ? 0.7 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {isMinting || isConfirming ? (
+                  <>
+                    <div style={{
+                      width: '14px',
+                      height: '14px',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      borderTop: '2px solid white',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      marginRight: '6px'
+                    }} />
+                    Minting...
+                  </>
+                ) : (
+                  'Mint 1 NFT'
+                )}
               </button>
-              <button style={{
-                flex: 1,
-                background: 'rgba(255,255,255,0.2)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                color: 'white',
-                padding: '12px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}>
+              <button 
+                onClick={() => handleMintNFT(5)}
+                disabled={isMinting || isConfirming || currentStep !== 'ready'}
+                style={{
+                  flex: 1,
+                  background: 'rgba(255,255,255,0.2)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  color: 'white',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  cursor: (isMinting || isConfirming) ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  opacity: (isMinting || isConfirming) ? 0.7 : 1
+                }}
+              >
                 Mint 5
               </button>
             </div>

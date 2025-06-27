@@ -10,11 +10,24 @@ import PerformanceDetail from './components/Performance/PerformanceDetail';
 import LoginModal from './components/Auth/LoginModal';
 import CreditsFooter from './components/UI/CreditsFooter';
 
-// ✅ FIXED: Add missing imports for Web3
-import { WagmiProvider } from 'wagmi';
+import { WagmiProvider, createConfig, http } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { wagmiConfig } from './config/web3Config';
+import { baseSepolia, base } from 'wagmi/chains';
+import { metaMask, coinbaseWallet } from 'wagmi/connectors';
 
+const wagmiConfig = createConfig({
+  chains: [baseSepolia, base],
+  connectors: [
+    metaMask(),
+    coinbaseWallet({
+      appName: 'UMO Repository',
+    }),
+  ],
+  transports: {
+    [baseSepolia.id]: http(),
+    [base.id]: http(),
+  },
+});
 // ✅ FIXED: Create QueryClient for TanStack React Query
 const queryClient = new QueryClient();
 

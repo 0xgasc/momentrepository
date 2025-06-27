@@ -258,6 +258,292 @@ app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) =
   }
 });
 
+// Upload metadata to Irys/Arweave
+app.post('/upload-metadata', authenticateToken, async (req, res) => {
+  try {
+    const metadata = req.body;
+    console.log('📄 Uploading NFT metadata to Irys...');
+    
+    // Create metadata buffer
+    const metadataBuffer = Buffer.from(JSON.stringify(metadata, null, 2));
+    
+    // Upload to Irys (reuse your existing uploader)
+    const { uploadFileToIrys } = require('./utils/irysUploader');
+    const result = await uploadFileToIrys(metadataBuffer, `metadata-${Date.now()}.json`);
+    
+    console.log('✅ Metadata uploaded to:', result.url);
+    
+    res.json({
+      success: true,
+      metadataUri: result.url,
+      arweaveId: result.id
+    });
+    
+  } catch (error) {
+    console.error('❌ Metadata upload error:', error);
+    res.status(500).json({
+      error: 'Failed to upload metadata',
+      details: error.message
+    });
+  }
+});
+
+// Create 0xSplits contract (mock for now - replace with real implementation)
+app.post('/create-splits', authenticateToken, async (req, res) => {
+  try {
+    const { recipients } = req.body;
+    console.log('💰 Creating splits contract for recipients:', recipients);
+    
+    // TODO: Replace with real 0xSplits integration
+    // For now, return a mock address
+    const mockSplitsAddress = `0x${Math.random().toString(16).substr(2, 40)}`;
+    
+    // In production, you would:
+    // 1. Call 0xSplits createSplit function
+    // 2. Wait for transaction confirmation
+    // 3. Return the real splits contract address
+    
+    console.log('✅ Mock splits contract created:', mockSplitsAddress);
+    
+    res.json({
+      success: true,
+      splitsAddress: mockSplitsAddress,
+      recipients: recipients
+    });
+    
+  } catch (error) {
+    console.error('❌ Splits creation error:', error);
+    res.status(500).json({
+      error: 'Failed to create splits contract',
+      details: error.message
+    });
+  }
+});
+
+// Enhanced NFT status endpoint with contract validation
+app.get('/moments/:momentId/nft-status-enhanced', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    
+    const moment = await Moment.findById(momentId)
+      .populate('user', 'displayName email');
+
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    const hasNFTEdition = !!(moment.nftContractAddress && moment.nftTokenId);
+    const isMintingActive = hasNFTEdition && 
+                           moment.nftMintEndTime && 
+                           new Date() < new Date(moment.nftMintEndTime);
+
+    // Calculate time remaining
+    let timeRemaining = null;
+    if (hasNFTEdition && moment.nftMintEndTime) {
+      const now = new Date();
+      const endTime = new Date(moment.nftMintEndTime);
+      const msRemaining = Math.max(0, endTime - now);
+      const daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+      
+      timeRemaining = {
+        milliseconds: msRemaining,
+        days: daysRemaining,
+        isActive: msRemaining > 0
+      };
+    }
+
+    // Calculate revenue info
+    let revenueInfo = null;
+    if (hasNFTEdition) {
+      const totalMints = moment.nftMintedCount || 0;
+      const mintPriceEth = 0.001; // Should read from contract
+      const totalRevenue = totalMints * mintPriceEth;
+      const uploaderRevenue = totalRevenue * 0.35; // 35% share
+      
+      revenueInfo = {
+        totalMints,
+        totalRevenueEth: totalRevenue,
+        uploaderRevenueEth: uploaderRevenue,
+        totalRevenueUsd: totalRevenue * 3500, // Mock ETH price
+        uploaderRevenueUsd: uploaderRevenue * 3500
+      };
+    }
+
+    res.json({
+      hasNFTEdition,
+      isMintingActive,
+      timeRemaining,
+      revenueInfo,
+      nftData: hasNFTEdition ? {
+        contractAddress: moment.nftContractAddress,
+        tokenId: moment.nftTokenId,
+        mintedCount: moment.nftMintedCount || 0,
+        mintPrice: moment.nftMintPrice,
+        mintStartTime: moment.nftMintStartTime,
+        mintEndTime: moment.nftMintEndTime,
+        uploader: {
+          displayName: moment.user.displayName,
+          email: moment.user.email
+        },
+        metadata: {
+          song: moment.songName,
+          venue: `${moment.venueName}, ${moment.venueCity}`,
+          date: moment.performanceDate,
+          rarity: moment.rarityTier,
+          score: moment.rarityScore
+        }
+      } : null
+    });
+
+  } catch (err) {
+    console.error('❌ Enhanced NFT status error:', err);
+    res.status(500).json({ 
+      error: 'Failed to get NFT status', 
+      details: err.message 
+    });
+  }
+});
+
+// Verify NFT contract state (check if edition actually exists on blockchain)
+app.get('/moments/:momentId/verify-contract', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    
+    const moment = await Moment.findById(momentId);
+    if (!moment || !moment.nftContractAddress) {
+      return res.status(404).json({ error: 'NFT edition not found' });
+    }
+
+    // TODO: Add Web3 integration to verify contract state
+    // For now, return mock verification
+    const mockVerification = {
+      contractExists: true,
+      editionExists: true,
+      mintingActive: moment.nftMintEndTime && new Date() < new Date(moment.nftMintEndTime),
+      currentSupply: moment.nftMintedCount || 0,
+      lastChecked: new Date().toISOString()
+    };
+
+    res.json({
+      verified: true,
+      contractData: mockVerification,
+      moment: {
+        id: moment._id,
+        contractAddress: moment.nftContractAddress,
+        tokenId: moment.nftTokenId
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Contract verification error:', error);
+    res.status(500).json({
+      error: 'Failed to verify contract',
+      details: error.message
+    });
+  }
+});
+
+// Batch update NFT mint counts (for syncing with blockchain)
+app.post('/admin/sync-nft-counts', async (req, res) => {
+  try {
+    const { updates } = req.body; // Array of { momentId, newCount }
+    
+    if (!Array.isArray(updates)) {
+      return res.status(400).json({ error: 'Updates must be an array' });
+    }
+
+    const results = [];
+    
+    for (const update of updates) {
+      try {
+        const moment = await Moment.findByIdAndUpdate(
+          update.momentId,
+          { 
+            $set: { 
+              nftMintedCount: update.newCount,
+              updatedAt: new Date()
+            }
+          },
+          { new: true }
+        );
+        
+        if (moment) {
+          results.push({
+            momentId: update.momentId,
+            success: true,
+            newCount: update.newCount
+          });
+        } else {
+          results.push({
+            momentId: update.momentId,
+            success: false,
+            error: 'Moment not found'
+          });
+        }
+      } catch (err) {
+        results.push({
+          momentId: update.momentId,
+          success: false,
+          error: err.message
+        });
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    
+    res.json({
+      success: true,
+      updated: successCount,
+      total: updates.length,
+      results
+    });
+
+  } catch (error) {
+    console.error('❌ Batch sync error:', error);
+    res.status(500).json({
+      error: 'Failed to sync NFT counts',
+      details: error.message
+    });
+  }
+});
+
+// Get OpenSea collection info
+app.get('/moments/:momentId/opensea-info', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    
+    const moment = await Moment.findById(momentId);
+    if (!moment || !moment.nftContractAddress) {
+      return res.status(404).json({ error: 'NFT not found' });
+    }
+
+    // Determine correct OpenSea URL based on network
+    const isMainnet = moment.nftContractAddress.startsWith('0x'); // Simple check
+    const baseUrl = isMainnet 
+      ? 'https://opensea.io/assets/ethereum'
+      : 'https://testnets.opensea.io/assets/base-sepolia';
+    
+    const openSeaUrl = `${baseUrl}/${moment.nftContractAddress}/${moment.nftTokenId || moment._id}`;
+    
+    res.json({
+      openSeaUrl,
+      contractAddress: moment.nftContractAddress,
+      tokenId: moment.nftTokenId || moment._id,
+      network: isMainnet ? 'mainnet' : 'testnet',
+      collectionSlug: 'umo-moments' // You'd set this when creating the collection
+    });
+
+  } catch (error) {
+    console.error('❌ OpenSea info error:', error);
+    res.status(500).json({
+      error: 'Failed to get OpenSea info',
+      details: error.message
+    });
+  }
+});
+
+console.log('🎯 Enhanced NFT endpoints added to server');
+
 // Get NFT edition analytics for owners
 app.get('/moments/:momentId/nft-analytics', authenticateToken, async (req, res) => {
   try {
