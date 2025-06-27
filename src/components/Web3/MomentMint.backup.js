@@ -1,27 +1,59 @@
-// src/components/Web3/MomentMint.js - WITH BACKEND INTEGRATION
-import React, { useState } from 'react';
-import { useAccount, useConnect } from 'wagmi';
+// src/components/Web3/MomentMint.js - WITH REAL BLOCKCHAIN INTEGRATION
+import React, { useState, useEffect } from 'react';
+import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useReadContract, readContract } from 'wagmi';
+import { parseEther, formatEther } from 'viem';
 import { Zap, AlertCircle, Plus, ExternalLink, CheckCircle } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
+import { CONTRACTS } from '../../config/web3Config';
 
 const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }) => {
   const [showNFTCreator, setShowNFTCreator] = useState(false);
   const [isCreatingNFT, setIsCreatingNFT] = useState(false);
   const [creationError, setCreationError] = useState('');
   const [mintDuration, setMintDuration] = useState(7); // Default 7 days
+  const [txHash, setTxHash] = useState(null);
   
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
+  const { writeContract } = useWriteContract();
+  
+  // Wait for transaction confirmation
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
+
+  // Handle transaction confirmation
+  useEffect(() => {
+    if (isConfirmed && txHash) {
+      console.log('✅ Transaction confirmed:', txHash);
+      alert('Transaction confirmed! Your NFT edition has been created successfully.');
+      setTxHash(null);
+      // Refresh the page to show updated state
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    }
+  }, [isConfirmed, txHash]);
+  
+  // Read contract data for existing NFT editions
+  const { data: editionData } = useReadContract({
+    address: CONTRACTS.UMO_MOMENTS.address,
+    abi: CONTRACTS.UMO_MOMENTS.abi,
+    functionName: 'getEdition',
+    args: [moment._id],
+    enabled: !!moment._id
+  });
   
   console.log('🎯 MomentMint rendering with workflow state:', {
     isOwner,
     hasNFTEdition,
     isConnected,
     userDisplayName: user?.displayName,
-    momentUploader: moment?.user?.displayName
+    momentUploader: moment?.user?.displayName,
+    editionData
   });
 
-  // ✅ NEW: Function to create NFT edition via backend
+  // ✅ REAL Function to create NFT edition on blockchain
   const handleCreateNFTEdition = async () => {
     if (!isConnected) {
       alert('Please connect your wallet first');
@@ -37,20 +69,125 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
         throw new Error('Please log in to create NFT editions');
       }
 
-      // Mock smart contract data for now (replace with real blockchain calls later)
-      const nftEditionData = {
-        nftContractAddress: process.env.REACT_APP_UMO_MOMENTS_CONTRACT, // Your deployed contract
-        nftTokenId: `${moment._id}-${Date.now()}`, // Unique token ID
-        nftMetadataHash: `ipfs://${moment._id}-metadata`, // Placeholder IPFS hash
-        splitsContract: `0x${Math.random().toString(16).substr(2, 40)}`, // Mock splits contract
-        mintPrice: '1000000000000000', // 0.001 ETH in wei (≈$1)
-        mintDuration: mintDuration * 24 * 60 * 60, // Convert days to seconds
-        txHash: `0x${Math.random().toString(16).substr(2, 64)}` // Mock transaction hash
+      console.log('🚀 Creating NFT edition on blockchain for moment:', moment._id);
+
+      // Step 1: Upload metadata to Irys/Arweave
+      const metadata = {
+        name: `UMO Moment: ${moment.songName}`,
+        description: `A moment from UMO's performance at ${moment.venueName}, ${moment.venueCity} on ${moment.performanceDate}`,
+        image: moment.mediaUrl,
+        external_url: `${window.location.origin}/moments/${moment._id}`,
+        attributes: [
+          { trait_type: 'Song', value: moment.songName },
+          { trait_type: 'Venue', value: `${moment.venueName}, ${moment.venueCity}` },
+          { trait_type: 'Date', value: moment.performanceDate },
+          { trait_type: 'Rarity', value: moment.rarityTier || 'common', max_value: 7 },
+          { trait_type: 'Rarity Score', value: moment.rarityScore || 0, max_value: 7 },
+          { trait_type: 'Uploader', value: moment.user?.displayName || 'Unknown' },
+          { trait_type: 'File Type', value: moment.mediaType || 'unknown' },
+          { trait_type: 'First Moment for Song', value: moment.isFirstMomentForSong ? 'Yes' : 'No' }
+        ].filter(attr => attr.value),
+        properties: {
+          files: [{ uri: moment.mediaUrl, type: moment.mediaType }],
+          category: moment.mediaType?.includes('video') ? 'video' : 'audio'
+        }
       };
 
-      console.log('🚀 Creating NFT edition for moment:', moment._id);
+      // Upload metadata to Irys (using your existing uploader)
+      const metadataResponse = await fetch(`${API_BASE_URL}/upload-metadata`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(metadata)
+      });
 
-      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/create-nft-edition`, {
+      if (!metadataResponse.ok) {
+        throw new Error('Failed to upload metadata');
+      }
+
+      const { metadataUri } = await metadataResponse.json();
+      console.log('📄 Metadata uploaded:', metadataUri);
+
+      // Step 2: Create 0xSplits contract for revenue distribution
+      const splitsData = {
+        recipients: [
+          {
+            address: process.env.REACT_APP_MOCK_UMO_ADDRESS, // UMO (55%)
+            percentage: 55
+          },
+          {
+            address: address, // Uploader (35%)
+            percentage: 35
+          },
+          {
+            address: process.env.REACT_APP_MOCK_PLATFORM_ADDRESS, // Platform (10%)
+            percentage: 10
+          }
+        ]
+      };
+
+      const splitsResponse = await fetch(`${API_BASE_URL}/create-splits`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(splitsData)
+      });
+
+      if (!splitsResponse.ok) {
+        throw new Error('Failed to create splits contract');
+      }
+
+      const { splitsAddress } = await splitsResponse.json();
+      console.log('💰 Splits contract created:', splitsAddress);
+
+      // Step 3: Create NFT edition on smart contract
+      const mintPriceWei = parseEther('0.001'); // ~$1 USD equivalent
+      const mintDurationSeconds = mintDuration * 24 * 60 * 60; // Convert days to seconds
+      const rarityScore = Math.min(7, Math.max(1, moment.rarityScore || 1)); // Ensure 1-7 range
+
+      console.log('📝 Creating edition on contract with params:', {
+        momentId: moment._id,
+        metadataUri,
+        mintPrice: formatEther(mintPriceWei),
+        duration: mintDurationSeconds,
+        splitsAddress,
+        rarity: rarityScore
+      });
+
+      const hash = await writeContract({
+        address: CONTRACTS.UMO_MOMENTS.address,
+        abi: CONTRACTS.UMO_MOMENTS.abi,
+        functionName: 'createPublicMomentEdition',
+        args: [
+          moment._id,
+          metadataUri,
+          mintPriceWei,
+          mintDurationSeconds,
+          0, // Unlimited supply
+          splitsAddress,
+          rarityScore
+        ],
+      });
+
+      setTxHash(hash);
+      console.log('✅ NFT edition creation transaction submitted:', hash);
+
+      // Step 4: Update backend with blockchain data
+      const nftEditionData = {
+        nftContractAddress: CONTRACTS.UMO_MOMENTS.address,
+        nftTokenId: moment._id, // Use moment ID as token identifier
+        nftMetadataHash: metadataUri,
+        splitsContract: splitsAddress,
+        mintPrice: mintPriceWei.toString(),
+        mintDuration: mintDurationSeconds,
+        txHash: hash
+      };
+
+      const backendResponse = await fetch(`${API_BASE_URL}/moments/${moment._id}/create-nft-edition`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,27 +196,136 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
         body: JSON.stringify(nftEditionData)
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create NFT edition');
+      if (!backendResponse.ok) {
+        const errorData = await backendResponse.json();
+        throw new Error(errorData.error || 'Failed to update backend');
       }
 
-      const result = await response.json();
-      console.log('✅ NFT edition created successfully:', result);
-
-      // Show success message briefly
-      setCreationError(''); // Clear any previous errors
-      
-      // Refresh the page to show the updated moment with NFT edition
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      console.log('✅ Backend updated successfully');
 
     } catch (error) {
       console.error('❌ Error creating NFT edition:', error);
       setCreationError(error.message);
     } finally {
       setIsCreatingNFT(false);
+    }
+  };
+
+  // ✅ REAL Function to mint NFT on blockchain
+  const handleMintNFT = async (quantity = 1) => {
+    if (!isConnected) {
+      alert('Please connect your wallet first');
+      return;
+    }
+
+    setIsCreatingNFT(true);
+    setCreationError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Please log in to mint NFTs');
+      }
+
+      console.log(`🎯 Minting ${quantity} NFT(s) on blockchain for moment:`, moment._id);
+
+      // Get edition data to calculate price
+      const edition = await readContract({
+        address: CONTRACTS.UMO_MOMENTS.address,
+        abi: CONTRACTS.UMO_MOMENTS.abi,
+        functionName: 'getEdition',
+        args: [moment._id]
+      });
+
+      if (!edition || !edition.isActive) {
+        throw new Error('NFT edition is not active');
+      }
+
+      const totalCost = edition.mintPrice * BigInt(quantity);
+      console.log(`💰 Minting ${quantity} NFT(s) for ${formatEther(totalCost)} ETH`);
+
+      // Mint on blockchain
+      const hash = await writeContract({
+        address: CONTRACTS.UMO_MOMENTS.address,
+        abi: CONTRACTS.UMO_MOMENTS.abi,
+        functionName: 'mintMoment',
+        args: [moment._id, quantity],
+        value: totalCost
+      });
+
+      setTxHash(hash);
+      console.log('✅ Mint transaction submitted:', hash);
+
+      // Record mint in backend after blockchain confirmation
+      const mintData = {
+        quantity: quantity,
+        minterAddress: address,
+        txHash: hash
+      };
+
+      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/record-mint`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(mintData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to record mint');
+      }
+
+      const result = await response.json();
+      console.log('✅ Mint recorded in backend:', result);
+
+    } catch (error) {
+      console.error('❌ Error minting NFT:', error);
+      setCreationError(error.message);
+    } finally {
+      setIsCreatingNFT(false);
+    }
+  };
+
+  // ✅ Function to handle management actions
+  const handleManageEdition = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/nft-analytics`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const analytics = await response.json();
+        const analyticsText = `
+NFT Edition Analytics:
+• Contract: ${moment.nftContractAddress?.slice(0, 10)}...
+• Total Minted: ${analytics.totalMints}
+• Your Revenue: ~$${parseFloat(analytics.uploaderRevenue) / 1e18 * 3500} USD
+• Status: ${analytics.timeRemaining.isActive ? 'Active' : 'Ended'}
+• Days Remaining: ${analytics.timeRemaining.days}
+        `;
+        alert(analyticsText);
+      } else {
+        alert('Failed to load analytics');
+      }
+    } catch (error) {
+      console.error('Error loading analytics:', error);
+      alert('Failed to load analytics');
+    }
+  };
+
+  // ✅ Function to open on OpenSea (fixed URL format)
+  const handleViewOnOpenSea = () => {
+    if (moment.nftContractAddress && moment.nftTokenId) {
+      // Correct OpenSea URL format for Base Sepolia testnet
+      const openSeaUrl = `https://testnets.opensea.io/assets/base-sepolia/${moment.nftContractAddress}/${moment.nftTokenId}`;
+      window.open(openSeaUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      alert('NFT not fully deployed yet. Please wait a few minutes and try again.');
     }
   };
 
@@ -154,7 +400,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
           </div>
         ) : (
           <div>
-            {/* ✅ NEW: Metadata Preview Section */}
+            {/* ✅ Metadata Preview Section */}
             <div style={{
               background: 'rgba(255,255,255,0.1)',
               padding: '15px',
@@ -206,7 +452,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
                 <div>🎯 Rarity: {moment.rarityScore || 0}/7</div>
               </div>
               
-              {/* ✅ NEW: Mint Duration Selector */}
+              {/* ✅ Mint Duration Selector */}
               <div style={{ marginTop: '10px' }}>
                 <label style={{ 
                   display: 'block', 
@@ -380,6 +626,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
+            onClick={handleViewOnOpenSea}
             style={{
               flex: 1,
               background: 'rgba(255,255,255,0.2)',
@@ -395,6 +642,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
             View on OpenSea
           </button>
           <button
+            onClick={handleManageEdition}
             style={{
               flex: 1,
               background: 'rgba(255,255,255,0.2)',
@@ -494,30 +742,72 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
               </div>
             </div>
 
+            {creationError && (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                color: '#dc2626',
+                padding: '10px',
+                borderRadius: '8px',
+                marginBottom: '15px',
+                fontSize: '13px'
+              }}>
+                ❌ {creationError}
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-              <button style={{
-                flex: 2,
-                background: '#8b5cf6',
-                color: 'white',
-                border: 'none',
-                padding: '12px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600'
-              }}>
-                Mint 1 NFT
+              <button 
+                onClick={() => handleMintNFT(1)}
+                disabled={isCreatingNFT}
+                style={{
+                  flex: 2,
+                  background: isCreatingNFT ? '#6b5b95' : '#8b5cf6',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  cursor: isCreatingNFT ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  opacity: isCreatingNFT ? 0.7 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                {isCreatingNFT ? (
+                  <>
+                    <div style={{
+                      width: '14px',
+                      height: '14px',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      borderTop: '2px solid white',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      marginRight: '6px'
+                    }} />
+                    Minting...
+                  </>
+                ) : (
+                  'Mint 1 NFT'
+                )}
               </button>
-              <button style={{
-                flex: 1,
-                background: 'rgba(255,255,255,0.2)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                color: 'white',
-                padding: '12px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}>
+              <button 
+                onClick={() => handleMintNFT(5)}
+                disabled={isCreatingNFT}
+                style={{
+                  flex: 1,
+                  background: 'rgba(255,255,255,0.2)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  color: 'white',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  cursor: isCreatingNFT ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  opacity: isCreatingNFT ? 0.7 : 1
+                }}
+              >
                 Mint 5
               </button>
             </div>
