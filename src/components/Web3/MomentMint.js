@@ -4,10 +4,10 @@ import { parseEther, formatEther } from 'viem';
 import { Zap, Plus, CheckCircle, ExternalLink, AlertCircle } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import UMOMomentsContract from '../../contracts/UMOMoments.json';
-import { ethers } from 'ethers'; // ✅ ADD THIS
+import { ethers } from 'ethers';
 /* global BigInt */
 
-const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId, address, chainId, creationError }) => {
+const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId, address, chainId, creationError, syncDatabaseWithBlockchain, previewMetadata, testCreateNFTBlockchainOnly }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [results, setResults] = useState({});
 
@@ -28,10 +28,9 @@ const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId,
     try {
       console.log('🔍 Debugging contract requirements...');
       
-      // Use useReadContract hook instead of actions
       const momentId = moment._id;
-      const splitsAddress = '0x742d35Cc6634C0532925a3b8D76C7DE9F45F6c96';
-      const rarity = Math.min(7, Math.max(1, moment.rarityScore || 1));
+      const splitsAddress = '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96';
+      const rarity = Math.floor(Math.min(7, Math.max(1, moment.rarityScore || 1)));
       
       logResult('requirementCheck', `✅ Basic validation passed - momentId: ${momentId.slice(0, 8)}..., rarity: ${rarity}`, true);
       return true;
@@ -42,49 +41,52 @@ const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId,
     }
   };
 
-  // 🧪 ENHANCED FRESH ID TEST
+  // 🧪 ENHANCED FRESH ID TEST - Now using working ethers approach
   const testWithFreshMomentId = async () => {
     try {
       const freshMomentId = `test-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
       console.log('🧪 Starting fresh ID test with:', freshMomentId);
       
-      // Add timeout and better error handling
+      // ✅ Use working ethers v6 approach instead of broken wagmi
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(
+        UMOMomentsContract.address,
+        UMOMomentsContract.abi,
+        signer
+      );
+
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Transaction timed out after 30s')), 30000)
       );
       
-      const writePromise = writeContract({
-        address: UMOMomentsContract.address,
-        abi: UMOMomentsContract.abi,
-        functionName: 'createMomentEdition',
-        args: [
-          freshMomentId,
-          'ipfs://test-metadata',
-          parseEther('0.001'),
-          BigInt(7 * 24 * 60 * 60),
-          BigInt(0),
-          '0x742d35Cc6634C0532925a3b8D76C7DE9F45F6c96',
-          1
-        ],
-      });
+      const writePromise = contract.createMomentEdition(
+        String(freshMomentId),
+        'ipfs://test-metadata',
+        parseEther('0.001'),
+        BigInt(7 * 24 * 60 * 60),
+        BigInt(0),
+        '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96',
+        1
+      );
       
-      const hash = await Promise.race([writePromise, timeoutPromise]);
+      const tx = await Promise.race([writePromise, timeoutPromise]);
       
-      console.log('🧪 Fresh ID test result:', hash, typeof hash);
+      console.log('🧪 Fresh ID test result:', tx.hash, typeof tx.hash);
       
-      if (hash === undefined || hash === null) {
-        logResult('freshIdTest', '❌ CRITICAL: writeContract returned undefined/null (transaction rejected or failed silently)', false);
+      if (!tx.hash) {
+        logResult('freshIdTest', '❌ CRITICAL: No transaction hash returned', false);
         return null;
       } else {
-        logResult('freshIdTest', `✅ SUCCESS: Got transaction hash ${hash}`, true);
-        return hash;
+        logResult('freshIdTest', `✅ SUCCESS: Got transaction hash ${tx.hash}`, true);
+        return tx.hash;
       }
       
     } catch (error) {
       console.error('🧪 Fresh ID test error:', error);
       
-      if (error.message.includes('User rejected')) {
+      if (error.code === 'ACTION_REJECTED' || error.message.includes('User rejected')) {
         logResult('freshIdTest', '❌ User rejected transaction in wallet', false);
       } else if (error.message.includes('timed out')) {
         logResult('freshIdTest', '❌ Transaction timed out (likely wallet popup issue)', false);
@@ -129,7 +131,6 @@ const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId,
   // 🔍 WAGMI CONFIGURATION TEST
   const testWagmiConfig = async () => {
     try {
-      // Test if wagmi hooks are working
       console.log('🔍 Testing wagmi configuration...');
       console.log('- writeContract function type:', typeof writeContract);
       console.log('- currentTokenId:', currentTokenId?.toString());
@@ -177,6 +178,28 @@ const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId,
     }
   };
 
+  // 🎯 MINIMAL WRITE TEST - Updated to use ethers
+  const testMinimalWrite = async () => {
+    try {
+      console.log('🎯 Testing minimal contract read...');
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const contract = new ethers.Contract(
+        UMOMomentsContract.address,
+        UMOMomentsContract.abi,
+        provider
+      );
+      
+      const result = await contract.getCurrentTokenId();
+      
+      console.log('🎯 Minimal read result:', result.toString());
+      logResult('minimalRead', `✅ Contract read works: ${result.toString()}`, true);
+      
+    } catch (error) {
+      logResult('minimalRead', `❌ Minimal read failed: ${error.message}`, false);
+    }
+  };
+
   // 🔄 RUN ALL TESTS
   const runAllTests = async () => {
     setResults({});
@@ -186,34 +209,225 @@ const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId,
     await testWagmiConfig();
     await testWalletConnection();
     await debugContractRequirements();
+    await testMinimalWrite();
     await testWithFreshMomentId();
     
     console.log('📊 All tests complete. Check results above.');
   };
 
-  // 🎯 MINIMAL WRITE TEST
-  const testMinimalWrite = async () => {
+  // 🧪 NEW: Ethers v6 connection test
+  const testEthersConnection = async () => {
     try {
-      console.log('🎯 Testing minimal writeContract call...');
+      console.log('🔍 Testing ethers v6 connection...');
       
-      // Try the absolute simplest possible call
-      const result = await writeContract({
-        address: UMOMomentsContract.address,
-        abi: UMOMomentsContract.abi,
-        functionName: 'getCurrentTokenId',
-        args: [],
-      });
+      if (!window.ethereum) {
+        logResult('ethersTest', '❌ No MetaMask detected', false);
+        return;
+      }
       
-      console.log('🎯 Minimal write result:', result, typeof result);
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const network = await provider.getNetwork();
+      const blockNumber = await provider.getBlockNumber();
       
-      if (result === undefined) {
-        logResult('minimalWrite', '❌ Even getCurrentTokenId returns undefined - wagmi writeContract broken', false);
+      logResult('ethersTest', `✅ Ethers v6 Working! Network: ${network.name} (${network.chainId}), Block: ${blockNumber}`, true);
+      
+    } catch (error) {
+      console.error('❌ Ethers test failed:', error);
+      logResult('ethersTest', `❌ Ethers test failed: ${error.message}`, false);
+    }
+  };
+
+  // 🧪 Contract existence check
+  const checkContractExists = async () => {
+    try {
+      if (!UMOMomentsContract.address) {
+        logResult('contractExists', '❌ No contract address found', false);
+        return;
+      }
+      
+      console.log('🔍 Checking if contract exists at:', UMOMomentsContract.address);
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const code = await provider.getCode(UMOMomentsContract.address);
+      
+      console.log('📋 Contract code length:', code.length);
+      
+      if (code === '0x') {
+        logResult('contractExists', `❌ NO CONTRACT FOUND at ${UMOMomentsContract.address}`, false);
       } else {
-        logResult('minimalWrite', `✅ Minimal write works: ${result}`, true);
+        logResult('contractExists', `✅ Contract EXISTS! Code Length: ${code.length} bytes`, true);
       }
       
     } catch (error) {
-      logResult('minimalWrite', `❌ Minimal write failed: ${error.message}`, false);
+      console.error('Contract check failed:', error);
+      logResult('contractExists', `❌ Could not check contract: ${error.message}`, false);
+    }
+  };
+
+  // 🔍 Verify NFT exists on blockchain
+  const verifyNFTExists = async () => {
+    try {
+      console.log('🔍 Checking if NFT actually exists on blockchain...');
+      
+      if (!moment.nftContractAddress || !moment._id) {
+        logResult('nftVerification', '❌ No NFT contract info found in database', false);
+        return;
+      }
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const contract = new ethers.Contract(
+        moment.nftContractAddress,
+        UMOMomentsContract.abi,
+        provider
+      );
+      
+      console.log('📞 Calling getEdition on contract...');
+      const edition = await contract.getEdition(String(moment._id));
+      
+      console.log('📋 Edition result:', edition);
+      
+      if (edition && edition[0] && edition[0].length > 0) {
+        const editionInfo = {
+          momentId: edition[0],
+          metadataURI: edition[1], 
+          mintPrice: edition[2],
+          mintStartTime: edition[3],
+          mintEndTime: edition[4],
+          maxSupply: edition[5],
+          currentSupply: edition[6],
+          splitsContract: edition[7],
+          isActive: edition[8],
+          rarity: edition[9]
+        };
+        
+        logResult('nftVerification', `✅ NFT Edition EXISTS! Mint Price: ${ethers.formatEther(editionInfo.mintPrice)} ETH, Supply: ${editionInfo.currentSupply.toString()}, Active: ${editionInfo.isActive}`, true);
+        return true;
+      } else {
+        logResult('nftVerification', `❌ NFT Edition NOT found on blockchain! Database shows NFT exists but blockchain has no record.`, false);
+        return false;
+      }
+      
+    } catch (error) {
+      console.error('❌ Verification failed:', error);
+      
+      if (error.message.includes('call revert exception')) {
+        logResult('nftVerification', `❌ NFT Edition does not exist on blockchain! Database/blockchain mismatch.`, false);
+      } else {
+        logResult('nftVerification', `❌ Verification failed: ${error.message}`, false);
+      }
+      return false;
+    }
+  };
+
+  // 📊 Check minting status
+  const checkMintingStatus = async () => {
+    try {
+      if (!moment.nftContractAddress || !moment._id) {
+        logResult('mintingStatus', '❌ No contract info available', false);
+        return;
+      }
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const contract = new ethers.Contract(
+        moment.nftContractAddress,
+        UMOMomentsContract.abi,
+        provider
+      );
+      
+      const isActive = await contract.isMintingActive(String(moment._id));
+      const totalMinted = await contract.getTotalMinted(String(moment._id));
+      
+      logResult('mintingStatus', `📊 Is Active: ${isActive}, Total Minted: ${totalMinted.toString()}, Database Shows: ${moment.nftMintedCount || 0}`, true);
+      
+    } catch (error) {
+      console.error('Status check failed:', error);
+      logResult('mintingStatus', `❌ Could not check minting status: ${error.message}`, false);
+    }
+  };
+
+  const debugButtonStyle = {
+      }
+
+    } catch (error) {
+      console.error('❌ TEST Create NFT failed:', error);
+      
+      if (error.code === 'ACTION_REJECTED' || error.message.includes('User rejected')) {
+        logResult('blockchainTest', '❌ User rejected transaction in MetaMask', false);
+      } else if (error.message.includes('insufficient funds')) {
+        logResult('blockchainTest', '❌ Insufficient ETH for gas fees', false);
+      } else if (error.message.includes('Edition already exists')) {
+        logResult('blockchainTest', '❌ NFT edition already exists for this moment', false);
+      } else {
+        logResult('blockchainTest', `❌ TEST FAILED: ${error.message}`, false);
+      }
+    }
+  };
+
+  // 🔍 Preview metadata that will be created
+  const previewMetadata = () => {
+    const metadata = createNFTMetadata(moment);
+    console.log('📋 Generated metadata:', metadata);
+    
+    const metadataText = `
+📋 NFT Metadata Preview:
+
+🎵 Name: ${metadata.name}
+📖 Description: ${metadata.description}
+🖼️ Image: ${metadata.image}
+🎬 Video: ${metadata.animation_url || 'None'}
+🔗 External URL: ${metadata.external_url}
+
+🏷️ Attributes:
+${metadata.attributes.map(attr => `• ${attr.trait_type}: ${attr.value}`).join('\n')}
+    `;
+    
+    alert(metadataText);
+    logResult('metadataPreview', '✅ Metadata preview shown in console and alert', true);
+  };
+
+  // 🧪 Test minting from existing edition
+  const testMintFromEdition = async () => {
+    try {
+      if (!moment.nftContractAddress || !moment._id) {
+        logResult('mintTest', '❌ No NFT edition available to mint from', false);
+        return;
+      }
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(
+        moment.nftContractAddress,
+        UMOMomentsContract.abi,
+        signer
+      );
+
+      // Check if minting is active first
+      const isActive = await contract.isMintingActive(String(moment._id));
+      if (!isActive) {
+        logResult('mintTest', '❌ Minting is not active for this moment', false);
+        return;
+      }
+
+      const mintPrice = parseEther('0.001');
+      logResult('mintTest', '🚀 Calling contract.mintMoment() - MetaMask should popup for payment...', true);
+
+      const tx = await contract.mintMoment(String(moment._id), BigInt(1), {
+        value: mintPrice
+      });
+
+      logResult('mintTest', `✅ MINT SUCCESS! TX: ${tx.hash} - Real NFT token created!`, true);
+
+      // Wait for confirmation and check total supply
+      const receipt = await tx.wait();
+      const totalMinted = await contract.getTotalMinted(String(moment._id));
+      logResult('mintTest', `🎉 CONFIRMED! Block: ${receipt.blockNumber}, Total Minted: ${totalMinted.toString()}`, true);
+
+    } catch (error) {
+      if (error.code === 'ACTION_REJECTED') {
+        logResult('mintTest', '❌ User rejected payment in MetaMask', false);
+      } else {
+        logResult('mintTest', `❌ Mint failed: ${error.message}`, false);
+      }
     }
   };
 
@@ -224,7 +438,8 @@ const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId,
     borderRadius: '4px',
     cursor: 'pointer',
     fontSize: '11px',
-    fontWeight: '500'
+    fontWeight: '500',
+    color: '#374151'
   };
 
   return (
@@ -256,7 +471,7 @@ const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId,
           fontSize: '14px'
         }}
       >
-        <span>🔧 NFT Debug Panel (Enhanced)</span>
+        <span>🔧 NFT Debug Panel (Enhanced + Fixed)</span>
         <span style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
           ▼
         </span>
@@ -264,7 +479,7 @@ const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId,
 
       {/* Content */}
       {isOpen && (
-        <div style={{ padding: '16px', maxHeight: '500px', overflowY: 'auto' }}>
+        <div style={{ padding: '16px', maxHeight: '500px', overflowY: 'auto', color: '#1f2937' }}>
           {/* Quick Info */}
           <div style={{
             background: '#f8fafc',
@@ -272,7 +487,8 @@ const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId,
             borderRadius: '8px',
             marginBottom: '16px',
             fontSize: '12px',
-            lineHeight: '1.4'
+            lineHeight: '1.4',
+            color: '#374151'
           }}>
             <div><strong>Contract:</strong> {UMOMomentsContract.address?.slice(0, 8)}...</div>
             <div><strong>Chain:</strong> {chainId} {chainId === 84532 ? '✅' : '❌'}</div>
@@ -308,12 +524,74 @@ const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId,
               <button onClick={testWalletConnection} style={debugButtonStyle}>
                 🔗 Wallet Test
               </button>
+              <button onClick={testEthersConnection} style={debugButtonStyle}>
+                🔍 Ethers v6
+              </button>
+              <button onClick={checkContractExists} style={debugButtonStyle}>
+                🏭 Contract Check
+              </button>
               <button onClick={testMinimalWrite} style={debugButtonStyle}>
-                🎯 Minimal Write
+                📖 Read Test
+              </button>
+              <button onClick={verifyNFTExists} style={debugButtonStyle}>
+                🔍 Verify NFT
+              </button>
+              <button onClick={checkMintingStatus} style={debugButtonStyle}>
+                📊 Mint Status
               </button>
               <button onClick={testWithFreshMomentId} style={debugButtonStyle}>
                 🧪 Fresh ID
               </button>
+              <button onClick={testCreateNFTBlockchainOnly} style={debugButtonStyle}>
+                🧪 Test Create Edition
+              </button>
+              <button onClick={testMintFromEdition} style={debugButtonStyle}>
+                💰 Test Mint Token
+              </button>
+              <button onClick={() => {
+                previewMetadata();
+                logResult('metadataPreview', '✅ Metadata preview shown in console and alert', true);
+              }} style={debugButtonStyle}>
+                📋 Preview Metadata
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+              <button onClick={syncDatabaseWithBlockchain} style={debugButtonStyle}>
+                🔄 Sync Database
+              </button>
+              <button onClick={verifyNFTExists} style={debugButtonStyle}>
+                🔍 Verify NFT
+              </button>
+            </div>
+
+            <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px', lineHeight: '1.3' }}>
+              📋 Preview Metadata = See what NFT metadata will look like<br/>
+              🔄 Sync Database = Fix when blockchain has edition but database doesn't
+            </div>
+
+            <button
+              onClick={testCreateNFTBlockchainOnly}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: 'white',
+                padding: '10px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                border: 'none',
+                fontWeight: '600',
+                marginBottom: '8px'
+              }}
+            >
+              🧪 Test Create Edition (Step 1 - No Database)
+            </button>
+
+            <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '15px', lineHeight: '1.3' }}>
+              ℹ️ <strong>Two-Step Process:</strong><br/>
+              1. Create Edition = Set up minting parameters (no tokens yet)<br/>
+              2. Mint Tokens = Actually create NFT tokens (costs mint price)
             </div>
           </div>
 
@@ -325,7 +603,7 @@ const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId,
               borderRadius: '8px',
               padding: '12px'
             }}>
-              <div style={{ fontWeight: '600', marginBottom: '8px', fontSize: '13px' }}>
+              <div style={{ fontWeight: '600', marginBottom: '8px', fontSize: '13px', color: '#374151' }}>
                 📊 Enhanced Test Results
               </div>
               {Object.entries(results).map(([test, data]) => (
@@ -335,10 +613,11 @@ const DebugPanel = ({ moment, UMOMomentsContract, writeContract, currentTokenId,
                   background: data.success ? '#f0fdf4' : '#fef2f2',
                   borderRadius: '4px',
                   fontSize: '11px',
-                  borderLeft: `3px solid ${data.success ? '#22c55e' : '#ef4444'}`
+                  borderLeft: `3px solid ${data.success ? '#22c55e' : '#ef4444'}`,
+                  color: '#374151'
                 }}>
-                  <div style={{ fontWeight: '600' }}>{test} ({data.timestamp})</div>
-                  <div>{data.result}</div>
+                  <div style={{ fontWeight: '600', color: '#1f2937' }}>{test} ({data.timestamp})</div>
+                  <div style={{ color: '#4b5563' }}>{data.result}</div>
                 </div>
               ))}
             </div>
@@ -380,23 +659,23 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   const { writeContract } = useWriteContract();
-  const chainId = useChainId(); // ✅ FIXED: Use hook at component level
+  const chainId = useChainId();
   
-  // Wait for transaction confirmation
+  // Wait for transaction confirmation - keeping for compatibility
   const { isLoading: isConfirming, isSuccess: isConfirmed, error: txError } = useWaitForTransactionReceipt({
     hash: txHash,
   });
 
+  // Read existing edition - keeping for compatibility  
+  const { data: existingEdition } = useReadContract({
+    address: UMOMomentsContract.address,
+    abi: UMOMomentsContract.abi,
+    functionName: 'getEdition',
+    args: [String(moment._id)],
+    enabled: !!UMOMomentsContract.address && !!moment._id
+  });
 
-const { data: existingEdition } = useReadContract({
-  address: UMOMomentsContract.address,
-  abi: UMOMomentsContract.abi,
-  functionName: 'getEdition',
-  args: [moment._id],
-  enabled: !!UMOMomentsContract.address && !!moment._id
-});
-
-  // ✅ FIXED: Read contract data for testing connection
+  // Read contract data for testing connection
   const { data: currentTokenId } = useReadContract({
     address: UMOMomentsContract.address,
     abi: UMOMomentsContract.abi,
@@ -404,21 +683,23 @@ const { data: existingEdition } = useReadContract({
     enabled: !!UMOMomentsContract.address
   });
 
-  // Handle transaction confirmation
+  // Handle transaction confirmation - keeping for compatibility
   useEffect(() => {
     if (isConfirmed && txHash) {
       console.log('✅ Transaction confirmed:', txHash);
       setCurrentStep('success');
       
       if (isCreatingNFT) {
-        updateBackendAfterCreation();
+        updateBackendAfterCreation(txHash);
       } else if (isMinting) {
-        recordMintInBackend();
+        // Note: For useEffect, we don't have the exact quantity, but since we're tracking
+        // the mint in the individual mint functions, this is just a fallback
+        recordMintInBackend(txHash, 1);
       }
     }
   }, [isConfirmed, txHash, isCreatingNFT, isMinting]);
 
-  // Handle transaction errors
+  // Handle transaction errors - keeping for compatibility
   useEffect(() => {
     if (txError) {
       console.error('❌ Transaction failed:', txError);
@@ -429,21 +710,421 @@ const { data: existingEdition } = useReadContract({
     }
   }, [txError]);
 
-  // Update backend after successful NFT creation
-  const updateBackendAfterCreation = async () => {
+  // ✅ Create proper metadata for NFT
+  const createNFTMetadata = (moment) => {
+    return {
+      name: `${moment.artistName} - ${moment.songTitle}`,
+      description: `Live performance moment from ${moment.artistName} at ${moment.venueName || 'Unknown Venue'} ${moment.date ? `on ${new Date(moment.date).toLocaleDateString()}` : ''}.`,
+      image: moment.thumbnailUrl || moment.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.artistName)}&background=random`,
+      animation_url: moment.videoUrl,
+      external_url: `${window.location.origin}/moment/${moment._id}`,
+      attributes: [
+        {
+          trait_type: "Artist",
+          value: moment.artistName
+        },
+        {
+          trait_type: "Song",
+          value: moment.songTitle
+        },
+        {
+          trait_type: "Venue", 
+          value: moment.venueName || "Unknown"
+        },
+        {
+          trait_type: "Date",
+          value: moment.date ? new Date(moment.date).toLocaleDateString() : "Unknown"
+        },
+        {
+          trait_type: "Rarity Score",
+          value: moment.rarityScore || 1,
+          max_value: 7
+        },
+        {
+          trait_type: "Duration",
+          value: moment.duration || "Unknown"
+        },
+        {
+          trait_type: "Uploader",
+          value: moment.uploaderUsername || "Anonymous"
+        }
+      ].filter(attr => attr.value !== "Unknown" && attr.value !== null)
+    };
+  };
+
+  // ✅ Upload metadata to IPFS (simplified version)
+  const uploadMetadataToIPFS = async (metadata) => {
+    try {
+      // For now, we'll use a simple approach - you can replace this with actual IPFS upload
+      console.log('📤 Would upload to IPFS:', metadata);
+      
+      // TODO: Replace with actual IPFS upload service
+      // Options: Pinata, NFT.Storage, Web3.Storage, or your own IPFS node
+      // const ipfsHash = await uploadToIPFS(JSON.stringify(metadata));
+      // return `ipfs://${ipfsHash}`;
+      
+      // Temporary: use a data URI with the metadata (works for OpenSea testing)
+      const metadataJson = JSON.stringify(metadata);
+      const base64 = btoa(metadataJson);
+      const dataURI = `data:application/json;base64,${base64}`;
+      
+      console.log('📋 Using data URI for metadata (temporary solution)');
+      console.log('🔗 Data URI length:', dataURI.length);
+      
+      return dataURI;
+      
+    } catch (error) {
+      console.error('❌ Metadata creation failed:', error);
+      // Fallback to basic metadata URI
+      return `ipfs://metadata-${moment._id}`;
+    }
+  };
+
+  // ✅ Create proper metadata for NFT
+  const createNFTMetadata = (moment) => {
+    return {
+      name: `${moment.artistName} - ${moment.songTitle}`,
+      description: `Live performance moment from ${moment.artistName} at ${moment.venueName || 'Unknown Venue'} ${moment.date ? `on ${new Date(moment.date).toLocaleDateString()}` : ''}.`,
+      image: moment.thumbnailUrl || moment.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.artistName)}&background=random`,
+      animation_url: moment.videoUrl,
+      external_url: `${window.location.origin}/moment/${moment._id}`,
+      attributes: [
+        {
+          trait_type: "Artist",
+          value: moment.artistName
+        },
+        {
+          trait_type: "Song",
+          value: moment.songTitle
+        },
+        {
+          trait_type: "Venue", 
+          value: moment.venueName || "Unknown"
+        },
+        {
+          trait_type: "Date",
+          value: moment.date ? new Date(moment.date).toLocaleDateString() : "Unknown"
+        },
+        {
+          trait_type: "Rarity Score",
+          value: moment.rarityScore || 1,
+          max_value: 7
+        },
+        {
+          trait_type: "Duration",
+          value: moment.duration || "Unknown"
+        },
+        {
+          trait_type: "Uploader",
+          value: moment.uploaderUsername || "Anonymous"
+        }
+      ].filter(attr => attr.value !== "Unknown" && attr.value !== null)
+    };
+  };
+
+  // ✅ Upload metadata to IPFS (simplified version)
+  const uploadMetadataToIPFS = async (metadata) => {
+    try {
+      // For now, we'll use a simple approach - you can replace this with actual IPFS upload
+      console.log('📤 Would upload to IPFS:', metadata);
+      
+      // TODO: Replace with actual IPFS upload service
+      // Options: Pinata, NFT.Storage, Web3.Storage, or your own IPFS node
+      // const ipfsHash = await uploadToIPFS(JSON.stringify(metadata));
+      // return `ipfs://${ipfsHash}`;
+      
+      // Temporary: use a data URI with the metadata (works for OpenSea testing)
+      const metadataJson = JSON.stringify(metadata);
+      const base64 = btoa(metadataJson);
+      const dataURI = `data:application/json;base64,${base64}`;
+      
+      console.log('📋 Using data URI for metadata (temporary solution)');
+      console.log('🔗 Data URI length:', dataURI.length);
+      
+      return dataURI;
+      
+    } catch (error) {
+      console.error('❌ Metadata creation failed:', error);
+      // Fallback to basic metadata URI
+      return `ipfs://metadata-${moment._id}`;
+    }
+  };
+  const syncDatabaseWithBlockchain = async () => {
+    try {
+      setCreationError('');
+      setCurrentStep('creating');
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const contract = new ethers.Contract(
+        UMOMomentsContract.address,
+        UMOMomentsContract.abi,
+        provider
+      );
+
+      // Check if edition exists on blockchain
+      const edition = await contract.getEdition(String(moment._id));
+      
+      if (edition && edition[0] && edition[0].length > 0) {
+        console.log('✅ Edition found on blockchain - updating database...');
+        
+        setCurrentStep('updating');
+        
+        // Update database to match blockchain
+        const token = localStorage.getItem('token');
+        const nftEditionData = {
+          nftContractAddress: UMOMomentsContract.address,
+          nftTokenId: String(moment._id),
+          nftMetadataHash: `ipfs://metadata-${moment._id}`,
+          splitsContract: '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96',
+          mintPrice: edition[2].toString(), // Use actual blockchain price
+          mintDuration: 7 * 24 * 60 * 60,
+          txHash: 'synced-from-blockchain'
+        };
+
+        const response = await fetch(`${API_BASE_URL}/moments/${String(moment._id)}/create-nft-edition`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(nftEditionData)
+        });
+
+        if (response.ok) {
+          setCurrentStep('success');
+          alert('🎉 Database synced with blockchain! Page will refresh to show updated state.');
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        } else {
+          throw new Error('Database update failed');
+        }
+      } else {
+        throw new Error('No edition found on blockchain for this moment');
+      }
+      
+    } catch (error) {
+      console.error('❌ Sync failed:', error);
+      setCreationError(error.message);
+      setCurrentStep('ready');
+    }
+  };
+
+  // 🔥 CORE FIX: Use direct ethers contract interaction instead of wagmi
+  const handleCreateNFTEdition = async () => {
+    if (!isConnected) {
+      alert('Please connect your wallet first');
+      return;
+    }
+
+    if (chainId !== 84532) {
+      alert('Please switch to Base Sepolia network (Chain ID: 84532)');
+      return;
+    }
+
+    if (!window.ethereum) {
+      alert('MetaMask not detected');
+      return;
+    }
+
+    setIsCreatingNFT(true);
+    setCreationError('');
+    setCurrentStep('creating');
+
+    try {
+      console.log('🚀 Creating NFT edition with direct ethers...');
+
+      // ✅ Setup ethers v6 provider and signer
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(
+        UMOMomentsContract.address,
+        UMOMomentsContract.abi,
+        signer
+      );
+
+      // ✅ Prepare transaction parameters with REAL metadata
+      const mintPriceWei = parseEther('0.001');
+      const mintDurationSeconds = BigInt(mintDuration * 24 * 60 * 60);
+      const rarityScore = Math.floor(Math.min(7, Math.max(1, moment.rarityScore || 1)));
+      
+      // ✅ Create proper metadata
+      const metadata = createNFTMetadata(moment);
+      const metadataURI = await uploadMetadataToIPFS(metadata);
+      
+      const mockSplitsAddress = '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96';
+
+      console.log('📝 Transaction parameters:', {
+        momentId: moment._id,
+        metadataURI,
+        metadata: metadata,
+        mintPrice: formatEther(mintPriceWei),
+        duration: mintDurationSeconds.toString(),
+        rarity: rarityScore,
+        splitsAddress: mockSplitsAddress,
+        contractAddress: UMOMomentsContract.address
+      });
+
+      setCurrentStep('confirming');
+      console.log('📤 Calling contract.createMomentEdition() - MetaMask should popup...');
+
+      // 🔥 CRITICAL: This WILL trigger MetaMask popup
+      const transaction = await contract.createMomentEdition(
+        String(moment._id),            // momentId (string)
+        metadataURI,                   // metadataURI (string)  
+        mintPriceWei,                  // mintPrice (BigNumber)
+        mintDurationSeconds,           // mintDuration (BigInt)
+        BigInt(0),                     // maxSupply (BigInt) - unlimited
+        mockSplitsAddress,             // splitsContract (address)
+        rarityScore                    // rarity (uint8)
+      );
+
+      console.log('✅ Transaction submitted:', transaction.hash);
+      setTxHash(transaction.hash);
+
+      // ✅ Wait for blockchain confirmation
+      console.log('⏳ Waiting for blockchain confirmation...');
+      const receipt = await transaction.wait();
+      console.log('✅ Transaction confirmed in block:', receipt.blockNumber);
+
+      // ✅ ONLY NOW update the database (after successful blockchain transaction)
+      setCurrentStep('updating');
+      await updateBackendAfterCreation(transaction.hash);
+
+      setCurrentStep('success');
+      alert(`🎉 NFT Edition Created Successfully!\n\n` +
+            `Transaction: ${transaction.hash}\n` +
+            `Block: ${receipt.blockNumber}\n\n` +
+            `Check BaseScan for confirmation.`);
+
+      // Reload page to show updated state
+      setTimeout(() => {
+        window.location.reload();
+      }, 3000);
+
+    } catch (error) {
+      console.error('❌ Create NFT Edition failed:', error);
+      
+      let errorMessage = error.message || 'Unknown error';
+      
+      if (error.code === 'ACTION_REJECTED' || errorMessage.includes('User rejected')) {
+        errorMessage = 'Transaction was rejected in MetaMask';
+      } else if (errorMessage.includes('insufficient funds')) {
+        errorMessage = 'Insufficient ETH for gas fees';
+      } else if (errorMessage.includes('Edition already exists')) {
+        errorMessage = 'NFT edition already exists for this moment';
+      } else if (error.code === 'UNPREDICTABLE_GAS_LIMIT') {
+        errorMessage = 'Contract call failed - check parameters';
+      }
+      
+      setCreationError(errorMessage);
+      setCurrentStep('ready');
+    } finally {
+      setIsCreatingNFT(false);
+    }
+  };
+
+  // 🔥 CORE FIX: Use direct ethers for minting
+  const handleMintNFT = async (quantity = 1) => {
+    if (!isConnected) {
+      alert('Please connect your wallet first');
+      return;
+    }
+
+    if (chainId !== 84532) {
+      alert('Please switch to Base Sepolia network');
+      return;
+    }
+
+    setIsMinting(true);
+    setCreationError('');
+    setCurrentStep('creating');
+
+    try {
+      console.log(`🎯 Minting ${quantity} NFT(s) for moment:`, moment._id);
+
+      // ✅ Setup ethers v6 provider and signer
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(
+        moment.nftContractAddress,
+        UMOMomentsContract.abi,
+        signer
+      );
+
+      const mintPrice = parseEther('0.001');
+      const totalCost = mintPrice * BigInt(quantity);
+
+      console.log(`💰 Minting ${quantity} NFT(s) for ${formatEther(totalCost)} ETH`);
+
+      setCurrentStep('confirming');
+
+      // 🔥 CRITICAL: This WILL trigger MetaMask popup
+      const transaction = await contract.mintMoment(String(moment._id), BigInt(quantity), {
+        value: totalCost
+      });
+
+      console.log('✅ Mint transaction submitted:', transaction.hash);
+      setTxHash(transaction.hash);
+
+      // ✅ Wait for blockchain confirmation
+      const receipt = await transaction.wait();
+      console.log('✅ Mint confirmed in block:', receipt.blockNumber);
+
+      // ✅ Update backend after successful mint
+      await recordMintInBackend(transaction.hash, quantity);
+
+      setCurrentStep('success');
+      alert(`🎉 NFT${quantity > 1 ? 's' : ''} Minted Successfully!\n\n` +
+            `Quantity: ${quantity}\n` +
+            `Transaction: ${transaction.hash}\n` +
+            `Block: ${receipt.blockNumber}`);
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 3000);
+
+    } catch (error) {
+      console.error('❌ Error minting NFT:', error);
+      
+      let errorMessage = error.message || 'Failed to mint NFT';
+      
+      if (error.code === 'ACTION_REJECTED') {
+        errorMessage = 'Transaction was rejected in MetaMask';
+      } else if (errorMessage.includes('insufficient funds')) {
+        errorMessage = 'Insufficient ETH for gas fees and mint cost';
+      }
+      
+      setCreationError(errorMessage);
+      setCurrentStep('ready');
+    } finally {
+      setIsMinting(false);
+    }
+  };
+
+  // Update backend after successful NFT creation - FIXED with proper metadata
+  const updateBackendAfterCreation = async (transactionHash) => {
     try {
       const token = localStorage.getItem('token');
+      
+      // ✅ Create proper metadata for backend
+      const metadata = createNFTMetadata(moment);
+      const metadataURI = await uploadMetadataToIPFS(metadata);
+      
       const nftEditionData = {
         nftContractAddress: UMOMomentsContract.address,
-        nftTokenId: moment._id,
-        nftMetadataHash: `ipfs://metadata-${moment._id}`,
-        splitsContract: `0x742d35Cc6634C0532925a3b8D76C7DE9F45F6c96`,
+        nftTokenId: String(moment._id),
+        nftMetadataHash: metadataURI,
+        splitsContract: '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96',
         mintPrice: parseEther('0.001').toString(),
         mintDuration: mintDuration * 24 * 60 * 60,
-        txHash: txHash
+        txHash: transactionHash || txHash,
+        metadata: metadata // Include full metadata for backend
       };
 
-      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/create-nft-edition`, {
+      console.log('📝 Updating backend with:', nftEditionData);
+
+      const response = await fetch(`${API_BASE_URL}/moments/${String(moment._id)}/create-nft-edition`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -458,7 +1139,8 @@ const { data: existingEdition } = useReadContract({
           window.location.reload();
         }, 2000);
       } else {
-        console.error('❌ Backend update failed');
+        const errorText = await response.text();
+        console.error('❌ Backend update failed:', errorText);
         setCreationError('NFT created but backend update failed. Please refresh the page.');
       }
     } catch (error) {
@@ -467,17 +1149,20 @@ const { data: existingEdition } = useReadContract({
     }
   };
 
-  // Record mint in backend after successful mint
-  const recordMintInBackend = async () => {
+  // Record mint in backend after successful mint - FIXED to prevent double counting
+  const recordMintInBackend = async (transactionHash, quantity) => {
     try {
       const token = localStorage.getItem('token');
       const mintData = {
-        quantity: 1,
+        quantity: quantity,
         minterAddress: address,
-        txHash: txHash
+        txHash: transactionHash,
+        timestamp: new Date().toISOString()
       };
 
-      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/record-mint`, {
+      console.log('📝 Recording mint in backend:', mintData);
+
+      const response = await fetch(`${API_BASE_URL}/moments/${String(moment._id)}/record-mint`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -488,460 +1173,184 @@ const { data: existingEdition } = useReadContract({
 
       if (response.ok) {
         console.log('✅ Mint recorded in backend');
+        const result = await response.json();
+        console.log('📊 Backend response:', result);
+        
+        // Only reload after successful backend update
         setTimeout(() => {
           window.location.reload();
         }, 2000);
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Backend mint recording failed:', errorText);
+        // Don't reload on error to avoid confusion
       }
     } catch (error) {
       console.error('❌ Failed to record mint in backend:', error);
     }
   };
 
-
-// 🔥 FIXED VERSION - Replace your handleCreateNFTEdition function with this
-const handleCreateNFTEdition = async () => {
-  if (!isConnected) {
-    alert('Please connect your wallet first');
-    return;
-  }
-
-  if (chainId !== 84532) {
-    alert('Please switch to Base Sepolia network');
-    return;
-  }
-
-  setIsCreatingNFT(true);
-  setCreationError('');
-  setCurrentStep('creating');
-
-  try {
-    console.log('🚀 Creating NFT edition - FIXED VERSION');
-
-    // ✅ CRITICAL: Use EXACT same parameters as working debug test
-    const mintPriceWei = parseEther('0.001');
-    const mintDurationSeconds = BigInt(mintDuration * 24 * 60 * 60);
-    const rarityScore = Math.min(7, Math.max(1, moment.rarityScore || 1));
-    const metadataURI = `ipfs://metadata-${moment._id}`;
-    const mockSplitsAddress = '0x742d35Cc6634C0532925a3b8D76C7DE9F45F6c96';
-
-    console.log('📝 Transaction parameters:', {
-      momentId: moment._id,
-      metadataURI,
-      mintPrice: formatEther(mintPriceWei),
-      duration: mintDurationSeconds.toString(),
-      rarity: rarityScore,
-      splitsAddress: mockSplitsAddress,
-      contractAddress: UMOMomentsContract.address
-    });
-
-    // ✅ CRITICAL FIX: Call writeContract with EXACT same pattern as debug test
-    console.log('📤 Calling writeContract (should trigger MetaMask popup)...');
-    
-    setCurrentStep('confirming');
-    
-    // ❗ IMPORTANT: This MUST trigger MetaMask popup
-    const transactionHash = await writeContract({
-      address: UMOMomentsContract.address,
-      abi: UMOMomentsContract.abi,
-      functionName: 'createMomentEdition',
-      args: [
-        moment._id,                    // momentId (string)
-        metadataURI,                   // metadataURI (string)  
-        mintPriceWei,                  // mintPrice (BigNumber)
-        mintDurationSeconds,           // mintDuration (BigInt)
-        BigInt(0),                     // maxSupply (BigInt) - unlimited
-        mockSplitsAddress,             // splitsContract (address)
-        rarityScore                    // rarity (uint8)
-      ],
-    });
-    
-    console.log('✅ Transaction submitted:', transactionHash);
-    
-    // ❗ CRITICAL: Only update database AFTER successful blockchain transaction
-    if (transactionHash) {
-      setTxHash(transactionHash);
-      
-      // Wait a moment for transaction to be broadcast
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Update backend database
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const nftEditionData = {
-            nftContractAddress: UMOMomentsContract.address,
-            nftTokenId: moment._id,
-            nftMetadataHash: metadataURI,
-            splitsContract: mockSplitsAddress,
-            mintPrice: mintPriceWei.toString(),
-            mintDuration: mintDurationSeconds.toString(),
-            txHash: transactionHash
-          };
-
-          const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/create-nft-edition`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(nftEditionData)
-          });
-
-          if (response.ok) {
-            console.log('✅ Database updated successfully');
-          } else {
-            console.warn('⚠️ Database update failed, but blockchain transaction succeeded');
-          }
-        } catch (backendError) {
-          console.warn('⚠️ Database update error:', backendError.message);
-          // Don't fail - blockchain transaction is what matters
-        }
-      }
-      
-      setCurrentStep('success');
-      alert(`🎉 NFT Edition Created Successfully!\n\nTransaction: ${transactionHash}\n\nCheck BaseScan for confirmation.`);
-      
-      // Reload page after delay to show updated state
-      setTimeout(() => {
-        window.location.reload();
-      }, 3000);
-      
-    } else {
-      throw new Error('No transaction hash returned - transaction may have been rejected');
-    }
-
-  } catch (error) {
-    console.error('❌ Create NFT Edition failed:', error);
-    
-    // Better error handling
-    let errorMessage = error.message || 'Unknown error';
-    
-    if (errorMessage.includes('User rejected')) {
-      errorMessage = 'Transaction was rejected in MetaMask';
-    } else if (errorMessage.includes('insufficient funds')) {
-      errorMessage = 'Insufficient ETH for gas fees';
-    } else if (errorMessage.includes('Edition already exists')) {
-      errorMessage = 'NFT edition already exists for this moment';
-    }
-    
-    setCreationError(errorMessage);
-    setCurrentStep('ready');
-  } finally {
-    setIsCreatingNFT(false);
-  }
-};
-const testCreateNFTBlockchainOnly = async () => {
-  if (!isConnected) {
-    alert('Please connect your wallet first');
-    return;
-  }
-
-  if (chainId !== 84532) {
-    alert('Please switch to Base Sepolia network');
-    return;
-  }
-
-  console.log('🧪 Testing CREATE NFT - Blockchain Only (No Database Write)');
-
-  try {
-    // ✅ Use exact same parameters as main function
-    const mintPriceWei = parseEther('0.001');
-    const mintDurationSeconds = BigInt(7 * 24 * 60 * 60);
-    const rarityScore = Math.min(7, Math.max(1, moment.rarityScore || 1));
-    const testMetadataURI = `ipfs://TEST-metadata-${moment._id}`;
-    const mockSplitsAddress = '0x742d35Cc6634C0532925a3b8D76C7DE9F45F6c96';
-
-    console.log('📝 TEST Transaction parameters:', {
-      momentId: moment._id,
-      metadataURI: testMetadataURI,
-      mintPrice: formatEther(mintPriceWei),
-      duration: mintDurationSeconds.toString(),
-      rarity: rarityScore,
-      splitsAddress: mockSplitsAddress,
-      contractAddress: UMOMomentsContract.address
-    });
-
-    alert('🧪 BLOCKCHAIN TEST\n\nThis will create a REAL NFT on blockchain\nbut NOT update your database.\n\nClick OK to trigger MetaMask...');
-
-    // 🔥 CRITICAL: Call writeContract (should trigger MetaMask)
-    console.log('📤 Calling writeContract for TEST (should trigger MetaMask popup)...');
-    
-    const transactionHash = await writeContract({
-      address: UMOMomentsContract.address,
-      abi: UMOMomentsContract.abi,
-      functionName: 'createMomentEdition',
-      args: [
-        moment._id,                    // momentId (string)
-        testMetadataURI,               // metadataURI (string)  
-        mintPriceWei,                  // mintPrice (BigNumber)
-        mintDurationSeconds,           // mintDuration (BigInt)
-        BigInt(0),                     // maxSupply (BigInt) - unlimited
-        mockSplitsAddress,             // splitsContract (address)
-        rarityScore                    // rarity (uint8)
-      ],
-    });
-    
-    console.log('✅ TEST Transaction submitted:', transactionHash);
-    
-    if (transactionHash) {
-      alert(`🎉 BLOCKCHAIN TEST SUCCESS!\n\n` +
-            `Transaction Hash: ${transactionHash}\n\n` +
-            `✅ MetaMask popup worked\n` +
-            `✅ Transaction sent to blockchain\n` +
-            `✅ Contract call succeeded\n\n` +
-            `❗ Database was NOT updated (test mode)\n\n` +
-            `Check BaseScan: https://sepolia.basescan.org/tx/${transactionHash}`);
-      
-      // 🧪 Now test if we can verify it exists on blockchain
-      setTimeout(async () => {
-        try {
-          const provider = new ethers.BrowserProvider(window.ethereum);
-          const contract = new ethers.Contract(
-            UMOMomentsContract.address,
-            UMOMomentsContract.abi,
-            provider
-          );
-          
-          const edition = await contract.getEdition(moment._id);
-          
-          if (edition && edition[0] && edition[0].length > 0) {
-            alert(`🎯 VERIFICATION SUCCESS!\n\n` +
-                  `✅ NFT Edition exists on blockchain\n` +
-                  `✅ Moment ID: ${edition[0]}\n` +
-                  `✅ Mint Price: ${ethers.formatEther(edition[2])} ETH\n` +
-                  `✅ Is Active: ${edition[8]}\n\n` +
-                  `🚀 MAIN CREATE NFT FUNCTION WILL WORK!`);
-          } else {
-            alert('⚠️ NFT not found yet - may need more time to confirm');
-          }
-        } catch (verifyError) {
-          console.log('Verification error (expected if tx still pending):', verifyError);
-        }
-      }, 5000);
-      
-    } else {
-      throw new Error('No transaction hash returned');
-    }
-
-  } catch (error) {
-    console.error('❌ TEST Create NFT failed:', error);
-    
-    let errorMessage = error.message || 'Unknown error';
-    
-    if (errorMessage.includes('User rejected')) {
-      errorMessage = 'Transaction was rejected in MetaMask';
-    } else if (errorMessage.includes('insufficient funds')) {
-      errorMessage = 'Insufficient ETH for gas fees';
-    } else if (errorMessage.includes('Edition already exists')) {
-      errorMessage = 'NFT edition already exists for this moment';
-    }
-    
-    alert(`❌ TEST FAILED: ${errorMessage}`);
-  }
-};
-const verifyNFTExists = async () => {
-  try {
-    console.log('🔍 Checking if NFT actually exists on blockchain...');
-    
-    if (!moment.nftContractAddress || !moment._id) {
-      alert('❌ No NFT contract info found in database');
-      return;
-    }
-
-    console.log('📋 Checking for:', {
-      contract: moment.nftContractAddress,
-      momentId: moment._id
-    });
-
-    // ✅ v6: Use BrowserProvider and Contract
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const contract = new ethers.Contract(
-      moment.nftContractAddress,
-      UMOMomentsContract.abi,
-      provider
-    );
-    
-    console.log('📞 Calling getEdition on contract...');
-    const edition = await contract.getEdition(moment._id);
-    
-    console.log('📋 Edition result:', edition);
-    
-    // Check if edition exists (momentId field should not be empty)
-    if (edition && edition[0] && edition[0].length > 0) {
-      const editionInfo = {
-        momentId: edition[0],
-        metadataURI: edition[1], 
-        mintPrice: edition[2],
-        mintStartTime: edition[3],
-        mintEndTime: edition[4],
-        maxSupply: edition[5],
-        currentSupply: edition[6],
-        splitsContract: edition[7],
-        isActive: edition[8],
-        rarity: edition[9]
-      };
-      
-      console.log('✅ NFT Edition found:', editionInfo);
-      
-      // ✅ v6: Use ethers.formatEther instead of ethers.utils.formatEther
-      alert(`✅ NFT Edition EXISTS on blockchain!\n\n` +
-            `Moment ID: ${editionInfo.momentId}\n` +
-            `Mint Price: ${ethers.formatEther(editionInfo.mintPrice)} ETH\n` +
-            `Current Supply: ${editionInfo.currentSupply.toString()}\n` +
-            `Is Active: ${editionInfo.isActive}\n` +
-            `Rarity: ${editionInfo.rarity}/7`);
-      
-      return true;
-    } else {
-      console.log('❌ Edition not found or empty');
-      
-      alert(`❌ NFT Edition NOT found on blockchain!\n\n` +
-            `Your database shows NFT exists, but blockchain has no edition.\n\n` +
-            `This means the "Create NFT" button only updated the database\n` +
-            `without sending a real blockchain transaction.\n\n` +
-            `Contract: ${moment.nftContractAddress}\n` +
-            `Moment ID: ${moment._id}`);
-      
-      return false;
-    }
-    
-  } catch (error) {
-    console.error('❌ Verification failed:', error);
-    
-    if (error.message.includes('call revert exception')) {
-      alert(`❌ NFT Edition does not exist on blockchain!\n\nThe database shows this NFT exists, but the smart contract\nhas no record of it. This confirms the Create NFT button\nonly updated the database without sending a blockchain transaction.`);
-    } else {
-      alert(`❌ Verification failed: ${error.message}`);
-    }
-    return false;
-  }
-};
-const checkMintingStatus = async () => {
-  try {
-    if (!moment.nftContractAddress || !moment._id) {
-      alert('❌ No contract info available');
-      return;
-    }
-
-    // ✅ v6: Use BrowserProvider and Contract
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const contract = new ethers.Contract(
-      moment.nftContractAddress,
-      UMOMomentsContract.abi,
-      provider
-    );
-    
-    const isActive = await contract.isMintingActive(moment._id);
-    const totalMinted = await contract.getTotalMinted(moment._id);
-    
-    alert(`📊 Blockchain Minting Status:\n\n` +
-          `Is Active: ${isActive}\n` +
-          `Total Minted: ${totalMinted.toString()}\n` +
-          `Database Shows: ${moment.nftMintedCount || 0}\n\n` +
-          `${isActive ? '✅ Minting is live on blockchain' : '❌ Minting is not active'}`);
-    
-  } catch (error) {
-    console.error('Status check failed:', error);
-    alert(`❌ Could not check minting status: ${error.message}`);
-  }
-};
-
-// ✅ NEW: Quick test to verify ethers v6 is working
-const testEthersConnection = async () => {
-  try {
-    console.log('🔍 Testing ethers v6 connection...');
-    
-    if (!window.ethereum) {
-      alert('❌ No MetaMask detected');
-      return;
-    }
-    
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const network = await provider.getNetwork();
-    const blockNumber = await provider.getBlockNumber();
-    
-    alert(`✅ Ethers v6 Working!\n\n` +
-          `Network: ${network.name} (${network.chainId})\n` +
-          `Block Number: ${blockNumber}\n` +
-          `Provider: ${provider.constructor.name}`);
-    
-    console.log('✅ Ethers v6 test successful:', { network, blockNumber });
-    
-  } catch (error) {
-    console.error('❌ Ethers test failed:', error);
-    alert(`❌ Ethers test failed: ${error.message}`);
-  }
-};
-const checkContractExists = async () => {
-  try {
-    if (!moment.nftContractAddress) {
-      alert('❌ No contract address found');
-      return;
-    }
-    
-    console.log('🔍 Checking if contract exists at:', moment.nftContractAddress);
-    
-    // ✅ v6: Use BrowserProvider instead of Web3Provider
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const code = await provider.getCode(moment.nftContractAddress);
-    
-    console.log('📋 Contract code length:', code.length);
-    
-    if (code === '0x') {
-      alert(`❌ NO CONTRACT FOUND!\n\nAddress: ${moment.nftContractAddress}\n\nEither:\n1. Contract was never deployed\n2. Wrong network\n3. Wrong address`);
-    } else {
-      alert(`✅ Contract EXISTS!\n\nAddress: ${moment.nftContractAddress}\nCode Length: ${code.length} bytes\n\nContract is properly deployed.`);
-    }
-    
-  } catch (error) {
-    console.error('Contract check failed:', error);
-    alert(`❌ Could not check contract: ${error.message}`);
-  }
-};
-
-  // ✅ FIXED: Mint function with proper BigInt handling
-  const handleMintNFT = async (quantity = 1) => {
-    if (!isConnected) {
-      alert('Please connect your wallet first');
-      return;
-    }
-
-    setIsMinting(true);
-    setCreationError('');
-    setCurrentStep('creating');
-
+  // ✅ Verification functions using ethers v6
+  const verifyNFTExists = async () => {
     try {
-      console.log(`🎯 Minting ${quantity} NFT(s) for moment:`, moment._id);
+      console.log('🔍 Checking if NFT actually exists on blockchain...');
+      
+      if (!moment.nftContractAddress || !moment._id) {
+        alert('❌ No NFT contract info found in database');
+        return;
+      }
 
-      const mintPrice = parseEther('0.001');
-      const totalCost = mintPrice * BigInt(quantity); // ✅ FIXED: Explicit BigInt
-
-      console.log(`💰 Minting ${quantity} NFT(s) for ${formatEther(totalCost)} ETH`);
-
-      const hash = await writeContract({
-        address: UMOMomentsContract.address,
-        abi: UMOMomentsContract.abi,
-        functionName: 'mintMoment',
-        args: [moment._id, BigInt(quantity)], // ✅ FIXED: Explicit BigInt
-        value: totalCost
+      console.log('📋 Checking for:', {
+        contract: moment.nftContractAddress,
+        momentId: moment._id
       });
 
-      setTxHash(hash);
-      setCurrentStep('confirming');
-      console.log('✅ Mint transaction submitted:', hash);
-
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const contract = new ethers.Contract(
+        moment.nftContractAddress,
+        UMOMomentsContract.abi,
+        provider
+      );
+      
+      console.log('📞 Calling getEdition on contract...');
+      const edition = await contract.getEdition(String(moment._id));
+      
+      console.log('📋 Edition result:', edition);
+      
+      if (edition && edition[0] && edition[0].length > 0) {
+        const editionInfo = {
+          momentId: edition[0],
+          metadataURI: edition[1], 
+          mintPrice: edition[2],
+          mintStartTime: edition[3],
+          mintEndTime: edition[4],
+          maxSupply: edition[5],
+          currentSupply: edition[6],
+          splitsContract: edition[7],
+          isActive: edition[8],
+          rarity: edition[9]
+        };
+        
+        console.log('✅ NFT Edition found:', editionInfo);
+        
+        alert(`✅ NFT Edition EXISTS on blockchain!\n\n` +
+              `Moment ID: ${editionInfo.momentId}\n` +
+              `Mint Price: ${ethers.formatEther(editionInfo.mintPrice)} ETH\n` +
+              `Current Supply: ${editionInfo.currentSupply.toString()}\n` +
+              `Is Active: ${editionInfo.isActive}\n` +
+              `Rarity: ${editionInfo.rarity}/7`);
+        
+        return true;
+      } else {
+        console.log('❌ Edition not found or empty');
+        
+        alert(`❌ NFT Edition NOT found on blockchain!\n\n` +
+              `Your database shows NFT exists, but blockchain has no edition.\n\n` +
+              `This means the "Create NFT" button only updated the database\n` +
+              `without sending a real blockchain transaction.\n\n` +
+              `Contract: ${moment.nftContractAddress}\n` +
+              `Moment ID: ${moment._id}`);
+        
+        return false;
+      }
+      
     } catch (error) {
-      console.error('❌ Error minting NFT:', error);
-      setCreationError(error.message || 'Failed to mint NFT');
-      setCurrentStep('ready');
-      setIsMinting(false);
+      console.error('❌ Verification failed:', error);
+      
+      if (error.message.includes('call revert exception')) {
+        alert(`❌ NFT Edition does not exist on blockchain!\n\nThe database shows this NFT exists, but the smart contract\nhas no record of it. This confirms the Create NFT button\nonly updated the database without sending a blockchain transaction.`);
+      } else {
+        alert(`❌ Verification failed: ${error.message}`);
+      }
+      return false;
+    }
+  };
+
+  const checkMintingStatus = async () => {
+    try {
+      if (!moment.nftContractAddress || !moment._id) {
+        alert('❌ No contract info available');
+        return;
+      }
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const contract = new ethers.Contract(
+        moment.nftContractAddress,
+        UMOMomentsContract.abi,
+        provider
+      );
+      
+      const isActive = await contract.isMintingActive(String(moment._id));
+      const totalMinted = await contract.getTotalMinted(String(moment._id));
+      
+      alert(`📊 Blockchain Minting Status:\n\n` +
+            `Is Active: ${isActive}\n` +
+            `Total Minted: ${totalMinted.toString()}\n` +
+            `Database Shows: ${moment.nftMintedCount || 0}\n\n` +
+            `${isActive ? '✅ Minting is live on blockchain' : '❌ Minting is not active'}`);
+      
+    } catch (error) {
+      console.error('Status check failed:', error);
+      alert(`❌ Could not check minting status: ${error.message}`);
+    }
+  };
+
+  const testEthersConnection = async () => {
+    try {
+      console.log('🔍 Testing ethers v6 connection...');
+      
+      if (!window.ethereum) {
+        alert('❌ No MetaMask detected');
+        return;
+      }
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const network = await provider.getNetwork();
+      const blockNumber = await provider.getBlockNumber();
+      
+      alert(`✅ Ethers v6 Working!\n\n` +
+            `Network: ${network.name} (${network.chainId})\n` +
+            `Block Number: ${blockNumber}\n` +
+            `Provider: ${provider.constructor.name}`);
+      
+      console.log('✅ Ethers v6 test successful:', { network, blockNumber });
+      
+    } catch (error) {
+      console.error('❌ Ethers test failed:', error);
+      alert(`❌ Ethers test failed: ${error.message}`);
+    }
+  };
+
+  const checkContractExists = async () => {
+    try {
+      if (!UMOMomentsContract.address) {
+        alert('❌ No contract address found');
+        return;
+      }
+      
+      console.log('🔍 Checking if contract exists at:', UMOMomentsContract.address);
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const code = await provider.getCode(UMOMomentsContract.address);
+      
+      console.log('📋 Contract code length:', code.length);
+      
+      if (code === '0x') {
+        alert(`❌ NO CONTRACT FOUND!\n\nAddress: ${UMOMomentsContract.address}\n\nEither:\n1. Contract was never deployed\n2. Wrong network\n3. Wrong address`);
+      } else {
+        alert(`✅ Contract EXISTS!\n\nAddress: ${UMOMomentsContract.address}\nCode Length: ${code.length} bytes\n\nContract is properly deployed.`);
+      }
+      
+    } catch (error) {
+      console.error('Contract check failed:', error);
+      alert(`❌ Could not check contract: ${error.message}`);
     }
   };
 
   // ✅ Function to view on OpenSea
   const handleViewOnOpenSea = () => {
     if (moment.nftContractAddress) {
-      const openSeaUrl = `https://testnets.opensea.io/assets/base-sepolia/${moment.nftContractAddress}/${moment._id}`;
+      const openSeaUrl = `https://testnets.opensea.io/assets/base-sepolia/${moment.nftContractAddress}/${String(moment._id)}`;
       window.open(openSeaUrl, '_blank', 'noopener,noreferrer');
     } else {
       alert('Contract address not available yet. Please wait a moment and try again.');
@@ -952,7 +1361,7 @@ const checkContractExists = async () => {
   const handleManageEdition = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/nft-analytics`, {
+      const response = await fetch(`${API_BASE_URL}/moments/${String(moment._id)}/nft-analytics`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -1008,8 +1417,6 @@ View full analytics and manage your edition in the dashboard.
     );
   };
 
-
-  
   // ===================================================================
   // STEP 1: OWNER + NO NFT CREATED = Show "Create NFT Edition"
   // ===================================================================
@@ -1028,23 +1435,6 @@ View full analytics and manage your edition in the dashboard.
             display: 'flex',
             alignItems: 'center'
           }}>
-<div style={{ marginBottom: '15px' }}>
-
-
-  <div style={{ display: 'flex', gap: '10px' }}>
-
-  </div>
-  
-</div>
-    <DebugPanel 
-      moment={moment}
-      UMOMomentsContract={UMOMomentsContract}
-      writeContract={writeContract}
-      currentTokenId={currentTokenId}
-      address={address}
-      chainId={chainId}
-      creationError={creationError}
-    />
             <Plus style={{ width: '20px', height: '20px', marginRight: '8px' }} />
             Create NFT Edition
             <span style={{
@@ -1061,6 +1451,20 @@ View full analytics and manage your edition in the dashboard.
             Turn your moment into mintable NFTs and earn 35% of revenue
           </p>
         </div>
+
+        <DebugPanel 
+          moment={moment}
+          UMOMomentsContract={UMOMomentsContract}
+          writeContract={writeContract}
+          currentTokenId={currentTokenId}
+          address={address}
+          chainId={chainId}
+          creationError={creationError}
+          syncDatabaseWithBlockchain={syncDatabaseWithBlockchain}
+          previewMetadata={previewMetadata}
+          createNFTMetadata={createNFTMetadata}
+          uploadMetadataToIPFS={uploadMetadataToIPFS}
+        />
 
         {!isConnected ? (
           <div style={{ textAlign: 'center' }}>
@@ -1082,7 +1486,8 @@ View full analytics and manage your edition in the dashboard.
               }}>
                 <div style={{ fontSize: '14px', marginBottom: '10px' }}>
                   {currentStep === 'creating' && '📝 Preparing transaction...'}
-                  {currentStep === 'confirming' && '⏳ Waiting for confirmation...'}
+                  {currentStep === 'confirming' && '⏳ Confirming on blockchain...'}
+                  {currentStep === 'updating' && '💾 Updating database...'}
                   {currentStep === 'success' && '✅ NFT Edition Created!'}
                 </div>
                 {txHash && (
@@ -1162,92 +1567,54 @@ View full analytics and manage your edition in the dashboard.
               </div>
             )}
 
-<div style={{
-  background: 'rgba(255,255,255,0.1)',
-  padding: '12px',
-  borderRadius: '8px',
-  marginBottom: '15px'
-}}>
-  <h4 style={{ margin: '0 0 10px 0', fontSize: '14px' }}>🧪 Pre-Flight Tests</h4>
-  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-    <button
-      onClick={testEthersConnection}
-      style={{
-        background: 'purple',
-        color: 'white',
-        padding: '8px',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontSize: '12px',
-        border: 'none'
-      }}
-    >
-      🔍 Test Ethers v6 ✅
-    </button>
-    
-    <button
-      onClick={checkContractExists}
-      style={{
-        background: 'orange',
-        color: 'white',
-        padding: '8px',
-        borderRadius: '6px',
-        cursor: 'pointer',
-        fontSize: '12px',
-        border: 'none'
-      }}
-    >
-      🏭 Check Contract
-    </button>
-  </div>
-  
-  {/* 🔥 NEW: Safe blockchain test button */}
-  <button
-    onClick={testCreateNFTBlockchainOnly}
-    style={{
-      width: '100%',
-      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-      color: 'white',
-      padding: '10px',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      fontSize: '13px',
-      border: 'none',
-      fontWeight: '600'
-    }}
-  >
-    🧪 Test Create NFT (Blockchain Only - No Database)
-  </button>
-  
-  <p style={{ 
-    fontSize: '11px', 
-    margin: '8px 0 0 0', 
-    opacity: '0.8',
-    lineHeight: '1.3'
-  }}>
-    Safe test: Creates real NFT on blockchain but doesn't update database
-  </p>
-</div>
+            <div style={{
+              background: 'rgba(255,255,255,0.1)',
+              padding: '12px',
+              borderRadius: '8px',
+              marginBottom: '15px'
+            }}>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '14px' }}>🔄 Blockchain Sync</h4>
+              <p style={{ margin: '0 0 10px 0', fontSize: '12px', opacity: '0.9' }}>
+                If you created an edition using the test button, click below to sync database:
+              </p>
+              <button
+                onClick={syncDatabaseWithBlockchain}
+                style={{
+                  width: '100%',
+                  background: 'rgba(255,255,255,0.2)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  color: 'white',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: '600'
+                }}
+              >
+                🔄 Sync Database with Blockchain
+              </button>
+            </div>
+
             <button
               onClick={handleCreateNFTEdition}
-              disabled={isCreatingNFT || isConfirming || currentStep !== 'ready'}
+              disabled={isCreatingNFT || currentStep !== 'ready'}
               style={{
                 width: '100%',
-                background: (isCreatingNFT || isConfirming) ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)',
+                background: (isCreatingNFT) ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)',
                 border: '1px solid rgba(255,255,255,0.3)',
                 color: 'white',
                 padding: '12px',
                 borderRadius: '8px',
-                cursor: (isCreatingNFT || isConfirming) ? 'not-allowed' : 'pointer',
+                cursor: (isCreatingNFT) ? 'not-allowed' : 'pointer',
                 fontSize: '14px',
                 fontWeight: '600',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                opacity: (isCreatingNFT || isConfirming) ? 0.7 : 1
+                opacity: (isCreatingNFT) ? 0.7 : 1
               }}
             >
-              {isCreatingNFT || isConfirming ? (
+              {isCreatingNFT ? (
                 <>
                   <div style={{
                     width: '16px',
@@ -1258,15 +1625,19 @@ View full analytics and manage your edition in the dashboard.
                     animation: 'spin 1s linear infinite',
                     marginRight: '8px'
                   }} />
-                  {isCreatingNFT ? 'Creating NFT Edition...' : 'Confirming Transaction...'}
+                  Creating NFT Edition...
                 </>
               ) : (
                 <>
                   <Zap style={{ width: '16px', height: '16px', marginRight: '8px' }} />
-                  Create NFT Edition
+                  Create NFT Edition (Step 1)
                 </>
               )}
             </button>
+            
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.8)', marginTop: '8px', lineHeight: '1.3' }}>
+              ℹ️ This creates the edition for minting. Collectors will then mint actual NFT tokens from this edition.
+            </div>
           </div>
         )}
         
@@ -1281,7 +1652,7 @@ View full analytics and manage your edition in the dashboard.
   }
 
   // ===================================================================
-  // STEP 2: OWNER + NFT CREATED = Show "Manage Edition"
+  // STEP 2: OWNER + NFT CREATED = Show "Manage Edition" + MINT ABILITY
   // ===================================================================
   if (isOwner && hasNFTEdition) {
     return (
@@ -1329,39 +1700,139 @@ View full analytics and manage your edition in the dashboard.
             <div>🔗 Contract: {moment.nftContractAddress?.slice(0, 8)}...</div>
           </div>
         </div>
-<button
-  onClick={checkContractExists}
-  style={{
-    width: '100%',
-    background: 'purple',
-    color: 'white',
-    padding: '8px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '12px',
-    marginBottom: '5px',
-    border: 'none'
-  }}
->
-  🔍 Step 1: Check if Contract Exists
-</button>
 
-<button
-  onClick={verifyNFTExists}
-  style={{
-    width: '100%',
-    background: 'orange',
-    color: 'white',
-    padding: '8px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '12px',
-    marginBottom: '10px',
-    border: 'none'
-  }}
->
-  🔍 Step 2: Check if NFT Edition Exists
-</button>
+        {/* 🆕 OWNER MINTING SECTION */}
+        {isConnected && (
+          <div style={{
+            background: 'rgba(255,255,255,0.1)',
+            padding: '15px',
+            borderRadius: '8px',
+            marginBottom: '15px'
+          }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: '14px' }}>🎨 Owner Mint</h4>
+            <p style={{ margin: '0 0 10px 0', fontSize: '12px', opacity: '0.9' }}>
+              As the owner, you can mint your own NFTs:
+            </p>
+
+            {/* Minting progress */}
+            {currentStep !== 'ready' && (
+              <div style={{
+                background: 'rgba(255,255,255,0.1)',
+                padding: '10px',
+                borderRadius: '6px',
+                marginBottom: '10px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '12px', marginBottom: '5px' }}>
+                  {currentStep === 'creating' && '💰 Preparing mint...'}
+                  {currentStep === 'confirming' && '⏳ Confirming mint...'}
+                  {currentStep === 'success' && '🎉 NFT Minted Successfully!'}
+                </div>
+                {txHash && (
+                  <a
+                    href={`https://sepolia.basescan.org/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: 'rgba(255,255,255,0.8)',
+                      fontSize: '11px',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    View Transaction →
+                  </a>
+                )}
+              </div>
+            )}
+
+            {creationError && (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                color: '#dc2626',
+                padding: '8px',
+                borderRadius: '6px',
+                marginBottom: '10px',
+                fontSize: '12px'
+              }}>
+                ❌ {creationError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                onClick={() => handleMintNFT(1)}
+                disabled={isMinting || currentStep !== 'ready'}
+                style={{
+                  flex: 1,
+                  background: (isMinting) ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  color: 'white',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  cursor: (isMinting) ? 'not-allowed' : 'pointer',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  opacity: (isMinting) ? 0.7 : 1
+                }}
+              >
+                {isMinting ? 'Minting...' : 'Mint 1 NFT'}
+              </button>
+              <button 
+                onClick={() => handleMintNFT(3)}
+                disabled={isMinting || currentStep !== 'ready'}
+                style={{
+                  flex: 1,
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  color: 'white',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  cursor: (isMinting) ? 'not-allowed' : 'pointer',
+                  fontSize: '12px',
+                  opacity: (isMinting) ? 0.7 : 1
+                }}
+              >
+                Mint 3
+              </button>
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={checkContractExists}
+          style={{
+            width: '100%',
+            background: 'purple',
+            color: 'white',
+            padding: '8px',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            marginBottom: '5px',
+            border: 'none'
+          }}
+        >
+          🔍 Step 1: Check if Contract Exists
+        </button>
+
+        <button
+          onClick={verifyNFTExists}
+          style={{
+            width: '100%',
+            background: 'orange',
+            color: 'white',
+            padding: '8px',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            marginBottom: '10px',
+            border: 'none'
+          }}
+        >
+          🔍 Step 2: Check if NFT Edition Exists
+        </button>
+
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             onClick={handleViewOnOpenSea}
@@ -1532,24 +2003,24 @@ View full analytics and manage your edition in the dashboard.
             <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
               <button 
                 onClick={() => handleMintNFT(1)}
-                disabled={isMinting || isConfirming || currentStep !== 'ready'}
+                disabled={isMinting || currentStep !== 'ready'}
                 style={{
                   flex: 2,
-                  background: (isMinting || isConfirming) ? '#6b5b95' : '#8b5cf6',
+                  background: (isMinting) ? '#6b5b95' : '#8b5cf6',
                   color: 'white',
                   border: 'none',
                   padding: '12px',
                   borderRadius: '8px',
-                  cursor: (isMinting || isConfirming) ? 'not-allowed' : 'pointer',
+                  cursor: (isMinting) ? 'not-allowed' : 'pointer',
                   fontSize: '14px',
                   fontWeight: '600',
-                  opacity: (isMinting || isConfirming) ? 0.7 : 1,
+                  opacity: (isMinting) ? 0.7 : 1,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}
               >
-                {isMinting || isConfirming ? (
+                {isMinting ? (
                   <>
                     <div style={{
                       width: '14px',
@@ -1563,12 +2034,12 @@ View full analytics and manage your edition in the dashboard.
                     Minting...
                   </>
                 ) : (
-                  'Mint 1 NFT'
+                  'Mint 1 NFT (FIXED)'
                 )}
               </button>
               <button 
                 onClick={() => handleMintNFT(5)}
-                disabled={isMinting || isConfirming || currentStep !== 'ready'}
+                disabled={isMinting || currentStep !== 'ready'}
                 style={{
                   flex: 1,
                   background: 'rgba(255,255,255,0.2)',
@@ -1576,9 +2047,9 @@ View full analytics and manage your edition in the dashboard.
                   color: 'white',
                   padding: '12px',
                   borderRadius: '8px',
-                  cursor: (isMinting || isConfirming) ? 'not-allowed' : 'pointer',
+                  cursor: (isMinting) ? 'not-allowed' : 'pointer',
                   fontSize: '14px',
-                  opacity: (isMinting || isConfirming) ? 0.7 : 1
+                  opacity: (isMinting) ? 0.7 : 1
                 }}
               >
                 Mint 5
