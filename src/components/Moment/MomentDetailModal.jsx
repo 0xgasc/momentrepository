@@ -1,5 +1,5 @@
-// src/components/Moment/MomentDetailModal.jsx - FIXED OWNERSHIP LOGIC
-import React, { useState, memo } from 'react';
+// src/components/Moment/MomentDetailModal.jsx - FIXED NFT STATUS FETCHING
+import React, { useState, useEffect, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { formatFileSize } from '../../utils';
 //web3 components
@@ -32,8 +32,58 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
     return isOwnerResult;
   }, [user, moment]);
 
-  // ✅ NEW: Track NFT edition status (from moment data)
-  const hasNFTEdition = moment?.nftContractAddress && moment?.nftTokenId;
+  // ✅ NEW: Fetch NFT status from API instead of calculating from moment data
+  const [nftStatus, setNftStatus] = useState(null);
+  const [fetchingNftStatus, setFetchingNftStatus] = useState(true);
+  
+  // ✅ FIXED: Use API endpoint to get correct NFT status
+  useEffect(() => {
+    const fetchNftStatus = async () => {
+      if (!moment?._id) return;
+      
+      try {
+        setFetchingNftStatus(true);
+        console.log(`🔍 Fetching NFT status for moment ${moment._id}...`);
+        
+        const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/nft-status`);
+        
+        if (response.ok) {
+          const status = await response.json();
+          console.log('✅ NFT Status fetched:', status);
+          setNftStatus(status);
+        } else {
+          console.error('❌ Failed to fetch NFT status:', response.status);
+          // Fallback to moment data with correct token ID check
+          const fallbackStatus = {
+            hasNFTEdition: !!(moment.nftContractAddress && moment.nftTokenId !== undefined),
+            isMintingActive: false,
+            nftData: moment.nftContractAddress ? {
+              contractAddress: moment.nftContractAddress,
+              tokenId: moment.nftTokenId,
+              mintedCount: moment.nftMintedCount || 0
+            } : null
+          };
+          setNftStatus(fallbackStatus);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching NFT status:', error);
+        // Fallback to moment data with correct token ID check
+        const fallbackStatus = {
+          hasNFTEdition: !!(moment.nftContractAddress && moment.nftTokenId !== undefined),
+          isMintingActive: false,
+          nftData: null
+        };
+        setNftStatus(fallbackStatus);
+      } finally {
+        setFetchingNftStatus(false);
+      }
+    };
+
+    fetchNftStatus();
+  }, [moment._id, moment.nftContractAddress, moment.nftTokenId, moment.nftMintedCount]);
+
+  // ✅ FIXED: Get hasNFTEdition from API response
+  const hasNFTEdition = nftStatus?.hasNFTEdition || false;
   
   const [isEditing, setIsEditing] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -261,6 +311,16 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
     backgroundColor: rarityInfo.color
   };
 
+  console.log('🔍 MomentDetailModal Debug:', {
+    momentId: moment._id,
+    fetchingNftStatus,
+    nftStatusFromAPI: nftStatus,
+    hasNFTEdition,
+    isOwner,
+    nftTokenId: moment.nftTokenId,
+    nftContractAddress: moment.nftContractAddress
+  });
+
   return (
     <>
       <div className="modal-overlay" onClick={onClose}>
@@ -330,7 +390,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             {getMediaComponent()}
           </div>
 
-          {/* NFT Section with Proper 4-Step Workflow */}
+          {/* ✅ FIXED: NFT Section with Proper API-Based Status */}
           {user && (
             <div style={{ 
               padding: '20px', 
@@ -361,29 +421,56 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                       You uploaded this
                     </span>
                   )}
+                  {fetchingNftStatus && (
+                    <span style={{
+                      marginLeft: '10px',
+                      fontSize: '12px',
+                      background: '#6b7280',
+                      color: 'white',
+                      padding: '2px 8px',
+                      borderRadius: '12px'
+                    }}>
+                      Loading...
+                    </span>
+                  )}
                 </h3>
                 <p style={{ 
                   fontSize: '14px', 
                   color: '#6b7280',
                   margin: '0'
                 }}>
-                  {hasNFTEdition 
-                    ? 'This moment is available as an NFT'
-                    : isOwner 
-                      ? 'Create an NFT edition of your moment and earn revenue'
-                      : 'NFT not yet available for this moment'
+                  {fetchingNftStatus
+                    ? 'Checking NFT status...'
+                    : hasNFTEdition 
+                      ? 'This moment is available as an NFT'
+                      : isOwner 
+                        ? 'Create an NFT edition of your moment and earn revenue'
+                        : 'NFT not yet available for this moment'
                   }
                 </p>
               </div>
               
-              {/* ✅ FIXED: Proper conditional logic based on workflow */}
-              <MomentMint 
-                moment={moment} 
-                user={user} 
-                isOwner={isOwner}
-                hasNFTEdition={hasNFTEdition}
-                isExpanded={true}
-              />
+              {/* ✅ FIXED: Pass correct props from API response */}
+              {!fetchingNftStatus && (
+                <MomentMint 
+                  moment={moment} 
+                  user={user} 
+                  isOwner={isOwner}
+                  hasNFTEdition={hasNFTEdition}
+                  isExpanded={true}
+                />
+              )}
+              
+              {fetchingNftStatus && (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '20px',
+                  color: '#6b7280'
+                }}>
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  Fetching NFT status...
+                </div>
+              )}
             </div>
           )}
 
@@ -399,9 +486,11 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                 🎯 NFT Features
               </h3>
               <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '15px' }}>
-                {hasNFTEdition 
-                  ? 'This moment is available as an NFT. Login to mint a copy.'
-                  : 'Login to access NFT features for this moment'
+                {fetchingNftStatus
+                  ? 'Checking NFT availability...'
+                  : hasNFTEdition 
+                    ? 'This moment is available as an NFT. Login to mint a copy.'
+                    : 'Login to access NFT features for this moment'
                 }
               </p>
               <button

@@ -1,4 +1,4 @@
-// src/config/web3Config.js - UPDATED for ERC1155
+// src/config/web3Config.js - FIXED OpenSea URL Format
 
 import UMOMomentsERC1155Contract from '../contracts/UMOMomentsERC1155.json';
 
@@ -178,15 +178,19 @@ export const contractHelpers = {
   },
 
   /**
-   * ✅ UPDATED: Get OpenSea URL for ERC1155 token
+   * ✅ FIXED: Get OpenSea URL for ERC1155 token with correct format
    */
   getOpenSeaUrl: (contractAddress, tokenId, isMainnet = false) => {
+    // ✅ FIXED: Use base_sepolia (underscore) not base-sepolia (hyphen)
     const baseUrl = isMainnet 
       ? 'https://opensea.io/assets/ethereum'
-      : 'https://testnets.opensea.io/assets/base-sepolia';
+      : 'https://testnets.opensea.io/assets/base_sepolia'; // ✅ Fixed: underscore
     
-    // ✅ ERC1155: Same URL format, just numeric tokenId
-    return `${baseUrl}/${contractAddress}/${tokenId}`;
+    // ✅ FIXED: Ensure lowercase contract address for OpenSea compatibility
+    const lowercaseAddress = contractAddress.toLowerCase();
+    
+    // ✅ ERC1155: Same URL format, numeric tokenId
+    return `${baseUrl}/${lowercaseAddress}/${tokenId}`;
   },
 
   /**

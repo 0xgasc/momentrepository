@@ -503,10 +503,16 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
   };
 
   // Utility functions
+
+// ✅ FIXED: Use helper function with correct OpenSea URL format
   const handleViewOnOpenSea = () => {
     if (moment.nftContractAddress && moment.nftTokenId !== undefined) {
-      // ✅ ERC1155 OpenSea URL (same format as ERC721)
-      const openSeaUrl = `https://testnets.opensea.io/assets/base-sepolia/${moment.nftContractAddress}/${moment.nftTokenId}`;
+      // ✅ FIXED: Use base_sepolia (underscore) and lowercase address
+      const baseUrl = 'https://testnets.opensea.io/assets/base_sepolia';
+      const lowercaseAddress = moment.nftContractAddress.toLowerCase();
+      const openSeaUrl = `${baseUrl}/${lowercaseAddress}/${moment.nftTokenId}`;
+      
+      console.log('🔗 Opening OpenSea URL:', openSeaUrl);
       window.open(openSeaUrl, '_blank', 'noopener,noreferrer');
     }
   };
