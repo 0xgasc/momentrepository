@@ -5,7 +5,6 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 require('dotenv').config();
 const { createProxyMiddleware } = require('http-proxy-middleware');
-
 const User = require('./models/User');
 const Moment = require('./models/Moment');
 const { UMOCache } = require('./utils/umoCache');
@@ -13,11 +12,14 @@ const { UMOCache } = require('./utils/umoCache');
 const app = express();
 const PORT = 5050;
 
+
 // Initialize UMO cache
 const umoCache = new UMOCache();
 
+// ✅ GLOBAL METADATA STORAGE (in production, use database)
+global.metadataStorage = global.metadataStorage || {};
+
 // Enhanced CORS setup for file uploads
-// TEMPORARY - Replace existing CORS with this:
 app.use(cors({
   origin: '*', // Allow all origins for testing
   credentials: true,
@@ -86,12 +88,97 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
-
-  // Add these endpoints to setlist-proxy/server.js
-
 // =============================================================================
-// NFT EDITION ENDPOINTS
+// ✅ ENHANCED NFT EDITION ENDPOINTS WITH METADATA & CLEANUP
 // =============================================================================
+
+// ✅ NEW: Upload metadata to server (better than data URIs for OpenSea)
+app.post('/upload-metadata', authenticateToken, async (req, res) => {
+  try {
+    const metadata = req.body;
+    console.log('📄 Uploading NFT metadata to server...');
+    
+    // Validate metadata
+    if (!metadata.name || !metadata.image) {
+      return res.status(400).json({ error: 'Invalid metadata: name and image required' });
+    }
+
+    // Generate unique metadata ID
+    const metadataId = `metadata-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const metadataUri = `${req.protocol}://${req.get('host')}/metadata/${metadataId}`;
+    
+    // Store metadata (in production, save to database)
+    global.metadataStorage[metadataId] = {
+      ...metadata,
+      storedAt: new Date().toISOString()
+    };
+    
+    console.log('✅ Metadata stored with URI:', metadataUri);
+    console.log('📋 Metadata preview:', {
+      name: metadata.name,
+      attributeCount: metadata.attributes?.length || 0,
+      hasImage: !!metadata.image,
+      hasAnimation: !!metadata.animation_url
+    });
+    
+    res.json({
+      success: true,
+      metadataUri: metadataUri,
+      metadataId: metadataId
+    });
+    
+  } catch (error) {
+    console.error('❌ Metadata upload error:', error);
+    res.status(500).json({
+      error: 'Failed to upload metadata',
+      details: error.message
+    });
+  }
+});
+
+// ✅ NEW: Serve metadata with proper headers for OpenSea
+app.get('/metadata/:metadataId', (req, res) => {
+  try {
+    const { metadataId } = req.params;
+    
+    // Set proper headers for OpenSea compatibility
+    res.set({
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Cache-Control': 'public, max-age=86400' // Cache for 24 hours
+    });
+    
+    const metadata = global.metadataStorage?.[metadataId];
+    
+    if (!metadata) {
+      console.error(`❌ Metadata not found: ${metadataId}`);
+      return res.status(404).json({ 
+        error: 'Metadata not found',
+        metadataId: metadataId
+      });
+    }
+    
+    console.log(`📋 Serving metadata for ${metadataId}:`, {
+      name: metadata.name,
+      hasImage: !!metadata.image,
+      hasAnimation: !!metadata.animation_url,
+      attributeCount: metadata.attributes?.length || 0
+    });
+    
+    // Remove internal fields before sending
+    const { storedAt, ...publicMetadata } = metadata;
+    res.json(publicMetadata);
+    
+  } catch (error) {
+    console.error('❌ Metadata serve error:', error);
+    res.status(500).json({ 
+      error: 'Failed to serve metadata',
+      details: error.message 
+    });
+  }
+});
 
 // Create NFT edition for a moment (owner only)
 app.post('/moments/:momentId/create-nft-edition', authenticateToken, async (req, res) => {
@@ -205,95 +292,8 @@ app.get('/moments/:momentId/nft-status', async (req, res) => {
     });
   }
 });
-// ✅ NEW: Upload metadata to server (better than data URIs for OpenSea)
-app.post('/upload-metadata', authenticateToken, async (req, res) => {
-  try {
-    const metadata = req.body;
-    console.log('📄 Uploading NFT metadata to server...');
-    
-    // Validate metadata
-    if (!metadata.name || !metadata.image) {
-      return res.status(400).json({ error: 'Invalid metadata: name and image required' });
-    }
 
-    // Generate unique metadata ID
-    const metadataId = `metadata-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const metadataUri = `${req.protocol}://${req.get('host')}/metadata/${metadataId}`;
-    
-    // Store metadata (in production, save to database)
-    global.metadataStorage[metadataId] = {
-      ...metadata,
-      storedAt: new Date().toISOString()
-    };
-    
-    console.log('✅ Metadata stored with URI:', metadataUri);
-    console.log('📋 Metadata preview:', {
-      name: metadata.name,
-      attributeCount: metadata.attributes?.length || 0,
-      hasImage: !!metadata.image,
-      hasAnimation: !!metadata.animation_url
-    });
-    
-    res.json({
-      success: true,
-      metadataUri: metadataUri,
-      metadataId: metadataId
-    });
-    
-  } catch (error) {
-    console.error('❌ Metadata upload error:', error);
-    res.status(500).json({
-      error: 'Failed to upload metadata',
-      details: error.message
-    });
-  }
-});
-
-// ✅ NEW: Serve metadata with proper headers for OpenSea
-app.get('/metadata/:metadataId', (req, res) => {
-  try {
-    const { metadataId } = req.params;
-    
-    // Set proper headers for OpenSea compatibility
-    res.set({
-      'Content-Type': 'application/json; charset=utf-8',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Cache-Control': 'public, max-age=86400' // Cache for 24 hours
-    });
-    
-    const metadata = global.metadataStorage?.[metadataId];
-    
-    if (!metadata) {
-      console.error(`❌ Metadata not found: ${metadataId}`);
-      return res.status(404).json({ 
-        error: 'Metadata not found',
-        metadataId: metadataId
-      });
-    }
-    
-    console.log(`📋 Serving metadata for ${metadataId}:`, {
-      name: metadata.name,
-      hasImage: !!metadata.image,
-      hasAnimation: !!metadata.animation_url,
-      attributeCount: metadata.attributes?.length || 0
-    });
-    
-    // Remove internal fields before sending
-    const { storedAt, ...publicMetadata } = metadata;
-    res.json(publicMetadata);
-    
-  } catch (error) {
-    console.error('❌ Metadata serve error:', error);
-    res.status(500).json({ 
-      error: 'Failed to serve metadata',
-      details: error.message 
-    });
-  }
-});
-
-// Record an NFT mint (called when someone mints)
+// ✅ FIXED: Record an NFT mint (called when someone mints)
 app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) => {
   try {
     const { momentId } = req.params;
@@ -385,6 +385,7 @@ app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) =
     });
   }
 });
+
 // ✅ NEW: Clean up duplicate mint entries for a specific moment
 app.post('/admin/cleanup-duplicate-mints/:momentId', async (req, res) => {
   try {
@@ -624,38 +625,6 @@ app.get('/moments/:momentId/mint-analytics', async (req, res) => {
   }
 });
 
-console.log('🔧 Enhanced metadata and cleanup endpoints added to server');
-
-// Upload metadata to Irys/Arweave
-app.post('/upload-metadata', authenticateToken, async (req, res) => {
-  try {
-    const metadata = req.body;
-    console.log('📄 Uploading NFT metadata to Irys...');
-    
-    // Create metadata buffer
-    const metadataBuffer = Buffer.from(JSON.stringify(metadata, null, 2));
-    
-    // Upload to Irys (reuse your existing uploader)
-    const { uploadFileToIrys } = require('./utils/irysUploader');
-    const result = await uploadFileToIrys(metadataBuffer, `metadata-${Date.now()}.json`);
-    
-    console.log('✅ Metadata uploaded to:', result.url);
-    
-    res.json({
-      success: true,
-      metadataUri: result.url,
-      arweaveId: result.id
-    });
-    
-  } catch (error) {
-    console.error('❌ Metadata upload error:', error);
-    res.status(500).json({
-      error: 'Failed to upload metadata',
-      details: error.message
-    });
-  }
-});
-
 // Create 0xSplits contract (mock for now - replace with real implementation)
 app.post('/create-splits', authenticateToken, async (req, res) => {
   try {
@@ -772,146 +741,6 @@ app.get('/moments/:momentId/nft-status-enhanced', async (req, res) => {
   }
 });
 
-// Verify NFT contract state (check if edition actually exists on blockchain)
-app.get('/moments/:momentId/verify-contract', async (req, res) => {
-  try {
-    const { momentId } = req.params;
-    
-    const moment = await Moment.findById(momentId);
-    if (!moment || !moment.nftContractAddress) {
-      return res.status(404).json({ error: 'NFT edition not found' });
-    }
-
-    // TODO: Add Web3 integration to verify contract state
-    // For now, return mock verification
-    const mockVerification = {
-      contractExists: true,
-      editionExists: true,
-      mintingActive: moment.nftMintEndTime && new Date() < new Date(moment.nftMintEndTime),
-      currentSupply: moment.nftMintedCount || 0,
-      lastChecked: new Date().toISOString()
-    };
-
-    res.json({
-      verified: true,
-      contractData: mockVerification,
-      moment: {
-        id: moment._id,
-        contractAddress: moment.nftContractAddress,
-        tokenId: moment.nftTokenId
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Contract verification error:', error);
-    res.status(500).json({
-      error: 'Failed to verify contract',
-      details: error.message
-    });
-  }
-});
-
-// Batch update NFT mint counts (for syncing with blockchain)
-app.post('/admin/sync-nft-counts', async (req, res) => {
-  try {
-    const { updates } = req.body; // Array of { momentId, newCount }
-    
-    if (!Array.isArray(updates)) {
-      return res.status(400).json({ error: 'Updates must be an array' });
-    }
-
-    const results = [];
-    
-    for (const update of updates) {
-      try {
-        const moment = await Moment.findByIdAndUpdate(
-          update.momentId,
-          { 
-            $set: { 
-              nftMintedCount: update.newCount,
-              updatedAt: new Date()
-            }
-          },
-          { new: true }
-        );
-        
-        if (moment) {
-          results.push({
-            momentId: update.momentId,
-            success: true,
-            newCount: update.newCount
-          });
-        } else {
-          results.push({
-            momentId: update.momentId,
-            success: false,
-            error: 'Moment not found'
-          });
-        }
-      } catch (err) {
-        results.push({
-          momentId: update.momentId,
-          success: false,
-          error: err.message
-        });
-      }
-    }
-
-    const successCount = results.filter(r => r.success).length;
-    
-    res.json({
-      success: true,
-      updated: successCount,
-      total: updates.length,
-      results
-    });
-
-  } catch (error) {
-    console.error('❌ Batch sync error:', error);
-    res.status(500).json({
-      error: 'Failed to sync NFT counts',
-      details: error.message
-    });
-  }
-});
-
-// Get OpenSea collection info
-app.get('/moments/:momentId/opensea-info', async (req, res) => {
-  try {
-    const { momentId } = req.params;
-    
-    const moment = await Moment.findById(momentId);
-    if (!moment || !moment.nftContractAddress) {
-      return res.status(404).json({ error: 'NFT not found' });
-    }
-
-    // Determine correct OpenSea URL based on network
-    const isMainnet = moment.nftContractAddress.startsWith('0x'); // Simple check
-    const baseUrl = isMainnet 
-      ? 'https://opensea.io/assets/ethereum'
-      : 'https://testnets.opensea.io/assets/base-sepolia';
-    
-    const openSeaUrl = `${baseUrl}/${moment.nftContractAddress}/${moment.nftTokenId || moment._id}`;
-    
-    res.json({
-      openSeaUrl,
-      contractAddress: moment.nftContractAddress,
-      tokenId: moment.nftTokenId || moment._id,
-      network: isMainnet ? 'mainnet' : 'testnet',
-      collectionSlug: 'umo-moments' // You'd set this when creating the collection
-    });
-
-  } catch (error) {
-    console.error('❌ OpenSea info error:', error);
-    res.status(500).json({
-      error: 'Failed to get OpenSea info',
-      details: error.message
-    });
-  }
-});
-
-console.log('🎯 Enhanced NFT endpoints added to server');
-
 // Get NFT edition analytics for owners
 app.get('/moments/:momentId/nft-analytics', authenticateToken, async (req, res) => {
   try {
@@ -968,40 +797,42 @@ app.get('/moments/:momentId/nft-analytics', authenticateToken, async (req, res) 
   }
 });
 
-// Update moment schema to include mint history
-// Add to setlist-proxy/models/Moment.js
+// Get OpenSea collection info
+app.get('/moments/:momentId/opensea-info', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    
+    const moment = await Moment.findById(momentId);
+    if (!moment || !moment.nftContractAddress) {
+      return res.status(404).json({ error: 'NFT not found' });
+    }
 
-/*
-Add these fields to the momentSchema:
+    // Determine correct OpenSea URL based on network
+    const isMainnet = moment.nftContractAddress.startsWith('0x'); // Simple check
+    const baseUrl = isMainnet 
+      ? 'https://opensea.io/assets/ethereum'
+      : 'https://testnets.opensea.io/assets/base-sepolia';
+    
+    const openSeaUrl = `${baseUrl}/${moment.nftContractAddress}/${moment.nftTokenId || moment._id}`;
+    
+    res.json({
+      openSeaUrl,
+      contractAddress: moment.nftContractAddress,
+      tokenId: moment.nftTokenId || moment._id,
+      network: isMainnet ? 'mainnet' : 'testnet',
+      collectionSlug: 'umo-moments' // You'd set this when creating the collection
+    });
 
-  // NFT Edition fields (update existing ones)
-  nftMinted: { type: Boolean, default: false },
-  nftTokenId: { type: String }, 
-  nftContractAddress: { type: String }, 
-  nftMetadataHash: { type: String }, 
-  nftSplitsContract: { type: String }, // 0xSplits contract address
-  nftMintPrice: { type: String }, // Price in wei as string
-  nftMintDuration: { type: Number }, // Duration in seconds
-  nftMintStartTime: { type: Date },
-  nftMintEndTime: { type: Date },
-  nftCreationTxHash: { type: String }, // Transaction hash of NFT creation
-  nftMintedCount: { type: Number, default: 0 }, // How many have been minted
-  nftMintHistory: [{
-    minter: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    minterAddress: { type: String }, // Wallet address
-    quantity: { type: Number },
-    txHash: { type: String },
-    mintedAt: { type: Date, default: Date.now }
-  }],
+  } catch (error) {
+    console.error('❌ OpenSea info error:', error);
+    res.status(500).json({
+      error: 'Failed to get OpenSea info',
+      details: error.message
+    });
+  }
+});
 
-Add indexes:
-momentSchema.index({ nftMinted: 1 });
-momentSchema.index({ nftContractAddress: 1 });
-momentSchema.index({ nftMintEndTime: 1 });
-
-*/
-
-console.log('🎯 NFT edition endpoints added to server');
+console.log('🎯 Enhanced NFT endpoints with metadata and cleanup added to server');
 
 // =============================================================================
 // CACHE ENDPOINTS
@@ -1052,7 +883,6 @@ app.post('/cache/refresh', async (req, res) => {
     res.status(500).json({ error: 'Failed to start cache refresh' });
   }
 });
-// Add this RIGHT AFTER the existing cache endpoints in server.js:
 
 app.post('/cache/force-rebuild', async (req, res) => {
   try {
@@ -1230,11 +1060,6 @@ app.get('/cached/search-indexes', async (req, res) => {
 });
 
 // =============================================================================
-// ORIGINAL SETLIST.FM PROXY (still available as fallback)
-// =============================================================================
-
-
-// =============================================================================
 // AUTH ENDPOINTS
 // =============================================================================
 
@@ -1367,6 +1192,7 @@ app.post('/upload-file', authenticateToken, (req, res, next) => {
     });
   }
 });
+
 // =============================================================================
 // MOMENT ENDPOINTS
 // =============================================================================
@@ -2052,6 +1878,7 @@ const initializeCache = async () => {
     console.log('⚠️ Server will continue with limited functionality');
   }
 };
+
 const scheduleDailyRefresh = () => {
   const now = new Date();
   const tomorrow = new Date(now);
@@ -2080,6 +1907,7 @@ const scheduleDailyRefresh = () => {
   
   console.log(`⏰ Next cache refresh scheduled for ${tomorrow.toLocaleString()}`);
 };
+
 // =============================================================================
 // TEMPORARY API PROXY FOR CACHE REBUILD
 // =============================================================================
@@ -2097,6 +1925,7 @@ app.use(
     logLevel: 'warn',
   })
 );
+
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server listening at http://0.0.0.0:${PORT}`);
@@ -2107,6 +1936,3 @@ app.listen(PORT, '0.0.0.0', () => {
   initializeCache();
   scheduleDailyRefresh();
 });
-
-
-

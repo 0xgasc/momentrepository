@@ -63,16 +63,30 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
   }, [txError]);
 
   // ✅ FIXED: Generate proper OpenSea-compatible metadata
-  const createNFTMetadata = (moment) => {
-    const baseImageUrl = moment.mediaUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&background=random`;
-    
-    return {
-      name: `${moment.songName} - ${moment.venueName} (${moment.performanceDate})`,
-      description: moment.momentDescription || 
-        `A live performance moment of "${moment.songName}" by UMO at ${moment.venueName}, ${moment.venueCity} on ${moment.performanceDate}. ` +
-        `${moment.personalNote ? `\n\nUploader's note: ${moment.personalNote}` : ''}`,
-      image: baseImageUrl,
-      animation_url: moment.mediaType === 'video' ? moment.mediaUrl : undefined,
+ const createNFTMetadata = (moment) => {
+  // ✅ For videos: Create proper thumbnail for OpenSea
+  let imageUrl, animationUrl;
+  
+  if (moment.mediaType === 'video') {
+    // For videos: Use a thumbnail service
+    imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&size=512&background=1e3a8a&color=ffffff&bold=true`;
+    animationUrl = moment.mediaUrl;
+  } else if (moment.mediaType === 'audio') {
+    imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&size=512&background=dc2626&color=ffffff&bold=true`;
+    animationUrl = undefined;
+  } else {
+    imageUrl = moment.mediaUrl;
+    animationUrl = undefined;
+  }
+  
+  return {
+    name: `${moment.songName} - ${moment.venueName} (${moment.performanceDate})`,
+    description: moment.momentDescription || 
+      `A live performance moment of "${moment.songName}" by UMO at ${moment.venueName}, ${moment.venueCity} on ${moment.performanceDate}. ` +
+      `${moment.personalNote ? `\n\nUploader's note: ${moment.personalNote}` : ''}`,
+    image: imageUrl,
+    animation_url: animationUrl,
+    // ... keep the rest of your existing attributes and properties exactly the same
       external_url: `${window.location.origin}/moments/${moment._id}`,
       attributes: [
         {
@@ -169,36 +183,42 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
     };
   };
 
-  // ✅ FIXED: Upload metadata to backend server (better for OpenSea)
-  const uploadMetadataToBackend = async (metadata) => {
+  // ✅ FIXED: Upload metadata to Irys/Arweave (browser-compatible)
+  const uploadMetadataToIrys = async (metadata) => {
     try {
-      console.log('📤 Uploading metadata to backend server...');
+      console.log('📤 Uploading metadata to Irys/Arweave...');
       
+      // Convert metadata to JSON string and create Blob (browser-compatible)
+      const metadataJson = JSON.stringify(metadata, null, 2);
+      const metadataBlob = new Blob([metadataJson], { type: 'application/json' });
+      
+      // Upload to Irys using existing backend endpoint
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/upload-metadata`, {
+      const formData = new FormData();
+      formData.append('file', metadataBlob, `metadata-${Date.now()}.json`);
+      
+      console.log('📄 Metadata size:', metadataBlob.size, 'bytes');
+      
+      const response = await fetch(`${API_BASE_URL}/upload-file`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(metadata)
+        body: formData
       });
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Metadata uploaded successfully:', result.metadataUri);
-        return result.metadataUri;
+        console.log('✅ Metadata uploaded to Arweave:', result.fileUri);
+        return result.fileUri;
       } else {
-        throw new Error('Failed to upload metadata to backend');
+        const errorText = await response.text();
+        console.error('❌ Upload response error:', errorText);
+        throw new Error(`Failed to upload metadata to Irys: ${response.status}`);
       }
     } catch (error) {
-      console.error('❌ Metadata upload failed, using fallback:', error);
-      
-      // Fallback to data URI if backend fails
-      console.log('🔄 Falling back to data URI...');
-      const metadataJson = JSON.stringify(metadata, null, 2);
-      const base64 = btoa(unescape(encodeURIComponent(metadataJson)));
-      return `data:application/json;base64,${base64}`;
+      console.error('❌ Metadata upload to Irys failed:', error);
+      throw new Error(`Metadata upload failed: ${error.message}`);
     }
   };
 
@@ -237,7 +257,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
       
       // Create proper metadata
       const metadata = createNFTMetadata(moment);
-      const metadataURI = await uploadMetadataToBackend(metadata);
+const metadataURI = await uploadMetadataToIrys(metadata);
       
       const mockSplitsAddress = '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96';
 
