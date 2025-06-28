@@ -263,103 +263,84 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
     }
   };
 
-  // ✅ ERC1155: Create NFT Edition (for owners)
-  const handleCreateNFTEdition = async () => {
-    if (!isConnected) {
-      setError('Please connect your wallet first');
-      return;
+// ✅ ERC1155: Create NFT Edition via Backend Proxy (for owners)
+const handleCreateNFTEdition = async () => {
+  if (!isConnected) {
+    setError('Please connect your wallet first');
+    return;
+  }
+
+  setIsCreatingNFT(true);
+  setError('');
+  setCurrentStep('creating');
+
+  try {
+    console.log('🚀 Creating ERC1155 NFT edition via backend proxy...');
+
+    // Create proper metadata
+    const metadata = createNFTMetadata(moment);
+    const metadataURI = await uploadMetadataToIrys(metadata);
+    
+    const mockSplitsAddress = '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96';
+
+    console.log('📝 Using backend proxy with parameters:', {
+      momentId: moment._id.slice(0, 12) + '...',
+      mintDuration: `${mintDuration} days`,
+      metadataURI: metadataURI.slice(0, 50) + '...'
+    });
+
+    setCurrentStep('confirming');
+
+    // ✅ CALL BACKEND PROXY instead of contract directly
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/create-nft-edition-proxy`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        nftMetadataHash: metadataURI,
+        splitsContract: mockSplitsAddress,
+        mintPrice: '1000000000000000', // 0.001 ETH in wei as string
+        mintDuration: mintDuration
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Backend proxy failed');
     }
 
-    if (chainId !== 84532) {
-      setError('Please switch to Base Sepolia network (Chain ID: 84532)');
-      return;
+    console.log('✅ Backend proxy success:', result);
+    setTxHash(result.txHash);
+    setCurrentStep('success');
+    
+    setSuccessMessage('🎉 NFT Edition Created Successfully via Proxy! Page will refresh...');
+    setTimeout(() => window.location.reload(), 3000);
+
+  } catch (error) {
+    console.error('❌ Backend proxy NFT creation failed:', error);
+    
+    let errorMessage = error.message || 'Unknown error';
+    
+    if (errorMessage.includes('Not authorized')) {
+      errorMessage = 'You are not authorized to create NFT for this moment';
+    } else if (errorMessage.includes('already exists')) {
+      errorMessage = 'NFT edition already exists for this moment';
+    } else if (errorMessage.includes('Dev wallet')) {
+      errorMessage = 'Backend service temporarily unavailable (dev wallet issue)';
+    } else if (errorMessage.includes('Network')) {
+      errorMessage = 'Network connection failed - please try again';
     }
-
-    setIsCreatingNFT(true);
-    setError('');
-    setCurrentStep('creating');
-
-    try {
-      console.log('🚀 Creating ERC1155 NFT edition...');
-
-      // Setup ethers provider and signer
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contract = new ethers.Contract(
-        UMOMomentsERC1155Contract.address,
-        UMOMomentsERC1155Contract.abi,
-        signer
-      );
-
-      // Prepare transaction parameters
-      const mintPriceWei = parseEther('0.001');
-      const mintDurationSeconds = mintDuration * 24 * 60 * 60;
-      const rarityScore = Math.floor(Math.min(7, Math.max(1, moment.rarityScore || 1)));
-      
-      // Create proper metadata
-      const metadata = createNFTMetadata(moment);
-      const metadataURI = await uploadMetadataToIrys(metadata);
-      
-      const mockSplitsAddress = '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96';
-
-      console.log('📝 Transaction parameters:', {
-        momentId: moment._id.slice(0, 12) + '...',
-        mintPrice: formatEther(mintPriceWei) + ' ETH',
-        duration: `${mintDuration} days`,
-        rarity: rarityScore,
-        metadataURI: metadataURI.slice(0, 50) + '...'
-      });
-
-      setCurrentStep('confirming');
-
-      // ✅ ERC1155: Create moment edition on blockchain
-      const transaction = await contract.createMomentEdition(
-        String(moment._id),           // momentId (database ID)
-        metadataURI,                  // metadataURI
-        mintPriceWei,                 // mintPrice
-        mintDurationSeconds,          // mintDuration
-        0,                            // maxSupply (unlimited)
-        mockSplitsAddress,            // splitsContract
-        rarityScore                   // rarity
-      );
-
-      console.log('✅ Transaction submitted:', transaction.hash);
-      setTxHash(transaction.hash);
-
-      // Wait for confirmation
-      setCurrentStep('updating');
-      const receipt = await transaction.wait();
-      console.log('✅ Transaction confirmed in block:', receipt.blockNumber);
-
-      // ✅ Get the token ID from the event logs
-      const eventFilter = contract.filters.MomentEditionCreated();
-      const events = await contract.queryFilter(eventFilter, receipt.blockNumber, receipt.blockNumber);
-      const tokenId = events.length > 0 ? events[0].args.tokenId : null;
-
-      console.log('✅ New token ID created:', tokenId?.toString());
-
-      // Update database with token ID
-      await updateBackendAfterCreation(transaction.hash, metadataURI, tokenId?.toString());
-
-    } catch (error) {
-      console.error('❌ Create NFT Edition failed:', error);
-      
-      let errorMessage = error.message || 'Unknown error';
-      
-      if (error.code === 'ACTION_REJECTED' || errorMessage.includes('User rejected')) {
-        errorMessage = 'Transaction was rejected in MetaMask';
-      } else if (errorMessage.includes('insufficient funds')) {
-        errorMessage = 'Insufficient ETH for gas fees';
-      } else if (errorMessage.includes('Edition already exists')) {
-        errorMessage = 'NFT edition already exists for this moment';
-      }
-      
-      setError(errorMessage);
-      setCurrentStep('ready');
-    } finally {
-      setIsCreatingNFT(false);
-    }
-  };
+    
+    setError(errorMessage);
+    setCurrentStep('ready');
+  } finally {
+    setIsCreatingNFT(false);
+  }
+};
 
   // ✅ ERC1155: Mint NFT (for both owners and collectors)
   const handleMintNFT = async (quantity = 1) => {

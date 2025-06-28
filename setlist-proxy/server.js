@@ -8,6 +8,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const User = require('./models/User');
 const Moment = require('./models/Moment');
 const { UMOCache } = require('./utils/umoCache');
+const { ethers } = require('ethers');
 
 const app = express();
 const PORT = 5050;
@@ -314,7 +315,150 @@ app.post('/moments/:momentId/create-nft-edition', authenticateToken, async (req,
     });
   }
 });
+// ✅ BACKEND PROXY: Create NFT Edition using dev wallet on behalf of users
+app.post('/moments/:momentId/create-nft-edition-proxy', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const userId = req.user.id;
+    const {
+      nftMetadataHash,
+      splitsContract,
+      mintPrice,
+      mintDuration
+    } = req.body;
 
+    console.log(`🎯 Backend Proxy: Creating ERC1155 NFT edition for moment ${momentId} by user ${userId}`);
+
+    // Find the moment and verify ownership
+    const moment = await Moment.findById(momentId);
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    // Verify the user owns this moment
+    if (moment.user.toString() !== userId) {
+      console.error(`❌ User ${userId} doesn't own moment ${momentId} (owned by ${moment.user})`);
+      return res.status(403).json({ error: 'Not authorized to create NFT for this moment' });
+    }
+
+    // Check if NFT edition already exists
+    if (moment.nftMinted || moment.nftContractAddress) {
+      return res.status(400).json({ error: 'NFT edition already exists for this moment' });
+    }
+
+    // ✅ USE DEV WALLET to create edition on behalf of user
+    console.log('🔧 Using dev wallet to create NFT edition on behalf of user...');
+    
+    // Setup ethers with dev wallet
+    const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC);
+    const devWallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+    
+    // Import contract ABI (you already have this)
+    const UMOMomentsERC1155Contract = require('../src/contracts/UMOMomentsERC1155.json');
+    const contract = new ethers.Contract(
+      UMOMomentsERC1155Contract.address,
+      UMOMomentsERC1155Contract.abi,
+      devWallet
+    );
+
+    // Prepare transaction parameters
+    const mintPriceWei = ethers.parseEther('0.001');
+    const mintDurationSeconds = mintDuration * 24 * 60 * 60;
+    const rarityScore = Math.floor(Math.min(7, Math.max(1, moment.rarityScore || 1)));
+    const mockSplitsAddress = splitsContract || '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96';
+
+    console.log('📝 Proxy transaction parameters:', {
+      momentId: moment._id.toString().slice(0, 12) + '...',
+      mintPrice: ethers.formatEther(mintPriceWei) + ' ETH',
+      duration: `${mintDuration} days`,
+      rarity: rarityScore,
+      metadataURI: nftMetadataHash.slice(0, 50) + '...',
+      devWallet: devWallet.address
+    });
+
+    // ✅ CREATE EDITION using dev wallet
+    const transaction = await contract.createMomentEdition(
+      moment._id.toString(),        // momentId (database ID)      
+      nftMetadataHash,              // metadataURI
+      mintPriceWei,                 // mintPrice
+      mintDurationSeconds,          // mintDuration
+      0,                            // maxSupply (unlimited)
+      mockSplitsAddress,            // splitsContract
+      rarityScore                   // rarity
+    );
+
+    console.log('✅ Proxy transaction submitted:', transaction.hash);
+console.log('🔍 Debug ENV vars:', {
+  hasPrivateKey: !!process.env.PRIVATE_KEY,
+  hasRPC: !!process.env.SEPOLIA_RPC,
+  privateKeyLength: process.env.PRIVATE_KEY?.length
+});
+    // Wait for confirmation
+    const receipt = await transaction.wait();
+    console.log('✅ Proxy transaction confirmed in block:', receipt.blockNumber);
+
+    // ✅ Get the token ID from the event logs
+    const eventFilter = contract.filters.MomentEditionCreated();
+    const events = await contract.queryFilter(eventFilter, receipt.blockNumber, receipt.blockNumber);
+    const tokenId = events.length > 0 ? events[0].args.tokenId : null;
+
+    console.log('✅ New token ID created via proxy:', tokenId?.toString());
+
+    // ✅ UPDATE DATABASE with new NFT data
+    const updatedMoment = await Moment.findByIdAndUpdate(
+      momentId,
+      {
+        $set: {
+          nftMinted: true,
+          nftTokenId: parseInt(tokenId?.toString() || 0), // Store as number
+          nftContractAddress: UMOMomentsERC1155Contract.address,
+          nftMetadataHash: nftMetadataHash,
+          nftSplitsContract: mockSplitsAddress,
+          nftMintPrice: mintPrice,
+          nftMintDuration: mintDuration,
+          nftMintStartTime: new Date(),
+          nftMintEndTime: new Date(Date.now() + (mintDuration * 24 * 60 * 60 * 1000)),
+          nftCreationTxHash: transaction.hash,
+          nftMintedCount: 0 // Start with 0 mints
+        }
+      },
+      { new: true }
+    ).populate('user', 'displayName email');
+
+    console.log(`✅ Backend Proxy: ERC1155 NFT edition created for moment "${updatedMoment.songName}" with token ID ${tokenId}`);
+
+    res.json({
+      success: true,
+      moment: updatedMoment,
+      tokenId: parseInt(tokenId?.toString() || 0),
+      txHash: transaction.hash,
+      message: 'ERC1155 NFT edition created successfully via backend proxy',
+      createdBy: 'backend-proxy',
+      devWallet: devWallet.address
+    });
+
+  } catch (err) {
+    console.error('❌ Backend Proxy NFT creation failed:', err);
+    
+    let errorMessage = err.message || 'Unknown error';
+    
+    if (errorMessage.includes('insufficient funds')) {
+      errorMessage = 'Dev wallet has insufficient ETH for gas fees';
+    } else if (errorMessage.includes('Edition already exists')) {
+      errorMessage = 'NFT edition already exists for this moment';
+    } else if (errorMessage.includes('NETWORK_ERROR')) {
+      errorMessage = 'Network connection failed - please try again';
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to create NFT edition via proxy', 
+      details: errorMessage,
+      isProxyError: true
+    });
+  }
+});
+
+console.log('🎯 Backend Proxy endpoint for NFT creation added to server');
 // ✅ NEW: Migration script endpoint (run once to migrate existing moments)
 app.post('/admin/migrate-to-erc1155', async (req, res) => {
   try {
