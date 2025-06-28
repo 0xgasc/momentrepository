@@ -205,6 +205,93 @@ app.get('/moments/:momentId/nft-status', async (req, res) => {
     });
   }
 });
+// ✅ NEW: Upload metadata to server (better than data URIs for OpenSea)
+app.post('/upload-metadata', authenticateToken, async (req, res) => {
+  try {
+    const metadata = req.body;
+    console.log('📄 Uploading NFT metadata to server...');
+    
+    // Validate metadata
+    if (!metadata.name || !metadata.image) {
+      return res.status(400).json({ error: 'Invalid metadata: name and image required' });
+    }
+
+    // Generate unique metadata ID
+    const metadataId = `metadata-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const metadataUri = `${req.protocol}://${req.get('host')}/metadata/${metadataId}`;
+    
+    // Store metadata (in production, save to database)
+    global.metadataStorage[metadataId] = {
+      ...metadata,
+      storedAt: new Date().toISOString()
+    };
+    
+    console.log('✅ Metadata stored with URI:', metadataUri);
+    console.log('📋 Metadata preview:', {
+      name: metadata.name,
+      attributeCount: metadata.attributes?.length || 0,
+      hasImage: !!metadata.image,
+      hasAnimation: !!metadata.animation_url
+    });
+    
+    res.json({
+      success: true,
+      metadataUri: metadataUri,
+      metadataId: metadataId
+    });
+    
+  } catch (error) {
+    console.error('❌ Metadata upload error:', error);
+    res.status(500).json({
+      error: 'Failed to upload metadata',
+      details: error.message
+    });
+  }
+});
+
+// ✅ NEW: Serve metadata with proper headers for OpenSea
+app.get('/metadata/:metadataId', (req, res) => {
+  try {
+    const { metadataId } = req.params;
+    
+    // Set proper headers for OpenSea compatibility
+    res.set({
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Cache-Control': 'public, max-age=86400' // Cache for 24 hours
+    });
+    
+    const metadata = global.metadataStorage?.[metadataId];
+    
+    if (!metadata) {
+      console.error(`❌ Metadata not found: ${metadataId}`);
+      return res.status(404).json({ 
+        error: 'Metadata not found',
+        metadataId: metadataId
+      });
+    }
+    
+    console.log(`📋 Serving metadata for ${metadataId}:`, {
+      name: metadata.name,
+      hasImage: !!metadata.image,
+      hasAnimation: !!metadata.animation_url,
+      attributeCount: metadata.attributes?.length || 0
+    });
+    
+    // Remove internal fields before sending
+    const { storedAt, ...publicMetadata } = metadata;
+    res.json(publicMetadata);
+    
+  } catch (error) {
+    console.error('❌ Metadata serve error:', error);
+    res.status(500).json({ 
+      error: 'Failed to serve metadata',
+      details: error.message 
+    });
+  }
+});
 
 // Record an NFT mint (called when someone mints)
 app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) => {
@@ -213,6 +300,11 @@ app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) =
     const { quantity = 1, minterAddress, txHash } = req.body;
 
     console.log(`🎯 Recording ${quantity} NFT mint(s) for moment ${momentId}`);
+
+    // Validate required fields
+    if (!txHash) {
+      return res.status(400).json({ error: 'Transaction hash is required' });
+    }
 
     const moment = await Moment.findById(momentId);
     if (!moment) {
@@ -223,9 +315,25 @@ app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) =
       return res.status(400).json({ error: 'No NFT edition exists for this moment' });
     }
 
-    // Update mint count
-    const updatedMoment = await Moment.findByIdAndUpdate(
-      momentId,
+    // ✅ FIXED: Check if this transaction hash was already recorded
+    const existingMint = moment.nftMintHistory?.find(mint => mint.txHash === txHash);
+    if (existingMint) {
+      console.log(`⚠️ Transaction ${txHash} already recorded, skipping duplicate`);
+      return res.json({
+        success: true,
+        totalMinted: moment.nftMintedCount,
+        message: 'Mint already recorded (duplicate transaction prevented)',
+        isDuplicate: true
+      });
+    }
+
+    // ✅ FIXED: Use findOneAndUpdate with atomic operations to prevent race conditions
+    const updatedMoment = await Moment.findOneAndUpdate(
+      { 
+        _id: momentId,
+        // Double-check that this txHash doesn't exist (race condition protection)
+        'nftMintHistory.txHash': { $ne: txHash }
+      },
       {
         $inc: { nftMintedCount: quantity },
         $push: {
@@ -241,12 +349,32 @@ app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) =
       { new: true }
     );
 
+    // If no document was updated, it means the txHash already exists
+    if (!updatedMoment) {
+      console.log(`⚠️ Transaction ${txHash} was already recorded by another request`);
+      
+      // Get the current moment to return accurate count
+      const currentMoment = await Moment.findById(momentId);
+      return res.json({
+        success: true,
+        totalMinted: currentMoment.nftMintedCount,
+        message: 'Mint already recorded (race condition prevented)',
+        isDuplicate: true
+      });
+    }
+
     console.log(`✅ Recorded ${quantity} mint(s). Total now: ${updatedMoment.nftMintedCount}`);
 
     res.json({
       success: true,
       totalMinted: updatedMoment.nftMintedCount,
-      message: `Recorded ${quantity} mint(s)`
+      message: `Recorded ${quantity} mint(s)`,
+      isDuplicate: false,
+      newMintEntry: {
+        quantity,
+        txHash,
+        mintedAt: new Date()
+      }
     });
 
   } catch (err) {
@@ -257,6 +385,246 @@ app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) =
     });
   }
 });
+// ✅ NEW: Clean up duplicate mint entries for a specific moment
+app.post('/admin/cleanup-duplicate-mints/:momentId', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    
+    console.log(`🧹 Cleaning up duplicate mints for moment ${momentId}`);
+    
+    const moment = await Moment.findById(momentId);
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    if (!moment.nftMintHistory || moment.nftMintHistory.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No mint history to clean up',
+        cleanedCount: 0
+      });
+    }
+
+    // Find duplicates by transaction hash
+    const txHashCounts = {};
+    const duplicates = [];
+    const uniqueMints = [];
+
+    moment.nftMintHistory.forEach((mint, index) => {
+      if (!mint.txHash) {
+        uniqueMints.push(mint);
+        return;
+      }
+
+      if (txHashCounts[mint.txHash]) {
+        // This is a duplicate
+        duplicates.push({
+          index,
+          txHash: mint.txHash,
+          quantity: mint.quantity,
+          mintedAt: mint.mintedAt
+        });
+      } else {
+        // First occurrence
+        txHashCounts[mint.txHash] = true;
+        uniqueMints.push(mint);
+      }
+    });
+
+    if (duplicates.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No duplicates found',
+        cleanedCount: 0
+      });
+    }
+
+    // Calculate correct mint count
+    const correctMintCount = uniqueMints.reduce((sum, mint) => sum + (mint.quantity || 1), 0);
+    
+    // Update moment with cleaned data
+    const updatedMoment = await Moment.findByIdAndUpdate(
+      momentId,
+      {
+        $set: {
+          nftMintHistory: uniqueMints,
+          nftMintedCount: correctMintCount,
+          lastCleanupAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    console.log(`✅ Cleaned up ${duplicates.length} duplicate entries`);
+    console.log(`📊 Corrected mint count: ${moment.nftMintedCount} → ${correctMintCount}`);
+
+    res.json({
+      success: true,
+      message: `Cleaned up ${duplicates.length} duplicate mint entries`,
+      cleanedCount: duplicates.length,
+      oldMintCount: moment.nftMintedCount,
+      newMintCount: correctMintCount,
+      duplicatesRemoved: duplicates,
+      remainingMints: uniqueMints.length
+    });
+
+  } catch (err) {
+    console.error('❌ Cleanup duplicates error:', err);
+    res.status(500).json({ 
+      error: 'Failed to clean up duplicates', 
+      details: err.message 
+    });
+  }
+});
+
+// ✅ NEW: Clean up ALL moments with duplicates
+app.post('/admin/cleanup-all-duplicates', async (req, res) => {
+  try {
+    console.log('🧹 Starting cleanup of all duplicate mints...');
+    
+    const momentsWithMints = await Moment.find({ 
+      nftMinted: true,
+      'nftMintHistory.0': { $exists: true }
+    });
+
+    let totalCleaned = 0;
+    let momentsFixed = 0;
+    const results = [];
+
+    for (const moment of momentsWithMints) {
+      if (!moment.nftMintHistory || moment.nftMintHistory.length === 0) continue;
+
+      // Find duplicates by transaction hash
+      const txHashCounts = {};
+      const duplicates = [];
+      const uniqueMints = [];
+
+      moment.nftMintHistory.forEach((mint) => {
+        if (!mint.txHash) {
+          uniqueMints.push(mint);
+          return;
+        }
+
+        if (txHashCounts[mint.txHash]) {
+          duplicates.push(mint);
+        } else {
+          txHashCounts[mint.txHash] = true;
+          uniqueMints.push(mint);
+        }
+      });
+
+      if (duplicates.length > 0) {
+        const correctMintCount = uniqueMints.reduce((sum, mint) => sum + (mint.quantity || 1), 0);
+        
+        await Moment.updateOne(
+          { _id: moment._id },
+          {
+            $set: {
+              nftMintHistory: uniqueMints,
+              nftMintedCount: correctMintCount,
+              lastCleanupAt: new Date()
+            }
+          }
+        );
+
+        totalCleaned += duplicates.length;
+        momentsFixed++;
+
+        results.push({
+          momentId: moment._id,
+          songName: moment.songName,
+          duplicatesRemoved: duplicates.length,
+          oldCount: moment.nftMintedCount,
+          newCount: correctMintCount
+        });
+
+        console.log(`✅ Fixed "${moment.songName}": ${moment.nftMintedCount} → ${correctMintCount} (removed ${duplicates.length} duplicates)`);
+      }
+    }
+
+    console.log(`🎉 Cleanup complete: ${totalCleaned} duplicates removed from ${momentsFixed} moments`);
+
+    res.json({
+      success: true,
+      message: `Cleanup complete: ${totalCleaned} duplicates removed from ${momentsFixed} moments`,
+      totalDuplicatesRemoved: totalCleaned,
+      momentsFixed: momentsFixed,
+      totalMomentsChecked: momentsWithMints.length,
+      results: results
+    });
+
+  } catch (err) {
+    console.error('❌ Cleanup all duplicates error:', err);
+    res.status(500).json({ 
+      error: 'Failed to clean up all duplicates', 
+      details: err.message 
+    });
+  }
+});
+
+// ✅ NEW: Get mint analytics for debugging
+app.get('/moments/:momentId/mint-analytics', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    
+    const moment = await Moment.findById(momentId)
+      .populate('nftMintHistory.minter', 'displayName email');
+
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    // Analyze mint history for duplicates and issues
+    const mintHistory = moment.nftMintHistory || [];
+    const txHashes = mintHistory.map(mint => mint.txHash).filter(Boolean);
+    const duplicateTxs = txHashes.filter((tx, index) => txHashes.indexOf(tx) !== index);
+    
+    const totalFromHistory = mintHistory.reduce((sum, mint) => sum + (mint.quantity || 1), 0);
+    const uniqueTxs = [...new Set(txHashes)];
+
+    // Calculate duplicate count correctly
+    const duplicateCount = mintHistory.filter(mint => {
+      return mint.txHash && txHashes.filter(tx => tx === mint.txHash).length > 1;
+    }).length;
+
+    res.json({
+      moment: {
+        id: moment._id,
+        songName: moment.songName,
+        venueName: moment.venueName
+      },
+      mintData: {
+        databaseCount: moment.nftMintedCount,
+        historyTotal: totalFromHistory,
+        uniqueTransactions: uniqueTxs.length,
+        totalTransactions: mintHistory.length,
+        duplicateEntries: duplicateCount,
+        duplicateTransactions: [...new Set(duplicateTxs)]
+      },
+      analysis: {
+        isConsistent: moment.nftMintedCount === totalFromHistory,
+        possibleDoubleCount: moment.nftMintedCount > totalFromHistory,
+        missingMints: totalFromHistory > moment.nftMintedCount,
+        hasDuplicates: duplicateTxs.length > 0
+      },
+      recentMints: mintHistory.slice(-5).map(mint => ({
+        quantity: mint.quantity,
+        txHash: mint.txHash ? `${mint.txHash.slice(0, 10)}...` : 'No hash',
+        mintedAt: mint.mintedAt,
+        minter: mint.minter?.displayName || 'Unknown'
+      }))
+    });
+
+  } catch (err) {
+    console.error('❌ Mint analytics error:', err);
+    res.status(500).json({ 
+      error: 'Failed to get mint analytics', 
+      details: err.message 
+    });
+  }
+});
+
+console.log('🔧 Enhanced metadata and cleanup endpoints added to server');
 
 // Upload metadata to Irys/Arweave
 app.post('/upload-metadata', authenticateToken, async (req, res) => {
