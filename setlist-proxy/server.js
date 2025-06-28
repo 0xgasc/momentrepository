@@ -459,6 +459,160 @@ console.log('🔍 Debug ENV vars:', {
 });
 
 console.log('🎯 Backend Proxy endpoint for NFT creation added to server');
+
+// Debug endpoint to check first moments for a song
+app.get('/debug/first-moments/:songName', async (req, res) => {
+  try {
+    const { songName } = req.params;
+    
+    console.log(`🔍 Checking first moments for "${songName}"`);
+    
+    // Get all moments for this song, sorted by creation date
+    const allMomentsForSong = await Moment.find({ 
+      songName: { $regex: new RegExp(`^${songName}$`, 'i') } // Case insensitive exact match
+    }).sort({ createdAt: 1, _id: 1 }); // Use _id as tiebreaker
+    
+    const results = allMomentsForSong.map((moment, index) => ({
+      id: moment._id,
+      songName: moment.songName,
+      venueName: moment.venueName,
+      createdAt: moment.createdAt,
+      timestamp: moment.createdAt.getTime(),
+      isFirstMomentForSong: moment.isFirstMomentForSong,
+      shouldBeFirst: index === 0,
+      position: index + 1,
+      uploader: moment.user
+    }));
+    
+    res.json({
+      songName,
+      totalMoments: allMomentsForSong.length,
+      actualFirst: results[0],
+      allMoments: results,
+      issuesFound: results.filter(m => m.isFirstMomentForSong !== m.shouldBeFirst)
+    });
+    
+  } catch (error) {
+    console.error('❌ Debug first moments error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ✅ 2. FIX ALL FIRST MOMENT FLAGS FOR A SPECIFIC SONG
+app.post('/debug/fix-first-moments/:songName', async (req, res) => {
+  try {
+    const { songName } = req.params;
+    
+    console.log(`🔧 Fixing first moment flags for "${songName}"`);
+    
+    // Get all moments for this song, sorted by creation date
+    const allMomentsForSong = await Moment.find({ 
+      songName: { $regex: new RegExp(`^${songName}$`, 'i') }
+    }).sort({ createdAt: 1, _id: 1 });
+    
+    if (allMomentsForSong.length === 0) {
+      return res.json({ error: 'No moments found for this song' });
+    }
+    
+    const firstMomentId = allMomentsForSong[0]._id;
+    let updated = 0;
+    
+    // Update all moments for this song
+    for (const moment of allMomentsForSong) {
+      const isFirst = moment._id.toString() === firstMomentId.toString();
+      
+      if (moment.isFirstMomentForSong !== isFirst) {
+        await Moment.updateOne(
+          { _id: moment._id },
+          { $set: { isFirstMomentForSong: isFirst } }
+        );
+        updated++;
+        console.log(`✅ Updated ${moment._id}: isFirst = ${isFirst}`);
+      }
+    }
+    
+    res.json({
+      success: true,
+      songName,
+      totalMoments: allMomentsForSong.length,
+      momentsUpdated: updated,
+      firstMomentId: firstMomentId,
+      firstMomentDetails: {
+        venueName: allMomentsForSong[0].venueName,
+        createdAt: allMomentsForSong[0].createdAt,
+        uploader: allMomentsForSong[0].user
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Fix first moments error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ✅ 3. FIX ALL SONGS AT ONCE
+app.post('/debug/fix-all-first-moments', async (req, res) => {
+  try {
+    console.log('🔧 Fixing ALL first moment flags...');
+    
+    // Get all unique song names
+    const uniqueSongs = await Moment.distinct('songName');
+    console.log(`Found ${uniqueSongs.length} unique songs`);
+    
+    let totalUpdated = 0;
+    const results = [];
+    
+    for (const songName of uniqueSongs) {
+      // Get all moments for this song
+      const allMomentsForSong = await Moment.find({ 
+        songName: songName
+      }).sort({ createdAt: 1, _id: 1 });
+      
+      if (allMomentsForSong.length === 0) continue;
+      
+      const firstMomentId = allMomentsForSong[0]._id;
+      let songUpdated = 0;
+      
+      // Update all moments for this song
+      for (const moment of allMomentsForSong) {
+        const isFirst = moment._id.toString() === firstMomentId.toString();
+        
+        if (moment.isFirstMomentForSong !== isFirst) {
+          await Moment.updateOne(
+            { _id: moment._id },
+            { $set: { isFirstMomentForSong: isFirst } }
+          );
+          songUpdated++;
+          totalUpdated++;
+        }
+      }
+      
+      if (songUpdated > 0) {
+        results.push({
+          songName,
+          momentsUpdated: songUpdated,
+          totalMoments: allMomentsForSong.length,
+          firstMomentVenue: allMomentsForSong[0].venueName,
+          firstMomentDate: allMomentsForSong[0].createdAt
+        });
+        console.log(`✅ Fixed "${songName}": ${songUpdated} updates`);
+      }
+    }
+    
+    res.json({
+      success: true,
+      totalSongsProcessed: uniqueSongs.length,
+      songsWithUpdates: results.length,
+      totalMomentsUpdated: totalUpdated,
+      results
+    });
+    
+  } catch (error) {
+    console.error('❌ Fix all first moments error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ✅ NEW: Migration script endpoint (run once to migrate existing moments)
 app.post('/admin/migrate-to-erc1155', async (req, res) => {
   try {

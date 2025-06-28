@@ -194,7 +194,9 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
           <video
             src={moment.mediaUrl}
             controls
-            preload="metadata"
+            autoPlay  // ✅ ADD THIS
+                 // ✅ ADD THIS (required for autoplay)
+            preload=""
             className={`media-element ${videoLoaded ? 'loaded' : 'loading'}`}
             onLoadedData={() => {
               setVideoLoaded(true);
