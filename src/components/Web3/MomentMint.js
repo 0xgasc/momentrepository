@@ -4,11 +4,22 @@ import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt,
 import { parseEther, formatEther } from 'viem';
 import { Zap, Plus, CheckCircle, ExternalLink, AlertCircle, Clock } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
-import UMOMomentsContract from '../../contracts/UMOMoments.json';
+import UMOMomentsERC1155Contract from '../../contracts/UMOMomentsERC1155.json';
 import { ethers } from 'ethers';
 
 const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }) => {
-  // State management
+  // ✅ ADD THIS DEBUG CODE
+  console.log('🔍 MomentMint Debug:', {
+    momentId: moment?._id,
+    songName: moment?.songName,
+    isOwner: isOwner,
+    hasNFTEdition: hasNFTEdition,
+    nftMinted: moment?.nftMinted,
+    nftContractAddress: moment?.nftContractAddress,
+    nftTokenId: moment?.nftTokenId
+  });
+
+    // State management
   const [isCreatingNFT, setIsCreatingNFT] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
   const [error, setError] = useState('');
@@ -29,10 +40,19 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
 
   // Read current token ID for display
   const { data: currentTokenId } = useReadContract({
-    address: UMOMomentsContract.address,
-    abi: UMOMomentsContract.abi,
+    address: UMOMomentsERC1155Contract.address,
+    abi: UMOMomentsERC1155Contract.abi,
     functionName: 'getCurrentTokenId',
-    enabled: !!UMOMomentsContract.address
+    enabled: !!UMOMomentsERC1155Contract.address
+  });
+
+  // ✅ NEW: Read token info if NFT edition exists
+  const { data: editionData } = useReadContract({
+    address: UMOMomentsERC1155Contract.address,
+    abi: UMOMomentsERC1155Contract.abi,
+    functionName: 'getEditionByMomentId',
+    args: [moment._id],
+    enabled: !!hasNFTEdition && !!UMOMomentsERC1155Contract.address
   });
 
   // Handle transaction confirmation
@@ -62,31 +82,29 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
     }
   }, [txError]);
 
-  // ✅ FIXED: Generate proper OpenSea-compatible metadata
- const createNFTMetadata = (moment) => {
-  // ✅ For videos: Create proper thumbnail for OpenSea
-  let imageUrl, animationUrl;
-  
-  if (moment.mediaType === 'video') {
-    // For videos: Use a thumbnail service
-    imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&size=512&background=1e3a8a&color=ffffff&bold=true`;
-    animationUrl = moment.mediaUrl;
-  } else if (moment.mediaType === 'audio') {
-    imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&size=512&background=dc2626&color=ffffff&bold=true`;
-    animationUrl = undefined;
-  } else {
-    imageUrl = moment.mediaUrl;
-    animationUrl = undefined;
-  }
-  
-  return {
-    name: `${moment.songName} - ${moment.venueName} (${moment.performanceDate})`,
-    description: moment.momentDescription || 
-      `A live performance moment of "${moment.songName}" by UMO at ${moment.venueName}, ${moment.venueCity} on ${moment.performanceDate}. ` +
-      `${moment.personalNote ? `\n\nUploader's note: ${moment.personalNote}` : ''}`,
-    image: imageUrl,
-    animation_url: animationUrl,
-    // ... keep the rest of your existing attributes and properties exactly the same
+  // ✅ Generate proper OpenSea-compatible metadata
+  const createNFTMetadata = (moment) => {
+    // For videos: Create proper thumbnail for OpenSea
+    let imageUrl, animationUrl;
+    
+    if (moment.mediaType === 'video') {
+      imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&size=512&background=1e3a8a&color=ffffff&bold=true`;
+      animationUrl = moment.mediaUrl;
+    } else if (moment.mediaType === 'audio') {
+      imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&size=512&background=dc2626&color=ffffff&bold=true`;
+      animationUrl = undefined;
+    } else {
+      imageUrl = moment.mediaUrl;
+      animationUrl = undefined;
+    }
+    
+    return {
+      name: `${moment.songName} - ${moment.venueName} (${moment.performanceDate})`,
+      description: moment.momentDescription || 
+        `A live performance moment of "${moment.songName}" by UMO at ${moment.venueName}, ${moment.venueCity} on ${moment.performanceDate}. ` +
+        `${moment.personalNote ? `\n\nUploader's note: ${moment.personalNote}` : ''}`,
+      image: imageUrl,
+      animation_url: animationUrl,
       external_url: `${window.location.origin}/moments/${moment._id}`,
       attributes: [
         {
@@ -178,21 +196,22 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
         is_first_moment: moment.isFirstMomentForSong || false,
         crowd_reaction: moment.crowdReaction,
         special_occasion: moment.specialOccasion,
-        guest_appearances: moment.guestAppearances
+        guest_appearances: moment.guestAppearances,
+        // ✅ ERC1155 specific
+        token_standard: "erc1155",
+        supply: moment.nftMintedCount || 0
       }
     };
   };
 
-  // ✅ FIXED: Upload metadata to Irys/Arweave (browser-compatible)
+  // ✅ Upload metadata to Irys/Arweave (browser-compatible)
   const uploadMetadataToIrys = async (metadata) => {
     try {
       console.log('📤 Uploading metadata to Irys/Arweave...');
       
-      // Convert metadata to JSON string and create Blob (browser-compatible)
       const metadataJson = JSON.stringify(metadata, null, 2);
       const metadataBlob = new Blob([metadataJson], { type: 'application/json' });
       
-      // Upload to Irys using existing backend endpoint
       const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('file', metadataBlob, `metadata-${Date.now()}.json`);
@@ -222,7 +241,29 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
     }
   };
 
-  // ✅ FIXED: Create NFT Edition (for owners)
+  // ✅ Get next token ID from backend
+  const getNextTokenId = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/get-next-token-id`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const { tokenId } = await response.json();
+        return tokenId;
+      } else {
+        throw new Error('Failed to get next token ID');
+      }
+    } catch (error) {
+      console.error('❌ Error getting next token ID:', error);
+      throw error;
+    }
+  };
+
+  // ✅ ERC1155: Create NFT Edition (for owners)
   const handleCreateNFTEdition = async () => {
     if (!isConnected) {
       setError('Please connect your wallet first');
@@ -239,25 +280,25 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
     setCurrentStep('creating');
 
     try {
-      console.log('🚀 Creating NFT edition with ethers v6...');
+      console.log('🚀 Creating ERC1155 NFT edition...');
 
       // Setup ethers provider and signer
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(
-        UMOMomentsContract.address,
-        UMOMomentsContract.abi,
+        UMOMomentsERC1155Contract.address,
+        UMOMomentsERC1155Contract.abi,
         signer
       );
 
       // Prepare transaction parameters
       const mintPriceWei = parseEther('0.001');
-      const mintDurationSeconds = mintDuration * 24 * 60 * 60; // Convert to number first
+      const mintDurationSeconds = mintDuration * 24 * 60 * 60;
       const rarityScore = Math.floor(Math.min(7, Math.max(1, moment.rarityScore || 1)));
       
       // Create proper metadata
       const metadata = createNFTMetadata(moment);
-const metadataURI = await uploadMetadataToIrys(metadata);
+      const metadataURI = await uploadMetadataToIrys(metadata);
       
       const mockSplitsAddress = '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96';
 
@@ -271,15 +312,15 @@ const metadataURI = await uploadMetadataToIrys(metadata);
 
       setCurrentStep('confirming');
 
-      // Create moment edition on blockchain
+      // ✅ ERC1155: Create moment edition on blockchain
       const transaction = await contract.createMomentEdition(
-        String(moment._id),
-        metadataURI,
-        mintPriceWei,
-        mintDurationSeconds,
-        0, // unlimited supply
-        mockSplitsAddress,
-        rarityScore
+        String(moment._id),           // momentId (database ID)
+        metadataURI,                  // metadataURI
+        mintPriceWei,                 // mintPrice
+        mintDurationSeconds,          // mintDuration
+        0,                            // maxSupply (unlimited)
+        mockSplitsAddress,            // splitsContract
+        rarityScore                   // rarity
       );
 
       console.log('✅ Transaction submitted:', transaction.hash);
@@ -290,8 +331,15 @@ const metadataURI = await uploadMetadataToIrys(metadata);
       const receipt = await transaction.wait();
       console.log('✅ Transaction confirmed in block:', receipt.blockNumber);
 
-      // Update database
-      await updateBackendAfterCreation(transaction.hash, metadataURI);
+      // ✅ Get the token ID from the event logs
+      const eventFilter = contract.filters.MomentEditionCreated();
+      const events = await contract.queryFilter(eventFilter, receipt.blockNumber, receipt.blockNumber);
+      const tokenId = events.length > 0 ? events[0].args.tokenId : null;
+
+      console.log('✅ New token ID created:', tokenId?.toString());
+
+      // Update database with token ID
+      await updateBackendAfterCreation(transaction.hash, metadataURI, tokenId?.toString());
 
     } catch (error) {
       console.error('❌ Create NFT Edition failed:', error);
@@ -313,7 +361,7 @@ const metadataURI = await uploadMetadataToIrys(metadata);
     }
   };
 
-  // ✅ FIXED: Mint NFT (for both owners and collectors)
+  // ✅ ERC1155: Mint NFT (for both owners and collectors)
   const handleMintNFT = async (quantity = 1) => {
     if (!isConnected) {
       setError('Please connect your wallet first');
@@ -330,13 +378,13 @@ const metadataURI = await uploadMetadataToIrys(metadata);
     setCurrentStep('creating');
 
     try {
-      console.log(`🎯 Minting ${quantity} NFT(s) for moment:`, moment._id.slice(0, 12) + '...');
+      console.log(`🎯 Minting ${quantity} ERC1155 NFT(s) for moment:`, moment._id.slice(0, 12) + '...');
 
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(
         moment.nftContractAddress,
-        UMOMomentsContract.abi,
+        UMOMomentsERC1155Contract.abi,
         signer
       );
 
@@ -347,7 +395,8 @@ const metadataURI = await uploadMetadataToIrys(metadata);
 
       setCurrentStep('confirming');
 
-      const transaction = await contract.mintMoment(String(moment._id), quantity, {
+      // ✅ ERC1155: Mint by moment database ID (uses backwards compatibility function)
+      const transaction = await contract.mintMomentById(String(moment._id), quantity, {
         value: totalCost
       });
 
@@ -358,11 +407,11 @@ const metadataURI = await uploadMetadataToIrys(metadata);
       const receipt = await transaction.wait();
       console.log('✅ Mint confirmed in block:', receipt.blockNumber);
 
-      // ✅ FIXED: Only update backend ONCE after successful mint
+      // Record mint in backend
       await recordMintInBackend(transaction.hash, quantity);
 
     } catch (error) {
-      console.error('❌ Error minting NFT:', error);
+      console.error('❌ Error minting ERC1155 NFT:', error);
       
       let errorMessage = error.message || 'Failed to mint NFT';
       
@@ -381,14 +430,14 @@ const metadataURI = await uploadMetadataToIrys(metadata);
     }
   };
 
-  // ✅ FIXED: Update backend after successful NFT creation
-  const updateBackendAfterCreation = async (transactionHash, metadataURI) => {
+  // ✅ Update backend after successful NFT creation (now includes tokenId)
+  const updateBackendAfterCreation = async (transactionHash, metadataURI, tokenId) => {
     try {
       const token = localStorage.getItem('token');
       
       const nftEditionData = {
-        nftContractAddress: UMOMomentsContract.address,
-        nftTokenId: String(moment._id),
+        nftContractAddress: UMOMomentsERC1155Contract.address,
+        nftTokenId: tokenId || 0, // Use the actual token ID from contract
         nftMetadataHash: metadataURI,
         splitsContract: '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96',
         mintPrice: parseEther('0.001').toString(),
@@ -396,7 +445,7 @@ const metadataURI = await uploadMetadataToIrys(metadata);
         txHash: transactionHash
       };
 
-      console.log('📝 Updating backend with NFT edition data...');
+      console.log('📝 Updating backend with ERC1155 edition data...');
 
       const response = await fetch(`${API_BASE_URL}/moments/${String(moment._id)}/create-nft-edition`, {
         method: 'POST',
@@ -420,25 +469,18 @@ const metadataURI = await uploadMetadataToIrys(metadata);
     }
   };
 
-  // ✅ FIXED: Record mint in backend (prevent double counting)
+  // Record mint in backend (prevent double counting)
   const recordMintInBackend = async (transactionHash, quantity) => {
     try {
       const token = localStorage.getItem('token');
       
-      // Check if this transaction was already recorded
-      const existingMint = moment.nftMintHistory?.find(mint => mint.txHash === transactionHash);
-      if (existingMint) {
-        console.log('⚠️ Mint already recorded for this transaction, skipping');
-        return;
-      }
-
       const mintData = {
         quantity: quantity,
         minterAddress: address,
         txHash: transactionHash
       };
 
-      console.log('📝 Recording mint in backend:', mintData);
+      console.log('📝 Recording ERC1155 mint in backend:', mintData);
 
       const response = await fetch(`${API_BASE_URL}/moments/${String(moment._id)}/record-mint`, {
         method: 'POST',
@@ -462,8 +504,9 @@ const metadataURI = await uploadMetadataToIrys(metadata);
 
   // Utility functions
   const handleViewOnOpenSea = () => {
-    if (moment.nftContractAddress) {
-      const openSeaUrl = `https://testnets.opensea.io/assets/base-sepolia/${moment.nftContractAddress}/${String(moment._id)}`;
+    if (moment.nftContractAddress && moment.nftTokenId !== undefined) {
+      // ✅ ERC1155 OpenSea URL (same format as ERC721)
+      const openSeaUrl = `https://testnets.opensea.io/assets/base-sepolia/${moment.nftContractAddress}/${moment.nftTokenId}`;
       window.open(openSeaUrl, '_blank', 'noopener,noreferrer');
     }
   };
@@ -501,11 +544,11 @@ const metadataURI = await uploadMetadataToIrys(metadata);
         <div className="mb-4">
           <h3 className="text-lg font-bold flex items-center mb-2">
             <Plus className="w-5 h-5 mr-2" />
-            Create NFT Edition
+            Create ERC1155 NFT Edition
             <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded-full">Owner</span>
           </h3>
           <p className="text-sm opacity-90">
-            Turn your moment into mintable NFTs and earn 35% of mint revenue
+            Turn your moment into mintable ERC1155 NFTs and earn 35% of mint revenue
           </p>
         </div>
 
@@ -540,11 +583,12 @@ const metadataURI = await uploadMetadataToIrys(metadata);
 
             {/* Edition Settings */}
             <div className="bg-white/10 p-4 rounded-lg mb-4">
-              <h4 className="text-sm font-semibold mb-2">⚙️ Edition Settings</h4>
+              <h4 className="text-sm font-semibold mb-2">⚙️ ERC1155 Edition Settings</h4>
               <div className="text-xs space-y-1 mb-3">
-                <div>💵 Price: ~$1 USD (0.001 ETH)</div>
-                <div>📊 Supply: Unlimited</div>
+                <div>💵 Price: ~$1 USD (0.001 ETH) per NFT</div>
+                <div>📊 Supply: Unlimited (ERC1155 open edition)</div>
                 <div>🎯 Rarity: {moment.rarityScore || 0}/7</div>
+                <div>🏷️ Token Standard: ERC1155</div>
               </div>
               
               <div>
@@ -580,18 +624,18 @@ const metadataURI = await uploadMetadataToIrys(metadata);
               {isCreatingNFT ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                  Creating NFT Edition...
+                  Creating ERC1155 Edition...
                 </>
               ) : (
                 <>
                   <Zap className="w-4 h-4 mr-2" />
-                  Create NFT Edition
+                  Create ERC1155 NFT Edition
                 </>
               )}
             </button>
             
             <div className="text-xs text-white/80 mt-2 leading-tight">
-              ℹ️ This creates the edition for minting. Collectors will then mint actual NFT tokens.
+              ℹ️ Creates an ERC1155 token where multiple collectors can mint the same moment
             </div>
           </div>
         )}
@@ -610,18 +654,19 @@ const metadataURI = await uploadMetadataToIrys(metadata);
         <div className="mb-4">
           <h3 className="text-lg font-bold flex items-center mb-2">
             <CheckCircle className="w-5 h-5 mr-2" />
-            NFT Edition Active
+            ERC1155 NFT Edition Active
             <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded-full">Owner</span>
           </h3>
           <p className="text-sm opacity-90">
-            Your moment is live for minting! Earning 35% of mint revenue.
+            Your ERC1155 moment is live for minting! Earning 35% of mint revenue.
           </p>
         </div>
 
         <div className="bg-white/10 p-4 rounded-lg mb-4">
-          <h4 className="text-sm font-semibold mb-2">📊 Edition Stats</h4>
+          <h4 className="text-sm font-semibold mb-2">📊 ERC1155 Edition Stats</h4>
           <div className="text-xs space-y-1">
             <div>💎 Total Minted: {moment.nftMintedCount || 0}</div>
+            <div>🏷️ Token ID: {moment.nftTokenId !== undefined ? moment.nftTokenId : 'Pending...'}</div>
             <div>💰 Your Revenue: ~${((moment.nftMintedCount || 0) * 0.35 * 0.001 * 3500).toFixed(2)} USD</div>
             <div className="flex items-center">
               {timeRemaining?.isActive ? (
@@ -640,9 +685,9 @@ const metadataURI = await uploadMetadataToIrys(metadata);
         {/* Owner Minting Section */}
         {isConnected && timeRemaining?.isActive && (
           <div className="bg-white/10 p-4 rounded-lg mb-4">
-            <h4 className="text-sm font-semibold mb-2">🎨 Owner Mint</h4>
+            <h4 className="text-sm font-semibold mb-2">🎨 Owner Mint (ERC1155)</h4>
             <p className="text-xs opacity-90 mb-3">
-              As the owner, you can mint your own NFTs:
+              As the owner, you can mint your own ERC1155 NFTs:
             </p>
 
             {currentStep !== 'ready' && (
@@ -701,7 +746,7 @@ const metadataURI = await uploadMetadataToIrys(metadata);
             OpenSea
           </button>
           <button
-            onClick={() => alert(`Analytics:\n• Total Minted: ${moment.nftMintedCount || 0}\n• Revenue: ~$${((moment.nftMintedCount || 0) * 0.35 * 0.001 * 3500).toFixed(2)}`)}
+            onClick={() => alert(`ERC1155 Analytics:\n• Total Minted: ${moment.nftMintedCount || 0}\n• Token ID: ${moment.nftTokenId}\n• Revenue: ~$${((moment.nftMintedCount || 0) * 0.35 * 0.001 * 3500).toFixed(2)}`)}
             className="flex-1 bg-white/20 border border-white/30 text-white p-2.5 rounded-lg text-xs font-semibold hover:bg-white/30 transition-colors"
           >
             Analytics
@@ -717,7 +762,7 @@ const metadataURI = await uploadMetadataToIrys(metadata);
   if (!isOwner && !hasNFTEdition) {
     return (
       <div className="bg-gradient-to-r from-gray-100 to-gray-200 text-gray-600 p-4 rounded-lg text-center text-sm">
-        NFT not yet available for this moment
+        ERC1155 NFT not yet available for this moment
       </div>
     );
   }
@@ -733,11 +778,11 @@ const metadataURI = await uploadMetadataToIrys(metadata);
         <div className="mb-4">
           <h3 className="text-lg font-bold flex items-center mb-2">
             <Zap className="w-5 h-5 mr-2" />
-            Mint NFT
+            Mint ERC1155 NFT
             <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded-full">Collector</span>
           </h3>
           <p className="text-sm opacity-90">
-            Support the artist and uploader by minting this moment
+            Support the artist and uploader by minting this ERC1155 moment
           </p>
         </div>
 
@@ -745,13 +790,13 @@ const metadataURI = await uploadMetadataToIrys(metadata);
           <div className="bg-red-500/20 border border-red-500/30 p-3 rounded-lg mb-4 text-center">
             <AlertCircle className="w-4 h-4 mx-auto mb-1" />
             <div className="text-sm font-semibold">Minting Period Ended</div>
-            <div className="text-xs opacity-80">This moment is no longer available for minting</div>
+            <div className="text-xs opacity-80">This ERC1155 moment is no longer available for minting</div>
           </div>
         )}
 
         {!isConnected ? (
           <div className="text-center">
-            <p className="mb-4 text-sm">Connect your wallet to mint NFTs</p>
+            <p className="mb-4 text-sm">Connect your wallet to mint ERC1155 NFTs</p>
             <SimpleWalletConnect />
           </div>
         ) : timeRemaining?.isActive ? (
@@ -777,10 +822,10 @@ const metadataURI = await uploadMetadataToIrys(metadata);
             )}
 
             <div className="bg-white/10 p-4 rounded-lg mb-4 text-center">
-              <div className="text-xs mb-2 opacity-90">💎 Available for Minting</div>
+              <div className="text-xs mb-2 opacity-90">💎 ERC1155 Available for Minting</div>
               <div className="text-2xl font-bold mb-1">~$1 USD</div>
               <div className="text-xs opacity-80">
-                {moment.nftMintedCount || 0} already minted
+                {moment.nftMintedCount || 0} copies minted • Token ID: {moment.nftTokenId}
               </div>
               {timeRemaining && (
                 <div className="text-xs mt-2 flex items-center justify-center">
@@ -810,7 +855,7 @@ const metadataURI = await uploadMetadataToIrys(metadata);
                     Minting...
                   </>
                 ) : (
-                  'Mint 1 NFT'
+                  'Mint 1 ERC1155 NFT'
                 )}
               </button>
               <button 
@@ -829,7 +874,7 @@ const metadataURI = await uploadMetadataToIrys(metadata);
           </div>
         ) : (
           <div className="text-center">
-            <p className="text-sm mb-4">Minting has ended for this moment</p>
+            <p className="text-sm mb-4">Minting has ended for this ERC1155 moment</p>
             <button
               onClick={handleViewOnOpenSea}
               className="bg-white/20 border border-white/30 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white/30 transition-colors"

@@ -53,9 +53,9 @@ const momentSchema = new mongoose.Schema({
   
   // ✅ EXISTING NFT fields (keep these as they are)
   nftMinted: { type: Boolean, default: false },
-  nftTokenId: { type: String }, // Will be set when NFT is minted
-  nftContractAddress: { type: String }, // NFT contract address
-  nftMetadataHash: { type: String }, // IPFS hash of NFT metadata
+  nftTokenId: { type: Number }, // ✅ CHANGED: Now numeric instead of string
+  nftContractAddress: { type: String },
+  nftMetadataHash: { type: String },
   
   // ✅ NEW NFT EDITION FIELDS (add these)
   nftSplitsContract: { type: String }, // 0xSplits contract address for revenue sharing

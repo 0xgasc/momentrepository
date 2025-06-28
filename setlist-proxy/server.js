@@ -87,6 +87,68 @@ const authenticateToken = (req, res, next) => {
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
+// ✅ NEW: Token ID Counter Schema (add to your models or include inline)
+const tokenIdCounterSchema = new mongoose.Schema({
+  _id: { type: String, default: 'tokenIdCounter' },
+  currentId: { type: Number, default: 0 }
+});
+
+const TokenIdCounter = mongoose.model('TokenIdCounter', tokenIdCounterSchema);
+
+// ✅ NEW: Get next available token ID for ERC1155
+app.get('/get-next-token-id', async (req, res) => {
+  try {
+    console.log('🔢 Getting next token ID for ERC1155...');
+    
+    // Get and increment the counter atomically
+    const counter = await TokenIdCounter.findByIdAndUpdate(
+      'tokenIdCounter',
+      { $inc: { currentId: 1 } },
+      { 
+        upsert: true, // Create if doesn't exist
+        new: true,    // Return updated document
+        runValidators: true
+      }
+    );
+    
+    const nextTokenId = counter.currentId;
+    
+    console.log(`✅ Next token ID: ${nextTokenId}`);
+    
+    res.json({ 
+      tokenId: nextTokenId,
+      success: true 
+    });
+    
+  } catch (error) {
+    console.error('❌ Error generating token ID:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate token ID',
+      details: error.message 
+    });
+  }
+});
+
+// ✅ NEW: Get current token ID without incrementing (for checking)
+app.get('/current-token-id', async (req, res) => {
+  try {
+    const counter = await TokenIdCounter.findById('tokenIdCounter');
+    const currentId = counter ? counter.currentId : 0;
+    
+    res.json({ 
+      currentTokenId: currentId,
+      nextTokenId: currentId + 1,
+      success: true 
+    });
+    
+  } catch (error) {
+    console.error('❌ Error getting current token ID:', error);
+    res.status(500).json({ 
+      error: 'Failed to get current token ID',
+      details: error.message 
+    });
+  }
+});
 
 // =============================================================================
 // ✅ ENHANCED NFT EDITION ENDPOINTS WITH METADATA & CLEANUP
@@ -180,14 +242,14 @@ app.get('/metadata/:metadataId', (req, res) => {
   }
 });
 
-// Create NFT edition for a moment (owner only)
+// ✅ UPDATED: Create NFT Edition endpoint for ERC1155
 app.post('/moments/:momentId/create-nft-edition', authenticateToken, async (req, res) => {
   try {
     const { momentId } = req.params;
     const userId = req.user.id;
     const {
       nftContractAddress,
-      nftTokenId,
+      nftTokenId,        // ✅ Now expects numeric value
       nftMetadataHash,
       splitsContract,
       mintPrice,
@@ -195,7 +257,7 @@ app.post('/moments/:momentId/create-nft-edition', authenticateToken, async (req,
       txHash
     } = req.body;
 
-    console.log(`🎯 Creating NFT edition for moment ${momentId} by user ${userId}`);
+    console.log(`🎯 Creating ERC1155 NFT edition for moment ${momentId} by user ${userId}`);
 
     // Find the moment and verify ownership
     const moment = await Moment.findById(momentId);
@@ -214,13 +276,13 @@ app.post('/moments/:momentId/create-nft-edition', authenticateToken, async (req,
       return res.status(400).json({ error: 'NFT edition already exists for this moment' });
     }
 
-    // Update moment with NFT edition data
+    // ✅ UPDATED: Store numeric token ID for ERC1155
     const updatedMoment = await Moment.findByIdAndUpdate(
       momentId,
       {
         $set: {
           nftMinted: true,
-          nftTokenId: nftTokenId,
+          nftTokenId: parseInt(nftTokenId), // ✅ Store as number
           nftContractAddress: nftContractAddress,
           nftMetadataHash: nftMetadataHash,
           nftSplitsContract: splitsContract,
@@ -235,16 +297,17 @@ app.post('/moments/:momentId/create-nft-edition', authenticateToken, async (req,
       { new: true }
     ).populate('user', 'displayName email');
 
-    console.log(`✅ NFT edition created for moment "${updatedMoment.songName}" at ${updatedMoment.venueName}`);
+    console.log(`✅ ERC1155 NFT edition created for moment "${updatedMoment.songName}" with token ID ${nftTokenId}`);
 
     res.json({
       success: true,
       moment: updatedMoment,
-      message: 'NFT edition created successfully'
+      tokenId: parseInt(nftTokenId),
+      message: 'ERC1155 NFT edition created successfully'
     });
 
   } catch (err) {
-    console.error('❌ Create NFT edition error:', err);
+    console.error('❌ Create ERC1155 NFT edition error:', err);
     res.status(500).json({ 
       error: 'Failed to create NFT edition', 
       details: err.message 
@@ -252,7 +315,134 @@ app.post('/moments/:momentId/create-nft-edition', authenticateToken, async (req,
   }
 });
 
+// ✅ NEW: Migration script endpoint (run once to migrate existing moments)
+app.post('/admin/migrate-to-erc1155', async (req, res) => {
+  try {
+    console.log('🔄 Starting migration from ERC721 to ERC1155...');
+    
+    // Find all moments that have NFTs but no numeric token ID
+    const momentsToMigrate = await Moment.find({ 
+      nftMinted: true,
+      $or: [
+        { nftTokenId: { $type: "string" } }, // Old string token IDs
+        { nftTokenId: { $exists: false } }   // Missing token IDs
+      ]
+    });
+
+    console.log(`📊 Found ${momentsToMigrate.length} moments to migrate`);
+
+    let migrated = 0;
+    const results = [];
+
+    for (let i = 0; i < momentsToMigrate.length; i++) {
+      const moment = momentsToMigrate[i];
+      
+      try {
+        // Assign sequential token IDs starting from 0
+        const newTokenId = i;
+        
+        await Moment.updateOne(
+          { _id: moment._id },
+          { 
+            $set: { 
+              nftTokenId: newTokenId,
+              nftContractAddress: process.env.REACT_APP_UMO_MOMENTS_CONTRACT || moment.nftContractAddress
+            } 
+          }
+        );
+
+        results.push({
+          momentId: moment._id,
+          songName: moment.songName,
+          oldTokenId: moment.nftTokenId,
+          newTokenId: newTokenId
+        });
+
+        migrated++;
+        console.log(`✅ Migrated "${moment.songName}": ${moment.nftTokenId} → ${newTokenId}`);
+        
+      } catch (err) {
+        console.error(`❌ Failed to migrate moment ${moment._id}:`, err);
+        results.push({
+          momentId: moment._id,
+          songName: moment.songName,
+          error: err.message
+        });
+      }
+    }
+
+    // Set the token counter to continue from where we left off
+    if (momentsToMigrate.length > 0) {
+      await TokenIdCounter.findByIdAndUpdate(
+        'tokenIdCounter',
+        { currentId: momentsToMigrate.length },
+        { upsert: true }
+      );
+    }
+
+    console.log(`🎉 Migration complete: ${migrated}/${momentsToMigrate.length} moments migrated`);
+
+    res.json({
+      success: true,
+      message: `Migration complete: ${migrated} moments migrated to ERC1155`,
+      totalFound: momentsToMigrate.length,
+      migrated: migrated,
+      nextTokenId: momentsToMigrate.length,
+      results: results
+    });
+
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
+    res.status(500).json({
+      error: 'Migration failed',
+      details: error.message
+    });
+  }
+});
+
+// ✅ NEW: Get ERC1155 stats
+app.get('/admin/erc1155-stats', async (req, res) => {
+  try {
+    const totalMoments = await Moment.countDocuments({ nftMinted: true });
+    const momentsWithNumericTokenId = await Moment.countDocuments({ 
+      nftMinted: true,
+      nftTokenId: { $type: "number" }
+    });
+    const momentsWithStringTokenId = await Moment.countDocuments({ 
+      nftMinted: true,
+      nftTokenId: { $type: "string" }
+    });
+    
+    const counter = await TokenIdCounter.findById('tokenIdCounter');
+    const currentTokenId = counter ? counter.currentId : 0;
+
+    const topMintedMoments = await Moment.find({ nftMinted: true })
+      .sort({ nftMintedCount: -1 })
+      .limit(10)
+      .select('songName venueName nftMintedCount nftTokenId');
+
+    res.json({
+      totalNFTMoments: totalMoments,
+      migratedToERC1155: momentsWithNumericTokenId,
+      stillERC721Format: momentsWithStringTokenId,
+      migrationProgress: totalMoments > 0 ? Math.round((momentsWithNumericTokenId / totalMoments) * 100) : 0,
+      currentTokenIdCounter: currentTokenId,
+      topMintedMoments: topMintedMoments
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting ERC1155 stats:', error);
+    res.status(500).json({
+      error: 'Failed to get stats',
+      details: error.message
+    });
+  }
+});
+
+console.log('🎯 ERC1155 backend endpoints added to server');
+
 // Get NFT edition status for a moment
+
 app.get('/moments/:momentId/nft-status', async (req, res) => {
   try {
     const { momentId } = req.params;
@@ -265,17 +455,27 @@ app.get('/moments/:momentId/nft-status', async (req, res) => {
       return res.status(404).json({ error: 'Moment not found' });
     }
 
-    const hasNFTEdition = !!(moment.nftContractAddress && moment.nftTokenId);
+    // ✅ FIXED: Check for ERC1155 NFT edition
+    const hasNFTEdition = !!(moment.nftMinted && moment.nftContractAddress && moment.nftTokenId !== undefined);
     const isMintingActive = hasNFTEdition && 
                            moment.nftMintEndTime && 
                            new Date() < new Date(moment.nftMintEndTime);
+
+    console.log(`🔍 NFT Status for ${momentId}:`, {
+      nftMinted: moment.nftMinted,
+      hasContract: !!moment.nftContractAddress,
+      hasTokenId: moment.nftTokenId !== undefined,
+      tokenId: moment.nftTokenId,
+      hasNFTEdition,
+      isMintingActive
+    });
 
     res.json({
       hasNFTEdition,
       isMintingActive,
       nftData: hasNFTEdition ? {
         contractAddress: moment.nftContractAddress,
-        tokenId: moment.nftTokenId,
+        tokenId: moment.nftTokenId, // ✅ This will be 0 for your Intro moment
         mintedCount: moment.nftMintedCount || 0,
         mintPrice: moment.nftMintPrice,
         mintStartTime: moment.nftMintStartTime,
@@ -292,7 +492,21 @@ app.get('/moments/:momentId/nft-status', async (req, res) => {
     });
   }
 });
-
+// ADD THIS to your server.js
+app.get('/moments/:momentId', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const moment = await Moment.findById(momentId).populate('user', 'displayName');
+    
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+    
+    res.json(moment);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // ✅ FIXED: Record an NFT mint (called when someone mints)
 app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) => {
   try {
