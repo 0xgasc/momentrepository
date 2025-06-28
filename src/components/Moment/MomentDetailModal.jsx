@@ -1,4 +1,4 @@
-// src/components/Moment/MomentDetailModal.jsx - FIXED NFT STATUS FETCHING
+// src/components/Moment/MomentDetailModal.jsx - FIXED with metadata panel and smaller messages
 import React, { useState, useEffect, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { formatFileSize } from '../../utils';
@@ -163,12 +163,10 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
     
     const tier = moment.rarityTier || 'common';
     const score = moment.rarityScore || 0;
-    const percentage = Math.round((score / 7) * 100);
     
     return {
       ...tierInfo[tier],
       score,
-      percentage,
       tier
     };
   };
@@ -306,11 +304,6 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
     color: rarityInfo.color
   };
 
-  const progressFillStyle = {
-    width: `${rarityInfo.percentage}%`,
-    backgroundColor: rarityInfo.color
-  };
-
   console.log('🔍 MomentDetailModal Debug:', {
     momentId: moment._id,
     fetchingNftStatus,
@@ -331,7 +324,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
               <div className="rarity-badge" style={rarityBadgeStyle}>
                 <span className="rarity-emoji">{rarityInfo.emoji}</span>
                 <span className="rarity-text">{rarityInfo.name}</span>
-                <span className="rarity-score">{rarityInfo.score}/7</span>
+                <span className="rarity-score">{rarityInfo.score}</span>
               </div>
               <h2 className="card-title">{moment.songName}</h2>
               <p className="card-subtitle">
@@ -339,6 +332,9 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                 {moment.venueCountry && `, ${moment.venueCountry}`}
               </p>
               <p className="card-date">{moment.performanceDate}</p>
+              <p className="song-performances">
+                🎵 {moment.songTotalPerformances || 0} times performed live
+              </p>
             </div>
             
             <div className="card-controls">
@@ -363,31 +359,185 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             </div>
           )}
 
-          {/* Rarity Details */}
-          <div className="rarity-section">
-            <div className="rarity-details">
-              <div className="rarity-item">
-                <span className="rarity-label">Song Performances:</span>
-                <span className="rarity-value">{moment.songTotalPerformances || 0} times live</span>
-              </div>
-              {moment.isFirstMomentForSong && (
+          {/* ✅ FIXED: Simplified Rarity Details (only show if first moment) */}
+          {moment.isFirstMomentForSong && (
+            <div className="rarity-section">
+              <div className="rarity-details">
                 <div className="rarity-item">
                   <span className="rarity-label">🏆 First Moment:</span>
                   <span className="rarity-value">First uploaded for this song!</span>
                 </div>
-              )}
-              <div className="rarity-progress">
-                <div className="progress-bar">
-                  <div className="progress-fill" style={progressFillStyle}></div>
-                </div>
-                <span className="progress-text">{rarityInfo.percentage}% rarity</span>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Media Display */}
           <div className="card-media">
             {getMediaComponent()}
+          </div>
+
+          {/* ✅ ADDED BACK: Metadata Panel */}
+          <div className="metadata-panel">
+            <div className="metadata-header">
+              <h3>Moment Details</h3>
+              <div className="metadata-toggles">
+                <button
+                  onClick={() => setShowFileDetails(!showFileDetails)}
+                  className="toggle-button"
+                >
+                  File Details {showFileDetails ? '▼' : '▶'}
+                </button>
+                <button
+                  onClick={() => setShowEmptyFields(!showEmptyFields)}
+                  className="toggle-button"
+                >
+                  All Fields {showEmptyFields ? '▼' : '▶'}
+                </button>
+              </div>
+            </div>
+
+            {/* Basic Metadata */}
+            <div className="metadata-content">
+              {/* Performance Info */}
+              <div className="metadata-group">
+                <h4>Performance Info</h4>
+                <div className="metadata-grid">
+                  <div className="metadata-item">
+                    <span className="metadata-label">Set:</span>
+                    <span className="metadata-value">{moment.setName || 'Main Set'}</span>
+                  </div>
+                  {moment.songPosition && (
+                    <div className="metadata-item">
+                      <span className="metadata-label">Position:</span>
+                      <span className="metadata-value">#{moment.songPosition}</span>
+                    </div>
+                  )}
+                  <div className="metadata-item">
+                    <span className="metadata-label">Type:</span>
+                    <span className="metadata-value">{moment.momentType || 'Performance'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              {(moment.momentDescription || showEmptyFields) && (
+                <div className="metadata-group">
+                  <h4>Description</h4>
+                  <p className="metadata-description">
+                    {moment.momentDescription || <em className="text-gray-400">No description provided</em>}
+                  </p>
+                </div>
+              )}
+
+              {/* Tags */}
+              {(moment.emotionalTags || moment.instruments || showEmptyFields) && (
+                <div className="metadata-group">
+                  <h4>Tags</h4>
+                  <div className="metadata-tags">
+                    {moment.emotionalTags && (
+                      <div className="tag-group">
+                        <span className="tag-label">Emotions:</span>
+                        <div className="tags">
+                          {moment.emotionalTags.split(',').map((tag, i) => (
+                            <span key={i} className="tag emotion-tag">{tag.trim()}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {moment.instruments && (
+                      <div className="tag-group">
+                        <span className="tag-label">Instruments:</span>
+                        <div className="tags">
+                          {moment.instruments.split(',').map((instrument, i) => (
+                            <span key={i} className="tag instrument-tag">{instrument.trim()}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Details */}
+              {(moment.specialOccasion || moment.crowdReaction || moment.guestAppearances || moment.uniqueElements || showEmptyFields) && (
+                <div className="metadata-group">
+                  <h4>Additional Details</h4>
+                  <div className="metadata-list">
+                    {(moment.specialOccasion || showEmptyFields) && (
+                      <div className="metadata-item">
+                        <span className="metadata-label">Special Occasion:</span>
+                        <span className="metadata-value">{moment.specialOccasion || <em className="text-gray-400">None</em>}</span>
+                      </div>
+                    )}
+                    {(moment.crowdReaction || showEmptyFields) && (
+                      <div className="metadata-item">
+                        <span className="metadata-label">Crowd Reaction:</span>
+                        <span className="metadata-value">{moment.crowdReaction || <em className="text-gray-400">Not specified</em>}</span>
+                      </div>
+                    )}
+                    {(moment.guestAppearances || showEmptyFields) && (
+                      <div className="metadata-item">
+                        <span className="metadata-label">Guest Appearances:</span>
+                        <span className="metadata-value">{moment.guestAppearances || <em className="text-gray-400">None</em>}</span>
+                      </div>
+                    )}
+                    {(moment.uniqueElements || showEmptyFields) && (
+                      <div className="metadata-item">
+                        <span className="metadata-label">Unique Elements:</span>
+                        <span className="metadata-value">{moment.uniqueElements || <em className="text-gray-400">None specified</em>}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* File Details */}
+              {showFileDetails && (
+                <div className="metadata-group">
+                  <h4>File Information</h4>
+                  <div className="metadata-list">
+                    <div className="metadata-item">
+                      <span className="metadata-label">Filename:</span>
+                      <span className="metadata-value filename">{moment.fileName || 'Unknown'}</span>
+                    </div>
+                    <div className="metadata-item">
+                      <span className="metadata-label">Size:</span>
+                      <span className="metadata-value">{moment.fileSize ? formatFileSize(moment.fileSize) : 'Unknown'}</span>
+                    </div>
+                    <div className="metadata-item">
+                      <span className="metadata-label">Type:</span>
+                      <span className="metadata-value">{moment.mediaType || 'Unknown'}</span>
+                    </div>
+                    <div className="metadata-item">
+                      <span className="metadata-label">Audio Quality:</span>
+                      <span className="metadata-value quality-badge" data-quality={moment.audioQuality}>
+                        {moment.audioQuality || 'good'}
+                      </span>
+                    </div>
+                    <div className="metadata-item">
+                      <span className="metadata-label">Video Quality:</span>
+                      <span className="metadata-value quality-badge" data-quality={moment.videoQuality}>
+                        {moment.videoQuality || 'good'}
+                      </span>
+                    </div>
+                    <div className="metadata-item">
+                      <span className="metadata-label">Uploaded:</span>
+                      <span className="metadata-value">{new Date(moment.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Personal Note */}
+              {(moment.personalNote || showEmptyFields) && (
+                <div className="metadata-group">
+                  <h4>Personal Note</h4>
+                  <p className="metadata-description personal-note">
+                    {moment.personalNote || <em className="text-gray-400">No personal note added</em>}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* ✅ FIXED: NFT Section with Proper API-Based Status */}
@@ -474,39 +624,22 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             </div>
           )}
 
-          {/* Show basic info for non-logged in users */}
+          {/* ✅ FIXED: Much smaller message for non-logged in users */}
           {!user && (
             <div style={{ 
-              padding: '20px', 
+              padding: '12px', 
               background: '#f9fafb',
               borderTop: '1px solid #e5e7eb',
               textAlign: 'center'
             }}>
-              <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#374151' }}>
-                🎯 NFT Features
-              </h3>
-              <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '15px' }}>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '0' }}>
                 {fetchingNftStatus
                   ? 'Checking NFT availability...'
                   : hasNFTEdition 
-                    ? 'This moment is available as an NFT. Login to mint a copy.'
-                    : 'Login to access NFT features for this moment'
+                    ? 'NFT available • Login to mint'
+                    : 'NFT not available'
                 }
               </p>
-              <button
-                onClick={() => window.alert('Please use the login button in the header')}
-                style={{
-                  background: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                Login Required
-              </button>
             </div>
           )}
 
@@ -556,6 +689,14 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             position: relative;
           }
 
+          @media (max-width: 640px) {
+            .trading-card-modal {
+              max-width: 95vw;
+              max-height: 95vh;
+              margin: 0.5rem;
+            }
+          }
+
           .card-header {
             color: white;
             padding: 1.5rem;
@@ -563,6 +704,12 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
+          }
+
+          @media (max-width: 640px) {
+            .card-header {
+              padding: 1rem;
+            }
           }
 
           .card-title-section {
@@ -588,6 +735,12 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             line-height: 1.2;
           }
 
+          @media (max-width: 640px) {
+            .card-title {
+              font-size: 1.25rem;
+            }
+          }
+
           .card-subtitle {
             font-size: 0.9rem;
             opacity: 0.9;
@@ -598,6 +751,13 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             font-size: 0.8rem;
             opacity: 0.8;
             margin: 0;
+          }
+
+          .song-performances {
+            font-size: 0.8rem;
+            opacity: 0.9;
+            margin: 0.5rem 0 0 0;
+            font-weight: 500;
           }
 
           .card-controls {
@@ -640,6 +800,12 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             border-bottom: 1px solid #e2e8f0;
           }
 
+          @media (max-width: 640px) {
+            .rarity-section {
+              padding: 0.75rem 1rem;
+            }
+          }
+
           .rarity-details {
             display: flex;
             flex-direction: column;
@@ -664,34 +830,6 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             font-weight: 500;
           }
 
-          .rarity-progress {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-          }
-
-          .progress-bar {
-            flex: 1;
-            height: 8px;
-            background: #e5e7eb;
-            border-radius: 4px;
-            overflow: hidden;
-          }
-
-          .progress-fill {
-            height: 100%;
-            transition: width 0.3s ease;
-            border-radius: 4px;
-          }
-
-          .progress-text {
-            font-size: 0.75rem;
-            color: #6b7280;
-            font-weight: 600;
-            min-width: 60px;
-            text-align: right;
-          }
-
           .card-media {
             padding: 1rem;
             background: #f8f9fa;
@@ -702,8 +840,200 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             position: relative;
           }
 
-          .card-content {
+          /* ✅ NEW: Metadata Panel Styles */
+          .metadata-panel {
             padding: 1.5rem;
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+          }
+
+          @media (max-width: 640px) {
+            .metadata-panel {
+              padding: 1rem;
+            }
+          }
+
+          .metadata-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+          }
+
+          .metadata-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0;
+          }
+
+          .metadata-toggles {
+            display: flex;
+            gap: 0.5rem;
+          }
+
+          .toggle-button {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            color: #374151;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+          }
+
+          .toggle-button:hover {
+            background: #e5e7eb;
+          }
+
+          .metadata-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+          }
+
+          .metadata-group h4 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #374151;
+            margin: 0 0 0.5rem 0;
+            padding-bottom: 0.25rem;
+            border-bottom: 1px solid #e5e7eb;
+          }
+
+          .metadata-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.75rem;
+          }
+
+          .metadata-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+          }
+
+          .metadata-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.25rem 0;
+          }
+
+          .metadata-label {
+            font-size: 0.8rem;
+            color: #6b7280;
+            font-weight: 500;
+            min-width: 0;
+            margin-right: 0.5rem;
+          }
+
+          .metadata-value {
+            font-size: 0.8rem;
+            color: #1f2937;
+            text-align: right;
+            min-width: 0;
+            word-break: break-word;
+          }
+
+          .quality-badge {
+            background: #f3f4f6;
+            color: #374151;
+            padding: 0.125rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: capitalize;
+          }
+
+          .quality-badge[data-quality="excellent"] {
+            background: #dcfce7;
+            color: #166534;
+          }
+
+          .quality-badge[data-quality="good"] {
+            background: #dbeafe;
+            color: #1d4ed8;
+          }
+
+          .quality-badge[data-quality="fair"] {
+            background: #fef3c7;
+            color: #d97706;
+          }
+
+          .quality-badge[data-quality="poor"] {
+            background: #fee2e2;
+            color: #dc2626;
+          }
+
+          .metadata-description {
+            font-size: 0.85rem;
+            color: #4b5563;
+            line-height: 1.5;
+            margin: 0;
+            padding: 0.5rem;
+            background: #f9fafb;
+            border-radius: 6px;
+            border-left: 3px solid #e5e7eb;
+          }
+
+          .metadata-description.personal-note {
+            border-left-color: #3b82f6;
+            background: #eff6ff;
+          }
+
+          .metadata-tags {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+          }
+
+          .tag-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+          }
+
+          .tag-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            font-weight: 500;
+          }
+
+          .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+          }
+
+          .tag {
+            background: #f3f4f6;
+            color: #374151;
+            padding: 0.125rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+          }
+
+          .emotion-tag {
+            background: #fef3c7;
+            color: #d97706;
+          }
+
+          .instrument-tag {
+            background: #dbeafe;
+            color: #1d4ed8;
+          }
+
+          .filename {
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+            font-size: 0.7rem;
+            background: #f3f4f6;
+            padding: 0.125rem 0.25rem;
+            border-radius: 3px;
           }
 
           .card-footer {
@@ -718,6 +1048,14 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             gap: 1rem;
           }
 
+          @media (max-width: 640px) {
+            .card-footer {
+              padding: 0.75rem 1rem;
+              flex-direction: column;
+              gap: 0.5rem;
+            }
+          }
+
           .uploader-info {
             flex: 1;
           }
@@ -730,6 +1068,12 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
           .download-section {
             flex: 1;
             text-align: right;
+          }
+
+          @media (max-width: 640px) {
+            .download-section {
+              text-align: center;
+            }
           }
 
           .download-link {
