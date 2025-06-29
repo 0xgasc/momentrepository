@@ -1,4 +1,4 @@
-// src/components/Moment/MomentDetailModal.jsx - FIXED with metadata panel and smaller messages
+// src/components/Moment/MomentDetailModal.jsx - UPDATED with rarity breakdown and info
 import React, { useState, useEffect, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { formatFileSize } from '../../utils';
@@ -35,6 +35,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
   // ✅ NEW: Fetch NFT status from API instead of calculating from moment data
   const [nftStatus, setNftStatus] = useState(null);
   const [fetchingNftStatus, setFetchingNftStatus] = useState(true);
+  const [showRarityInfo, setShowRarityInfo] = useState(false); // ✅ NEW: For rarity info modal
   
   // ✅ FIXED: Use API endpoint to get correct NFT status
   useEffect(() => {
@@ -171,7 +172,59 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
     };
   };
 
+  // ✅ NEW: Calculate rarity breakdown for display
+  const getRarityBreakdown = () => {
+    const totalScore = moment.rarityScore || 0;
+    
+    // Estimate component scores based on available data
+    // This is a rough breakdown since we don't store individual component scores
+    const songPerformances = moment.songTotalPerformances || 0;
+    
+    // Performance frequency score (0-4 points)
+    let performanceScore = 0;
+    if (songPerformances >= 1 && songPerformances <= 10) {
+      performanceScore = 4;
+    } else if (songPerformances >= 11 && songPerformances <= 50) {
+      performanceScore = 3;
+    } else if (songPerformances >= 51 && songPerformances <= 100) {
+      performanceScore = 2.5;
+    } else if (songPerformances >= 101 && songPerformances <= 150) {
+      performanceScore = 2;
+    } else if (songPerformances >= 151 && songPerformances <= 200) {
+      performanceScore = 1.5;
+    } else {
+      performanceScore = 1;
+    }
+    
+    // Metadata completeness score (rough estimate)
+    const metadataFields = [
+      moment.momentDescription,
+      moment.emotionalTags,
+      moment.specialOccasion,
+      moment.instruments,
+      moment.guestAppearances,
+      moment.crowdReaction,
+      moment.uniqueElements,
+      moment.personalNote
+    ];
+    const filledFields = metadataFields.filter(field => field && field.trim().length > 0).length;
+    const metadataScore = filledFields / metadataFields.length;
+    
+    // Estimate remaining scores
+    const estimatedTotal = performanceScore + metadataScore;
+    const remainingScore = Math.max(0, totalScore - estimatedTotal);
+    
+    return {
+      performanceScore: performanceScore.toFixed(1),
+      metadataScore: metadataScore.toFixed(1),
+      lengthScore: Math.min(1, remainingScore / 2).toFixed(1),
+      venueScore: Math.max(0, remainingScore - Math.min(1, remainingScore / 2)).toFixed(1),
+      totalScore: totalScore.toFixed(1)
+    };
+  };
+
   const rarityInfo = getRarityInfo();
+  const rarityBreakdown = getRarityBreakdown();
 
   const getMediaComponent = () => {
     const isVideo = moment.mediaType === 'video' || 
@@ -194,9 +247,8 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
           <video
             src={moment.mediaUrl}
             controls
-            autoPlay  // ✅ ADD THIS
-                 // ✅ ADD THIS (required for autoplay)
-            preload=""
+            autoPlay  // ✅ ADDED: Autoplay feature
+            preload="metadata"
             className={`media-element ${videoLoaded ? 'loaded' : 'loading'}`}
             onLoadedData={() => {
               setVideoLoaded(true);
@@ -219,6 +271,24 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
           >
             Your browser does not support the video tag.
           </video>
+          
+          {/* ✅ ADDED: Autoplay notification */}
+          {videoLoaded && (
+            <div style={{
+              position: 'absolute',
+              top: '8px',
+              left: '8px',
+              background: 'rgba(0,0,0,0.7)',
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              opacity: '0.8'
+            }}>
+              🎬 Auto-playing (muted)
+            </div>
+          )}
+          
           {mediaError && (
             <div className="media-error">
               <p className="text-sm text-red-600 mb-2">Unable to load video preview</p>
@@ -361,17 +431,53 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             </div>
           )}
 
-          {/* ✅ FIXED: Simplified Rarity Details (only show if first moment) */}
-          {moment.isFirstMomentForSong && (
-            <div className="rarity-section">
-              <div className="rarity-details">
-                <div className="rarity-item">
-                  <span className="rarity-label">🏆 First Moment:</span>
-                  <span className="rarity-value">First uploaded for this song!</span>
+          {/* ✅ ENHANCED: Rarity Details with Formula Breakdown */}
+          <div className="rarity-section">
+            <div className="rarity-details">
+              <div className="rarity-header">
+                <h4>Rarity Calculation</h4>
+                <button
+                  onClick={() => setShowRarityInfo(true)}
+                  className="info-button"
+                  title="How is rarity calculated?"
+                >
+                  ℹ️
+                </button>
+              </div>
+              
+              <div className="rarity-formula">
+                <div className="rarity-total">
+                  <span className="rarity-total-label">Total Score:</span>
+                  <span className="rarity-total-value">{rarityBreakdown.totalScore}/7</span>
+                </div>
+                
+                <div className="rarity-breakdown">
+                  <div className="rarity-component">
+                    <span className="component-label">Performance Rarity:</span>
+                    <span className="component-value">{rarityBreakdown.performanceScore}</span>
+                  </div>
+                  <div className="rarity-component">
+                    <span className="component-label">Metadata Quality:</span>
+                    <span className="component-value">{rarityBreakdown.metadataScore}</span>
+                  </div>
+                  <div className="rarity-component">
+                    <span className="component-label">Video Length:</span>
+                    <span className="component-value">{rarityBreakdown.lengthScore}</span>
+                  </div>
+                  <div className="rarity-component">
+                    <span className="component-label">Venue Priority:</span>
+                    <span className="component-value">{rarityBreakdown.venueScore}</span>
+                  </div>
                 </div>
               </div>
+              
+              {moment.isFirstMomentForSong && (
+                <div className="first-moment-note">
+                  🏆 First moment uploaded for this song!
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Media Display */}
           <div className="card-media">
@@ -664,6 +770,74 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
           </div>
         </div>
 
+        {/* ✅ NEW: Rarity Info Modal */}
+        {showRarityInfo && (
+          <div className="rarity-info-overlay" onClick={() => setShowRarityInfo(false)}>
+            <div className="rarity-info-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="rarity-info-header">
+                <h3>How Rarity is Calculated</h3>
+                <button
+                  onClick={() => setShowRarityInfo(false)}
+                  className="rarity-info-close"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="rarity-info-content">
+                <div className="rarity-criterion">
+                  <h4>🎵 Performance Rarity (0-4 points)</h4>
+                  <p>Based on how often the song has been performed live:</p>
+                  <ul>
+                    <li><strong>4 points:</strong> 1-10 performances (ultra rare)</li>
+                    <li><strong>3 points:</strong> 11-50 performances (rare)</li>
+                    <li><strong>2.5 points:</strong> 51-100 performances (uncommon)</li>
+                    <li><strong>2 points:</strong> 101-150 performances (somewhat common)</li>
+                    <li><strong>1.5 points:</strong> 151-200 performances (common)</li>
+                    <li><strong>1 point:</strong> 200+ performances (most common)</li>
+                  </ul>
+                </div>
+                
+                <div className="rarity-criterion">
+                  <h4>📝 Metadata Quality (0-1 point)</h4>
+                  <p>Based on how much detail you provided:</p>
+                  <ul>
+                    <li>Description, emotional tags, instruments, crowd reaction</li>
+                    <li>Special occasions, guest appearances, unique elements</li>
+                    <li>Score = (filled fields ÷ total fields)</li>
+                  </ul>
+                </div>
+                
+                <div className="rarity-criterion">
+                  <h4>🎬 Video Length (0-1 point)</h4>
+                  <p>Based on optimal video duration:</p>
+                  <ul>
+                    <li><strong>Best:</strong> ~2.5 minutes (full score)</li>
+                    <li><strong>Good:</strong> 2-3 minutes</li>
+                    <li><strong>Okay:</strong> 1-4 minutes</li>
+                    <li><strong>Lower score:</strong> Very short or very long</li>
+                  </ul>
+                </div>
+                
+                <div className="rarity-criterion">
+                  <h4>🏟️ Venue Priority (0-1 point)</h4>
+                  <p>Based on upload order at this venue:</p>
+                  <ul>
+                    <li><strong>1 point:</strong> First moment at venue</li>
+                    <li><strong>0.5 points:</strong> Second moment</li>
+                    <li><strong>0.25 points:</strong> Third moment</li>
+                    <li><strong>Lower:</strong> Later uploads</li>
+                  </ul>
+                </div>
+                
+                <div className="rarity-summary">
+                  <h4>Final Score:</h4>
+                  <p>All components are added together for a total score out of 7, which determines the rarity tier and color.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <style jsx>{`
           .modal-overlay {
             position: fixed;
@@ -814,35 +988,231 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             gap: 0.75rem;
           }
 
-          .rarity-item {
+          .rarity-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
           }
 
-          .rarity-label {
+          .rarity-header h4 {
+            font-size: 0.9rem;
             font-weight: 600;
-            color: #4b5563;
-            font-size: 0.8rem;
+            color: #374151;
+            margin: 0;
           }
 
-          .rarity-value {
-            color: #1f2937;
+          .info-button {
+            background: #e5e7eb;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+          }
+
+          .info-button:hover {
+            background: #d1d5db;
+            transform: scale(1.1);
+          }
+
+          .rarity-formula {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+          }
+
+          .rarity-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 6px;
+            border-left: 3px solid #3b82f6;
+          }
+
+          .rarity-total-label {
+            font-weight: 600;
+            color: #1e40af;
+            font-size: 0.9rem;
+          }
+
+          .rarity-total-value {
+            font-weight: 700;
+            color: #1e40af;
+            font-size: 1rem;
+          }
+
+          .rarity-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.25rem;
+          }
+
+          .rarity-component {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            background: #f9fafb;
+            border-radius: 4px;
+            font-size: 0.75rem;
+          }
+
+          .component-label {
+            color: #6b7280;
+            font-weight: 500;
+          }
+
+          .component-value {
+            color: #374151;
+            font-weight: 600;
+            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+          }
+
+          .first-moment-note {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            color: #92400e;
+            padding: 0.5rem;
+            border-radius: 6px;
             font-size: 0.8rem;
             font-weight: 500;
+            text-align: center;
           }
 
           .card-media {
             padding: 1rem;
             background: #f8f9fa;
             border-bottom: 1px solid #e2e8f0;
+            position: relative;
           }
 
           .media-container {
             position: relative;
           }
 
-          /* ✅ NEW: Metadata Panel Styles */
+          /* ✅ NEW: Rarity Info Modal Styles */
+          .rarity-info-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 999999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+          }
+
+          .rarity-info-modal {
+            background: white;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+          }
+
+          .rarity-info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border-radius: 12px 12px 0 0;
+          }
+
+          .rarity-info-header h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+          }
+
+          .rarity-info-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+          }
+
+          .rarity-info-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+          }
+
+          .rarity-info-content {
+            padding: 1.5rem;
+          }
+
+          .rarity-criterion {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #f3f4f6;
+          }
+
+          .rarity-criterion:last-child {
+            border-bottom: none;
+          }
+
+          .rarity-criterion h4 {
+            color: #1f2937;
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0 0 0.5rem 0;
+          }
+
+          .rarity-criterion p {
+            color: #4b5563;
+            font-size: 0.9rem;
+            margin: 0 0 0.5rem 0;
+          }
+
+          .rarity-criterion ul {
+            margin: 0;
+            padding-left: 1.5rem;
+            color: #6b7280;
+            font-size: 0.85rem;
+          }
+
+          .rarity-criterion li {
+            margin-bottom: 0.25rem;
+          }
+
+          .rarity-summary {
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+          }
+
+          .rarity-summary h4 {
+            color: #1f2937;
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0 0 0.5rem 0;
+          }
+
+          .rarity-summary p {
+            color: #4b5563;
+            font-size: 0.9rem;
+            margin: 0;
+          }
+
+          /* ✅ Metadata Panel Styles */
           .metadata-panel {
             padding: 1.5rem;
             background: #ffffff;

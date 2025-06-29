@@ -9,6 +9,7 @@ import UploadModal from '../Moment/UploadModal';
 const PerformanceDetail = memo(({ performance, onBack }) => {
   const [uploadingMoment, setUploadingMoment] = useState(null);
   const [selectedMoment, setSelectedMoment] = useState(null);
+  const [expandedSongs, setExpandedSongs] = useState(new Set()); // ✅ NEW: Track expanded songs
   const { user } = useAuth();
   
   // Use the hook instead of manual state management
@@ -19,7 +20,6 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
     loadMomentDetails(`performance/${performance.id}`, `performance ${performance.id}`);
   }, [performance.id, loadMomentDetails]);
   
-
   const handleUploadMoment = (song, setInfo, songIndex) => {
     if (!user) {
       alert('Please log in to upload moments');
@@ -40,6 +40,17 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
 
   const getSongMoments = (songName) => {
     return moments.filter(moment => moment.songName === songName);
+  };
+
+  // ✅ NEW: Toggle song moments visibility
+  const toggleSongMoments = (songName) => {
+    const newExpanded = new Set(expandedSongs);
+    if (newExpanded.has(songName)) {
+      newExpanded.delete(songName);
+    } else {
+      newExpanded.add(songName);
+    }
+    setExpandedSongs(newExpanded);
   };
 
   if (loading) {
@@ -69,6 +80,8 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
         getSongMoments={getSongMoments}
         onUploadMoment={handleUploadMoment}
         onSelectMoment={setSelectedMoment}
+        expandedSongs={expandedSongs}
+        toggleSongMoments={toggleSongMoments}
       />
 
       {/* Modals */}
@@ -119,7 +132,9 @@ const SetlistDisplay = memo(({
   user, 
   getSongMoments, 
   onUploadMoment, 
-  onSelectMoment 
+  onSelectMoment,
+  expandedSongs,
+  toggleSongMoments
 }) => {
   if (!performance.sets?.set) {
     return (
@@ -139,6 +154,8 @@ const SetlistDisplay = memo(({
           getSongMoments={getSongMoments}
           onUploadMoment={(song, songIndex) => onUploadMoment(song, set, songIndex)}
           onSelectMoment={onSelectMoment}
+          expandedSongs={expandedSongs}
+          toggleSongMoments={toggleSongMoments}
         />
       ))}
     </div>
@@ -152,7 +169,9 @@ const SetCard = memo(({
   user, 
   getSongMoments, 
   onUploadMoment, 
-  onSelectMoment 
+  onSelectMoment,
+  expandedSongs,
+  toggleSongMoments
 }) => (
   <div className="border border-gray-200 rounded-lg bg-white shadow-sm p-4">
     {set.name && (
@@ -162,6 +181,7 @@ const SetCard = memo(({
     <ol className="space-y-3">
       {set.song?.map((song, i) => {
         const songMoments = getSongMoments(song.name);
+        const isExpanded = expandedSongs.has(song.name);
         
         return (
           <SongItem 
@@ -172,6 +192,8 @@ const SetCard = memo(({
             user={user}
             onUploadMoment={() => onUploadMoment(song, i)}
             onSelectMoment={onSelectMoment}
+            isExpanded={isExpanded}
+            toggleExpanded={() => toggleSongMoments(song.name)}
           />
         );
       })}
@@ -187,7 +209,9 @@ const SongItem = memo(({
   songMoments, 
   user, 
   onUploadMoment, 
-  onSelectMoment 
+  onSelectMoment,
+  isExpanded,
+  toggleExpanded
 }) => (
   <li className="border-b border-gray-100 pb-3 last:border-b-0">
     <div className="flex justify-between items-center">
@@ -197,10 +221,17 @@ const SongItem = memo(({
         <div className="flex items-center gap-3 flex-1">
           <span className="font-medium text-gray-900">{song.name}</span>
           
+          {/* ✅ NEW: Clickable expandable moments badge */}
           {songMoments.length > 0 && (
-            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-              {songMoments.length} moment{songMoments.length !== 1 ? 's' : ''}
-            </span>
+            <button
+              onClick={toggleExpanded}
+              className="px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-full transition-colors cursor-pointer flex items-center gap-1"
+            >
+              <span>{songMoments.length} moment{songMoments.length !== 1 ? 's' : ''}</span>
+              <span className="text-xs">
+                {isExpanded ? '▼' : '▶'}
+              </span>
+            </button>
           )}
         </div>
 
@@ -215,24 +246,37 @@ const SongItem = memo(({
       </div>
     </div>
 
-    {/* Show moments for this song */}
-    {songMoments.length > 0 && (
+    {/* ✅ NEW: Expandable moments section */}
+    {songMoments.length > 0 && isExpanded && (
       <div className="mt-3 ml-11">
         <div className="flex flex-wrap gap-2">
-          {songMoments.map((moment) => (
-            <button
-              key={moment._id}
-              onClick={() => onSelectMoment(moment)}
-              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded border transition-colors"
-            >
-              by {moment.user?.displayName || 'Anonymous'}
-              {moment.momentType && (
-                <span className="ml-2 text-xs text-gray-500">
-                  ({moment.momentType})
-                </span>
-              )}
-            </button>
-          ))}
+          {songMoments.map((moment) => {
+            const rarityColors = {
+              legendary: { bg: 'from-yellow-400 to-orange-400', text: 'text-yellow-900' },
+              epic: { bg: 'from-purple-400 to-pink-400', text: 'text-purple-900' },
+              rare: { bg: 'from-red-400 to-pink-400', text: 'text-red-900' },
+              uncommon: { bg: 'from-blue-400 to-cyan-400', text: 'text-blue-900' },
+              common: { bg: 'from-gray-300 to-gray-400', text: 'text-gray-700' }
+            }[moment.rarityTier || 'common'] || { bg: 'from-gray-300 to-gray-400', text: 'text-gray-700' };
+
+            return (
+              <button
+                key={moment._id}
+                onClick={() => onSelectMoment(moment)}
+                className={`
+                  px-3 py-1.5 rounded-md border-2 text-xs font-medium transition-all duration-200
+                  bg-gradient-to-r ${rarityColors.bg} ${rarityColors.text}
+                  hover:scale-105 hover:shadow-md transform
+                  flex items-center justify-center text-center
+                  min-w-[80px] max-w-[120px]
+                `}
+              >
+                <div className="truncate">
+                  {moment.user?.displayName || 'Unknown'}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
     )}

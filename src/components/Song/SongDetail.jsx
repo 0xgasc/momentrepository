@@ -11,6 +11,7 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
   const [uploadingMoment, setUploadingMoment] = useState(null);
   const [viewMode, setViewMode] = useState('chronological');
   const [showPositions, setShowPositions] = useState(false);
+  const [expandedPerformances, setExpandedPerformances] = useState(new Set()); // Track which performances are expanded
   const { user } = useAuth();
   
   // Use the hook instead of manual state management
@@ -66,6 +67,17 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
       console.error('❌ Error loading performance:', error);
       alert('Error loading performance. Please check your connection.');
     }
+  };
+
+  // ✅ NEW: Toggle expanded state for a performance
+  const togglePerformanceExpanded = (performanceId) => {
+    const newExpanded = new Set(expandedPerformances);
+    if (newExpanded.has(performanceId)) {
+      newExpanded.delete(performanceId);
+    } else {
+      newExpanded.add(performanceId);
+    }
+    setExpandedPerformances(newExpanded);
   };
 
   const groupedPerformances = useMemo(() => {
@@ -136,6 +148,8 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
         onUploadMoment={handleUploadMoment}
         onSelectMoment={setSelectedMoment}
         onPerformanceClick={handlePerformanceClick}
+        expandedPerformances={expandedPerformances}
+        togglePerformanceExpanded={togglePerformanceExpanded}
       />
 
       {/* Modals */}
@@ -264,7 +278,9 @@ const PerformancesList = memo(({
   getPerformanceMoments, 
   onUploadMoment, 
   onSelectMoment,
-  onPerformanceClick
+  onPerformanceClick,
+  expandedPerformances,
+  togglePerformanceExpanded
 }) => (
   <div className="space-y-6">
     {groupedPerformances.map(([groupName, performances]) => (
@@ -281,6 +297,7 @@ const PerformancesList = memo(({
           <div className="space-y-3">
             {performances.map((performance, index) => {
               const performanceMoments = getPerformanceMoments(performance.id);
+              const isExpanded = expandedPerformances.has(performance.id);
               
               return (
                 <div key={`${performance.id}-${index}`} className="border-b border-gray-100 pb-3 last:border-b-0">
@@ -314,10 +331,21 @@ const PerformancesList = memo(({
                           {showPositions && performance.songPosition && (
                             <span>Position: #{performance.songPosition}</span>
                           )}
+                          
+                          {/* ✅ CLICKABLE EXPANDABLE MOMENTS BADGE */}
                           {performanceMoments.length > 0 && (
-                            <span className="text-green-600 font-medium">
-                              {performanceMoments.length} moment{performanceMoments.length !== 1 ? 's' : ''}
-                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent triggering performance click
+                                togglePerformanceExpanded(performance.id);
+                              }}
+                              className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors cursor-pointer flex items-center gap-1"
+                            >
+                              <span>{performanceMoments.length} moment{performanceMoments.length !== 1 ? 's' : ''}</span>
+                              <span className="text-xs">
+                                {isExpanded ? '▼' : '▶'}
+                              </span>
+                            </button>
                           )}
                         </div>
                       </button>
@@ -333,24 +361,36 @@ const PerformancesList = memo(({
                     )}
                   </div>
 
-                  {/* Show moments for this performance */}
-                  {performanceMoments.length > 0 && (
+                  {/* ✅ EXPANDABLE MOMENTS: Only show when expanded */}
+                  {performanceMoments.length > 0 && isExpanded && (
                     <div className="mt-3">
                       <div className="flex flex-wrap gap-2">
-                        {performanceMoments.map((moment) => (
-                          <button
-                            key={moment._id}
-                            onClick={() => onSelectMoment(moment)}
-                            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded border transition-colors"
-                          >
-                            by {moment.user?.displayName || 'Anonymous'}
-                            {moment.momentType && (
-                              <span className="ml-2 text-xs text-gray-500">
-                                ({moment.momentType})
-                              </span>
-                            )}
-                          </button>
-                        ))}
+                        {performanceMoments.map((moment) => {
+                          const rarityColors = {
+                            legendary: { bg: 'from-yellow-400 to-orange-400', text: 'text-yellow-900' },
+                            epic: { bg: 'from-purple-400 to-pink-400', text: 'text-purple-900' },
+                            rare: { bg: 'from-red-400 to-pink-400', text: 'text-red-900' },
+                            uncommon: { bg: 'from-blue-400 to-cyan-400', text: 'text-blue-900' },
+                            common: { bg: 'from-gray-300 to-gray-400', text: 'text-gray-700' }
+                          }[moment.rarityTier || 'common'] || { bg: 'from-gray-300 to-gray-400', text: 'text-gray-700' };
+
+                          return (
+                            <button
+                              key={moment._id}
+                              onClick={() => onSelectMoment(moment)}
+                              className={`
+                                px-2 py-1 rounded-md border font-medium transition-all duration-200
+                                bg-gradient-to-r ${rarityColors.bg} ${rarityColors.text}
+                                hover:scale-105 hover:shadow-md transform
+                                text-xs min-w-[60px] h-7 flex items-center justify-center
+                              `}
+                            >
+                              <div className="truncate">
+                                {moment.user?.displayName || 'Unknown'}
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
