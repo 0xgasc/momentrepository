@@ -95,6 +95,40 @@ const tokenIdCounterSchema = new mongoose.Schema({
 });
 
 const TokenIdCounter = mongoose.model('TokenIdCounter', tokenIdCounterSchema);
+// ===================================================================
+// ✅ NEW: Non-song content detection (add near top of file)
+// ===================================================================
+
+const NON_SONG_PATTERNS = [
+  /^intro$/i,
+  /^outro$/i, 
+  /^soundcheck$/i,
+  /^tuning$/i,
+  /^banter$/i,
+  /^crowd$/i,
+  /^applause$/i,
+  /^announcement$/i,
+  /^speech$/i,
+  /^talk$/i,
+  /.*\s+intro$/i,  // "Show Intro", "Set Intro"
+  /.*\s+outro$/i,  // "Show Outro", "Set Outro"
+  /^warm.?up$/i,   // "Warmup", "Warm-up"
+  /^encore\s+intro$/i,
+  /^mic\s+check$/i,
+  /^between\s+songs$/i
+];
+
+const isNonSongContent = (songName, momentType = null) => {
+  if (!songName || typeof songName !== 'string') return false;
+  
+  // Check song name patterns
+  const nameIsNonSong = NON_SONG_PATTERNS.some(pattern => pattern.test(songName.trim()));
+  
+  // Check moment type
+  const typeIsNonSong = momentType && ['intro', 'outro', 'banter', 'soundcheck', 'crowd', 'announcement'].includes(momentType);
+  
+  return nameIsNonSong || typeIsNonSong;
+};
 
 // ✅ NEW: Get next available token ID for ERC1155
 app.get('/get-next-token-id', async (req, res) => {
@@ -1178,21 +1212,21 @@ app.get('/debug/moment-rarity/:momentId', async (req, res) => {
       return res.status(404).json({ error: 'Moment not found' });
     }
 
-    console.log(`🔍 Debugging rarity for "${moment.songName}" at ${moment.venueName}`);
+    console.log(`🔍 ENHANCED debugging rarity for "${moment.songName}" at ${moment.venueName}`);
     
     // Load cache for song data
     await umoCache.loadCache();
     const songDatabase = await umoCache.getSongDatabase();
     const songData = songDatabase[moment.songName];
     
+    // ✅ NEW: Check for non-song content
+    const nonSongAnalysis = detectNonSongContent(moment.songName);
+    
     // Check song performance count
     let songTotalPerformances = 0;
     if (songData) {
       songTotalPerformances = songData.totalPerformances;
     }
-    
-    console.log(`📊 Song "${moment.songName}" found in cache:`, !!songData);
-    console.log(`📊 Total performances:`, songTotalPerformances);
     
     // Check venue priority calculation
     const existingMomentsAtVenue = await Moment.find({ 
@@ -1205,7 +1239,7 @@ app.get('/debug/moment-rarity/:momentId', async (req, res) => {
     
     let venueScore = 0;
     if (uploadPosition === 1) {
-      venueScore = 1;
+      venueScore = 1.0;
     } else if (uploadPosition === 2) {
       venueScore = 0.5;
     } else if (uploadPosition === 3) {
@@ -1218,25 +1252,62 @@ app.get('/debug/moment-rarity/:momentId', async (req, res) => {
       venueScore = 0;
     }
     
-    console.log(`🏟️ Venue priority: position ${uploadPosition} = ${venueScore} points`);
+    // Metadata analysis
+    const metadataFields = [
+      moment.momentDescription,
+      moment.emotionalTags,
+      moment.specialOccasion,
+      moment.instruments,
+      moment.guestAppearances,
+      moment.crowdReaction,
+      moment.uniqueElements,
+      moment.personalNote
+    ];
+    
+    const filledFields = metadataFields.filter(field => field && field.trim().length > 0).length;
+    const metadataScore = filledFields / metadataFields.length;
     
     res.json({
       moment: {
         id: moment._id,
         songName: moment.songName,
         venueName: moment.venueName,
-        currentRarityScore: moment.rarityScore
+        currentRarityScore: moment.rarityScore,
+        currentRarityTier: moment.rarityTier
       },
-      debug: {
+      nonSongAnalysis: {
+        isNonSong: nonSongAnalysis.isNonSong,
+        type: nonSongAnalysis.type,
+        confidence: nonSongAnalysis.confidence,
+        detectedPattern: nonSongAnalysis.detectedPattern
+      },
+      songAnalysis: {
         songInCache: !!songData,
         songTotalPerformances: songTotalPerformances,
+        cacheEntry: songData ? {
+          totalPerformances: songData.totalPerformances,
+          venues: songData.venues?.length || 0,
+          firstPerformed: songData.firstPerformed,
+          lastPerformed: songData.lastPerformed
+        } : null
+      },
+      venueAnalysis: {
         uploadPositionAtVenue: uploadPosition,
-        calculatedVenueScore: venueScore,
-        possibleIssues: [
-          songTotalPerformances === 0 ? 'Song not found in cache - getting max performance score' : null,
-          moment.songName.toLowerCase().includes('intro') ? 'Song is "Intro" - should this be filtered?' : null
-        ].filter(Boolean)
-      }
+        existingMomentsAtVenue: existingMomentsAtVenue.length,
+        calculatedVenueScore: venueScore
+      },
+      metadataAnalysis: {
+        filledFields: filledFields,
+        totalFields: metadataFields.length,
+        completenessPercentage: Math.round((filledFields / metadataFields.length) * 100),
+        calculatedMetadataScore: metadataScore,
+        fieldDetails: metadataFields.map((field, index) => ({
+          field: ['description', 'emotionalTags', 'specialOccasion', 'instruments', 'guestAppearances', 'crowdReaction', 'uniqueElements', 'personalNote'][index],
+          filled: !!(field && field.trim().length > 0),
+          value: field ? field.slice(0, 50) + (field.length > 50 ? '...' : '') : null
+        }))
+      },
+      recommendations: generateRecommendations(moment, nonSongAnalysis, songData)
     });
     
   } catch (error) {
@@ -1244,6 +1315,52 @@ app.get('/debug/moment-rarity/:momentId', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// ✅ NEW: Generate recommendations for improving rarity
+const generateRecommendations = (moment, nonSongAnalysis, songData) => {
+  const recommendations = [];
+  
+  if (nonSongAnalysis.isNonSong) {
+    recommendations.push({
+      category: 'Content Type',
+      priority: 'high',
+      message: `This appears to be ${nonSongAnalysis.type} content, which receives lower rarity scores`,
+      action: 'Consider recategorizing or being more specific with the song name'
+    });
+  }
+  
+  if (!songData) {
+    recommendations.push({
+      category: 'Song Recognition',
+      priority: 'medium',
+      message: 'Song not found in performance database',
+      action: 'Verify song name spelling or check if this is a rare/new song'
+    });
+  }
+  
+  const metadataFields = [
+    moment.momentDescription,
+    moment.emotionalTags,
+    moment.specialOccasion,
+    moment.instruments,
+    moment.crowdReaction,
+    moment.uniqueElements,
+    moment.personalNote
+  ];
+  
+  const filledFields = metadataFields.filter(field => field && field.trim().length > 0).length;
+  const completeness = (filledFields / metadataFields.length) * 100;
+  
+  if (completeness < 50) {
+    recommendations.push({
+      category: 'Metadata',
+      priority: 'medium',
+      message: `Only ${Math.round(completeness)}% of metadata fields are filled`,
+      action: 'Add more details like description, emotions, instruments, etc. to increase rarity score'
+    });
+  }
+  
+  return recommendations;
+};
 // Add to your server.js
 app.get('/debug/full-rarity/:momentId', async (req, res) => {
   try {
@@ -1840,7 +1957,8 @@ app.post('/upload-moment', authenticateToken, async (req, res) => {
     instruments,
     guestAppearances,
     crowdReaction,
-    uniqueElements
+    uniqueElements,
+    contentType  // ✅ NEW: Content type from form
   } = req.body;
   
   const userId = req.user.id;
@@ -1850,7 +1968,8 @@ app.post('/upload-moment', authenticateToken, async (req, res) => {
     songName,
     venueName,
     venueCity,
-    userId
+    userId,
+    contentType  // ✅ NEW: Log content type
   });
 
   if (!performanceId || !songName || (!mediaUrl && !fileUri)) {
@@ -1858,6 +1977,12 @@ app.post('/upload-moment', authenticateToken, async (req, res) => {
   }
 
   try {
+    // ✅ NEW: Pre-validate song name for non-song content
+    const nonSongCheck = detectNonSongContent(songName);
+    if (nonSongCheck.isNonSong && nonSongCheck.confidence > 0.8) {
+      console.log(`⚠️ Detected high-confidence non-song content: "${songName}" (${nonSongCheck.type})`);
+    }
+
     // Create the moment first
     const moment = new Moment({
       user: userId,
@@ -1884,10 +2009,12 @@ app.post('/upload-moment', authenticateToken, async (req, res) => {
       instruments,
       guestAppearances,
       crowdReaction,
-      uniqueElements
+      uniqueElements,
+      // ✅ NEW: Store content type for future reference
+      contentType: contentType || 'song'
     });
 
-    // Calculate rarity before saving
+    // Calculate rarity using the enhanced function
     await umoCache.loadCache();
     const rarityData = await calculateRarityScore(moment, umoCache);
     
@@ -1902,10 +2029,16 @@ app.post('/upload-moment', authenticateToken, async (req, res) => {
     
     console.log(`✅ Moment saved: "${songName}" - ${rarityData.rarityScore}/7 (${rarityData.rarityTier})`);
     
+    // ✅ NEW: Log detailed breakdown for non-song content
+    if (rarityData.scoreBreakdown?.nonSongContent) {
+      console.log(`🎭 Non-song content processed:`, rarityData.scoreBreakdown.nonSongContent);
+    }
+    
     res.json({ 
       success: true, 
       moment,
-      rarityData
+      rarityData,
+      nonSongDetected: rarityData.scoreBreakdown?.nonSongContent ? true : false
     });
   } catch (err) {
     console.error('❌ Upload moment error:', err);
@@ -2041,51 +2174,65 @@ app.put('/moments/:momentId', authenticateToken, async (req, res) => {
   }
 });
 
+// ✅ CLEANED UP: Rarity calculation with proper non-song handling
 const calculateRarityScore = async (moment, umoCache) => {
   try {
     console.log(`🎯 Calculating rarity for "${moment.songName}" at ${moment.venueName}...`);
     
-    // Get song database to find performance count
+    // ✅ FIRST: Check content type from form data
+    const contentType = moment.contentType || 'song';
+    
+    // ✅ FIXED: Handle non-song content immediately
+    if (contentType !== 'song') {
+      console.log(`🎭 Processing non-song content: "${moment.songName}" (type: ${contentType})`);
+      return calculateNonSongRarity(moment, contentType);
+    }
+    
+    // ✅ FALLBACK: Detect non-song content from name if type wasn't set
+    const nonSongDetection = detectNonSongContent(moment.songName);
+    if (nonSongDetection.isNonSong && nonSongDetection.confidence > 0.8) {
+      console.log(`🚫 Auto-detected non-song content: "${moment.songName}" (${nonSongDetection.type})`);
+      return calculateNonSongRarity(moment, nonSongDetection.type);
+    }
+    
+    // ✅ PROCEED WITH SONG RARITY CALCULATION
     const songDatabase = await umoCache.getSongDatabase();
     const songData = songDatabase[moment.songName];
     
     let songTotalPerformances = 0;
     if (songData) {
       songTotalPerformances = songData.totalPerformances;
+    } else {
+      // Songs not in cache get moderate rarity (not maximum)
+      console.log(`⚠️ Song "${moment.songName}" not found in cache - treating as rare song`);
+      songTotalPerformances = 25; // Treat as moderately rare (3 points instead of 4)
     }
     
-    // Check if this is the GLOBAL first moment for this song (anywhere, any venue)
+    // ✅ FIXED: Only check for first moment if it's actually a song
     const allMomentsForSong = await Moment.find({ 
       songName: moment.songName,
+      contentType: 'song', // ✅ ONLY count actual songs for first moment logic
       _id: { $ne: moment._id }
     }).sort({ createdAt: 1 });
     
-    // Get the very first moment for this song (including the current one)
-    const allMomentsIncludingCurrent = await Moment.find({ 
-      songName: moment.songName
-    }).sort({ createdAt: 1, _id: 1 }); // Use _id as tiebreaker for same timestamps
+    const allSongMomentsIncludingCurrent = await Moment.find({ 
+      songName: moment.songName,
+      contentType: 'song' // ✅ ONLY count actual songs
+    }).sort({ createdAt: 1, _id: 1 });
     
-    const isFirstMomentForSong = allMomentsIncludingCurrent.length > 0 && 
-                                allMomentsIncludingCurrent[0]._id.toString() === moment._id.toString();
+    const isFirstMomentForSong = allSongMomentsIncludingCurrent.length > 0 && 
+                                allSongMomentsIncludingCurrent[0]._id.toString() === moment._id.toString();
     
-    console.log(`   Global first moment check: ${allMomentsForSong.length} other moments found`);
-    console.log(`   Current moment ID: ${moment._id}`);
-    console.log(`   First moment ID: ${allMomentsIncludingCurrent[0]?._id}`);
-    console.log(`   Current timestamp: ${moment.createdAt}`);
-    console.log(`   First timestamp: ${allMomentsIncludingCurrent[0]?.createdAt}`);
-    console.log(`   isFirst: ${isFirstMomentForSong}`);
-    
+    console.log(`   First song moment check: ${allMomentsForSong.length} other song moments found`);
+    console.log(`   isFirstSong: ${isFirstMomentForSong}`);
     
     let totalScore = 0;
     let scoreBreakdown = {};
     
-    // =============================================================================
     // 1. PERFORMANCE FREQUENCY SCORE (0-4 points)
-    // More performances = lower score, rare songs = higher score
-    // =============================================================================
     let performanceScore = 0;
     if (songTotalPerformances === 0) {
-      performanceScore = 4; // Unplayed song (shouldn't happen but max score)
+      performanceScore = 3.5; // Reduced from 4 to prevent inflation
     } else if (songTotalPerformances >= 1 && songTotalPerformances <= 10) {
       performanceScore = 4; // 1-10 performances - maximum rarity
     } else if (songTotalPerformances >= 11 && songTotalPerformances <= 50) {
@@ -2104,13 +2251,11 @@ const calculateRarityScore = async (moment, umoCache) => {
     scoreBreakdown.performanceFrequency = {
       score: performanceScore,
       totalPerformances: songTotalPerformances,
-      description: `${songTotalPerformances} live performances`
+      inCache: !!songData,
+      description: `${songTotalPerformances} live performances${!songData ? ' (estimated)' : ''}`
     };
     
-    // =============================================================================
     // 2. METADATA COMPLETENESS SCORE (0-1 point)
-    // Rich metadata = higher score
-    // =============================================================================
     const metadataFields = [
       moment.momentDescription,
       moment.emotionalTags,
@@ -2124,54 +2269,44 @@ const calculateRarityScore = async (moment, umoCache) => {
     
     const filledFields = metadataFields.filter(field => field && field.trim().length > 0).length;
     const totalFields = metadataFields.length;
-    const completenessPercentage = (filledFields / totalFields) * 100;
-    const metadataScore = (filledFields / totalFields); // 0-1 based on completion percentage
+    const metadataScore = (filledFields / totalFields);
     
     totalScore += metadataScore;
     scoreBreakdown.metadataCompleteness = {
       score: metadataScore,
       filledFields,
       totalFields,
-      percentage: Math.round(completenessPercentage),
-      description: `${filledFields}/${totalFields} metadata fields (${Math.round(completenessPercentage)}%)`
+      percentage: Math.round((filledFields / totalFields) * 100),
+      description: `${filledFields}/${totalFields} metadata fields (${Math.round((filledFields / totalFields) * 100)}%)`
     };
     
-    // =============================================================================
     // 3. VIDEO LENGTH OPTIMIZATION SCORE (0-1 point)
-    // Closer to 2.5 minutes (150 seconds) = higher score
-    // =============================================================================
     let lengthScore = 0;
     let videoDuration = null;
     
-    // For now, we'll estimate based on file size for video files
-    // In the future, you could extract actual duration from video metadata
     if (moment.mediaType === 'video' && moment.fileSize) {
-      // Rough estimation: assume ~1MB per 10 seconds for decent quality video
       const estimatedDuration = (moment.fileSize / (1024 * 1024)) * 10; // seconds
       videoDuration = estimatedDuration;
       
       const targetDuration = 150; // 2.5 minutes in seconds
       const difference = Math.abs(estimatedDuration - targetDuration);
       
-      // Score decreases as we get further from ideal length
-      if (difference <= 15) { // Within 15 seconds of 2.5 min
+      if (difference <= 15) {
         lengthScore = 1;
-      } else if (difference <= 30) { // Within 30 seconds
+      } else if (difference <= 30) {
         lengthScore = 0.8;
-      } else if (difference <= 60) { // Within 1 minute
+      } else if (difference <= 60) {
         lengthScore = 0.6;
-      } else if (difference <= 120) { // Within 2 minutes
+      } else if (difference <= 120) {
         lengthScore = 0.4;
-      } else if (difference <= 180) { // Within 3 minutes
+      } else if (difference <= 180) {
         lengthScore = 0.2;
       } else {
-        lengthScore = 0.1; // Very far from ideal
+        lengthScore = 0.1;
       }
     } else if (moment.mediaType === 'audio') {
-      // Give moderate score for audio files
       lengthScore = 0.5;
     } else if (moment.mediaType === 'image') {
-      // Images get a small base score
       lengthScore = 0.3;
     }
     
@@ -2185,69 +2320,69 @@ const calculateRarityScore = async (moment, umoCache) => {
         `${moment.mediaType || 'unknown'} file`
     };
     
-    // =============================================================================
-    // 4. VENUE UPLOAD PRECEDENCE SCORE (0-1 point)
-    // First upload at this venue = 1pt, second = 0.5pt, third = 0.25pt, etc.
-    // =============================================================================
-    // Check for first moment at this specific venue for this song
+    // 4. VENUE UPLOAD PRECEDENCE SCORE (0-1 point) - Only for songs
     const existingMomentsAtVenue = await Moment.find({ 
       songName: moment.songName,
       venueName: moment.venueName,
+      contentType: 'song', // ✅ ONLY count actual songs for venue precedence
       _id: { $ne: moment._id }
     }).sort({ createdAt: 1 });
     
-    const uploadPosition = existingMomentsAtVenue.length + 1; // 1st, 2nd, 3rd, etc.
+    const uploadPosition = existingMomentsAtVenue.length + 1;
     let venueScore = 0;
     
     if (uploadPosition === 1) {
-      venueScore = 1; // First upload at this venue
+      venueScore = 1.0;
     } else if (uploadPosition === 2) {
-      venueScore = 0.5; // Second upload
+      venueScore = 0.5;
     } else if (uploadPosition === 3) {
-      venueScore = 0.25; // Third upload
+      venueScore = 0.25;
     } else if (uploadPosition === 4) {
-      venueScore = 0.125; // Fourth upload
+      venueScore = 0.125;
     } else if (uploadPosition <= 10) {
-      venueScore = 0.1; // 5th-10th upload
+      venueScore = 0.1;
     } else {
-      venueScore = 0; // 11+ uploads
+      venueScore = 0;
     }
+    
+    venueScore = Math.min(1.0, venueScore); // Safety cap
     
     totalScore += venueScore;
     scoreBreakdown.venuePrecedence = {
       score: venueScore,
       uploadPosition,
+      existingAtVenue: existingMomentsAtVenue.length,
       description: uploadPosition === 1 ? 
-        'First moment for this song at this venue' : 
-        `${uploadPosition}${getOrdinalSuffix(uploadPosition)} moment at this venue`
+        'First song moment at this venue' : 
+        `${uploadPosition}${getOrdinalSuffix(uploadPosition)} song moment at this venue`
     };
     
-    // =============================================================================
-    // DETERMINE RARITY TIER BASED ON TOTAL SCORE (0-7)
-    // =============================================================================
+    // Safety check: Ensure total score never exceeds 7.0
+    totalScore = Math.min(7.0, totalScore);
+    
+    // Determine rarity tier
     let rarityTier = 'common';
     if (totalScore >= 6) {
-      rarityTier = 'legendary'; // 6-7 points
+      rarityTier = 'legendary';
     } else if (totalScore >= 5) {
-      rarityTier = 'epic'; // 5-6 points
+      rarityTier = 'epic';
     } else if (totalScore >= 3.5) {
-      rarityTier = 'rare'; // 3.5-5 points
+      rarityTier = 'rare';
     } else if (totalScore >= 2) {
-      rarityTier = 'uncommon'; // 2-3.5 points
+      rarityTier = 'uncommon';
     } else {
-      rarityTier = 'common'; // 0-2 points
+      rarityTier = 'common';
     }
     
-    // Round total score to 2 decimal places
     const finalScore = Math.round(totalScore * 100) / 100;
     
-    console.log(`✅ "${moment.songName}" at ${moment.venueName}: ${finalScore}/7 (${rarityTier})`);
+    console.log(`✅ SONG "${moment.songName}" at ${moment.venueName}: ${finalScore}/7 (${rarityTier})`);
     console.log(`   Performance: ${performanceScore}, Metadata: ${metadataScore.toFixed(2)}, Length: ${lengthScore}, Venue: ${venueScore}`);
     
     return {
       rarityScore: finalScore,
       rarityTier,
-      isFirstMomentForSong, // This is now the GLOBAL first moment for the song
+      isFirstMomentForSong, // ✅ Only true for actual songs
       songTotalPerformances,
       scoreBreakdown
     };
@@ -2264,7 +2399,103 @@ const calculateRarityScore = async (moment, umoCache) => {
   }
 };
 
-// Helper function for ordinal numbers (1st, 2nd, 3rd, etc.)
+// ✅ SIMPLIFIED: Non-song content gets low, fixed scores
+const calculateNonSongRarity = async (moment, contentType) => {
+  console.log(`🎭 Calculating non-song rarity for "${moment.songName}" (${contentType})`);
+  
+  let baseScore = 0;
+  let description = '';
+  
+  // Assign base scores based on content type
+  switch (contentType) {
+    case 'intro':
+    case 'outro':
+      baseScore = 1.0;
+      description = 'Performance intro/outro content';
+      break;
+    case 'jam':
+      baseScore = 1.5;
+      description = 'Jam/improvisation content';
+      break;
+    case 'crowd':
+      baseScore = 1.2;
+      description = 'Crowd reaction content';
+      break;
+    case 'other':
+      baseScore = 0.8;
+      description = 'Other performance content';
+      break;
+    default:
+      baseScore = 1.0;
+      description = 'Non-song content';
+  }
+  
+  // Small metadata bonus (max +0.5)
+  const metadataFields = [
+    moment.momentDescription,
+    moment.emotionalTags,
+    moment.specialOccasion,
+    moment.crowdReaction,
+    moment.uniqueElements,
+    moment.personalNote
+  ];
+  
+  const filledFields = metadataFields.filter(field => field && field.trim().length > 0).length;
+  const metadataBonus = (filledFields / metadataFields.length) * 0.5;
+  
+  const finalScore = Math.min(2.5, baseScore + metadataBonus); // Cap at 2.5 for non-songs
+  
+  // Non-song content is always common or uncommon at most
+  const rarityTier = finalScore >= 2.0 ? 'uncommon' : 'common';
+  
+  console.log(`✅ NON-SONG "${moment.songName}": ${finalScore.toFixed(2)}/7 (${rarityTier}, ${contentType})`);
+  
+  return {
+    rarityScore: Math.round(finalScore * 100) / 100,
+    rarityTier,
+    isFirstMomentForSong: false, // ✅ NEVER true for non-songs
+    songTotalPerformances: 0, // ✅ N/A for non-songs
+    scoreBreakdown: {
+      nonSongContent: {
+        type: contentType,
+        baseScore: baseScore,
+        metadataBonus: metadataBonus,
+        description: description
+      }
+    }
+  };
+};
+
+// Detect non-song content from name (fallback only)
+const detectNonSongContent = (songName) => {
+  if (!songName || typeof songName !== 'string') {
+    return { isNonSong: true, type: 'other', confidence: 1.0 };
+  }
+  
+  const lowercased = songName.toLowerCase().trim();
+  
+  const patterns = [
+    { pattern: /^intro$/i, type: 'intro', confidence: 1.0 },
+    { pattern: /^outro$/i, type: 'outro', confidence: 1.0 },
+    { pattern: /soundcheck/i, type: 'other', confidence: 0.9 },
+    { pattern: /tuning/i, type: 'other', confidence: 0.9 },
+    { pattern: /^jam$/i, type: 'jam', confidence: 0.8 },
+    { pattern: /banter/i, type: 'other', confidence: 0.9 },
+    { pattern: /crowd/i, type: 'crowd', confidence: 0.8 },
+    { pattern: /applause/i, type: 'crowd', confidence: 0.9 },
+    { pattern: /^\d+$/i, type: 'other', confidence: 0.95 }
+  ];
+  
+  for (const { pattern, type, confidence } of patterns) {
+    if (pattern.test(songName)) {
+      return { isNonSong: true, type, confidence };
+    }
+  }
+  
+  return { isNonSong: false, type: 'song', confidence: 0.0 };
+};
+
+// Helper function for ordinal numbers
 const getOrdinalSuffix = (num) => {
   const j = num % 10;
   const k = num % 100;
@@ -2273,7 +2504,6 @@ const getOrdinalSuffix = (num) => {
   if (j == 3 && k != 13) return "rd";
   return "th";
 };
-
 // =============================================================================
 // RARITY CALCULATION ENDPOINTS
 // =============================================================================
@@ -2281,7 +2511,7 @@ const getOrdinalSuffix = (num) => {
 // Endpoint to recalculate rarity for all moments
 app.post('/admin/recalculate-rarity', async (req, res) => {
   try {
-    console.log('🎯 Starting rarity recalculation for all moments...');
+    console.log('🎯 Starting ENHANCED rarity recalculation for all moments...');
     
     // Load the UMO cache
     await umoCache.loadCache();
@@ -2292,11 +2522,32 @@ app.post('/admin/recalculate-rarity', async (req, res) => {
     
     let updated = 0;
     let errors = 0;
+    let nonSongCount = 0;
+    let songNotInCacheCount = 0;
+    
+    const tierCounts = {
+      legendary: 0,
+      epic: 0,
+      rare: 0,
+      uncommon: 0,
+      common: 0
+    };
     
     for (const moment of allMoments) {
       try {
-        // Calculate new rarity data
+        // Calculate new rarity data using enhanced function
         const rarityData = await calculateRarityScore(moment, umoCache);
+        
+        // Track statistics
+        if (rarityData.scoreBreakdown?.nonSongContent) {
+          nonSongCount++;
+        }
+        
+        if (rarityData.scoreBreakdown?.performanceFrequency && !rarityData.scoreBreakdown.performanceFrequency.inCache) {
+          songNotInCacheCount++;
+        }
+        
+        tierCounts[rarityData.rarityTier]++;
         
         // Update the moment
         await Moment.updateOne(
@@ -2312,7 +2563,12 @@ app.post('/admin/recalculate-rarity', async (req, res) => {
         );
         
         updated++;
-        console.log(`✅ Updated "${moment.songName}" - Score: ${rarityData.rarityScore} (${rarityData.rarityTier})`);
+        
+        if (rarityData.scoreBreakdown?.nonSongContent) {
+          console.log(`🎭 Non-song "${moment.songName}" - Score: ${rarityData.rarityScore} (${rarityData.rarityTier})`);
+        } else {
+          console.log(`✅ Updated "${moment.songName}" - Score: ${rarityData.rarityScore} (${rarityData.rarityTier})`);
+        }
         
       } catch (err) {
         console.error(`❌ Error updating moment ${moment._id}:`, err);
@@ -2320,24 +2576,41 @@ app.post('/admin/recalculate-rarity', async (req, res) => {
       }
     }
     
-    console.log(`🎯 Rarity recalculation complete: ${updated} updated, ${errors} errors`);
+    console.log(`🎯 ENHANCED rarity recalculation complete:`);
+    console.log(`   📊 Total processed: ${allMoments.length}`);
+    console.log(`   ✅ Successfully updated: ${updated}`);
+    console.log(`   ❌ Errors: ${errors}`);
+    console.log(`   🎭 Non-song content detected: ${nonSongCount}`);
+    console.log(`   🔍 Songs not in cache: ${songNotInCacheCount}`);
+    console.log(`   🏆 Tier distribution:`, tierCounts);
     
     res.json({
       success: true,
-      message: `Recalculated rarity for ${updated} moments`,
-      updated,
-      errors,
-      total: allMoments.length
+      message: `Enhanced recalculation complete: ${updated} moments updated`,
+      statistics: {
+        totalProcessed: allMoments.length,
+        successfulUpdates: updated,
+        errors: errors,
+        nonSongContentDetected: nonSongCount,
+        songsNotInCache: songNotInCacheCount,
+        tierDistribution: tierCounts
+      },
+      details: {
+        updated,
+        errors,
+        total: allMoments.length
+      }
     });
     
   } catch (error) {
-    console.error('❌ Rarity recalculation failed:', error);
+    console.error('❌ Enhanced rarity recalculation failed:', error);
     res.status(500).json({
       error: 'Failed to recalculate rarity',
       details: error.message
     });
   }
 });
+
 
 // Get rarity statistics
 app.get('/admin/rarity-stats', async (req, res) => {
@@ -2372,7 +2645,190 @@ app.get('/admin/rarity-stats', async (req, res) => {
     res.status(500).json({ error: 'Failed to get rarity statistics' });
   }
 });
+app.post('/admin/fix-intro-moments', async (req, res) => {
+  try {
+    console.log('🔧 Finding and fixing "Intro" and other non-song moments...');
+    
+    // Find moments that are likely non-song content
+    const nonSongPatterns = [
+      /^intro$/i, /^outro$/i, /soundcheck/i, /tuning/i, /^jam$/i, 
+      /banter/i, /crowd/i, /applause/i, /^\d+$/
+    ];
+    
+    const problematicMoments = await Moment.find({
+      $or: nonSongPatterns.map(pattern => ({ songName: { $regex: pattern } }))
+    });
+    
+    console.log(`📊 Found ${problematicMoments.length} potentially problematic moments`);
+    
+    let fixed = 0;
+    const results = [];
+    
+    // Load cache
+    await umoCache.loadCache();
+    
+    for (const moment of problematicMoments) {
+      try {
+        const oldScore = moment.rarityScore;
+        const oldTier = moment.rarityTier;
+        
+        // Recalculate with enhanced logic
+        const rarityData = await calculateRarityScore(moment, umoCache);
+        
+        // Update moment
+        await Moment.updateOne(
+          { _id: moment._id },
+          {
+            $set: {
+              rarityScore: rarityData.rarityScore,
+              rarityTier: rarityData.rarityTier,
+              isFirstMomentForSong: rarityData.isFirstMomentForSong,
+              songTotalPerformances: rarityData.songTotalPerformances
+            }
+          }
+        );
+        
+        results.push({
+          id: moment._id,
+          songName: moment.songName,
+          venueName: moment.venueName,
+          oldScore: oldScore,
+          newScore: rarityData.rarityScore,
+          oldTier: oldTier,
+          newTier: rarityData.rarityTier,
+          isNonSong: !!rarityData.scoreBreakdown?.nonSongContent,
+          nonSongType: rarityData.scoreBreakdown?.nonSongContent?.type
+        });
+        
+        fixed++;
+        console.log(`🔧 Fixed "${moment.songName}": ${oldScore} → ${rarityData.rarityScore} (${oldTier} → ${rarityData.rarityTier})`);
+        
+      } catch (err) {
+        console.error(`❌ Error fixing moment ${moment._id}:`, err);
+      }
+    }
+    
+    console.log(`✅ Fixed ${fixed} problematic moments`);
+    
+    res.json({
+      success: true,
+      message: `Fixed ${fixed} problematic moments`,
+      totalFound: problematicMoments.length,
+      totalFixed: fixed,
+      results: results
+    });
+    
+  } catch (error) {
+    console.error('❌ Fix intro moments failed:', error);
+    res.status(500).json({
+      error: 'Failed to fix intro moments',
+      details: error.message
+    });
+  }
+});
 
+app.get('/admin/rarity-analytics', async (req, res) => {
+  try {
+    console.log('📊 Generating rarity analytics...');
+    
+    // Get overall statistics
+    const totalMoments = await Moment.countDocuments();
+    
+    // Tier distribution
+    const tierStats = await Moment.aggregate([
+      {
+        $group: {
+          _id: '$rarityTier',
+          count: { $sum: 1 },
+          averageScore: { $avg: '$rarityScore' },
+          maxScore: { $max: '$rarityScore' },
+          minScore: { $min: '$rarityScore' }
+        }
+      },
+      { $sort: { maxScore: -1 } }
+    ]);
+    
+    // Score distribution (binned)
+    const scoreDistribution = await Moment.aggregate([
+      {
+        $bucket: {
+          groupBy: '$rarityScore',
+          boundaries: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+          default: 'other',
+          output: {
+            count: { $sum: 1 },
+            moments: { 
+              $push: { 
+                songName: '$songName', 
+                venueName: '$venueName',
+                score: '$rarityScore',
+                tier: '$rarityTier'
+              } 
+            }
+          }
+        }
+      }
+    ]);
+    
+    // Top and bottom moments
+    const topMoments = await Moment.find({})
+      .sort({ rarityScore: -1 })
+      .limit(10)
+      .select('songName venueName rarityScore rarityTier user createdAt')
+      .populate('user', 'displayName');
+    
+    const bottomMoments = await Moment.find({})
+      .sort({ rarityScore: 1 })
+      .limit(10)
+      .select('songName venueName rarityScore rarityTier user createdAt')
+      .populate('user', 'displayName');
+    
+    // Non-song content analysis
+    const nonSongPatterns = [
+      /^intro$/i, /^outro$/i, /soundcheck/i, /tuning/i, /^jam$/i, 
+      /banter/i, /crowd/i, /applause/i, /^\d+$/
+    ];
+    
+    const potentialNonSongs = await Moment.find({
+      $or: nonSongPatterns.map(pattern => ({ songName: { $regex: pattern } }))
+    }).select('songName venueName rarityScore rarityTier');
+    
+    // First moment statistics
+    const firstMoments = await Moment.countDocuments({ isFirstMomentForSong: true });
+    
+    res.json({
+      overview: {
+        totalMoments,
+        firstMoments,
+        firstMomentPercentage: Math.round((firstMoments / totalMoments) * 100)
+      },
+      tierDistribution: tierStats,
+      scoreDistribution,
+      extremes: {
+        topMoments,
+        bottomMoments
+      },
+      qualityIssues: {
+        potentialNonSongs: potentialNonSongs.length,
+        examples: potentialNonSongs.slice(0, 10)
+      },
+      recommendations: [
+        potentialNonSongs.length > 0 ? `${potentialNonSongs.length} moments may be non-song content` : null,
+        firstMoments < totalMoments * 0.05 ? 'Very few first moments detected - check calculation logic' : null,
+        tierStats.find(t => t._id === 'legendary')?.count > totalMoments * 0.1 ? 'Too many legendary moments - scoring may be inflated' : null
+      ].filter(Boolean)
+    });
+    
+  } catch (error) {
+    console.error('❌ Rarity analytics error:', error);
+    res.status(500).json({
+      error: 'Failed to generate analytics',
+      details: error.message
+    });
+  }
+});
+
+console.log('🎯 Enhanced rarity calculation and debugging endpoints added to server');
 console.log('🎯 Rarity calculation endpoints added to server');
 
 app.post('/debug/fix-first-moment/:momentId', async (req, res) => {

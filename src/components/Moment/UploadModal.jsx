@@ -1,4 +1,4 @@
-// src/components/Moment/UploadModal.jsx - SIMPLE VERSION with your requested field changes
+// src/components/Moment/UploadModal.jsx - CLEAN VERSION with content-type-first approach
 import React, { useState, memo } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { styles } from '../../styles';
@@ -10,28 +10,32 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [uploadStage, setUploadStage] = useState('');
-  const [showPerformanceDetails, setShowPerformanceDetails] = useState(false);
-  const [showQualityAssessment, setShowQualityAssessment] = useState(false);
   
   const [formData, setFormData] = useState({
+    // ✅ FIRST: Content type determines everything else
+    contentType: 'song', // song, intro, jam, crowd, other
+    
+    // Core fields (always needed)
     songName: uploadingMoment?.songName || '',
     venueName: uploadingMoment?.venueName || '',
     venueCity: uploadingMoment?.venueCity || '',
     venueCountry: uploadingMoment?.venueCountry || '',
     performanceDate: uploadingMoment?.performanceDate || '',
-    setName: 'Main Set', // Default to Main Set
+    
+    // Song-specific fields
+    setName: 'Main Set',
     songPosition: uploadingMoment?.songPosition || 1,
     
-    // Metadata fields
+    // Metadata (adapted based on content type)
     momentDescription: '',
-    emotionalTags: [], // Array for multi-select
+    emotionalTags: [],
     specialOccasion: '',
-    instruments: [], // Array for multi-select
+    instruments: [],
     crowdReaction: '',
     uniqueElements: '',
     personalNote: '',
     
-    // Quality and type
+    // Quality
     audioQuality: 'good',
     videoQuality: 'good',
     momentType: 'performance'
@@ -41,7 +45,6 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Handle multi-select for arrays
   const handleArrayToggle = (field, option) => {
     setFormData(prev => ({
       ...prev,
@@ -72,7 +75,7 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
     }
 
     if (!formData.songName || !formData.venueName || !formData.venueCity) {
-      setError('Please fill in required fields: Song Name, Venue, and City');
+      setError('Please fill in required fields: Content Name, Venue, and City');
       return;
     }
 
@@ -109,7 +112,6 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
       setUploadProgress(70);
       setUploadStage('Saving moment metadata...');
 
-      // Convert arrays to strings for backend
       const momentPayload = {
         performanceId: uploadingMoment.performanceId,
         performanceDate: formData.performanceDate,
@@ -137,7 +139,10 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
         
         audioQuality: formData.audioQuality,
         videoQuality: formData.videoQuality,
-        momentType: formData.momentType
+        momentType: formData.momentType,
+        
+        // ✅ CRITICAL: Include content type
+        contentType: formData.contentType
       };
 
       const momentResponse = await fetch(`${API_BASE_URL}/upload-moment`, {
@@ -177,14 +182,10 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
     <div style={styles.modal.overlay} onClick={() => step === 'form' && onClose()}>
       <div style={{...styles.modal.content, maxWidth: '600px', maxHeight: '90vh', overflow: 'auto'}} onClick={(e) => e.stopPropagation()}>
         {step === 'form' && (
-          <SimpleUploadForm 
+          <CleanUploadForm 
             formData={formData}
             file={file}
             error={error}
-            showPerformanceDetails={showPerformanceDetails}
-            setShowPerformanceDetails={setShowPerformanceDetails}
-            showQualityAssessment={showQualityAssessment}
-            setShowQualityAssessment={setShowQualityAssessment}
             onInputChange={handleInputChange}
             onArrayToggle={handleArrayToggle}
             onFileSelect={handleFileSelect}
@@ -210,69 +211,156 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
 
 UploadModal.displayName = 'UploadModal';
 
-const SimpleUploadForm = memo(({ 
+// ✅ CLEAN: Content-type-first upload form
+const CleanUploadForm = memo(({ 
   formData, 
   file, 
   error,
-  showPerformanceDetails,
-  setShowPerformanceDetails,
-  showQualityAssessment,
-  setShowQualityAssessment,
   onInputChange, 
   onArrayToggle,
   onFileSelect, 
   onUpload, 
   onClose
 }) => {
-  // Predefined options
-  const emotionalOptions = [
-    'Energetic', 'Emotional', 'Epic', 'Chill', 'Intense', 'Groovy', 
-    'Dreamy', 'Raw', 'Powerful', 'Intimate', 'Psychedelic', 'Melancholic'
-  ];
+  
+  // ✅ Content type definitions
+  const contentTypes = {
+    song: {
+      label: '🎵 Song Performance',
+      description: 'A complete or partial song performance',
+      nameLabel: 'Song Name',
+      namePlaceholder: 'Enter the song name...',
+      showPerformanceStats: true,
+      showFullMetadata: true,
+      rarityNote: 'Songs get full rarity calculation based on performance frequency and metadata'
+    },
+    intro: {
+      label: '🎭 Intro/Outro',
+      description: 'Performance intro, outro, or transition',
+      nameLabel: 'Content Name',
+      namePlaceholder: 'e.g., "Intro", "Outro", "Set Break"',
+      showPerformanceStats: false,
+      showFullMetadata: false,
+      rarityNote: 'Intro/outro content receives lower rarity scores (1-2.5/7)'
+    },
+    jam: {
+      label: '🎸 Jam/Improv',
+      description: 'Improvised or extended musical section',
+      nameLabel: 'Jam Description',
+      namePlaceholder: 'e.g., "Guitar Jam", "Extended Outro", "Free Improv"',
+      showPerformanceStats: false,
+      showFullMetadata: true,
+      rarityNote: 'Jam content receives moderate rarity scores (1-3/7)'
+    },
+    crowd: {
+      label: '👥 Crowd Moment',
+      description: 'Audience reaction or interaction',
+      nameLabel: 'Crowd Moment',
+      namePlaceholder: 'e.g., "Crowd Singing", "Standing Ovation", "Audience Reaction"',
+      showPerformanceStats: false,
+      showFullMetadata: false,
+      rarityNote: 'Crowd content receives lower rarity scores (1-2.5/7)'
+    },
+    other: {
+      label: '🎪 Other Content',
+      description: 'Soundcheck, banter, or other content',
+      nameLabel: 'Content Description',
+      namePlaceholder: 'e.g., "Soundcheck", "Band Banter", "Technical Issue"',
+      showPerformanceStats: false,
+      showFullMetadata: false,
+      rarityNote: 'Other content receives the lowest rarity scores (0.5-2/7)'
+    }
+  };
 
-  const specialOccasionOptions = [
-    '', 'Birthday show', 'Festival debut', 'Last song', 'Encore', 'First show of tour',
-    'Last show of tour', 'Album release party', 'Special guest appearance', 'Acoustic set',
-    'Hometown show', 'New Year\'s Eve', 'Holiday show', 'Tribute performance'
-  ];
+  const currentType = contentTypes[formData.contentType];
 
-  const instrumentOptions = [
-    'Guitar solo', 'Bass solo', 'Drum solo', 'Keyboard/synth', 'Saxophone', 'Trumpet',
-    'Harmonica', 'Violin', 'Flute', 'Percussion', 'Backup vocals', 'Extended jam'
-  ];
+  // Simplified options based on content type
+  const getEmotionalOptions = () => {
+    if (formData.contentType === 'song' || formData.contentType === 'jam') {
+      return ['Energetic', 'Emotional', 'Epic', 'Chill', 'Intense', 'Groovy', 'Dreamy', 'Raw', 'Powerful', 'Intimate', 'Psychedelic', 'Melancholic'];
+    } else if (formData.contentType === 'crowd') {
+      return ['Explosive', 'Excited', 'Emotional', 'Enthusiastic', 'Quiet', 'Respectful', 'Wild', 'Engaged'];
+    } else {
+      return ['Casual', 'Funny', 'Interesting', 'Technical', 'Unexpected'];
+    }
+  };
 
-  const crowdReactionOptions = [
-    '', 'Explosive energy', 'Wild dancing', 'Massive sing-along', 'Standing ovation',
-    'Dead silence in awe', 'Everyone jumping', 'Swaying together', 'Phone lights up',
-    'Crowd went crazy', 'Emotional tears', 'Moderate response', 'Quiet appreciation'
-  ];
-
-  const uniqueElementOptions = [
-    '', 'First time played live', 'Rarely played song', 'Extended jam session',
-    'Acoustic version', 'Cover song', 'Song dedication', 'Improvised section',
-    'Technical difficulties', 'Unexpected guest', 'Fan interaction', 'Band banter',
-    'Sound experiment', 'New arrangement'
-  ];
+  const getUniqueElementOptions = () => {
+    if (formData.contentType === 'song') {
+      return ['', 'First time played live', 'Rarely played song', 'Extended version', 'Acoustic version', 'Cover song', 'Song dedication', 'New arrangement'];
+    } else if (formData.contentType === 'jam') {
+      return ['', 'Extended improvisation', 'Unusual instruments', 'Crowd participation', 'Guest musician', 'Spontaneous creation'];
+    } else {
+      return ['', 'Spontaneous moment', 'Fan interaction', 'Technical issue', 'Unexpected event', 'Rare occurrence'];
+    }
+  };
 
   return (
     <div>
       <h2 style={styles.modal.title}>🎵 Upload UMO Moment</h2>
-      <p style={styles.modal.subtitle}>Create a detailed record of this musical moment</p>
+      <p style={styles.modal.subtitle}>What type of content are you uploading?</p>
 
       {error && <div style={styles.message.error}>{error}</div>}
 
-      {/* Performance Information (Non-editable) */}
+      {/* ✅ FIRST: Content Type Selection */}
       <div style={styles.section.container}>
-        <h3 style={styles.section.title}>📝 Performance Information</h3>
+        <h3 style={styles.section.title}>1️⃣ Content Type</h3>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: '10px',
+          marginBottom: '1rem'
+        }}>
+          {Object.entries(contentTypes).map(([key, type]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onInputChange('contentType', key)}
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                border: '2px solid',
+                borderColor: formData.contentType === key ? '#3b82f6' : '#d1d5db',
+                backgroundColor: formData.contentType === key ? '#eff6ff' : '#f9fafb',
+                color: formData.contentType === key ? '#1e40af' : '#374151',
+                fontSize: '13px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.2s'
+              }}
+            >
+              <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{type.label}</div>
+              <div style={{ fontSize: '11px', opacity: 0.8, lineHeight: '1.3' }}>{type.description}</div>
+            </button>
+          ))}
+        </div>
+        
+        {/* Rarity Information */}
+        <div style={{
+          padding: '12px',
+          backgroundColor: '#f0f9ff',
+          border: '1px solid #bae6fd',
+          borderRadius: '6px',
+          fontSize: '12px',
+          color: '#0c4a6e'
+        }}>
+          <strong>Rarity Impact:</strong> {currentType.rarityNote}
+        </div>
+      </div>
+
+      {/* ✅ SECOND: Basic Information */}
+      <div style={styles.section.container}>
+        <h3 style={styles.section.title}>2️⃣ Basic Information</h3>
         
         <div style={styles.section.grid}>
           <div>
-            <label style={styles.label}>Song Name</label>
+            <label style={styles.label}>{currentType.nameLabel}</label>
             <input
               type="text"
               value={formData.songName}
-              style={{...styles.input, backgroundColor: '#f9fafb', cursor: 'not-allowed'}}
-              readOnly
+              onChange={(e) => onInputChange('songName', e.target.value)}
+              style={styles.input}
+              placeholder={currentType.namePlaceholder}
             />
           </div>
           
@@ -309,64 +397,70 @@ const SimpleUploadForm = memo(({
           </div>
         </div>
 
-        <div style={styles.section.grid}>
-          <div>
-            <label style={styles.label}>Set Name</label>
-            <select
-              value={formData.setName}
-              onChange={(e) => onInputChange('setName', e.target.value)}
-              style={styles.input}
-            >
-              <option value="Main Set">Main Set</option>
-              <option value="Encore">Encore</option>
-            </select>
+        {/* ✅ CONDITIONAL: Only show for songs */}
+        {formData.contentType === 'song' && (
+          <div style={styles.section.grid}>
+            <div>
+              <label style={styles.label}>Set Name</label>
+              <select
+                value={formData.setName}
+                onChange={(e) => onInputChange('setName', e.target.value)}
+                style={styles.input}
+              >
+                <option value="Main Set">Main Set</option>
+                <option value="Encore">Encore</option>
+              </select>
+            </div>
+            
+            <div>
+              <label style={styles.label}>Song Position (if known)</label>
+              <input
+                type="number"
+                value={formData.songPosition}
+                onChange={(e) => onInputChange('songPosition', parseInt(e.target.value) || 1)}
+                style={styles.input}
+                min="1"
+                placeholder="1"
+              />
+            </div>
           </div>
-          
-          <div>
-            <label style={styles.label}>Moment Type</label>
-            <select
-              value={formData.momentType}
-              onChange={(e) => onInputChange('momentType', e.target.value)}
-              style={styles.input}
-            >
-              <option value="performance">Performance</option>
-              <option value="crowd">Crowd Reaction</option>
-              <option value="backstage">Backstage</option>
-              <option value="arrival">Band Arrival</option>
-              <option value="interaction">Artist-Fan Interaction</option>
-            </select>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Moment Details */}
+      {/* ✅ THIRD: Description */}
       <div style={styles.section.container}>
-        <h3 style={styles.section.title}>🎭 Moment Details</h3>
+        <h3 style={styles.section.title}>3️⃣ Description</h3>
         
         <div style={{ marginBottom: '1rem' }}>
-          <label style={styles.label}>Moment Description</label>
+          <label style={styles.label}>
+            {formData.contentType === 'song' ? 'What happens in this moment?' : 'Describe this content'}
+          </label>
           <textarea
             value={formData.momentDescription}
             onChange={(e) => onInputChange('momentDescription', e.target.value)}
             style={styles.textarea}
-            placeholder="Describe what happens in this moment"
+            placeholder={
+              formData.contentType === 'song' 
+                ? 'Describe what happens during this song performance'
+                : 'Describe what happens in this moment'
+            }
           />
         </div>
 
-        {/* Multi-select Emotional Tags */}
+        {/* Emotional Tags */}
         <div style={{ marginBottom: '1rem' }}>
-          <label style={styles.label}>Emotional Tags (Select Multiple)</label>
+          <label style={styles.label}>Mood/Energy (Select Multiple)</label>
           <div style={{
             border: '1px solid #d1d5db',
             borderRadius: '6px',
             padding: '8px',
-            minHeight: '60px',
+            minHeight: '50px',
             backgroundColor: 'white',
             display: 'flex',
             flexWrap: 'wrap',
             gap: '6px'
           }}>
-            {emotionalOptions.map(option => (
+            {getEmotionalOptions().map(option => (
               <button
                 key={option}
                 type="button"
@@ -385,189 +479,126 @@ const SimpleUploadForm = memo(({
               </button>
             ))}
           </div>
-          <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-            Selected: {formData.emotionalTags.join(', ') || 'None'}
-          </div>
         </div>
 
-        <div style={styles.section.grid}>
-          <div>
-            <label style={styles.label}>Special Occasion</label>
-            <select
-              value={formData.specialOccasion}
-              onChange={(e) => onInputChange('specialOccasion', e.target.value)}
-              style={styles.input}
-            >
-              {specialOccasionOptions.map(option => (
-                <option key={option} value={option}>
-                  {option || 'None'}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label style={styles.label}>Crowd Reaction</label>
-            <select
-              value={formData.crowdReaction}
-              onChange={(e) => onInputChange('crowdReaction', e.target.value)}
-              style={styles.input}
-            >
-              {crowdReactionOptions.map(option => (
-                <option key={option} value={option}>
-                  {option || 'Select reaction...'}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Crowd Reaction - More relevant for all types */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={styles.label}>Crowd Reaction</label>
+          <select
+            value={formData.crowdReaction}
+            onChange={(e) => onInputChange('crowdReaction', e.target.value)}
+            style={styles.input}
+          >
+            <option value="">Select reaction...</option>
+            <option value="Explosive energy">Explosive energy</option>
+            <option value="Wild dancing">Wild dancing</option>
+            <option value="Massive sing-along">Massive sing-along</option>
+            <option value="Standing ovation">Standing ovation</option>
+            <option value="Dead silence in awe">Dead silence in awe</option>
+            <option value="Everyone jumping">Everyone jumping</option>
+            <option value="Swaying together">Swaying together</option>
+            <option value="Phone lights up">Phone lights up</option>
+            <option value="Emotional tears">Emotional tears</option>
+            <option value="Moderate response">Moderate response</option>
+            <option value="Quiet appreciation">Quiet appreciation</option>
+          </select>
         </div>
       </div>
 
-      {/* Performance Details - Collapsible */}
-      <div style={styles.section.container}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h3 style={styles.section.title}>🎪 Performance Details</h3>
-          <button
-            type="button"
-            onClick={() => setShowPerformanceDetails(!showPerformanceDetails)}
-            style={{
-              padding: '6px 12px',
+      {/* ✅ CONDITIONAL: Full metadata only for songs and jams */}
+      {currentType.showFullMetadata && (
+        <div style={styles.section.container}>
+          <h3 style={styles.section.title}>4️⃣ Additional Details</h3>
+          
+          {/* Instruments - Only for songs and jams */}
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={styles.label}>Featured Instruments/Elements</label>
+            <div style={{
               border: '1px solid #d1d5db',
               borderRadius: '6px',
-              backgroundColor: '#f9fafb',
-              color: '#374151',
-              fontSize: '12px',
-              cursor: 'pointer'
-            }}
-          >
-            {showPerformanceDetails ? 'Hide Details' : 'Add Details'}
-          </button>
-        </div>
-        
-        {showPerformanceDetails && (
-          <>
-            {/* Multi-select Instruments */}
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={styles.label}>Featured Instruments (Select Multiple)</label>
-              <div style={{
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                padding: '8px',
-                minHeight: '60px',
-                backgroundColor: 'white',
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '6px'
-              }}>
-                {instrumentOptions.map(option => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => onArrayToggle('instruments', option)}
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: '12px',
-                      border: '1px solid #d1d5db',
-                      backgroundColor: formData.instruments.includes(option) ? '#10b981' : '#f9fafb',
-                      color: formData.instruments.includes(option) ? 'white' : '#374151',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-                Selected: {formData.instruments.join(', ') || 'None'}
-              </div>
+              padding: '8px',
+              minHeight: '50px',
+              backgroundColor: 'white',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '6px'
+            }}>
+              {['Guitar solo', 'Bass solo', 'Drum solo', 'Keyboard/synth', 'Saxophone', 'Trumpet', 'Harmonica', 'Violin', 'Extended jam', 'Backup vocals'].map(option => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => onArrayToggle('instruments', option)}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: '12px',
+                    border: '1px solid #d1d5db',
+                    backgroundColor: formData.instruments.includes(option) ? '#10b981' : '#f9fafb',
+                    color: formData.instruments.includes(option) ? 'white' : '#374151',
+                    fontSize: '12px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {option}
+                </button>
+              ))}
             </div>
+          </div>
 
-            <div style={{ marginBottom: '1rem' }}>
+          <div style={styles.section.grid}>
+            <div>
+              <label style={styles.label}>Special Occasion</label>
+              <select
+                value={formData.specialOccasion}
+                onChange={(e) => onInputChange('specialOccasion', e.target.value)}
+                style={styles.input}
+              >
+                <option value="">None</option>
+                <option value="Birthday show">Birthday show</option>
+                <option value="Festival debut">Festival debut</option>
+                <option value="Last song">Last song</option>
+                <option value="Encore">Encore</option>
+                <option value="First show of tour">First show of tour</option>
+                <option value="Last show of tour">Last show of tour</option>
+                <option value="Album release party">Album release party</option>
+                <option value="Hometown show">Hometown show</option>
+                <option value="New Year's Eve">New Year's Eve</option>
+                <option value="Holiday show">Holiday show</option>
+              </select>
+            </div>
+            
+            <div>
               <label style={styles.label}>Unique Elements</label>
               <select
                 value={formData.uniqueElements}
                 onChange={(e) => onInputChange('uniqueElements', e.target.value)}
                 style={styles.input}
               >
-                {uniqueElementOptions.map(option => (
+                {getUniqueElementOptions().map(option => (
                   <option key={option} value={option}>
                     {option || 'Select if applicable...'}
                   </option>
                 ))}
               </select>
             </div>
-
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={styles.label}>Personal Note</label>
-              <textarea
-                value={formData.personalNote}
-                onChange={(e) => onInputChange('personalNote', e.target.value)}
-                style={styles.textarea}
-                placeholder="Your personal memory or thoughts about this moment"
-              />
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Quality Assessment - Collapsible */}
-      <div style={styles.section.container}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h3 style={styles.section.title}>🎥 Quality Assessment</h3>
-          <button
-            type="button"
-            onClick={() => setShowQualityAssessment(!showQualityAssessment)}
-            style={{
-              padding: '6px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              backgroundColor: '#f9fafb',
-              color: '#374151',
-              fontSize: '12px',
-              cursor: 'pointer'
-            }}
-          >
-            {showQualityAssessment ? 'Hide Assessment' : 'Add Assessment'}
-          </button>
-        </div>
-        
-        {showQualityAssessment && (
-          <div style={styles.section.grid}>
-            <div>
-              <label style={styles.label}>Audio Quality</label>
-              <select
-                value={formData.audioQuality}
-                onChange={(e) => onInputChange('audioQuality', e.target.value)}
-                style={styles.input}
-              >
-                <option value="excellent">Excellent</option>
-                <option value="good">Good</option>
-                <option value="fair">Fair</option>
-                <option value="poor">Poor</option>
-              </select>
-            </div>
-            
-            <div>
-              <label style={styles.label}>Video Quality</label>
-              <select
-                value={formData.videoQuality}
-                onChange={(e) => onInputChange('videoQuality', e.target.value)}
-                style={styles.input}
-              >
-                <option value="excellent">Excellent</option>
-                <option value="good">Good</option>
-                <option value="fair">Fair</option>
-                <option value="poor">Poor</option>
-              </select>
-            </div>
           </div>
-        )}
-      </div>
 
-      {/* File Upload */}
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={styles.label}>Personal Note</label>
+            <textarea
+              value={formData.personalNote}
+              onChange={(e) => onInputChange('personalNote', e.target.value)}
+              style={styles.textarea}
+              placeholder="Your personal memory or thoughts about this moment"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ✅ FOURTH: File Upload */}
       <div style={styles.section.container}>
-        <h3 style={styles.section.title}>📁 Media File</h3>
+        <h3 style={styles.section.title}>
+          {currentType.showFullMetadata ? '5️⃣' : '4️⃣'} Media File
+        </h3>
         
         <div style={styles.fileUpload.container}>
           <input
@@ -605,14 +636,14 @@ const SimpleUploadForm = memo(({
             ? styles.button.disabled 
             : styles.button.primary}
         >
-          🚀 Create Moment
+          🚀 Upload {currentType.label}
         </button>
       </div>
     </div>
   );
 });
 
-SimpleUploadForm.displayName = 'SimpleUploadForm';
+CleanUploadForm.displayName = 'CleanUploadForm';
 
 const UploadProgress = memo(({ uploadProgress, uploadStage }) => (
   <div style={{ textAlign: 'center', padding: '2rem' }}>
@@ -652,7 +683,7 @@ const UploadSuccess = memo(() => (
     <h2 style={{ ...styles.modal.title, color: '#059669' }}>
       UMO Moment Created!
     </h2>
-    <p style={{ color: '#6b7280' }}>Your moment with metadata is ready for NFT minting.</p>
+    <p style={{ color: '#6b7280' }}>Your moment has been uploaded and is ready for viewing.</p>
   </div>
 ));
 
