@@ -82,127 +82,239 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
     }
   }, [txError]);
 
-  // ✅ Generate proper OpenSea-compatible metadata
-  const createNFTMetadata = (moment) => {
-    // For videos: Create proper thumbnail for OpenSea
-    let imageUrl, animationUrl;
+const createNFTMetadata = (moment) => {
+  // For videos: Create proper thumbnail for OpenSea
+  let imageUrl, animationUrl;
+  
+  if (moment.mediaType === 'video') {
+    imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&size=512&background=1e3a8a&color=ffffff&bold=true`;
+    animationUrl = moment.mediaUrl;
+  } else if (moment.mediaType === 'audio') {
+    imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&size=512&background=dc2626&color=ffffff&bold=true`;
+    animationUrl = undefined;
+  } else {
+    imageUrl = moment.mediaUrl;
+    animationUrl = undefined;
+  }
+  
+  // ✅ Enhanced description with ALL metadata fields
+  let description = moment.momentDescription || 
+    `A live performance moment of "${moment.songName}" by UMO at ${moment.venueName}, ${moment.venueCity} on ${moment.performanceDate}.`;
+  
+  // Add all metadata fields to description if present
+  if (moment.specialOccasion) {
+    description += `\n\n🎉 Special Occasion: ${moment.specialOccasion}`;
+  }
+  
+  if (moment.crowdReaction) {
+    description += `\n\n👥 Crowd Reaction: ${moment.crowdReaction}`;
+  }
+  
+  if (moment.guestAppearances) {
+    description += `\n\n🎤 Guest Appearances: ${moment.guestAppearances}`;
+  }
+  
+  if (moment.uniqueElements) {
+    description += `\n\n✨ Unique Elements: ${moment.uniqueElements}`;
+  }
+  
+  if (moment.personalNote) {
+    description += `\n\n💭 Uploader's Note: ${moment.personalNote}`;
+  }
+  
+  return {
+    name: `${moment.songName} - ${moment.venueName} (${moment.performanceDate})`,
+    description: description,
+    image: imageUrl,
+    animation_url: animationUrl,
+    external_url: `${window.location.origin}/moments/${moment._id}`,
     
-    if (moment.mediaType === 'video') {
-      imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&size=512&background=1e3a8a&color=ffffff&bold=true`;
-      animationUrl = moment.mediaUrl;
-    } else if (moment.mediaType === 'audio') {
-      imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&size=512&background=dc2626&color=ffffff&bold=true`;
-      animationUrl = undefined;
-    } else {
-      imageUrl = moment.mediaUrl;
-      animationUrl = undefined;
-    }
-    
-    return {
-      name: `${moment.songName} - ${moment.venueName} (${moment.performanceDate})`,
-      description: moment.momentDescription || 
-        `A live performance moment of "${moment.songName}" by UMO at ${moment.venueName}, ${moment.venueCity} on ${moment.performanceDate}. ` +
-        `${moment.personalNote ? `\n\nUploader's note: ${moment.personalNote}` : ''}`,
-      image: imageUrl,
-      animation_url: animationUrl,
-      external_url: `${window.location.origin}/moments/${moment._id}`,
-      attributes: [
-        {
-          trait_type: "Song",
-          value: moment.songName
-        },
-        {
-          trait_type: "Venue", 
-          value: moment.venueName
-        },
-        {
-          trait_type: "City",
-          value: moment.venueCity
-        },
-        {
-          trait_type: "Country",
-          value: moment.venueCountry || "Unknown"
-        },
-        {
-          trait_type: "Performance Date",
-          value: moment.performanceDate
-        },
-        {
-          trait_type: "Media Type",
-          value: moment.mediaType || "video"
-        },
-        {
-          trait_type: "Rarity Tier",
-          value: moment.rarityTier || "common"
-        },
-        {
-          trait_type: "Rarity Score",
-          value: moment.rarityScore || 0,
-          display_type: "number",
-          max_value: 7
-        },
-        {
-          trait_type: "Audio Quality",
-          value: moment.audioQuality || "good"
-        },
-        {
-          trait_type: "Video Quality", 
-          value: moment.videoQuality || "good"
-        },
-        {
-          trait_type: "Moment Type",
-          value: moment.momentType || "performance"
-        },
-        {
-          trait_type: "First Moment for Song",
-          value: moment.isFirstMomentForSong ? "Yes" : "No"
-        },
-        {
-          trait_type: "File Size (MB)",
-          value: Math.round((moment.fileSize || 0) / 1024 / 1024),
-          display_type: "number"
-        },
-        {
-          trait_type: "Uploader",
-          value: moment.user?.displayName || "Anonymous"
-        }
-      ].concat(
-        // Add set info if available
-        moment.setName ? [{ trait_type: "Set", value: moment.setName }] : []
-      ).concat(
-        // Add position if available  
-        moment.songPosition ? [{ trait_type: "Song Position", value: moment.songPosition, display_type: "number" }] : []
-      ).concat(
-        // Add emotional tags as separate attributes
-        moment.emotionalTags ? moment.emotionalTags.split(',').map(tag => ({
-          trait_type: "Emotion",
-          value: tag.trim()
-        })) : []
-      ).concat(
-        // Add instruments as separate attributes
-        moment.instruments ? moment.instruments.split(',').map(instrument => ({
-          trait_type: "Instrument", 
-          value: instrument.trim()
-        })) : []
-      ).filter(attr => attr.value !== undefined && attr.value !== null && attr.value !== ''),
+    attributes: [
+      // Core performance attributes
+      {
+        trait_type: "Song",
+        value: moment.songName
+      },
+      {
+        trait_type: "Venue", 
+        value: moment.venueName
+      },
+      {
+        trait_type: "City",
+        value: moment.venueCity
+      },
+      {
+        trait_type: "Country",
+        value: moment.venueCountry || "Unknown"
+      },
+      {
+        trait_type: "Performance Date",
+        value: moment.performanceDate
+      },
       
-      properties: {
-        category: "music",
-        creator: moment.user?.displayName || "Unknown",
-        performance_id: moment.performanceId,
-        moment_id: moment._id,
-        created_at: moment.createdAt,
-        rarity_score: moment.rarityScore,
-        is_first_moment: moment.isFirstMomentForSong || false,
-        crowd_reaction: moment.crowdReaction,
-        special_occasion: moment.specialOccasion,
-        guest_appearances: moment.guestAppearances,
-        // ✅ ERC1155 specific
-        token_standard: "erc1155",
-        supply: moment.nftMintedCount || 0
+      // Media attributes
+      {
+        trait_type: "Media Type",
+        value: moment.mediaType || "video"
+      },
+      {
+        trait_type: "File Size (MB)",
+        value: Math.round((moment.fileSize || 0) / 1024 / 1024),
+        display_type: "number"
+      },
+      
+      // Quality attributes
+      {
+        trait_type: "Audio Quality",
+        value: moment.audioQuality || "good"
+      },
+      {
+        trait_type: "Video Quality", 
+        value: moment.videoQuality || "good"
+      },
+      
+      // Rarity attributes
+      {
+        trait_type: "Rarity Tier",
+        value: moment.rarityTier || "common"
+      },
+      {
+        trait_type: "Rarity Score",
+        value: moment.rarityScore || 0,
+        display_type: "number",
+        max_value: 7
+      },
+      {
+        trait_type: "First Moment for Song",
+        value: moment.isFirstMomentForSong ? "Yes" : "No"
+      },
+      
+      // Performance context
+      {
+        trait_type: "Moment Type",
+        value: moment.momentType || "performance"
+      },
+      {
+        trait_type: "Uploader",
+        value: moment.user?.displayName || "Anonymous"
       }
-    };
+    ].concat(
+      // ✅ Add set info if available
+      moment.setName ? [{ trait_type: "Set", value: moment.setName }] : []
+    ).concat(
+      // ✅ Add position if available  
+      moment.songPosition ? [{ trait_type: "Song Position", value: moment.songPosition, display_type: "number" }] : []
+    ).concat(
+      // ✅ Add special occasion as trait if available
+      moment.specialOccasion ? [{ trait_type: "Special Occasion", value: moment.specialOccasion }] : []
+    ).concat(
+      // ✅ Add emotional tags as separate attributes
+      moment.emotionalTags ? moment.emotionalTags.split(',').map(tag => ({
+        trait_type: "Emotion",
+        value: tag.trim()
+      })) : []
+    ).concat(
+      // ✅ Add instruments as separate attributes
+      moment.instruments ? moment.instruments.split(',').map(instrument => ({
+        trait_type: "Instrument", 
+        value: instrument.trim()
+      })) : []
+    ).concat(
+      // ✅ Add guest appearances as traits if available
+      moment.guestAppearances ? moment.guestAppearances.split(',').map(guest => ({
+        trait_type: "Guest",
+        value: guest.trim()
+      })) : []
+    ).concat(
+      // ✅ Add crowd reaction category if available
+      moment.crowdReaction ? [{ trait_type: "Crowd Energy", value: getCrowdEnergyLevel(moment.crowdReaction) }] : []
+    ).concat(
+      // ✅ Add unique elements as traits if available
+      moment.uniqueElements ? getUniqueElementTraits(moment.uniqueElements) : []
+    ).filter(attr => attr.value !== undefined && attr.value !== null && attr.value !== ''),
+    
+    properties: {
+      category: "music",
+      creator: moment.user?.displayName || "Unknown",
+      performance_id: moment.performanceId,
+      moment_id: moment._id,
+      created_at: moment.createdAt,
+      rarity_score: moment.rarityScore,
+      is_first_moment: moment.isFirstMomentForSong || false,
+      
+      // ✅ ALL metadata fields in properties for searchability
+      moment_description: moment.momentDescription,
+      emotional_tags: moment.emotionalTags,
+      special_occasion: moment.specialOccasion,
+      instruments: moment.instruments,
+      guest_appearances: moment.guestAppearances,
+      crowd_reaction: moment.crowdReaction,
+      unique_elements: moment.uniqueElements,
+      personal_note: moment.personalNote,
+      
+      // ERC1155 specific
+      token_standard: "erc1155",
+      supply: moment.nftMintedCount || 0
+    }
   };
+};
+
+// ✅ Helper function to categorize crowd reaction energy
+const getCrowdEnergyLevel = (crowdReaction) => {
+  const reaction = crowdReaction.toLowerCase();
+  
+  if (reaction.includes('wild') || reaction.includes('crazy') || reaction.includes('insane') || 
+      reaction.includes('explosive') || reaction.includes('erupted')) {
+    return 'Explosive';
+  } else if (reaction.includes('loud') || reaction.includes('cheering') || reaction.includes('excited') ||
+             reaction.includes('jumping') || reaction.includes('dancing')) {
+    return 'High Energy';
+  } else if (reaction.includes('singing') || reaction.includes('clapping') || reaction.includes('swaying') ||
+             reaction.includes('engaged') || reaction.includes('moving')) {
+    return 'Engaged';
+  } else if (reaction.includes('quiet') || reaction.includes('silent') || reaction.includes('awe') ||
+             reaction.includes('mesmerized') || reaction.includes('focused')) {
+    return 'Captivated';
+  } else {
+    return 'Moderate';
+  }
+};
+
+// ✅ Helper function to extract unique element traits
+const getUniqueElementTraits = (uniqueElements) => {
+  const elements = uniqueElements.toLowerCase();
+  const traits = [];
+  
+  if (elements.includes('first time') || elements.includes('debut') || elements.includes('premiere')) {
+    traits.push({ trait_type: "Performance History", value: "First Time Played" });
+  }
+  
+  if (elements.includes('acoustic') || elements.includes('stripped')) {
+    traits.push({ trait_type: "Arrangement", value: "Acoustic" });
+  }
+  
+  if (elements.includes('extended') || elements.includes('jam') || elements.includes('longer')) {
+    traits.push({ trait_type: "Performance Style", value: "Extended" });
+  }
+  
+  if (elements.includes('cover') || elements.includes('tribute')) {
+    traits.push({ trait_type: "Song Type", value: "Cover" });
+  }
+  
+  if (elements.includes('improvisation') || elements.includes('improv') || elements.includes('freestyle')) {
+    traits.push({ trait_type: "Performance Style", value: "Improvised" });
+  }
+  
+  if (elements.includes('rare') || elements.includes('seldom') || elements.includes('rarely')) {
+    traits.push({ trait_type: "Performance History", value: "Rarely Played" });
+  }
+  
+  if (elements.includes('last time') || elements.includes('final') || elements.includes('farewell')) {
+    traits.push({ trait_type: "Performance History", value: "Final Performance" });
+  }
+  
+  return traits;
+};
 
   // ✅ Upload metadata to Irys/Arweave (browser-compatible)
   const uploadMetadataToIrys = async (metadata) => {

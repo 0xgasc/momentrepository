@@ -1168,7 +1168,112 @@ app.post('/create-splits', authenticateToken, async (req, res) => {
     });
   }
 });
+// 🔍 Debug a specific moment's rarity calculation
+app.get('/debug/moment-rarity/:momentId', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    
+    const moment = await Moment.findById(momentId);
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
 
+    console.log(`🔍 Debugging rarity for "${moment.songName}" at ${moment.venueName}`);
+    
+    // Load cache for song data
+    await umoCache.loadCache();
+    const songDatabase = await umoCache.getSongDatabase();
+    const songData = songDatabase[moment.songName];
+    
+    // Check song performance count
+    let songTotalPerformances = 0;
+    if (songData) {
+      songTotalPerformances = songData.totalPerformances;
+    }
+    
+    console.log(`📊 Song "${moment.songName}" found in cache:`, !!songData);
+    console.log(`📊 Total performances:`, songTotalPerformances);
+    
+    // Check venue priority calculation
+    const existingMomentsAtVenue = await Moment.find({ 
+      songName: moment.songName,
+      venueName: moment.venueName,
+      _id: { $ne: moment._id }
+    }).sort({ createdAt: 1 });
+    
+    const uploadPosition = existingMomentsAtVenue.length + 1;
+    
+    let venueScore = 0;
+    if (uploadPosition === 1) {
+      venueScore = 1;
+    } else if (uploadPosition === 2) {
+      venueScore = 0.5;
+    } else if (uploadPosition === 3) {
+      venueScore = 0.25;
+    } else if (uploadPosition === 4) {
+      venueScore = 0.125;
+    } else if (uploadPosition <= 10) {
+      venueScore = 0.1;
+    } else {
+      venueScore = 0;
+    }
+    
+    console.log(`🏟️ Venue priority: position ${uploadPosition} = ${venueScore} points`);
+    
+    res.json({
+      moment: {
+        id: moment._id,
+        songName: moment.songName,
+        venueName: moment.venueName,
+        currentRarityScore: moment.rarityScore
+      },
+      debug: {
+        songInCache: !!songData,
+        songTotalPerformances: songTotalPerformances,
+        uploadPositionAtVenue: uploadPosition,
+        calculatedVenueScore: venueScore,
+        possibleIssues: [
+          songTotalPerformances === 0 ? 'Song not found in cache - getting max performance score' : null,
+          moment.songName.toLowerCase().includes('intro') ? 'Song is "Intro" - should this be filtered?' : null
+        ].filter(Boolean)
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Debug rarity error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+// Add to your server.js
+app.get('/debug/full-rarity/:momentId', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const moment = await Moment.findById(momentId);
+    
+    // Load cache
+    await umoCache.loadCache();
+    
+    // Run the ACTUAL rarity calculation function
+    const rarityData = await calculateRarityScore(moment, umoCache);
+    
+    res.json({
+      moment: {
+        songName: moment.songName,
+        venueName: moment.venueName,
+        storedScore: moment.rarityScore,
+        storedTier: moment.rarityTier
+      },
+      freshCalculation: rarityData,
+      comparison: {
+        scoreMatch: Math.abs(moment.rarityScore - rarityData.rarityScore) < 0.01,
+        tierMatch: moment.rarityTier === rarityData.rarityTier
+      }
+    });
+    
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 // Enhanced NFT status endpoint with contract validation
 app.get('/moments/:momentId/nft-status-enhanced', async (req, res) => {
   try {
