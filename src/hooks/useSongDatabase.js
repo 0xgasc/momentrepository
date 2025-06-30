@@ -1,3 +1,4 @@
+// src/hooks/useSongDatabase.js - UPDATED to filter non-song moments from counts
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { fetchUMOSongDatabase } from '../utils';
 import { useDebounce } from './useDebounce';
@@ -15,6 +16,13 @@ export const useSongDatabase = (apiBaseUrl) => {
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const { fetchMoments } = useMoments(apiBaseUrl);
 
+  // ✅ NEW: Helper function to filter only song moments
+  const filterSongMoments = useCallback((moments) => {
+    return moments.filter(moment => 
+      !moment.contentType || moment.contentType === 'song'
+    );
+  }, []);
+
   // Load song database with moment counts
   useEffect(() => {
     const loadSongDatabase = async () => {
@@ -27,7 +35,7 @@ export const useSongDatabase = (apiBaseUrl) => {
         const songsWithMoments = songDatabase.map(song => ({ ...song, totalMoments: 0 }));
         setSongs(songsWithMoments);
         
-        console.log('🔍 Loading moment counts...');
+        console.log('🔍 Loading song moment counts (excluding non-song content)...');
         setMomentProgress({ current: 0, total: songDatabase.length });
         
         const batchSize = 20;
@@ -37,8 +45,14 @@ export const useSongDatabase = (apiBaseUrl) => {
           // Process batch and update moment counts
           const updatedBatch = await Promise.all(batch.map(async (song) => {
             try {
-              const moments = await fetchMoments(`song/${encodeURIComponent(song.songName)}`, `song "${song.songName}"`);
-              return { ...song, totalMoments: moments.length };
+              const allMoments = await fetchMoments(`song/${encodeURIComponent(song.songName)}`, `song "${song.songName}"`);
+              
+              // ✅ UPDATED: Filter to only count actual song moments
+              const songMoments = filterSongMoments(allMoments);
+              
+              console.log(`📊 "${song.songName}": ${allMoments.length} total moments, ${songMoments.length} song moments`);
+              
+              return { ...song, totalMoments: songMoments.length };
             } catch (err) {
               return { ...song, totalMoments: 0 };
             }
@@ -67,7 +81,7 @@ export const useSongDatabase = (apiBaseUrl) => {
         }
         
         setMomentProgress({ current: 0, total: 0 });
-        console.log(`✅ Song database loaded: ${songDatabase.length} songs`);
+        console.log(`✅ Song database loaded: ${songDatabase.length} songs with song-only moment counts`);
         
       } catch (err) {
         console.error('Error loading song database:', err);
@@ -78,7 +92,7 @@ export const useSongDatabase = (apiBaseUrl) => {
     };
 
     loadSongDatabase();
-  }, [apiBaseUrl, fetchMoments]);
+  }, [apiBaseUrl, fetchMoments, filterSongMoments]);
 
   // Computed displayed songs with search and sort
   const displayedSongs = useMemo(() => {
@@ -148,6 +162,10 @@ export const useSongDatabase = (apiBaseUrl) => {
     setSortBy(newSortBy);
   }, []);
 
+  // ✅ UPDATED: Computed values now only count song moments
+  const totalSongMoments = songs.reduce((total, song) => total + song.totalMoments, 0);
+  const songsWithMoments = songs.filter(song => song.totalMoments > 0).length;
+
   return {
     // State
     songs,
@@ -159,9 +177,9 @@ export const useSongDatabase = (apiBaseUrl) => {
     momentProgress,
     searchQuery,
     
-    // Computed
-    totalMoments: songs.reduce((total, song) => total + song.totalMoments, 0),
-    songsWithMoments: songs.filter(song => song.totalMoments > 0).length,
+    // ✅ UPDATED: Computed values exclude non-song moments
+    totalMoments: totalSongMoments,
+    songsWithMoments: songsWithMoments,
     
     // Actions
     toggleSortDirection,

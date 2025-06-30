@@ -1,4 +1,4 @@
-// src/components/Song/SongDetail.jsx - UPDATED with performance navigation
+// src/components/Song/SongDetail.jsx - UPDATED with non-song content separation
 import React, { useState, useEffect, useMemo, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useMoments } from '../../hooks';
@@ -11,14 +11,13 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
   const [uploadingMoment, setUploadingMoment] = useState(null);
   const [viewMode, setViewMode] = useState('chronological');
   const [showPositions, setShowPositions] = useState(false);
-  const [expandedPerformances, setExpandedPerformances] = useState(new Set()); // Track which performances are expanded
+  const [expandedPerformances, setExpandedPerformances] = useState(new Set());
+  const [showNonSongMoments, setShowNonSongMoments] = useState(false); // ✅ NEW: Toggle for non-song moments
   const { user } = useAuth();
   
-  // Use the hook instead of manual state management
   const { moments, loadingMomentDetails: loading, loadMomentDetails } = useMoments(API_BASE_URL);
 
   useEffect(() => {
-    // Use the hook's method
     loadMomentDetails(`song/${encodeURIComponent(songData.songName)}`, `song "${songData.songName}"`);
   }, [songData.songName, loadMomentDetails]);
 
@@ -36,11 +35,11 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
       venueCountry: performance.country || '',
       songName: songData.songName,
       setName: performance.setName || '',
-      songPosition: performance.songPosition || 1
+      songPosition: performance.songPosition || 1,
+      contentType: 'song' // ✅ NEW: Explicitly set as song content
     });
   };
 
-  // NEW: Handle performance click - fetch full performance and navigate
   const handlePerformanceClick = async (performance) => {
     if (!onPerformanceSelect) {
       console.warn('No onPerformanceSelect handler provided');
@@ -50,14 +49,11 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
     try {
       console.log(`🎸 Loading full performance: ${performance.id}`);
       
-      // Fetch the full performance data from cache
       const response = await fetch(`${API_BASE_URL}/cached/performance/${performance.id}`);
       
       if (response.ok) {
         const data = await response.json();
         console.log(`✅ Loaded performance:`, data.performance);
-        
-        // Navigate to performance detail view
         onPerformanceSelect(data.performance);
       } else {
         console.error('❌ Failed to load performance:', response.status);
@@ -69,7 +65,6 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
     }
   };
 
-  // ✅ NEW: Toggle expanded state for a performance
   const togglePerformanceExpanded = (performanceId) => {
     const newExpanded = new Set(expandedPerformances);
     if (newExpanded.has(performanceId)) {
@@ -78,6 +73,51 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
       newExpanded.add(performanceId);
     }
     setExpandedPerformances(newExpanded);
+  };
+
+  // ✅ NEW: Separate song moments from non-song moments
+  const getSongMoments = () => {
+    return moments.filter(moment => 
+      !moment.contentType || moment.contentType === 'song'
+    );
+  };
+
+  const getNonSongMoments = () => {
+    return moments.filter(moment => 
+      moment.contentType && moment.contentType !== 'song'
+    );
+  };
+
+  // ✅ UPDATED: Filter performance moments to only include songs
+  const getPerformanceSongMoments = (performanceId) => {
+    return getSongMoments().filter(moment => moment.performanceId === performanceId);
+  };
+
+  // ✅ NEW: Get non-song moments by content type
+  const getGroupedNonSongMoments = () => {
+    const nonSongMoments = getNonSongMoments();
+    const grouped = {};
+    
+    nonSongMoments.forEach(moment => {
+      const type = moment.contentType || 'other';
+      if (!grouped[type]) {
+        grouped[type] = [];
+      }
+      grouped[type].push(moment);
+    });
+    
+    return grouped;
+  };
+
+  // ✅ NEW: Get content type display info
+  const getContentTypeInfo = (contentType) => {
+    const types = {
+      intro: { emoji: '🎭', label: 'Intro/Outro', color: 'bg-purple-100 text-purple-800' },
+      jam: { emoji: '🎸', label: 'Jam/Improv', color: 'bg-orange-100 text-orange-800' },
+      crowd: { emoji: '👥', label: 'Crowd Moments', color: 'bg-blue-100 text-blue-800' },
+      other: { emoji: '🎪', label: 'Other Content', color: 'bg-gray-100 text-gray-800' }
+    };
+    return types[contentType] || types.other;
   };
 
   const groupedPerformances = useMemo(() => {
@@ -106,10 +146,6 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
     }
   }, [songData.performances, viewMode]);
 
-  const getPerformanceMoments = (performanceId) => {
-    return moments.filter(moment => moment.performanceId === performanceId);
-  };
-
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -121,14 +157,31 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
     );
   }
 
+  const songMoments = getSongMoments();
+  const nonSongMoments = getNonSongMoments();
+  const groupedNonSongMoments = getGroupedNonSongMoments();
+
   return (
     <div>
       {/* Header */}
       <SongDetailHeader 
         songData={songData}
-        moments={moments}
+        songMoments={songMoments}
+        nonSongMoments={nonSongMoments}
         onBack={onBack}
       />
+
+      {/* ✅ NEW: Non-Song Moments Section (if any exist with same name) */}
+      {nonSongMoments.length > 0 && (
+        <NonSongMomentsSection
+          songName={songData.songName}
+          groupedMoments={groupedNonSongMoments}
+          showNonSongMoments={showNonSongMoments}
+          setShowNonSongMoments={setShowNonSongMoments}
+          onSelectMoment={setSelectedMoment}
+          getContentTypeInfo={getContentTypeInfo}
+        />
+      )}
 
       {/* Controls */}
       <SongDetailControls 
@@ -138,13 +191,13 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
         setShowPositions={setShowPositions}
       />
 
-      {/* Performances List */}
-      <PerformancesList 
+      {/* ✅ UPDATED: Song Performances List (only actual song performances) */}
+      <SongPerformancesList 
         groupedPerformances={groupedPerformances}
         viewMode={viewMode}
         showPositions={showPositions}
         user={user}
-        getPerformanceMoments={getPerformanceMoments}
+        getPerformanceSongMoments={getPerformanceSongMoments}
         onUploadMoment={handleUploadMoment}
         onSelectMoment={setSelectedMoment}
         onPerformanceClick={handlePerformanceClick}
@@ -172,8 +225,8 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
 
 SongDetail.displayName = 'SongDetail';
 
-// Sub-components
-const SongDetailHeader = memo(({ songData, moments, onBack }) => (
+// ✅ UPDATED: Header with separate song and non-song moment counts
+const SongDetailHeader = memo(({ songData, songMoments, nonSongMoments, onBack }) => (
   <div className="mb-6">
     <button
       onClick={onBack}
@@ -200,10 +253,19 @@ const SongDetailHeader = memo(({ songData, moments, onBack }) => (
           <div className="text-sm text-gray-600">Cities</div>
         </div>
         <div className="bg-orange-50 rounded-lg p-3">
-          <div className="text-2xl font-bold text-orange-600">{moments.length}</div>
-          <div className="text-sm text-gray-600">Moments</div>
+          <div className="text-2xl font-bold text-orange-600">{songMoments.length}</div>
+          <div className="text-sm text-gray-600">Song Moments</div>
         </div>
       </div>
+      
+      {/* ✅ NEW: Additional info for non-song moments */}
+      {nonSongMoments.length > 0 && (
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+          <div className="text-sm text-gray-600 text-center">
+            📀 {nonSongMoments.length} additional moment{nonSongMoments.length !== 1 ? 's' : ''} with this name (non-song content)
+          </div>
+        </div>
+      )}
       
       {/* Date Range */}
       <div className="mt-4 text-center text-gray-600 space-y-2">
@@ -220,8 +282,110 @@ const SongDetailHeader = memo(({ songData, moments, onBack }) => (
 
 SongDetailHeader.displayName = 'SongDetailHeader';
 
+// ✅ NEW: Non-Song Moments Section
+const NonSongMomentsSection = memo(({ 
+  songName,
+  groupedMoments, 
+  showNonSongMoments, 
+  setShowNonSongMoments,
+  onSelectMoment,
+  getContentTypeInfo
+}) => {
+  const totalNonSongMoments = Object.values(groupedMoments).reduce((sum, moments) => sum + moments.length, 0);
+
+  return (
+    <div className="mb-6 border border-gray-200 rounded-lg bg-gradient-to-r from-gray-50 to-slate-50 shadow-sm">
+      {/* Header */}
+      <div 
+        className="p-4 cursor-pointer flex items-center justify-between hover:bg-gray-100/50 transition-colors rounded-t-lg"
+        onClick={() => setShowNonSongMoments(!showNonSongMoments)}
+      >
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold text-gray-800">
+            📀 Non-Song Content Named "{songName}"
+          </h3>
+          <span className="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded-full">
+            {totalNonSongMoments} moment{totalNonSongMoments !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <span className="text-gray-600 text-lg">
+          {showNonSongMoments ? '▼' : '▶'}
+        </span>
+      </div>
+
+      {/* Content */}
+      {showNonSongMoments && (
+        <div className="p-4 pt-0 border-t border-gray-200/50">
+          <p className="text-sm text-gray-700 mb-4">
+            These moments have the same name as this song but are categorized as non-song content (intro, jam, crowd, etc.)
+          </p>
+          
+          {/* Grouped Non-Song Moments */}
+          <div className="space-y-3">
+            {Object.entries(groupedMoments).map(([contentType, moments]) => {
+              const typeInfo = getContentTypeInfo(contentType);
+              
+              return (
+                <div key={contentType} className="bg-white/70 rounded-lg p-3 border border-gray-200/50">
+                  <h4 className={`text-sm font-semibold mb-2 inline-flex items-center gap-2 px-2 py-1 rounded-full ${typeInfo.color}`}>
+                    <span>{typeInfo.emoji}</span>
+                    {typeInfo.label}
+                    <span className="text-xs">({moments.length})</span>
+                  </h4>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {moments.map((moment) => {
+                      const rarityColors = {
+                        legendary: { bg: 'from-yellow-400 to-orange-400', text: 'text-yellow-900' },
+                        epic: { bg: 'from-purple-400 to-pink-400', text: 'text-purple-900' },
+                        rare: { bg: 'from-red-400 to-pink-400', text: 'text-red-900' },
+                        uncommon: { bg: 'from-blue-400 to-cyan-400', text: 'text-blue-900' },
+                        common: { bg: 'from-gray-300 to-gray-400', text: 'text-gray-700' }
+                      }[moment.rarityTier || 'common'] || { bg: 'from-gray-300 to-gray-400', text: 'text-gray-700' };
+
+                      return (
+                        <button
+                          key={moment._id}
+                          onClick={() => onSelectMoment(moment)}
+                          className={`
+                            px-3 py-2 rounded-lg border-2 text-xs font-medium transition-all duration-200
+                            bg-gradient-to-r ${rarityColors.bg} ${rarityColors.text}
+                            hover:scale-105 hover:shadow-md transform
+                            flex items-center gap-2 max-w-[250px]
+                          `}
+                        >
+                          <div className="flex flex-col items-start text-left">
+                            <div className="text-xs opacity-80 truncate max-w-[200px]">
+                              {moment.venueName} • {formatShortDate(moment.performanceDate)}
+                            </div>
+                            <div className="font-semibold truncate max-w-[200px]">
+                              {moment.user?.displayName || 'Unknown'}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+NonSongMomentsSection.displayName = 'NonSongMomentsSection';
+
+// ✅ UNCHANGED: Controls remain the same
 const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShowPositions }) => (
   <div className="mb-6 space-y-4">
+    <div className="flex items-center gap-3 mb-4">
+      <h3 className="text-xl font-bold text-gray-900">🎵 Song Performance History</h3>
+      <div className="h-px flex-1 bg-gray-200"></div>
+    </div>
+    
     {/* View Mode Toggle */}
     <div className="flex items-center gap-2">
       <span className="text-sm font-medium text-gray-700">View:</span>
@@ -246,7 +410,6 @@ const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShow
       </div>
     </div>
 
-    {/* Show Positions Toggle */}
     <div className="flex items-center gap-2">
       <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
         <input
@@ -259,7 +422,6 @@ const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShow
       </label>
     </div>
 
-    {/* NEW: Instructions */}
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
       <p className="text-sm text-blue-800">
         💡 <strong>Tip:</strong> Click on any performance date/venue to view the complete setlist for that show!
@@ -270,12 +432,13 @@ const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShow
 
 SongDetailControls.displayName = 'SongDetailControls';
 
-const PerformancesList = memo(({ 
+// ✅ RENAMED: SongPerformancesList (was PerformancesList)
+const SongPerformancesList = memo(({ 
   groupedPerformances, 
   viewMode, 
   showPositions, 
   user, 
-  getPerformanceMoments, 
+  getPerformanceSongMoments, // ✅ UPDATED: Uses filtered function
   onUploadMoment, 
   onSelectMoment,
   onPerformanceClick,
@@ -296,14 +459,13 @@ const PerformancesList = memo(({
         <div className="p-4">
           <div className="space-y-3">
             {performances.map((performance, index) => {
-              const performanceMoments = getPerformanceMoments(performance.id);
+              const performanceMoments = getPerformanceSongMoments(performance.id); // ✅ UPDATED: Only song moments
               const isExpanded = expandedPerformances.has(performance.id);
               
               return (
                 <div key={`${performance.id}-${index}`} className="border-b border-gray-100 pb-3 last:border-b-0">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      {/* UPDATED: Make performance info clickable */}
                       <button 
                         onClick={() => onPerformanceClick(performance)}
                         className="text-left hover:bg-blue-50 rounded-lg p-2 -m-2 transition-colors group w-full"
@@ -318,7 +480,6 @@ const PerformancesList = memo(({
                           <span className="text-sm font-medium text-blue-600 group-hover:text-blue-800">
                             {formatShortDate(performance.date)}
                           </span>
-                          {/* NEW: Click indicator */}
                           <span className="text-xs text-gray-400 group-hover:text-blue-500">
                             Click to view full setlist →
                           </span>
@@ -332,11 +493,10 @@ const PerformancesList = memo(({
                             <span>Position: #{performance.songPosition}</span>
                           )}
                           
-                          {/* ✅ CLICKABLE EXPANDABLE MOMENTS BADGE */}
                           {performanceMoments.length > 0 && (
                             <button
                               onClick={(e) => {
-                                e.stopPropagation(); // Prevent triggering performance click
+                                e.stopPropagation();
                                 togglePerformanceExpanded(performance.id);
                               }}
                               className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors cursor-pointer flex items-center gap-1"
@@ -361,7 +521,6 @@ const PerformancesList = memo(({
                     )}
                   </div>
 
-                  {/* ✅ EXPANDABLE MOMENTS: Only show when expanded */}
                   {performanceMoments.length > 0 && isExpanded && (
                     <div className="mt-3">
                       <div className="flex flex-wrap gap-2">
@@ -404,6 +563,6 @@ const PerformancesList = memo(({
   </div>
 ));
 
-PerformancesList.displayName = 'PerformancesList';
+SongPerformancesList.displayName = 'SongPerformancesList';
 
 export default SongDetail;
