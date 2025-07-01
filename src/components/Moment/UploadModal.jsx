@@ -1,4 +1,4 @@
-// src/components/Moment/UploadModal.jsx - UPDATED with better content-type support
+// src/components/Moment/UploadModal.jsx - SMART with context-aware content types
 import React, { useState, memo } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { styles } from '../../styles';
@@ -11,9 +11,13 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
   const [error, setError] = useState('');
   const [uploadStage, setUploadStage] = useState('');
   
+  // ✅ SMART: Determine if this is a song upload or other content upload
+  const isSongUpload = uploadingMoment?.type === 'song';
+  const isOtherContentUpload = uploadingMoment?.type === 'other';
+  
   const [formData, setFormData] = useState({
-    // ✅ UPDATED: Better default content type detection
-    contentType: uploadingMoment?.contentType || determineDefaultContentType(uploadingMoment?.songName),
+    // ✅ SMART: Set content type based on upload context
+    contentType: isSongUpload ? 'song' : (uploadingMoment?.contentType || 'intro'),
     
     // Core fields (always needed)
     songName: uploadingMoment?.songName || '',
@@ -22,7 +26,7 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
     venueCountry: uploadingMoment?.venueCountry || '',
     performanceDate: uploadingMoment?.performanceDate || '',
     
-    // Song-specific fields
+    // Song-specific fields (only for songs)
     setName: uploadingMoment?.setName || 'Main Set',
     songPosition: uploadingMoment?.songPosition || 1,
     
@@ -40,33 +44,6 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
     videoQuality: 'good',
     momentType: 'performance'
   });
-
-  // ✅ NEW: Smart content type detection
-  function determineDefaultContentType(songName) {
-    if (!songName || songName === 'Non-song Content') {
-      return 'other';
-    }
-    
-    const name = songName.toLowerCase().trim();
-    
-    if (name === 'intro' || name === 'outro' || name.includes('intro') || name.includes('outro')) {
-      return 'intro';
-    }
-    
-    if (name.includes('jam') || name.includes('improv')) {
-      return 'jam';
-    }
-    
-    if (name.includes('crowd') || name.includes('audience') || name.includes('applause')) {
-      return 'crowd';
-    }
-    
-    if (name.includes('soundcheck') || name.includes('tuning') || name.includes('banter')) {
-      return 'other';
-    }
-    
-    return 'song'; // Default to song
-  }
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -101,10 +78,17 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
       return;
     }
 
-    // ✅ UPDATED: Better validation for different content types
-    if (!formData.songName || !formData.venueName || !formData.venueCity) {
-      setError('Please fill in required fields: Content Name, Venue, and City');
-      return;
+    // ✅ SMART: Different validation for different upload types
+    if (isSongUpload) {
+      if (!formData.songName || !formData.venueName || !formData.venueCity) {
+        setError('Please fill in required fields: Song Name, Venue, and City');
+        return;
+      }
+    } else {
+      if (!formData.songName || !formData.venueName || !formData.venueCity) {
+        setError('Please fill in required fields: Content Name, Venue, and City');
+        return;
+      }
     }
 
     setStep('uploading');
@@ -210,11 +194,13 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
     <div style={styles.modal.overlay} onClick={() => step === 'form' && onClose()}>
       <div style={{...styles.modal.content, maxWidth: '600px', maxHeight: '90vh', overflow: 'auto'}} onClick={(e) => e.stopPropagation()}>
         {step === 'form' && (
-          <EnhancedUploadForm 
+          <SmartUploadForm 
             formData={formData}
             file={file}
             error={error}
             uploadingMoment={uploadingMoment}
+            isSongUpload={isSongUpload}
+            isOtherContentUpload={isOtherContentUpload}
             onInputChange={handleInputChange}
             onArrayToggle={handleArrayToggle}
             onFileSelect={handleFileSelect}
@@ -231,7 +217,7 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
         )}
 
         {step === 'success' && (
-          <UploadSuccess />
+          <UploadSuccess isSongUpload={isSongUpload} />
         )}
       </div>
     </div>
@@ -240,12 +226,14 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
 
 UploadModal.displayName = 'UploadModal';
 
-// ✅ ENHANCED: Better content-type-first upload form
-const EnhancedUploadForm = memo(({ 
+// ✅ SMART: Context-aware upload form
+const SmartUploadForm = memo(({ 
   formData, 
   file, 
   error,
   uploadingMoment,
+  isSongUpload,
+  isOtherContentUpload,
   onInputChange, 
   onArrayToggle,
   onFileSelect, 
@@ -253,27 +241,13 @@ const EnhancedUploadForm = memo(({
   onClose
 }) => {
   
-  // ✅ Enhanced content type definitions
-  const contentTypes = {
-    song: {
-      label: '🎵 Song Performance',
-      description: 'A complete or partial song performance',
-      nameLabel: 'Song Name',
-      namePlaceholder: 'Enter the song name...',
-      showPerformanceStats: true,
-      showFullMetadata: true,
-      rarityNote: 'Songs get full rarity calculation (0-7 points) based on performance frequency and metadata',
-      bgColor: 'bg-blue-50 border-blue-200',
-      textColor: 'text-blue-800'
-    },
+  // ✅ Content type definitions (no song option for other content)
+  const otherContentTypes = {
     intro: {
       label: '🎭 Intro/Outro',
       description: 'Performance intro, outro, or transition',
       nameLabel: 'Content Name',
       namePlaceholder: 'e.g., "Intro", "Outro", "Set Break"',
-      showPerformanceStats: false,
-      showFullMetadata: false,
-      rarityNote: 'Intro/outro content receives lower rarity scores (1-2.5/7 points)',
       bgColor: 'bg-purple-50 border-purple-200',
       textColor: 'text-purple-800'
     },
@@ -282,9 +256,6 @@ const EnhancedUploadForm = memo(({
       description: 'Improvised or extended musical section',
       nameLabel: 'Jam Description',
       namePlaceholder: 'e.g., "Guitar Jam", "Extended Outro", "Free Improv"',
-      showPerformanceStats: false,
-      showFullMetadata: true,
-      rarityNote: 'Jam content receives moderate rarity scores (1-3/7 points)',
       bgColor: 'bg-orange-50 border-orange-200',
       textColor: 'text-orange-800'
     },
@@ -293,9 +264,6 @@ const EnhancedUploadForm = memo(({
       description: 'Audience reaction or interaction',
       nameLabel: 'Crowd Moment',
       namePlaceholder: 'e.g., "Crowd Singing", "Standing Ovation", "Audience Reaction"',
-      showPerformanceStats: false,
-      showFullMetadata: false,
-      rarityNote: 'Crowd content receives lower rarity scores (1-2.5/7 points)',
       bgColor: 'bg-green-50 border-green-200',
       textColor: 'text-green-800'
     },
@@ -304,19 +272,32 @@ const EnhancedUploadForm = memo(({
       description: 'Soundcheck, banter, or other content',
       nameLabel: 'Content Description',
       namePlaceholder: 'e.g., "Soundcheck", "Band Banter", "Technical Issue"',
-      showPerformanceStats: false,
-      showFullMetadata: false,
-      rarityNote: 'Other content receives the lowest rarity scores (0.5-2/7 points)',
       bgColor: 'bg-gray-50 border-gray-200',
       textColor: 'text-gray-800'
     }
   };
 
-  const currentType = contentTypes[formData.contentType];
+  // ✅ SMART: Get current type info
+  const getCurrentTypeInfo = () => {
+    if (isSongUpload) {
+      return {
+        label: '🎵 Song Performance',
+        description: 'A complete or partial song performance',
+        nameLabel: 'Song Name',
+        namePlaceholder: 'Enter the song name...',
+        bgColor: 'bg-blue-50 border-blue-200',
+        textColor: 'text-blue-800',
+        rarityNote: 'Songs get full rarity calculation (0-7 points) based on performance frequency and metadata'
+      };
+    }
+    return otherContentTypes[formData.contentType] || otherContentTypes.other;
+  };
 
-  // ✅ Enhanced options based on content type
+  const currentTypeInfo = getCurrentTypeInfo();
+
+  // ✅ SMART: Enhanced options based on content type
   const getEmotionalOptions = () => {
-    if (formData.contentType === 'song' || formData.contentType === 'jam') {
+    if (isSongUpload || formData.contentType === 'jam') {
       return ['Energetic', 'Emotional', 'Epic', 'Chill', 'Intense', 'Groovy', 'Dreamy', 'Raw', 'Powerful', 'Intimate', 'Psychedelic', 'Melancholic'];
     } else if (formData.contentType === 'crowd') {
       return ['Explosive', 'Excited', 'Emotional', 'Enthusiastic', 'Quiet', 'Respectful', 'Wild', 'Engaged'];
@@ -326,7 +307,7 @@ const EnhancedUploadForm = memo(({
   };
 
   const getUniqueElementOptions = () => {
-    if (formData.contentType === 'song') {
+    if (isSongUpload) {
       return ['', 'First time played live', 'Rarely played song', 'Extended version', 'Acoustic version', 'Cover song', 'Song dedication', 'New arrangement'];
     } else if (formData.contentType === 'jam') {
       return ['', 'Extended improvisation', 'Unusual instruments', 'Crowd participation', 'Guest musician', 'Spontaneous creation'];
@@ -335,121 +316,102 @@ const EnhancedUploadForm = memo(({
     }
   };
 
-  // ✅ NEW: Show context about where this upload is coming from
-  const getUploadContext = () => {
-    if (uploadingMoment?.contentType && uploadingMoment.contentType !== 'song') {
-      return {
-        type: 'additional_content',
-        message: `Adding ${currentType.label.toLowerCase()} to this performance`
-      };
-    } else if (uploadingMoment?.songName && uploadingMoment.songName !== 'Non-song Content') {
-      return {
-        type: 'song_moment',
-        message: `Adding moment for "${uploadingMoment.songName}"`
-      };
-    } else {
-      return {
-        type: 'general',
-        message: 'Adding content to this performance'
-      };
-    }
-  };
-
-  const uploadContext = getUploadContext();
-
   return (
     <div>
-      <h2 style={styles.modal.title}>🎵 Upload UMO Moment</h2>
+      {/* ✅ SMART: Different titles based on upload type */}
+      <h2 style={styles.modal.title}>
+        {isSongUpload ? '🎵 Upload Song Moment' : '📀 Upload Other Content'}
+      </h2>
       
-      {/* ✅ NEW: Upload Context */}
-      <div className={`p-3 rounded-lg mb-4 ${currentType.bgColor}`}>
-        <p className={`text-sm ${currentType.textColor}`}>
-          📍 <strong>Context:</strong> {uploadContext.message}
+      {/* ✅ SMART: Upload Context */}
+      <div className={`p-3 rounded-lg mb-4 ${currentTypeInfo.bgColor}`}>
+        <p className={`text-sm ${currentTypeInfo.textColor}`}>
+          {isSongUpload ? (
+            <>📍 <strong>Song Upload:</strong> Adding moment for "{uploadingMoment.songName}"</>
+          ) : (
+            <>📍 <strong>Other Content:</strong> Adding non-setlist content to this performance</>
+          )}
         </p>
       </div>
 
       {error && <div style={styles.message.error}>{error}</div>}
 
-      {/* ✅ FIRST: Content Type Selection */}
-      <div style={styles.section.container}>
-        <h3 style={styles.section.title}>1️⃣ Content Type</h3>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: '12px',
-          marginBottom: '1rem'
-        }}>
-          {Object.entries(contentTypes).map(([key, type]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onInputChange('contentType', key)}
-              style={{
-                padding: '14px',
-                borderRadius: '10px',
-                border: '2px solid',
-                borderColor: formData.contentType === key ? '#3b82f6' : '#d1d5db',
-                backgroundColor: formData.contentType === key ? '#eff6ff' : '#f9fafb',
-                color: formData.contentType === key ? '#1e40af' : '#374151',
-                fontSize: '13px',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.2s',
-                position: 'relative'
-              }}
-            >
-              <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>{type.label}</div>
-              <div style={{ fontSize: '11px', opacity: 0.8, lineHeight: '1.3' }}>{type.description}</div>
-              {formData.contentType === key && (
-                <div style={{
-                  position: 'absolute',
-                  top: '8px',
-                  right: '8px',
-                  color: '#3b82f6',
-                  fontSize: '14px'
-                }}>
-                  ✓
-                </div>
-              )}
-            </button>
-          ))}
+      {/* ✅ SMART: Content Type Selection (only for other content) */}
+      {isOtherContentUpload && (
+        <div style={styles.section.container}>
+          <h3 style={styles.section.title}>1️⃣ Content Type</h3>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '12px',
+            marginBottom: '1rem'
+          }}>
+            {Object.entries(otherContentTypes).map(([key, type]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onInputChange('contentType', key)}
+                style={{
+                  padding: '14px',
+                  borderRadius: '10px',
+                  border: '2px solid',
+                  borderColor: formData.contentType === key ? '#3b82f6' : '#d1d5db',
+                  backgroundColor: formData.contentType === key ? '#eff6ff' : '#f9fafb',
+                  color: formData.contentType === key ? '#1e40af' : '#374151',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.2s',
+                  position: 'relative'
+                }}
+              >
+                <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>{type.label}</div>
+                <div style={{ fontSize: '11px', opacity: 0.8, lineHeight: '1.3' }}>{type.description}</div>
+                {formData.contentType === key && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '8px',
+                    right: '8px',
+                    color: '#3b82f6',
+                    fontSize: '14px'
+                  }}>
+                    ✓
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+          
+          {/* Rarity Information for Other Content */}
+          <div style={{
+            padding: '14px',
+            backgroundColor: '#f0f9ff',
+            border: '1px solid #bae6fd',
+            borderRadius: '8px',
+            fontSize: '12px',
+            color: '#0c4a6e'
+          }}>
+            <strong>💎 Rarity Impact:</strong> {currentTypeInfo.label.toLowerCase()} content receives lower rarity scores (1-2.5/7 points) and is capped at "uncommon" tier
+          </div>
         </div>
-        
-        {/* Enhanced Rarity Information */}
-        <div style={{
-          padding: '14px',
-          backgroundColor: currentType.bgColor.includes('blue') ? '#f0f9ff' : 
-                          currentType.bgColor.includes('purple') ? '#faf5ff' :
-                          currentType.bgColor.includes('orange') ? '#fff7ed' :
-                          currentType.bgColor.includes('green') ? '#f0fdf4' : '#f9fafb',
-          border: `1px solid ${currentType.bgColor.includes('blue') ? '#bae6fd' : 
-                               currentType.bgColor.includes('purple') ? '#d8b4fe' :
-                               currentType.bgColor.includes('orange') ? '#fed7aa' :
-                               currentType.bgColor.includes('green') ? '#bbf7d0' : '#e5e7eb'}`,
-          borderRadius: '8px',
-          fontSize: '12px',
-          color: currentType.textColor.includes('blue') ? '#0c4a6e' :
-                 currentType.textColor.includes('purple') ? '#581c87' :
-                 currentType.textColor.includes('orange') ? '#9a3412' :
-                 currentType.textColor.includes('green') ? '#14532d' : '#374151'
-        }}>
-          <strong>💎 Rarity Impact:</strong> {currentType.rarityNote}
-        </div>
-      </div>
+      )}
 
-      {/* ✅ SECOND: Basic Information */}
+      {/* ✅ SMART: Basic Information */}
       <div style={styles.section.container}>
-        <h3 style={styles.section.title}>2️⃣ Basic Information</h3>
+        <h3 style={styles.section.title}>
+          {isOtherContentUpload ? '2️⃣' : '1️⃣'} Basic Information
+        </h3>
         
         <div style={styles.section.grid}>
           <div>
-            <label style={styles.label}>{currentType.nameLabel}</label>
+            <label style={styles.label}>{currentTypeInfo.nameLabel}</label>
             <input
               type="text"
               value={formData.songName}
               onChange={(e) => onInputChange('songName', e.target.value)}
-              style={styles.input}
-              placeholder={currentType.namePlaceholder}
+              style={isSongUpload ? {...styles.input, backgroundColor: '#f9fafb', cursor: 'not-allowed'} : styles.input}
+              placeholder={currentTypeInfo.namePlaceholder}
+              readOnly={isSongUpload} // ✅ SMART: Song name is readonly for song uploads
             />
           </div>
           
@@ -486,8 +448,8 @@ const EnhancedUploadForm = memo(({
           </div>
         </div>
 
-        {/* ✅ CONDITIONAL: Only show for songs */}
-        {formData.contentType === 'song' && (
+        {/* ✅ SMART: Only show set/position for songs */}
+        {isSongUpload && (
           <div style={styles.section.grid}>
             <div>
               <label style={styles.label}>Set Name</label>
@@ -516,22 +478,24 @@ const EnhancedUploadForm = memo(({
         )}
       </div>
 
-      {/* ✅ THIRD: Description */}
+      {/* ✅ SMART: Description */}
       <div style={styles.section.container}>
-        <h3 style={styles.section.title}>3️⃣ Description</h3>
+        <h3 style={styles.section.title}>
+          {isOtherContentUpload ? '3️⃣' : '2️⃣'} Description
+        </h3>
         
         <div style={{ marginBottom: '1rem' }}>
           <label style={styles.label}>
-            {formData.contentType === 'song' ? 'What happens in this moment?' : `Describe this ${currentType.label.toLowerCase()}`}
+            {isSongUpload ? 'What happens in this moment?' : `Describe this ${currentTypeInfo.label.toLowerCase()}`}
           </label>
           <textarea
             value={formData.momentDescription}
             onChange={(e) => onInputChange('momentDescription', e.target.value)}
             style={styles.textarea}
             placeholder={
-              formData.contentType === 'song' 
+              isSongUpload 
                 ? 'Describe what happens during this song performance'
-                : `Describe what happens in this ${currentType.label.toLowerCase()}`
+                : `Describe what happens in this ${currentTypeInfo.label.toLowerCase()}`
             }
           />
         </div>
@@ -594,10 +558,12 @@ const EnhancedUploadForm = memo(({
         </div>
       </div>
 
-      {/* ✅ CONDITIONAL: Full metadata only for songs and jams */}
-      {currentType.showFullMetadata && (
+      {/* ✅ SMART: Additional Details (only for songs and jams) */}
+      {(isSongUpload || formData.contentType === 'jam') && (
         <div style={styles.section.container}>
-          <h3 style={styles.section.title}>4️⃣ Additional Details</h3>
+          <h3 style={styles.section.title}>
+            {isOtherContentUpload ? '4️⃣' : '3️⃣'} Additional Details
+          </h3>
           
           {/* Instruments - Only for songs and jams */}
           <div style={{ marginBottom: '1rem' }}>
@@ -683,10 +649,14 @@ const EnhancedUploadForm = memo(({
         </div>
       )}
 
-      {/* ✅ FOURTH: File Upload */}
+      {/* ✅ SMART: File Upload */}
       <div style={styles.section.container}>
         <h3 style={styles.section.title}>
-          {currentType.showFullMetadata ? '5️⃣' : '4️⃣'} Media File
+          {(() => {
+            if (isSongUpload) return '4️⃣';
+            if (formData.contentType === 'jam') return '5️⃣';
+            return '4️⃣';
+          })()} Media File
         </h3>
         
         <div style={styles.fileUpload.container}>
@@ -725,14 +695,14 @@ const EnhancedUploadForm = memo(({
             ? styles.button.disabled 
             : styles.button.primary}
         >
-          🚀 Upload {currentType.label}
+          🚀 Upload {isSongUpload ? 'Song Moment' : currentTypeInfo.label}
         </button>
       </div>
     </div>
   );
 });
 
-EnhancedUploadForm.displayName = 'EnhancedUploadForm';
+SmartUploadForm.displayName = 'SmartUploadForm';
 
 const UploadProgress = memo(({ uploadProgress, uploadStage }) => (
   <div style={{ textAlign: 'center', padding: '2rem' }}>
@@ -766,13 +736,16 @@ const UploadProgress = memo(({ uploadProgress, uploadStage }) => (
 
 UploadProgress.displayName = 'UploadProgress';
 
-const UploadSuccess = memo(() => (
+// ✅ SMART: Different success messages
+const UploadSuccess = memo(({ isSongUpload }) => (
   <div style={{ textAlign: 'center', padding: '2rem' }}>
     <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
     <h2 style={{ ...styles.modal.title, color: '#059669' }}>
-      UMO Moment Created!
+      {isSongUpload ? 'Song Moment Created!' : 'Other Content Created!'}
     </h2>
-    <p style={{ color: '#6b7280' }}>Your moment has been uploaded and is ready for viewing.</p>
+    <p style={{ color: '#6b7280' }}>
+      Your {isSongUpload ? 'song moment' : 'content'} has been uploaded and is ready for viewing.
+    </p>
   </div>
 ));
 

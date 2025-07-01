@@ -1,4 +1,4 @@
-// src/components/Performance/PerformanceDetail.jsx - FIXED with proper content separation
+// src/components/Performance/PerformanceDetail.jsx - COMPLETE with sleek dropdown
 import React, { useState, useEffect, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useMoments } from '../../hooks';
@@ -6,11 +6,47 @@ import { formatDate } from '../../utils';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import UploadModal from '../Moment/UploadModal';
 
+// ✅ Function to determine if a song name is actually a song
+const isActualSong = (songName) => {
+  if (!songName || typeof songName !== 'string') {
+    return false;
+  }
+  
+  const name = songName.toLowerCase().trim();
+  
+  // List of patterns that indicate non-song content that setlist.fm might include
+  const nonSongPatterns = [
+    /^intro$/i,
+    /^outro$/i,
+    /^soundcheck$/i,
+    /^tuning$/i,
+    /^banter$/i,
+    /^crowd$/i,
+    /^applause$/i,
+    /^announcement$/i,
+    /^speech$/i,
+    /^talk$/i,
+    /.*\s+intro$/i,  // "Show Intro", "Set Intro"
+    /.*\s+outro$/i,  // "Show Outro", "Set Outro"
+    /^warm.?up$/i,   // "Warmup", "Warm-up"
+    /^encore\s+intro$/i,
+    /^mic\s+check$/i,
+    /^between\s+songs$/i,
+    /^\d+$/i,        // Just numbers
+    /^setlist$/i,    // Sometimes they put "Setlist" as an item
+    /^tease$/i       // Song teases
+  ];
+  
+  // Return false if it matches any non-song pattern
+  return !nonSongPatterns.some(pattern => pattern.test(name));
+};
+
 const PerformanceDetail = memo(({ performance, onBack }) => {
   const [uploadingMoment, setUploadingMoment] = useState(null);
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [expandedSongs, setExpandedSongs] = useState(new Set());
   const [showOtherContent, setShowOtherContent] = useState(false);
+
   const { user } = useAuth();
   
   const { moments, loadingMomentDetails: loading, loadMomentDetails } = useMoments(API_BASE_URL);
@@ -19,7 +55,7 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
     loadMomentDetails(`performance/${performance.id}`, `performance ${performance.id}`);
   }, [performance.id, loadMomentDetails]);
   
-  // ✅ FIXED: Upload for specific song (always contentType: 'song')
+  // ✅ Upload for specific song (always contentType: 'song')
   const handleUploadSongMoment = (song, setInfo, songIndex) => {
     if (!user) {
       alert('Please log in to upload moments');
@@ -27,7 +63,7 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
     }
     
     setUploadingMoment({ 
-      type: 'song', // ✅ NEW: Explicitly mark as song upload
+      type: 'song',
       performanceId: performance.id,
       performanceDate: performance.eventDate,
       venueName: performance.venue.name,
@@ -36,49 +72,48 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
       songName: song.name,
       setName: setInfo?.name || '',
       songPosition: songIndex + 1,
-      contentType: 'song' // ✅ FIXED: Always song for setlist uploads
+      contentType: 'song'
     });
   };
 
-  // ✅ NEW: Upload other content (user picks type)
-  const handleUploadOtherContent = () => {
+  // ✅ Upload other content (user picks type in modal)
+  const handleUploadOtherContent = (contentType = 'other') => {
     if (!user) {
       alert('Please log in to upload moments');
       return;
     }
     
     setUploadingMoment({ 
-      type: 'other', // ✅ NEW: Mark as other content upload
+      type: 'other',
       performanceId: performance.id,
       performanceDate: performance.eventDate,
       venueName: performance.venue.name,
       venueCity: performance.venue.city.name,
       venueCountry: performance.venue.city.country?.name || '',
-      songName: '', // ✅ User will fill this in
+      songName: '',
       setName: '',
       songPosition: 0,
-      contentType: 'other' // ✅ Default to other, user will change
+      contentType: contentType // ✅ Default type, user will select in modal
     });
   };
 
-  // ✅ FIXED: Only get SONG moments (exclude intro/outro/etc)
+  // ✅ Only get SONG moments (exclude intro/outro/etc)
   const getSongMoments = (songName) => {
     return moments.filter(moment => {
-      // ✅ FIXED: Strict filtering for actual songs
       const isActualSong = !moment.contentType || moment.contentType === 'song';
       const matchesSongName = moment.songName === songName;
       return isActualSong && matchesSongName;
     });
   };
 
-  // ✅ FIXED: Get OTHER content (intro, outro, soundcheck, etc)
+  // ✅ Get OTHER content (intro, outro, soundcheck, etc)
   const getOtherContent = () => {
     return moments.filter(moment => {
       return moment.contentType && moment.contentType !== 'song';
     });
   };
 
-  // ✅ NEW: Group other content by type
+  // ✅ Group other content by type
   const getGroupedOtherContent = () => {
     const otherMoments = getOtherContent();
     const grouped = {};
@@ -119,16 +154,6 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
   const otherContent = getOtherContent();
   const groupedOtherContent = getGroupedOtherContent();
 
-  console.log('🔍 Debug moments:', {
-    totalMoments: moments.length,
-    songMoments: songMoments.length,
-    otherContent: otherContent.length,
-    momentsSample: moments.slice(0, 3).map(m => ({
-      songName: m.songName,
-      contentType: m.contentType
-    }))
-  });
-
   return (
     <div>
       {/* Header */}
@@ -139,7 +164,23 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
         onBack={onBack}
       />
 
-      {/* ✅ NEW: Other Content Section (if any exists) */}
+      {/* ✅ SLEEK: Simple Upload Other Content Button */}
+      {user && (
+        <div className="mb-6 flex justify-center">
+          <button
+            onClick={() => handleUploadOtherContent('other')}
+            className="group flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
+          >
+            <span className="text-lg">📀</span>
+            <span>Upload Other Content</span>
+            <span className="text-xs bg-white/20 px-2 py-1 rounded ml-1">
+              Intro • Outro • Crowd • etc.
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* ✅ Other Content Section (if any exists) */}
       {otherContent.length > 0 && (
         <OtherContentSection
           groupedContent={groupedOtherContent}
@@ -149,32 +190,7 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
         />
       )}
 
-      {/* ✅ NEW: Upload Other Content Button */}
-      {user && (
-        <div className="mb-6">
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-purple-800 mb-1">
-                  📀 Additional Performance Content
-                </h3>
-                <p className="text-xs text-purple-700">
-                  Upload intro, outro, soundcheck, crowd moments, or other non-song content
-                </p>
-              </div>
-              <button
-                onClick={handleUploadOtherContent}
-                className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
-              >
-                <span>➕</span>
-                Upload Other Content
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ✅ FIXED: Main Setlist (ONLY actual songs) */}
+      {/* ✅ Main Setlist (ONLY actual songs) */}
       <MainSetlistDisplay 
         performance={performance}
         user={user}
@@ -205,7 +221,9 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
 
 PerformanceDetail.displayName = 'PerformanceDetail';
 
-// ✅ UPDATED: Header with clear separation
+
+
+// ✅ Header remains the same
 const PerformanceHeader = memo(({ performance, songMoments, otherContent, onBack }) => (
   <div className="mb-6">
     <button
@@ -219,7 +237,6 @@ const PerformanceHeader = memo(({ performance, songMoments, otherContent, onBack
       {performance.venue.city.name}{performance.venue.city.country ? `, ${performance.venue.city.country.name}` : ''} • {formatDate(performance.eventDate)}
     </p>
     
-    {/* ✅ FIXED: Clear moment counts */}
     <div className="mt-2 flex items-center gap-4 text-sm">
       {songMoments.length > 0 && (
         <span className="text-blue-600">
@@ -240,7 +257,7 @@ const PerformanceHeader = memo(({ performance, songMoments, otherContent, onBack
 
 PerformanceHeader.displayName = 'PerformanceHeader';
 
-// ✅ NEW: Other Content Section
+// ✅ Other Content Section
 const OtherContentSection = memo(({ 
   groupedContent, 
   showOtherContent, 
@@ -261,7 +278,6 @@ const OtherContentSection = memo(({
 
   return (
     <div className="mb-6 border border-purple-200 rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 shadow-sm">
-      {/* Header */}
       <div 
         className="p-4 cursor-pointer flex items-center justify-between hover:bg-purple-100/50 transition-colors rounded-t-lg"
         onClick={() => setShowOtherContent(!showOtherContent)}
@@ -279,14 +295,12 @@ const OtherContentSection = memo(({
         </span>
       </div>
 
-      {/* Content */}
       {showOtherContent && (
         <div className="p-4 pt-0 border-t border-purple-200/50">
           <p className="text-sm text-purple-700 mb-4">
             Intro, outro, soundcheck, and other non-song content from this performance
           </p>
           
-          {/* Grouped Other Content */}
           <div className="space-y-4">
             {Object.entries(groupedContent).map(([contentType, moments]) => {
               const typeInfo = getContentTypeInfo(contentType);
@@ -344,7 +358,7 @@ const OtherContentSection = memo(({
 
 OtherContentSection.displayName = 'OtherContentSection';
 
-// ✅ FIXED: Main setlist display (ONLY shows actual songs from setlist.fm)
+// ✅ Main setlist display with filtering
 const MainSetlistDisplay = memo(({ 
   performance, 
   user, 
@@ -390,7 +404,7 @@ const MainSetlistDisplay = memo(({
 
 MainSetlistDisplay.displayName = 'MainSetlistDisplay';
 
-// ✅ UNCHANGED: SetCard component (now only deals with actual songs)
+// ✅ SetCard with filtering and updated message
 const SetCard = memo(({ 
   set, 
   user, 
@@ -399,37 +413,77 @@ const SetCard = memo(({
   onSelectMoment,
   expandedSongs,
   toggleSongMoments
-}) => (
-  <div className="border border-gray-200 rounded-lg bg-white shadow-sm p-4">
-    {set.name && (
-      <h4 className="text-lg font-semibold mb-3 text-blue-600">{set.name}</h4>
-    )}
-    
-    <ol className="space-y-3">
-      {set.song?.map((song, i) => {
-        const songMoments = getSongMoments(song.name);
-        const isExpanded = expandedSongs.has(song.name);
-        
-        return (
-          <SongItem 
-            key={`${song.name}-${i}`}
-            song={song}
-            songIndex={i}
-            songMoments={songMoments}
-            user={user}
-            onUploadSongMoment={() => onUploadSongMoment(song, set, i)}
-            onSelectMoment={onSelectMoment}
-            isExpanded={isExpanded}
-            toggleExpanded={() => toggleSongMoments(song.name)}
-          />
-        );
-      })}
-    </ol>
-  </div>
-));
+}) => {
+  // ✅ FILTER: Only show actual songs in the setlist
+  const actualSongs = set.song?.filter(song => isActualSong(song.name)) || [];
+  const filteredItems = set.song?.filter(song => !isActualSong(song.name)) || [];
+  
+  return (
+    <div className="border border-gray-200 rounded-lg bg-white shadow-sm p-4">
+      {set.name && (
+        <h4 className="text-lg font-semibold mb-3 text-blue-600">{set.name}</h4>
+      )}
+      
+      {/* ✅ UPDATED: Sleeker filtered content notice */}
+      {filteredItems.length > 0 && (
+        <div className="mb-4 p-3 bg-purple-50 border-l-4 border-purple-400 rounded-r-lg">
+          <div className="flex items-start gap-2">
+            <span className="text-purple-600 text-sm">📀</span>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-purple-800 mb-1">
+                Non-song content filtered from setlist:
+              </p>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {filteredItems.map((item, i) => (
+                  <span key={i} className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
+                    {item.name}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-purple-600">
+                💡 Upload these using the button above
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Show actual songs only */}
+      {actualSongs.length === 0 ? (
+        <div className="text-center py-6 text-gray-500">
+          <p className="text-lg">🎵</p>
+          <p>No actual songs in this set</p>
+          <p className="text-xs mt-1">(All items filtered as non-song content)</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {actualSongs.map((song, i) => {
+            const songMoments = getSongMoments(song.name);
+            const isExpanded = expandedSongs.has(song.name);
+            
+            return (
+              <SongItem 
+                key={`${song.name}-${i}`}
+                song={song}
+                songIndex={i}
+                songMoments={songMoments}
+                user={user}
+                onUploadSongMoment={() => onUploadSongMoment(song, set, i)}
+                onSelectMoment={onSelectMoment}
+                isExpanded={isExpanded}
+                toggleExpanded={() => toggleSongMoments(song.name)}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+});
 
 SetCard.displayName = 'SetCard';
 
+// ✅ SongItem without positions/counters
 const SongItem = memo(({ 
   song, 
   songIndex, 
@@ -440,11 +494,9 @@ const SongItem = memo(({
   isExpanded,
   toggleExpanded
 }) => (
-  <li className="border-b border-gray-100 pb-3 last:border-b-0">
+  <div className="border-b border-gray-100 pb-3 last:border-b-0">
     <div className="flex justify-between items-center">
       <div className="flex items-center gap-3 flex-1">
-        <span className="text-sm text-gray-500 w-8">{songIndex + 1}.</span>
-        
         <div className="flex items-center gap-3 flex-1">
           <span className="font-medium text-gray-900">{song.name}</span>
           
@@ -473,7 +525,7 @@ const SongItem = memo(({
     </div>
 
     {songMoments.length > 0 && isExpanded && (
-      <div className="mt-3 ml-11">
+      <div className="mt-3">
         <div className="flex flex-wrap gap-2">
           {songMoments.map((moment) => {
             const rarityColors = {
@@ -505,7 +557,7 @@ const SongItem = memo(({
         </div>
       </div>
     )}
-  </li>
+  </div>
 ));
 
 SongItem.displayName = 'SongItem';

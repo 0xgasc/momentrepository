@@ -1108,7 +1108,215 @@ app.post('/admin/cleanup-all-duplicates', async (req, res) => {
     });
   }
 });
+// Add this endpoint to your server.js to fix existing non-song moments
 
+app.post('/admin/fix-content-types', async (req, res) => {
+  try {
+    console.log('🔧 Fixing content types for non-song moments...');
+    
+    // Define patterns for non-song content
+    const contentTypePatterns = {
+      intro: [
+        /^intro$/i,
+        /^outro$/i,
+        /.*\s+intro$/i,  // "Show Intro", "Set Intro"
+        /.*\s+outro$/i,  // "Show Outro", "Set Outro"
+        /^encore\s+intro$/i
+      ],
+      jam: [
+        /^jam$/i,
+        /.*\s+jam$/i,
+        /^improvisation$/i,
+        /^improv$/i,
+        /extended\s+jam/i
+      ],
+      crowd: [
+        /^crowd$/i,
+        /^applause$/i,
+        /^audience$/i,
+        /crowd\s+reaction/i,
+        /crowd\s+singing/i
+      ],
+      other: [
+        /^soundcheck$/i,
+        /^tuning$/i,
+        /^banter$/i,
+        /^talk$/i,
+        /^speech$/i,
+        /^announcement$/i,
+        /^mic\s+check$/i,
+        /^warm.?up$/i,
+        /^between\s+songs$/i,
+        /^\d+$/  // Just numbers
+      ]
+    };
+
+    // Function to determine content type from song name
+    const determineContentType = (songName) => {
+      if (!songName || typeof songName !== 'string') {
+        return 'other';
+      }
+      
+      const name = songName.trim();
+      
+      // Check each content type
+      for (const [contentType, patterns] of Object.entries(contentTypePatterns)) {
+        for (const pattern of patterns) {
+          if (pattern.test(name)) {
+            return contentType;
+          }
+        }
+      }
+      
+      // If no pattern matches, it's probably a song
+      return 'song';
+    };
+
+    // Find all moments that might need content type updates
+    const allMoments = await Moment.find({});
+    
+    let updated = 0;
+    let songCount = 0;
+    let nonSongCount = 0;
+    
+    const results = {
+      intro: [],
+      jam: [],
+      crowd: [],
+      other: [],
+      song: []
+    };
+
+    for (const moment of allMoments) {
+      const detectedType = determineContentType(moment.songName);
+      const currentType = moment.contentType || 'song';
+      
+      // Only update if the detected type is different from current type
+      if (detectedType !== currentType) {
+        await Moment.updateOne(
+          { _id: moment._id },
+          { 
+            $set: { 
+              contentType: detectedType,
+              // Also recalculate rarity if it's now non-song content
+              ...(detectedType !== 'song' && {
+                rarityScore: Math.min(2.5, moment.rarityScore || 1),
+                rarityTier: moment.rarityScore > 2 ? 'uncommon' : 'common',
+                isFirstMomentForSong: false  // Non-songs can't be "first" for a song
+              })
+            }
+          }
+        );
+        
+        updated++;
+        results[detectedType].push({
+          id: moment._id,
+          songName: moment.songName,
+          venueName: moment.venueName,
+          oldType: currentType,
+          newType: detectedType,
+          uploader: moment.user
+        });
+        
+        console.log(`🔧 Updated "${moment.songName}" at ${moment.venueName}: ${currentType} → ${detectedType}`);
+      }
+      
+      // Count final types
+      if (detectedType === 'song') {
+        songCount++;
+      } else {
+        nonSongCount++;
+      }
+    }
+
+    // Summary
+    console.log(`✅ Content type migration complete:`);
+    console.log(`   📊 Total moments: ${allMoments.length}`);
+    console.log(`   ✅ Updated: ${updated}`);
+    console.log(`   🎵 Songs: ${songCount}`);
+    console.log(`   📀 Non-song content: ${nonSongCount}`);
+    console.log(`   🎭 Intro/Outro: ${results.intro.length}`);
+    console.log(`   🎸 Jams: ${results.jam.length}`);
+    console.log(`   👥 Crowd: ${results.crowd.length}`);
+    console.log(`   🎪 Other: ${results.other.length}`);
+
+    res.json({
+      success: true,
+      message: `Fixed content types: ${updated} moments updated`,
+      statistics: {
+        totalMoments: allMoments.length,
+        updated: updated,
+        songCount: songCount,
+        nonSongCount: nonSongCount,
+        breakdown: {
+          intro: results.intro.length,
+          jam: results.jam.length,
+          crowd: results.crowd.length,
+          other: results.other.length,
+          song: results.song.length
+        }
+      },
+      detailedResults: results
+    });
+
+  } catch (error) {
+    console.error('❌ Content type migration failed:', error);
+    res.status(500).json({
+      error: 'Failed to fix content types',
+      details: error.message
+    });
+  }
+});
+
+// Also add this helper endpoint to check what would be changed (dry run)
+app.get('/admin/preview-content-type-fixes', async (req, res) => {
+  try {
+    console.log('🔍 Previewing content type changes...');
+    
+    const contentTypePatterns = {
+      intro: [/^intro$/i, /^outro$/i, /.*\s+intro$/i, /.*\s+outro$/i],
+      jam: [/^jam$/i, /.*\s+jam$/i, /^improvisation$/i, /^improv$/i],
+      crowd: [/^crowd$/i, /^applause$/i, /^audience$/i, /crowd\s+reaction/i],
+      other: [/^soundcheck$/i, /^tuning$/i, /^banter$/i, /^talk$/i, /^\d+$/]
+    };
+
+    const determineContentType = (songName) => {
+      if (!songName || typeof songName !== 'string') return 'other';
+      const name = songName.trim();
+      for (const [contentType, patterns] of Object.entries(contentTypePatterns)) {
+        for (const pattern of patterns) {
+          if (pattern.test(name)) return contentType;
+        }
+      }
+      return 'song';
+    };
+
+    const allMoments = await Moment.find({}).select('songName venueName contentType user');
+    
+    const wouldChange = allMoments.filter(moment => {
+      const detectedType = determineContentType(moment.songName);
+      const currentType = moment.contentType || 'song';
+      return detectedType !== currentType;
+    });
+
+    const preview = wouldChange.map(moment => ({
+      songName: moment.songName,
+      venueName: moment.venueName,
+      currentType: moment.contentType || 'song',
+      detectedType: determineContentType(moment.songName)
+    }));
+
+    res.json({
+      totalMoments: allMoments.length,
+      wouldChange: wouldChange.length,
+      preview: preview.slice(0, 20), // Show first 20
+      hasMore: preview.length > 20
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 // ✅ NEW: Get mint analytics for debugging
 app.get('/moments/:momentId/mint-analytics', async (req, res) => {
   try {

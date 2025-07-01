@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2025-06-30T19:01:58.800Z",
+  "lastUpdated": "2025-07-01T16:00:30.438Z",
   "totalApiCalls": 35,
   "performances": [
     {
@@ -28910,9 +28910,9 @@
     },
     {
       "id": "3a2710b",
-      "versionId": "g73863241",
+      "versionId": "g4374db33",
       "eventDate": "15-10-2013",
-      "lastUpdated": "2023-09-16T04:47:39.298+0000",
+      "lastUpdated": "2025-07-01T07:57:54.807+0000",
       "artist": {
         "mbid": "e2305342-0bde-4a2c-aed0-4b88694834de",
         "name": "Unknown Mortal Orchestra",
@@ -28921,8 +28921,8 @@
         "url": "https://www.setlist.fm/setlists/unknown-mortal-orchestra-33d2ccc9.html"
       },
       "venue": {
-        "id": "5bd4439c",
-        "name": "Théâtre Fairmount",
+        "id": "33d7d839",
+        "name": "Le Cabaret du Mile End",
         "city": {
           "id": "6077243",
           "name": "Montreal",
@@ -28937,12 +28937,12 @@
             "name": "Canada"
           }
         },
-        "url": "https://www.setlist.fm/venue/theatre-fairmount-montreal-qc-canada-5bd4439c.html"
+        "url": "https://www.setlist.fm/venue/le-cabaret-du-mile-end-montreal-qc-canada-33d7d839.html"
       },
       "sets": {
         "set": []
       },
-      "url": "https://www.setlist.fm/setlist/unknown-mortal-orchestra/2013/theatre-fairmount-montreal-qc-canada-3a2710b.html"
+      "url": "https://www.setlist.fm/setlist/unknown-mortal-orchestra/2013/le-cabaret-du-mile-end-montreal-qc-canada-3a2710b.html"
     },
     {
       "id": "4bc7134e",
@@ -85831,6 +85831,7 @@
       "Las Vegas Festival Grounds",
       "Laugardalur Park",
       "Launchpad",
+      "Le Cabaret du Mile End",
       "Le Grand Mix",
       "Le Trabendo",
       "Lee's Palace",
