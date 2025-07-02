@@ -1,4 +1,4 @@
-// src/components/Moment/MomentDetailModal.jsx - UPDATED with enhanced rarity explanations
+// src/components/Moment/MomentDetailModal.jsx - SUPER SIMPLIFIED 3-factor system
 import React, { useState, useEffect, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { formatFileSize } from '../../utils';
@@ -89,94 +89,135 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
     }
   };
 
-  // Get rarity display info
+  // ✅ UPDATED: Get rarity display info for 7-tier system (0-6 points)
   const getRarityInfo = () => {
     const tierInfo = {
-      legendary: { emoji: '🌟', color: '#FFD700', bgColor: '#FFF8DC', name: 'Legendary' },
-      epic: { emoji: '💎', color: '#9B59B6', bgColor: '#F4F1FF', name: 'Epic' },
-      rare: { emoji: '🔥', color: '#E74C3C', bgColor: '#FFEBEE', name: 'Rare' },
-      uncommon: { emoji: '⭐', color: '#3498DB', bgColor: '#E3F2FD', name: 'Uncommon' },
-      common: { emoji: '📀', color: '#95A5A6', bgColor: '#F5F5F5', name: 'Common' }
+      legendary: { 
+        emoji: '🌟', 
+        color: '#FFD700', 
+        bgColor: '#FFFBEE', 
+        name: 'Legendary'
+      },
+      mythic: { 
+        emoji: '🔮', 
+        color: '#8B5CF6', 
+        bgColor: '#F3F0FF', 
+        name: 'Mythic'
+      },
+      epic: { 
+        emoji: '💎', 
+        color: '#9B59B6', 
+        bgColor: '#F4F1FF', 
+        name: 'Epic'
+      },
+      rare: { 
+        emoji: '🔥', 
+        color: '#E74C3C', 
+        bgColor: '#FFEBEE', 
+        name: 'Rare'
+      },
+      uncommon: { 
+        emoji: '⭐', 
+        color: '#3498DB', 
+        bgColor: '#E3F2FD', 
+        name: 'Uncommon'
+      },
+      common: { 
+        emoji: '📀', 
+        color: '#95A5A6', 
+        bgColor: '#F5F5F5', 
+        name: 'Common'
+      },
+      basic: { 
+        emoji: '⚪', 
+        color: '#BDC3C7', 
+        bgColor: '#F8F9FA', 
+        name: 'Basic'
+      }
     };
     
-    const tier = moment.rarityTier || 'common';
+    const tier = moment.rarityTier || 'basic';
     const score = moment.rarityScore || 0;
     
     return {
       ...tierInfo[tier],
       score,
-      tier
+      tier,
+      percentage: Math.round((score / 6.0) * 100) // Now out of 6 points
     };
   };
 
-  // ✅ UPDATED: Rarity breakdown with enhanced content type awareness
+  // ✅ UPDATED: Super simplified 3-factor rarity breakdown
   const getRarityBreakdown = () => {
     const totalScore = moment.rarityScore || 0;
+    const contentType = moment.contentType || 'song';
+    const isSongContent = contentType === 'song';
     
-    // For non-song content, show enhanced breakdown
-    if (!isSongContent) {
-      const maxPossible = contentType === 'other' ? '4.0' : '6.0';
-      const tierCap = contentType === 'jam' ? 'epic' : 
-                     contentType === 'crowd' || contentType === 'intro' ? 'rare' : 'uncommon';
-      
-      return {
-        contentType: contentType,
-        isNonSong: true,
-        totalScore: totalScore.toFixed(1),
-        maxPossible: maxPossible,
-        tierCap: tierCap,
-        explanation: `${typeInfo.label} content can reach up to ${maxPossible}/7 points and "${tierCap}" tier${contentType === 'jam' ? ' (highest for non-songs)' : ''}`
-      };
-    }
+    // Factor 1: File Size (0-2 points)
+    const fileSizeMB = (moment.fileSize || 0) / (1024 * 1024);
+    let fileSizeScore = 0;
+    if (fileSizeMB >= 500) fileSizeScore = 2.0;
+    else if (fileSizeMB >= 100) fileSizeScore = 1.5;
+    else if (fileSizeMB >= 50) fileSizeScore = 1.0;
+    else if (fileSizeMB >= 10) fileSizeScore = 0.5;
+    else fileSizeScore = 0.2;
     
-    // For songs, estimate component breakdown
-    const songPerformances = moment.songTotalPerformances || 0;
-    
-    let performanceScore = 0;
-    if (songPerformances >= 1 && songPerformances <= 10) {
-      performanceScore = 4;
-    } else if (songPerformances >= 11 && songPerformances <= 50) {
-      performanceScore = 3;
-    } else if (songPerformances >= 51 && songPerformances <= 100) {
-      performanceScore = 2.5;
-    } else if (songPerformances >= 101 && songPerformances <= 150) {
-      performanceScore = 2;
-    } else if (songPerformances >= 151 && songPerformances <= 200) {
-      performanceScore = 1.5;
+    // Factor 2: Song/Content Rarity (0-2 points) 
+    let rarityScore = 0;
+    if (isSongContent) {
+      const performances = moment.songTotalPerformances || 0;
+      if (performances <= 10) rarityScore = 2.0;
+      else if (performances <= 50) rarityScore = 1.5;
+      else if (performances <= 100) rarityScore = 1.0;
+      else if (performances <= 200) rarityScore = 0.7;
+      else rarityScore = 0.4;
     } else {
-      performanceScore = 1;
+      const contentRarity = {
+        'jam': 1.8, 'intro': 1.2, 'outro': 1.2, 
+        'crowd': 1.0, 'other': 0.8
+      };
+      rarityScore = contentRarity[contentType] || 1.0;
     }
     
+    // Factor 3: Metadata Quality (0-2 points) - NOW ONLY 6 FIELDS
     const metadataFields = [
-      moment.momentDescription,
-      moment.emotionalTags,
+      moment.momentDescription, 
+      moment.emotionalTags, 
       moment.specialOccasion,
-      moment.instruments,
-      moment.guestAppearances,
+      moment.instruments, 
       moment.crowdReaction,
-      moment.uniqueElements,
-      moment.personalNote
+      moment.uniqueElements
+      // REMOVED: guestAppearances, personalNote
     ];
     const filledFields = metadataFields.filter(field => field && field.trim().length > 0).length;
-    const metadataScore = filledFields / metadataFields.length;
-    
-    const estimatedTotal = performanceScore + metadataScore;
-    const remainingScore = Math.max(0, totalScore - estimatedTotal);
+    const metadataScore = (filledFields / metadataFields.length) * 2.0;
     
     return {
-      contentType: 'song',
-      isNonSong: false,
-      performanceScore: performanceScore.toFixed(1),
-      metadataScore: metadataScore.toFixed(1),
-      lengthScore: Math.min(1, remainingScore / 2).toFixed(1),
-      venueScore: Math.max(0, remainingScore - Math.min(1, remainingScore / 2)).toFixed(1),
+      factors: {
+        fileSize: {
+          score: fileSizeScore.toFixed(1),
+          label: 'File Size',
+          description: `${Math.round(fileSizeMB)}MB file quality`
+        },
+        rarity: {
+          score: rarityScore.toFixed(1),
+          label: isSongContent ? 'Song Rarity' : 'Content Rarity',
+          description: isSongContent ? 
+            `${moment.songTotalPerformances || 0} live performances` :
+            `${contentType} content type`
+        },
+        metadata: {
+          score: metadataScore.toFixed(1),
+          label: 'Metadata Quality',
+          description: `${filledFields}/6 fields completed (${Math.round((filledFields/6)*100)}%)`
+        }
+      },
       totalScore: totalScore.toFixed(1),
-      maxPossible: '7.0'
+      maxPossible: '6.0',
+      contentType,
+      isSongContent
     };
   };
-
-  const rarityInfo = getRarityInfo();
-  const rarityBreakdown = getRarityBreakdown();
 
   const getMediaComponent = () => {
     const isVideo = moment.mediaType === 'video' || 
@@ -317,6 +358,9 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
     );
   };
 
+  const rarityInfo = getRarityInfo();
+  const rarityBreakdown = getRarityBreakdown();
+
   const headerStyle = {
     background: `linear-gradient(135deg, ${rarityInfo.color} 0%, #1d4ed8 100%)`
   };
@@ -379,11 +423,11 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             </div>
           </div>
 
-          {/* ✅ UPDATED: Rarity Details with Content Type Awareness */}
+          {/* ✅ UPDATED: Super Simple 3-Factor Rarity Section */}
           <div className="rarity-section">
             <div className="rarity-details">
               <div className="rarity-header">
-                <h4>Rarity Calculation</h4>
+                <h4>⚡ Simple 3-Factor Rarity</h4>
                 <button
                   onClick={() => setShowRarityInfo(true)}
                   className="info-button"
@@ -401,47 +445,23 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                   </span>
                 </div>
                 
-                {/* ✅ CONDITIONAL: Different display for songs vs non-songs */}
-                {rarityBreakdown.isNonSong ? (
-                  <div className="non-song-explanation">
-                    <div style={{
-                      padding: '8px',
-                      backgroundColor: '#f0f9ff',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      color: '#0c4a6e'
-                    }}>
-                      {rarityBreakdown.explanation}
+                <div className="rarity-breakdown-grid">
+                  {Object.entries(rarityBreakdown.factors).map(([key, factor]) => (
+                    <div key={key} className="rarity-factor">
+                      <span className="factor-label">{factor.label}:</span>
+                      <span className="factor-score">{factor.score}</span>
                     </div>
-                  </div>
-                ) : (
-                  <div className="rarity-breakdown">
-                    <div className="rarity-component">
-                      <span className="component-label">Performance Rarity:</span>
-                      <span className="component-value">{rarityBreakdown.performanceScore}</span>
-                    </div>
-                    <div className="rarity-component">
-                      <span className="component-label">Metadata Quality:</span>
-                      <span className="component-value">{rarityBreakdown.metadataScore}</span>
-                    </div>
-                    <div className="rarity-component">
-                      <span className="component-label">Video Length:</span>
-                      <span className="component-value">{rarityBreakdown.lengthScore}</span>
-                    </div>
-                    <div className="rarity-component">
-                      <span className="component-label">Performance Priority:</span>
-                      <span className="component-value">{rarityBreakdown.venueScore}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* ✅ CONDITIONAL: First moment note only for songs */}
-              {isSongContent && moment.isFirstMomentForSong && (
-                <div className="first-moment-note">
-                  🏆 First moment uploaded for this song at this performance!
+                  ))}
                 </div>
-              )}
+                
+                <div className="rarity-explanations">
+                  {Object.entries(rarityBreakdown.factors).map(([key, factor]) => (
+                    <div key={key} className="factor-explanation">
+                      <strong>{factor.label}:</strong> {factor.description}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -450,7 +470,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             {getMediaComponent()}
           </div>
 
-          {/* Metadata Panel - Same as before but aware of content type */}
+          {/* ✅ SIMPLIFIED: Metadata Panel (removed guest appearances, personal note) */}
           <div className="metadata-panel">
             <div className="metadata-header">
               <h3>Content Details</h3>
@@ -485,12 +505,6 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                       <span className="metadata-value">{moment.setName}</span>
                     </div>
                   )}
-                  {isSongContent && moment.songPosition && (
-                    <div className="metadata-item">
-                      <span className="metadata-label">Position:</span>
-                      <span className="metadata-value">#{moment.songPosition}</span>
-                    </div>
-                  )}
                   <div className="metadata-item">
                     <span className="metadata-label">Type:</span>
                     <span className="metadata-value">{moment.momentType || 'Performance'}</span>
@@ -498,7 +512,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                 </div>
               </div>
 
-              {/* Rest of metadata display remains the same... */}
+              {/* Description */}
               {(moment.momentDescription || showEmptyFields) && (
                 <div className="metadata-group">
                   <h4>Description</h4>
@@ -508,11 +522,81 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                 </div>
               )}
 
-              {/* Continue with existing metadata sections... */}
+              {/* ✅ SIMPLIFIED: Only show key metadata fields */}
+              {(moment.emotionalTags || moment.specialOccasion || moment.instruments || moment.crowdReaction || moment.uniqueElements || showEmptyFields) && (
+                <div className="metadata-group">
+                  <h4>Details</h4>
+                  <div className="metadata-grid">
+                    {(moment.emotionalTags || showEmptyFields) && (
+                      <div className="metadata-item">
+                        <span className="metadata-label">Mood:</span>
+                        <span className="metadata-value">
+                          {moment.emotionalTags || <em className="text-gray-400">Not specified</em>}
+                        </span>
+                      </div>
+                    )}
+                    {(moment.specialOccasion || showEmptyFields) && (
+                      <div className="metadata-item">
+                        <span className="metadata-label">Special Occasion:</span>
+                        <span className="metadata-value">
+                          {moment.specialOccasion || <em className="text-gray-400">None</em>}
+                        </span>
+                      </div>
+                    )}
+                    {(moment.instruments || showEmptyFields) && (
+                      <div className="metadata-item">
+                        <span className="metadata-label">Instruments:</span>
+                        <span className="metadata-value">
+                          {moment.instruments || <em className="text-gray-400">Not specified</em>}
+                        </span>
+                      </div>
+                    )}
+                    {(moment.crowdReaction || showEmptyFields) && (
+                      <div className="metadata-item">
+                        <span className="metadata-label">Crowd Reaction:</span>
+                        <span className="metadata-value">
+                          {moment.crowdReaction || <em className="text-gray-400">Not specified</em>}
+                        </span>
+                      </div>
+                    )}
+                    {(moment.uniqueElements || showEmptyFields) && (
+                      <div className="metadata-item">
+                        <span className="metadata-label">Unique Elements:</span>
+                        <span className="metadata-value">
+                          {moment.uniqueElements || <em className="text-gray-400">None</em>}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* File Details */}
+              {showFileDetails && (
+                <div className="metadata-group">
+                  <h4>File Information</h4>
+                  <div className="metadata-grid">
+                    <div className="metadata-item">
+                      <span className="metadata-label">File Size:</span>
+                      <span className="metadata-value">
+                        {moment.fileSize ? formatFileSize(moment.fileSize) : 'Unknown'}
+                      </span>
+                    </div>
+                    <div className="metadata-item">
+                      <span className="metadata-label">Media Type:</span>
+                      <span className="metadata-value">{moment.mediaType || 'Unknown'}</span>
+                    </div>
+                    <div className="metadata-item">
+                      <span className="metadata-label">Filename:</span>
+                      <span className="metadata-value">{moment.fileName || 'Unknown'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* NFT Section - Same as before */}
+          {/* NFT Section */}
           {user && (
             <div style={{ 
               padding: '20px', 
@@ -591,12 +675,12 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
           </div>
         </div>
 
-        {/* ✅ ENHANCED: Rarity Info Modal with new scoring explanations */}
+        {/* ✅ UPDATED: Super Simple Rarity Info Modal */}
         {showRarityInfo && (
           <div className="rarity-info-overlay" onClick={() => setShowRarityInfo(false)}>
             <div className="rarity-info-modal" onClick={(e) => e.stopPropagation()}>
               <div className="rarity-info-header">
-                <h3>How Rarity is Calculated</h3>
+                <h3>⚡ Super Simple 3-Factor Rarity</h3>
                 <button
                   onClick={() => setShowRarityInfo(false)}
                   className="rarity-info-close"
@@ -604,82 +688,122 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                   ✕
                 </button>
               </div>
+              
               <div className="rarity-info-content">
-                {/* ✅ ENHANCED: Different explanations for different content types */}
-                {isSongContent ? (
-                  <>
-                    <div className="rarity-criterion">
-                      <h4>🎵 Song Performance Rarity (0-4 points)</h4>
-                      <p>Based on how often the song has been performed live:</p>
-                      <ul>
-                        <li><strong>4 points:</strong> 1-10 performances (ultra rare)</li>
-                        <li><strong>3 points:</strong> 11-50 performances (rare)</li>
-                        <li><strong>2.5 points:</strong> 51-100 performances (uncommon)</li>
-                        <li><strong>2 points:</strong> 101-150 performances (somewhat common)</li>
-                        <li><strong>1.5 points:</strong> 151-200 performances (common)</li>
-                        <li><strong>1 point:</strong> 200+ performances (most common)</li>
-                      </ul>
-                    </div>
-                    
-                    <div className="rarity-criterion">
-                      <h4>📝 Metadata Quality (0-1 point)</h4>
-                      <p>Based on how much detail you provided about the performance</p>
-                    </div>
-                    
-                    <div className="rarity-criterion">
-                      <h4>🎬 Video Length (0-1 point)</h4>
-                      <p>Based on optimal video duration (~2.5 minutes ideal)</p>
-                    </div>
-                    
-                    <div className="rarity-criterion">
-                      <h4>🏟️ Performance Priority (0-1 point)</h4>
-                      <p>First moment of this song at this specific performance gets maximum points</p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="rarity-criterion">
-                      <h4>🎭 Enhanced {typeInfo.label} Scoring (0-{rarityBreakdown.maxPossible} points)</h4>
-                      <p>{typeInfo.label} content uses a sophisticated scoring system:</p>
-                      <ul>
-                        <li><strong>Base Score:</strong> {contentType === 'jam' ? '1.5' : contentType === 'crowd' ? '1.2' : contentType === 'intro' ? '1.0' : '0.8'} points for {contentType} content</li>
-                        <li><strong>🌟 Global First Bonus:</strong> Up to +{contentType === 'jam' ? '1.5' : '1.2'} points for being the FIRST {contentType} content ever uploaded!</li>
-                        <li><strong>Metadata Quality:</strong> Up to +{contentType === 'jam' ? '0.8' : '0.6'} points for detailed descriptions</li>
-                        <li><strong>Performance Priority:</strong> Up to +{contentType === 'jam' ? '0.8' : '0.6'} points for being first at this show</li>
-                        <li><strong>Content Bonuses:</strong> Up to +0.8 points for {
-                          contentType === 'jam' ? 'multi-instrument complexity & guests' :
-                          contentType === 'crowd' ? 'explosive crowd reactions' :
-                          contentType === 'intro' ? 'special occasions & unique elements' :
-                          'special circumstances'
-                        }</li>
-                        <li><strong>Quality Bonus:</strong> Up to +0.4 points for excellent audio/video quality</li>
-                      </ul>
-                      <p><strong>Maximum Tier:</strong> Can reach "{rarityBreakdown.tierCap}" tier{contentType === 'jam' ? ' (highest for non-songs)' : ''}</p>
-                    </div>
-                    
-                    <div className="rarity-criterion">
-                      <h4>🌟 Global First System</h4>
-                      <p>Being the first person to upload {contentType} content gets a major bonus!</p>
-                      <ul>
-                        <li><strong>First jam ever:</strong> +1.5 points → Can reach Epic tier</li>
-                        <li><strong>First crowd/intro/outro ever:</strong> +1.2 points → Can reach Rare tier</li>
-                        <li><strong>First other content ever:</strong> +1.2 points → Can reach Uncommon tier</li>
-                        <li>This creates legendary moments for pioneers who upload new content types first</li>
-                      </ul>
-                    </div>
+                <div className="rarity-intro">
+                  <p style={{ 
+                    backgroundColor: '#f0f9ff', 
+                    padding: '12px', 
+                    borderRadius: '8px',
+                    border: '1px solid #bae6fd',
+                    color: '#0c4a6e',
+                    fontSize: '14px',
+                    marginBottom: '20px',
+                    fontWeight: '500'
+                  }}>
+                    ⚡ <strong>Ultra Simple:</strong> Just 3 factors, 6 metadata fields, 0-6 points total. Clean and fair for everyone!
+                  </p>
+                </div>
+                
+                <div className="rarity-criterion">
+                  <h4>📁 Factor 1: File Size Quality (0-2 points)</h4>
+                  <p>Larger files typically mean better quality recordings</p>
+                  <ul>
+                    <li><strong>2.0 points:</strong> 500MB+ (excellent quality)</li>
+                    <li><strong>1.5 points:</strong> 100-500MB (great quality)</li>
+                    <li><strong>1.0 points:</strong> 50-100MB (good quality)</li>
+                    <li><strong>0.5 points:</strong> 10-50MB (decent quality)</li>
+                    <li><strong>0.2 points:</strong> Under 10MB (basic quality)</li>
+                  </ul>
+                </div>
 
-                    <div className="rarity-criterion">
-                      <h4>📊 Content Type Maximums</h4>
-                      <ul>
-                        <li><strong>🎸 Jams:</strong> Up to 6.0/7 points, Epic tier (compete with songs!)</li>
-                        <li><strong>👥 Crowd Moments:</strong> Up to 6.0/7 points, Rare tier</li>
-                        <li><strong>🎭 Intro/Outro:</strong> Up to 6.0/7 points, Rare tier</li>
-                        <li><strong>🎪 Other Content:</strong> Up to 4.0/7 points, Uncommon tier</li>
-                      </ul>
-                      <p><em>Non-song content now has meaningful rarity potential!</em></p>
-                    </div>
-                  </>
-                )}
+                <div className="rarity-criterion">
+                  <h4>🎵 Factor 2: Song/Content Rarity (0-2 points)</h4>
+                  <p><strong>For Songs:</strong> Based on how often performed live</p>
+                  <ul>
+                    <li><strong>2.0 points:</strong> 1-10 performances (ultra rare)</li>
+                    <li><strong>1.5 points:</strong> 11-50 performances (rare)</li>
+                    <li><strong>1.0 points:</strong> 51-100 performances (uncommon)</li>
+                    <li><strong>0.7 points:</strong> 101-200 performances (common)</li>
+                    <li><strong>0.4 points:</strong> 200+ performances (very common)</li>
+                  </ul>
+                  <p><strong>For Other Content:</strong> Based on content type rarity</p>
+                  <ul>
+                    <li><strong>1.8 points:</strong> Jams/Improvisations</li>
+                    <li><strong>1.2 points:</strong> Intros/Outros</li>
+                    <li><strong>1.0 points:</strong> Crowd Moments</li>
+                    <li><strong>0.8 points:</strong> Other Content</li>
+                  </ul>
+                </div>
+
+                <div className="rarity-criterion">
+                  <h4>📝 Factor 3: Metadata Completeness (0-2 points)</h4>
+                  <p>Based on how much detail you provided (6 total fields)</p>
+                  <ul>
+                    <li><strong>Description:</strong> What happens in this moment</li>
+                    <li><strong>Emotional Tags:</strong> Mood and energy</li>
+                    <li><strong>Special Occasion:</strong> Birthday, encore, etc.</li>
+                    <li><strong>Instruments:</strong> Featured instruments</li>
+                    <li><strong>Crowd Reaction:</strong> How the audience responded</li>
+                    <li><strong>Unique Elements:</strong> Special circumstances</li>
+                  </ul>
+                  <p><em>Score = (filled fields ÷ 6) × 2 points</em></p>
+                </div>
+
+                <div className="rarity-criterion">
+                  <h4>🏅 7-Tier Rarity System (0-6 points total)</h4>
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+                    gap: '8px',
+                    margin: '12px 0'
+                  }}>
+                    {[
+                      { name: 'Legendary', emoji: '🌟', range: '5.5-6.0', color: '#FFD700' },
+                      { name: 'Mythic', emoji: '🔮', range: '4.8-5.4', color: '#8B5CF6' },
+                      { name: 'Epic', emoji: '💎', range: '4.0-4.7', color: '#9B59B6' },
+                      { name: 'Rare', emoji: '🔥', range: '3.2-3.9', color: '#E74C3C' },
+                      { name: 'Uncommon', emoji: '⭐', range: '2.4-3.1', color: '#3498DB' },
+                      { name: 'Common', emoji: '📀', range: '1.6-2.3', color: '#95A5A6' },
+                      { name: 'Basic', emoji: '⚪', range: '0-1.5', color: '#BDC3C7' }
+                    ].map(tier => (
+                      <div key={tier.name} style={{
+                        padding: '8px',
+                        border: `2px solid ${tier.color}`,
+                        borderRadius: '6px',
+                        textAlign: 'center',
+                        fontSize: '12px'
+                      }}>
+                        <div style={{ fontSize: '16px', marginBottom: '4px' }}>{tier.emoji}</div>
+                        <div style={{ fontWeight: 'bold', color: tier.color }}>{tier.name}</div>
+                        <div style={{ color: '#666' }}>{tier.range} pts</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rarity-criterion">
+                  <h4>✨ What's Different</h4>
+                  <div style={{
+                    backgroundColor: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#166534'
+                  }}>
+                    <p style={{ margin: '0 0 8px 0', fontWeight: 'bold' }}>⚡ Ultra Simplified:</p>
+                    <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                      <li>✅ Only 3 factors (was 4)</li>
+                      <li>✅ Only 6 metadata fields (was 8)</li>
+                      <li>✅ 0-6 points scale (was 0-7)</li>
+                      <li>❌ Removed "first at event" bonus</li>
+                      <li>❌ Removed guest appearances field</li>
+                      <li>❌ Removed personal note field</li>
+                      <li>❌ Removed song position field</li>
+                      <li>🎯 Focus on quality + completeness only</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -886,13 +1010,13 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             font-size: 1rem;
           }
 
-          .rarity-breakdown {
+          .rarity-breakdown-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 0.25rem;
           }
 
-          .rarity-component {
+          .rarity-factor {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -902,29 +1026,28 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             font-size: 0.75rem;
           }
 
-          .component-label {
+          .factor-label {
             color: #6b7280;
             font-weight: 500;
           }
 
-          .component-value {
+          .factor-score {
             color: #374151;
             font-weight: 600;
             font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
           }
 
-          .first-moment-note {
-            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-            color: #92400e;
-            padding: 0.5rem;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            font-weight: 500;
-            text-align: center;
+          .rarity-explanations {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-top: 0.5rem;
           }
 
-          .non-song-explanation {
-            margin-top: 0.5rem;
+          .factor-explanation {
+            font-size: 0.7rem;
+            color: #6b7280;
+            padding: 0.2rem 0;
           }
 
           .card-media {

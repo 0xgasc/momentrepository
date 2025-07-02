@@ -139,484 +139,184 @@ const detectNonSongContent = (songName) => {
   return { isNonSong: false, type: 'song', confidence: 0.0 };
 };
 
-// Enhanced non-song rarity calculation
-const calculateNonSongRarity = async (moment, contentType) => {
-  console.log(`🎭 Calculating enhanced non-song rarity for "${moment.songName}" (${contentType})`);
-  
-  let totalScore = 0;
-  let scoreBreakdown = {
-    nonSongContent: {
-      type: contentType,
-      components: {}
-    }
-  };
-  
-  // 1. CONTENT TYPE BASE SCORE (0.8-1.5 points) - Higher base scores
-  let baseScore = 0;
-  let maxPossible = 6.0; // All content types can reach 6/7 max
-  let tierCap = 'epic'; // Most can reach epic tier
-  
-  switch (contentType) {
-    case 'intro':
-    case 'outro':
-      baseScore = 1.0;
-      tierCap = 'rare'; // Can reach rare
-      break;
-    case 'jam':
-      baseScore = 1.5; // Highest base - jams are special
-      tierCap = 'epic'; // Jams can reach epic tier
-      break;
-    case 'crowd':
-      baseScore = 1.2;
-      tierCap = 'rare'; // Can reach rare
-      break;
-    case 'other':
-      baseScore = 0.8;
-      tierCap = 'uncommon'; // More limited but still decent
-      maxPossible = 4.0; // Slightly lower cap for generic "other"
-      break;
-    default:
-      baseScore = 1.0;
-      tierCap = 'rare';
-  }
-  
-  totalScore += baseScore;
-  scoreBreakdown.nonSongContent.components.baseScore = {
-    score: baseScore,
-    description: `Base score for ${contentType} content`
-  };
-  
-  // 2. GLOBAL FIRST BONUS (0-1.5 points) - NEW: First of this type EVER
-  const isGlobalFirstOfType = await Moment.find({
-    contentType: contentType,
-    _id: { $ne: moment._id }
-  }).sort({ createdAt: 1 }).limit(1);
-  
-  let globalFirstBonus = 0;
-  if (isGlobalFirstOfType.length === 0) {
-    // This is the very first upload of this content type!
-    globalFirstBonus = contentType === 'jam' ? 1.5 : 1.2; // Jams get highest bonus
-    console.log(`🌟 GLOBAL FIRST: First ${contentType} content ever uploaded!`);
-  }
-  
-  totalScore += globalFirstBonus;
-  scoreBreakdown.nonSongContent.components.globalFirst = {
-    score: globalFirstBonus,
-    isGlobalFirst: globalFirstBonus > 0,
-    description: globalFirstBonus > 0 ? 
-      `🌟 FIRST ${contentType.toUpperCase()} CONTENT EVER UPLOADED!` : 
-      `Not the first ${contentType} content`
-  };
-  
-  // 3. METADATA QUALITY BONUS (0-0.8 points) - Increased from 0.4
-  const metadataFields = [
-    moment.momentDescription,
-    moment.emotionalTags,
-    moment.crowdReaction,
-    moment.uniqueElements,
-    moment.personalNote
-  ];
-  
-  const filledFields = metadataFields.filter(field => field && field.trim().length > 0).length;
-  const metadataMultiplier = contentType === 'jam' ? 0.8 : 0.6; // Higher bonuses
-  const metadataScore = (filledFields / metadataFields.length) * metadataMultiplier;
-  
-  totalScore += metadataScore;
-  scoreBreakdown.nonSongContent.components.metadata = {
-    score: metadataScore,
-    filledFields,
-    totalFields: metadataFields.length,
-    description: `${filledFields}/${metadataFields.length} metadata fields`
-  };
-  
-  // 4. PERFORMANCE PRECEDENCE (0-0.8 points) - Increased bonus
-  const existingContentAtPerformance = await Moment.find({
-    performanceId: moment.performanceId,
-    contentType: contentType,
-    _id: { $ne: moment._id }
-  }).sort({ createdAt: 1 });
-  
-  const isFirstOfTypeAtPerformance = existingContentAtPerformance.length === 0;
-  let precedenceScore = 0;
-  
-  if (isFirstOfTypeAtPerformance) {
-    precedenceScore = contentType === 'jam' ? 0.8 : 0.6; // Higher precedence bonuses
-  } else if (existingContentAtPerformance.length === 1) {
-    precedenceScore = contentType === 'jam' ? 0.4 : 0.3; // Second upload gets partial bonus
-  }
-  
-  totalScore += precedenceScore;
-  scoreBreakdown.nonSongContent.components.precedence = {
-    score: precedenceScore,
-    isFirst: isFirstOfTypeAtPerformance,
-    existingCount: existingContentAtPerformance.length,
-    description: isFirstOfTypeAtPerformance 
-      ? `First ${contentType} content for this performance`
-      : `${existingContentAtPerformance.length + 1}${getOrdinalSuffix(existingContentAtPerformance.length + 1)} ${contentType} content for this performance`
-  };
-  
-  // 5. CONTENT-SPECIFIC BONUSES (0-0.8 points) - Increased bonuses
-  let specificBonus = 0;
-  
-  if (contentType === 'jam') {
-    // Jam-specific bonuses - higher rewards
-    const instruments = moment.instruments ? moment.instruments.split(',').map(i => i.trim()).filter(i => i) : [];
-    if (instruments.length >= 3) {
-      specificBonus += 0.5; // 3+ instruments = major bonus
-    } else if (instruments.length >= 2) {
-      specificBonus += 0.3; // 2 instruments = good bonus
-    }
-    if (moment.guestAppearances && moment.guestAppearances.trim().length > 0) {
-      specificBonus += 0.3; // Guest appearance bonus
-    }
-    
-    scoreBreakdown.nonSongContent.components.jamBonus = {
-      score: specificBonus,
-      instruments: instruments.length,
-      hasGuests: !!(moment.guestAppearances && moment.guestAppearances.trim().length > 0),
-      description: `Jam complexity bonus (${instruments.length} instruments, ${moment.guestAppearances ? 'guest' : 'no guest'})`
-    };
-  } else if (contentType === 'crowd') {
-    // Crowd reaction intensity bonus - higher rewards
-    const intenseCrowdReactions = ['Explosive energy', 'Wild dancing', 'Standing ovation', 'Massive sing-along', 'Everyone jumping'];
-    if (intenseCrowdReactions.includes(moment.crowdReaction)) {
-      specificBonus += 0.6; // Major bonus for intense reactions
-    } else if (moment.crowdReaction && moment.crowdReaction !== '') {
-      specificBonus += 0.2; // Minor bonus for any reaction
-    }
-    
-    scoreBreakdown.nonSongContent.components.crowdBonus = {
-      score: specificBonus,
-      reaction: moment.crowdReaction || 'None specified',
-      isIntense: intenseCrowdReactions.includes(moment.crowdReaction),
-      description: `Crowd intensity bonus`
-    };
-  } else if (contentType === 'other') {
-    // Special circumstance bonus for "other" content
-    const specialTerms = ['technical', 'issue', 'rare', 'unexpected', 'unique', 'mistake', 'accident', 'soundcheck'];
-    const description = (moment.momentDescription || '').toLowerCase();
-    const hasSpecialCircumstance = specialTerms.some(term => description.includes(term));
-    
-    if (hasSpecialCircumstance) {
-      specificBonus += 0.4; // Higher bonus for special circumstances
-    }
-    
-    scoreBreakdown.nonSongContent.components.specialBonus = {
-      score: specificBonus,
-      hasSpecialCircumstance,
-      description: hasSpecialCircumstance ? 'Special circumstance bonus' : 'No special circumstances detected'
-    };
-  } else if (contentType === 'intro' || contentType === 'outro') {
-    // Intro/outro specific bonuses
-    if (moment.specialOccasion && moment.specialOccasion.trim().length > 0) {
-      specificBonus += 0.3; // Special occasion bonus
-    }
-    if (moment.uniqueElements && moment.uniqueElements.trim().length > 0) {
-      specificBonus += 0.2; // Unique elements bonus
-    }
-    
-    scoreBreakdown.nonSongContent.components.introBonus = {
-      score: specificBonus,
-      hasSpecialOccasion: !!(moment.specialOccasion && moment.specialOccasion.trim().length > 0),
-      hasUniqueElements: !!(moment.uniqueElements && moment.uniqueElements.trim().length > 0),
-      description: `${contentType} content bonus`
-    };
-  }
-  
-  totalScore += specificBonus;
-  
-  // 6. MEDIA QUALITY BONUS (0-0.4 points) - Increased bonus
-  let qualityBonus = 0;
-  if (moment.videoQuality === 'excellent' && moment.audioQuality === 'excellent') {
-    qualityBonus = 0.4; // Doubled bonus for excellent quality
-  } else if (moment.videoQuality === 'excellent' || moment.audioQuality === 'excellent') {
-    qualityBonus = 0.2;
-  } else if (moment.videoQuality === 'good' && moment.audioQuality === 'good') {
-    qualityBonus = 0.1;
-  }
-  
-  totalScore += qualityBonus;
-  scoreBreakdown.nonSongContent.components.quality = {
-    score: qualityBonus,
-    videoQuality: moment.videoQuality || 'good',
-    audioQuality: moment.audioQuality || 'good',
-    description: `Media quality bonus`
-  };
-  
-  // CAP THE SCORE
-  totalScore = Math.min(maxPossible, totalScore);
-  
-  // DETERMINE TIER (with enhanced caps)
-  let rarityTier = 'common';
-  if (tierCap === 'epic' && totalScore >= 5.0) {
-    rarityTier = 'epic';
-  } else if (tierCap === 'rare' && totalScore >= 3.5) {
-    rarityTier = 'rare';
-  } else if ((tierCap === 'uncommon' || tierCap === 'rare' || tierCap === 'epic') && totalScore >= 2.0) {
-    rarityTier = 'uncommon';
-  } else if (totalScore >= 1.0) {
-    rarityTier = 'common';
-  } else {
-    rarityTier = 'common';
-  }
-  
-  // Apply tier caps
-  if (tierCap === 'common') rarityTier = 'common';
-  if (tierCap === 'uncommon' && ['rare', 'epic', 'legendary'].includes(rarityTier)) rarityTier = 'uncommon';
-  if (tierCap === 'rare' && ['epic', 'legendary'].includes(rarityTier)) rarityTier = 'rare';
-  if (tierCap === 'epic' && rarityTier === 'legendary') rarityTier = 'epic';
-  
-  const finalScore = Math.round(totalScore * 100) / 100;
-  
-  console.log(`✅ NON-SONG "${moment.songName}" (${contentType}): ${finalScore}/${maxPossible} (${rarityTier})`);
-  if (globalFirstBonus > 0) {
-    console.log(`   🌟 GLOBAL FIRST BONUS: +${globalFirstBonus} points!`);
-  }
-  console.log(`   Components: Base ${baseScore}, Global ${globalFirstBonus}, Metadata ${metadataScore.toFixed(2)}, Precedence ${precedenceScore}, Specific ${specificBonus}, Quality ${qualityBonus}`);
-  
-  return {
-    rarityScore: finalScore,
-    rarityTier,
-    isFirstMomentForSong: false, // Never true for non-songs
-    songTotalPerformances: 0, // N/A for non-songs
-    scoreBreakdown
-  };
-};
-
-// Enhanced song rarity calculation with performance-specific venue scoring
-const calculateSongRarity = async (moment, umoCache) => {
+// ✅ SUPER SIMPLE: 3-factor rarity calculation
+const calculateRarityScore = async (moment, umoCache) => {
   try {
-    console.log(`🎵 Calculating enhanced song rarity for "${moment.songName}" at ${moment.venueName}...`);
-    
-    const songDatabase = await umoCache.getSongDatabase();
-    const songData = songDatabase[moment.songName];
-    
-    let songTotalPerformances = 0;
-    if (songData) {
-      songTotalPerformances = songData.totalPerformances;
-    } else {
-      console.log(`⚠️ Song "${moment.songName}" not found in cache - treating as rare song`);
-      songTotalPerformances = 25; // Treat as moderately rare
-    }
-    
-    // ENHANCED: Check for first moment for this song at this SPECIFIC PERFORMANCE
-    const allMomentsForSongAtPerformance = await Moment.find({ 
-      songName: moment.songName,
-      performanceId: moment.performanceId, // Same performance, not just venue
-      contentType: 'song',
-      _id: { $ne: moment._id }
-    }).sort({ createdAt: 1 });
-    
-    const allSongMomentsAtPerformanceIncludingCurrent = await Moment.find({ 
-      songName: moment.songName,
-      performanceId: moment.performanceId, // Same performance
-      contentType: 'song'
-    }).sort({ createdAt: 1, _id: 1 });
-    
-    const isFirstMomentForSongAtPerformance = allSongMomentsAtPerformanceIncludingCurrent.length > 0 && 
-                                            allSongMomentsAtPerformanceIncludingCurrent[0]._id.toString() === moment._id.toString();
-    
-    console.log(`   First song moment at this performance: ${allMomentsForSongAtPerformance.length} other song moments found`);
-    console.log(`   isFirstAtPerformance: ${isFirstMomentForSongAtPerformance}`);
+    console.log(`🎯 Calculating super simple rarity for "${moment.songName}" at ${moment.venueName}...`);
     
     let totalScore = 0;
-    let scoreBreakdown = {};
-    
-    // 1. PERFORMANCE FREQUENCY SCORE (0-4 points)
-    let performanceScore = 0;
-    if (songTotalPerformances === 0) {
-      performanceScore = 3.5;
-    } else if (songTotalPerformances >= 1 && songTotalPerformances <= 10) {
-      performanceScore = 4;
-    } else if (songTotalPerformances >= 11 && songTotalPerformances <= 50) {
-      performanceScore = 3;
-    } else if (songTotalPerformances >= 51 && songTotalPerformances <= 100) {
-      performanceScore = 2.5;
-    } else if (songTotalPerformances >= 101 && songTotalPerformances <= 150) {
-      performanceScore = 2;
-    } else if (songTotalPerformances >= 151 && songTotalPerformances <= 200) {
-      performanceScore = 1.5;
-    } else {
-      performanceScore = 1;
-    }
-    
-    totalScore += performanceScore;
-    scoreBreakdown.performanceFrequency = {
-      score: performanceScore,
-      totalPerformances: songTotalPerformances,
-      inCache: !!songData,
-      description: `${songTotalPerformances} live performances${!songData ? ' (estimated)' : ''}`
+    let scoreBreakdown = {
+      simplified: true,
+      factors: {},
+      contentType: moment.contentType || 'song',
+      isNonSong: (moment.contentType && moment.contentType !== 'song')
     };
     
-    // 2. METADATA COMPLETENESS SCORE (0-1 point)
+    // =============================================================================
+    // FACTOR 1: FILE SIZE QUALITY (0-2 points)
+    // Larger files = higher quality = more points
+    // =============================================================================
+    let fileSizeScore = 0;
+    const fileSizeGB = (moment.fileSize || 0) / (1024 * 1024 * 1024);
+    const fileSizeMB = (moment.fileSize || 0) / (1024 * 1024);
+    
+    if (fileSizeMB >= 500) {
+      fileSizeScore = 2.0; // 500MB+ = excellent quality
+    } else if (fileSizeMB >= 100) {
+      fileSizeScore = 1.5; // 100-500MB = great quality
+    } else if (fileSizeMB >= 50) {
+      fileSizeScore = 1.0; // 50-100MB = good quality
+    } else if (fileSizeMB >= 10) {
+      fileSizeScore = 0.5; // 10-50MB = decent quality
+    } else {
+      fileSizeScore = 0.2; // <10MB = basic quality
+    }
+    
+    totalScore += fileSizeScore;
+    scoreBreakdown.factors.fileSize = {
+      score: fileSizeScore,
+      fileSizeMB: Math.round(fileSizeMB * 10) / 10,
+      fileSizeGB: Math.round(fileSizeGB * 100) / 100,
+      description: `${Math.round(fileSizeMB)}MB file size`
+    };
+    
+    // =============================================================================
+    // FACTOR 2: SONG/CONTENT RARITY SCORE (0-2 points)
+    // Based on how rare the song/content type is
+    // =============================================================================
+    let rarityScore = 0;
+    let songTotalPerformances = 0;
+    
+    if (scoreBreakdown.isNonSong) {
+      // For non-song content, base rarity on content type
+      const contentTypeRarity = {
+        'jam': 1.8,      // Jams are quite rare and special
+        'intro': 1.2,    // Intros are moderately rare
+        'outro': 1.2,    // Same as intros  
+        'crowd': 1.0,    // Crowd moments are fairly common
+        'other': 0.8     // Other content is most common
+      };
+      
+      rarityScore = contentTypeRarity[moment.contentType] || 1.0;
+      scoreBreakdown.factors.contentRarity = {
+        score: rarityScore,
+        contentType: moment.contentType,
+        description: `${moment.contentType} content type rarity`
+      };
+    } else {
+      // For songs, use the existing performance frequency logic
+      const songDatabase = await umoCache.getSongDatabase();
+      const songData = songDatabase[moment.songName];
+      
+      if (songData) {
+        songTotalPerformances = songData.totalPerformances;
+      } else {
+        console.log(`⚠️ Song "${moment.songName}" not found in cache - treating as moderately rare`);
+        songTotalPerformances = 25; // Default assumption for unknown songs
+      }
+      
+      // Simplified performance rarity scoring
+      if (songTotalPerformances >= 1 && songTotalPerformances <= 10) {
+        rarityScore = 2.0; // Ultra rare songs
+      } else if (songTotalPerformances >= 11 && songTotalPerformances <= 50) {
+        rarityScore = 1.5; // Rare songs
+      } else if (songTotalPerformances >= 51 && songTotalPerformances <= 100) {
+        rarityScore = 1.0; // Uncommon songs
+      } else if (songTotalPerformances >= 101 && songTotalPerformances <= 200) {
+        rarityScore = 0.7; // Common songs
+      } else {
+        rarityScore = 0.4; // Very common songs (200+ performances)
+      }
+      
+      scoreBreakdown.factors.songRarity = {
+        score: rarityScore,
+        totalPerformances: songTotalPerformances,
+        inCache: !!songData,
+        description: `${songTotalPerformances} live performances${!songData ? ' (estimated)' : ''}`
+      };
+    }
+    
+    totalScore += rarityScore;
+    
+    // =============================================================================
+    // FACTOR 3: METADATA COMPLETENESS SCORE (0-2 points)
+    // 6 metadata fields - percentage filled × 2 = score
+    // =============================================================================
     const metadataFields = [
       moment.momentDescription,
       moment.emotionalTags,
       moment.specialOccasion,
       moment.instruments,
-      moment.guestAppearances,
       moment.crowdReaction,
-      moment.uniqueElements,
-      moment.personalNote
+      moment.uniqueElements
     ];
     
     const filledFields = metadataFields.filter(field => field && field.trim().length > 0).length;
     const totalFields = metadataFields.length;
-    const metadataScore = (filledFields / totalFields);
+    const completenessPercentage = (filledFields / totalFields) * 100;
+    const metadataScore = (filledFields / totalFields) * 2.0; // Scale to 2 points max
     
     totalScore += metadataScore;
-    scoreBreakdown.metadataCompleteness = {
+    scoreBreakdown.factors.metadata = {
       score: metadataScore,
       filledFields,
       totalFields,
-      percentage: Math.round((filledFields / totalFields) * 100),
-      description: `${filledFields}/${totalFields} metadata fields (${Math.round((filledFields / totalFields) * 100)}%)`
+      percentage: Math.round(completenessPercentage),
+      description: `${filledFields}/${totalFields} metadata fields (${Math.round(completenessPercentage)}%)`
     };
     
-    // 3. VIDEO LENGTH OPTIMIZATION SCORE (0-1 point)
-    let lengthScore = 0;
-    let videoDuration = null;
+    // =============================================================================
+    // DETERMINE 7-TIER RARITY (0-6 points scale)
+    // =============================================================================
+    let rarityTier = 'basic';
     
-    if (moment.mediaType === 'video' && moment.fileSize) {
-      const estimatedDuration = (moment.fileSize / (1024 * 1024)) * 10; // seconds
-      videoDuration = estimatedDuration;
-      
-      const targetDuration = 150; // 2.5 minutes in seconds
-      const difference = Math.abs(estimatedDuration - targetDuration);
-      
-      if (difference <= 15) {
-        lengthScore = 1;
-      } else if (difference <= 30) {
-        lengthScore = 0.8;
-      } else if (difference <= 60) {
-        lengthScore = 0.6;
-      } else if (difference <= 120) {
-        lengthScore = 0.4;
-      } else if (difference <= 180) {
-        lengthScore = 0.2;
-      } else {
-        lengthScore = 0.1;
-      }
-    } else if (moment.mediaType === 'audio') {
-      lengthScore = 0.5;
-    } else if (moment.mediaType === 'image') {
-      lengthScore = 0.3;
-    }
-    
-    totalScore += lengthScore;
-    scoreBreakdown.videoLength = {
-      score: lengthScore,
-      estimatedDuration: videoDuration ? Math.round(videoDuration) : null,
-      targetDuration: 150,
-      description: videoDuration ? 
-        `~${Math.round(videoDuration)}s (target: 150s)` : 
-        `${moment.mediaType || 'unknown'} file`
-    };
-    
-    // 4. PERFORMANCE-SPECIFIC PRECEDENCE SCORE (0-1 point) - ENHANCED
-    const uploadPosition = allMomentsForSongAtPerformance.length + 1;
-    let precedenceScore = 0;
-    
-    if (uploadPosition === 1) {
-      precedenceScore = 1.0; // First moment for this song at this specific performance
-    } else if (uploadPosition === 2) {
-      precedenceScore = 0.5; // Second moment for this song at this performance
-    } else if (uploadPosition === 3) {
-      precedenceScore = 0.25; // Third moment
-    } else if (uploadPosition <= 5) {
-      precedenceScore = 0.1; // 4th-5th moments
-    } else {
-      precedenceScore = 0;
-    }
-    
-    precedenceScore = Math.min(1.0, precedenceScore);
-    
-    totalScore += precedenceScore;
-    scoreBreakdown.performancePrecedence = {
-      score: precedenceScore,
-      uploadPosition,
-      existingAtPerformance: allMomentsForSongAtPerformance.length,
-      description: uploadPosition === 1 ? 
-        'First moment for this song at this performance' : 
-        `${uploadPosition}${getOrdinalSuffix(uploadPosition)} moment for this song at this performance`
-    };
-    
-    // Safety check: Ensure total score never exceeds 7.0
-    totalScore = Math.min(7.0, totalScore);
-    
-    // Determine rarity tier
-    let rarityTier = 'common';
-    if (totalScore >= 6) {
+    if (totalScore >= 5.5) {
       rarityTier = 'legendary';
-    } else if (totalScore >= 5) {
+    } else if (totalScore >= 4.8) {
+      rarityTier = 'mythic';
+    } else if (totalScore >= 4.0) {
       rarityTier = 'epic';
-    } else if (totalScore >= 3.5) {
+    } else if (totalScore >= 3.2) {
       rarityTier = 'rare';
-    } else if (totalScore >= 2) {
+    } else if (totalScore >= 2.4) {
       rarityTier = 'uncommon';
-    } else {
+    } else if (totalScore >= 1.6) {
       rarityTier = 'common';
+    } else {
+      rarityTier = 'basic';
     }
     
     const finalScore = Math.round(totalScore * 100) / 100;
     
-    console.log(`✅ SONG "${moment.songName}" at ${moment.venueName} (${moment.performanceDate}): ${finalScore}/7 (${rarityTier})`);
-    console.log(`   Performance: ${performanceScore}, Metadata: ${metadataScore.toFixed(2)}, Length: ${lengthScore}, Precedence: ${precedenceScore}`);
+    console.log(`✅ SUPER SIMPLE "${moment.songName}" ${scoreBreakdown.isNonSong ? `(${moment.contentType})` : ''}: ${finalScore}/6.0 (${rarityTier})`);
+    console.log(`   File: ${fileSizeScore}, Rarity: ${rarityScore}, Metadata: ${metadataScore.toFixed(2)}`);
     
     return {
       rarityScore: finalScore,
       rarityTier,
-      isFirstMomentForSong: isFirstMomentForSongAtPerformance, // ENHANCED: First at this performance
-      songTotalPerformances,
+      isFirstMomentForSong: false, // Removed this bonus entirely
+      songTotalPerformances: scoreBreakdown.isNonSong ? 0 : songTotalPerformances,
       scoreBreakdown
     };
     
   } catch (error) {
-    console.error('❌ Error calculating song rarity score:', error);
+    console.error('❌ Error calculating super simple rarity score:', error);
     return {
       rarityScore: 0,
-      rarityTier: 'common',
+      rarityTier: 'basic',
       isFirstMomentForSong: false,
       songTotalPerformances: 0,
-      scoreBreakdown: {}
+      scoreBreakdown: {
+        simplified: true,
+        error: error.message
+      }
     };
   }
 };
 
-// Main calculation function
-const calculateRarityScore = async (moment, umoCache) => {
-  try {
-    console.log(`🎯 Calculating rarity for "${moment.songName}" at ${moment.venueName}...`);
-    
-    // Check content type from form data
-    const contentType = moment.contentType || 'song';
-    
-    // Handle non-song content with enhanced calculation
-    if (contentType !== 'song') {
-      console.log(`🎭 Processing non-song content: "${moment.songName}" (type: ${contentType})`);
-      return calculateNonSongRarity(moment, contentType);
-    }
-    
-    // Fallback: Detect non-song content from name if type wasn't set
-    const nonSongDetection = detectNonSongContent(moment.songName);
-    if (nonSongDetection.isNonSong && nonSongDetection.confidence > 0.8) {
-      console.log(`🚫 Auto-detected non-song content: "${moment.songName}" (${nonSongDetection.type})`);
-      return calculateNonSongRarity(moment, nonSongDetection.type);
-    }
-    
-    // Process as song with enhanced calculation
-    return calculateSongRarity(moment, umoCache);
-    
-  } catch (error) {
-    console.error('❌ Error calculating rarity score:', error);
-    return {
-      rarityScore: 0,
-      rarityTier: 'common',
-      isFirstMomentForSong: false,
-      songTotalPerformances: 0,
-      scoreBreakdown: {}
-    };
-  }
+// Export for use in server
+module.exports = {
+  calculateRarityScore
 };
 
 // =============================================================================
@@ -1341,7 +1041,8 @@ app.post('/upload-moment', authenticateToken, async (req, res) => {
 
     // Calculate rarity using the enhanced function
     await umoCache.loadCache();
-    const rarityData = await calculateRarityScore(moment, umoCache);
+const rarityData = await calculateRarityScore(moment, umoCache);
+
     
     // Set rarity data
     moment.rarityScore = rarityData.rarityScore;
@@ -1480,10 +1181,9 @@ app.put('/moments/:momentId', authenticateToken, async (req, res) => {
 // =============================================================================
 // RARITY RECALCULATION ENDPOINT
 // =============================================================================
-
 app.post('/admin/recalculate-rarity', async (req, res) => {
   try {
-    console.log('🎯 Starting ENHANCED rarity recalculation for all moments...');
+    console.log('🎯 Starting SIMPLIFIED rarity recalculation for all moments...');
     
     await umoCache.loadCache();
     
@@ -1493,26 +1193,25 @@ app.post('/admin/recalculate-rarity', async (req, res) => {
     let updated = 0;
     let errors = 0;
     let nonSongCount = 0;
-    let songNotInCacheCount = 0;
     
     const tierCounts = {
       legendary: 0,
+      mythic: 0,
       epic: 0,
       rare: 0,
       uncommon: 0,
-      common: 0
+      common: 0,
+      basic: 0
     };
     
     for (const moment of allMoments) {
       try {
         const rarityData = await calculateRarityScore(moment, umoCache);
+
+
         
-        if (rarityData.scoreBreakdown?.nonSongContent) {
+        if (rarityData.scoreBreakdown?.isNonSong) {
           nonSongCount++;
-        }
-        
-        if (rarityData.scoreBreakdown?.performanceFrequency && !rarityData.scoreBreakdown.performanceFrequency.inCache) {
-          songNotInCacheCount++;
         }
         
         tierCounts[rarityData.rarityTier]++;
@@ -1531,10 +1230,8 @@ app.post('/admin/recalculate-rarity', async (req, res) => {
         
         updated++;
         
-        if (rarityData.scoreBreakdown?.nonSongContent) {
-          console.log(`🎭 Non-song "${moment.songName}" - Score: ${rarityData.rarityScore} (${rarityData.rarityTier})`);
-        } else {
-          console.log(`✅ Updated "${moment.songName}" - Score: ${rarityData.rarityScore} (${rarityData.rarityTier})`);
+        if (updated % 10 === 0) {
+          console.log(`   📊 Progress: ${updated}/${allMoments.length} completed`);
         }
         
       } catch (err) {
@@ -1543,40 +1240,35 @@ app.post('/admin/recalculate-rarity', async (req, res) => {
       }
     }
     
-    console.log(`🎯 ENHANCED rarity recalculation complete:`);
+    console.log(`🎯 SIMPLIFIED rarity recalculation complete:`);
     console.log(`   📊 Total processed: ${allMoments.length}`);
     console.log(`   ✅ Successfully updated: ${updated}`);
     console.log(`   ❌ Errors: ${errors}`);
-    console.log(`   🎭 Non-song content detected: ${nonSongCount}`);
-    console.log(`   🔍 Songs not in cache: ${songNotInCacheCount}`);
-    console.log(`   🏆 Tier distribution:`, tierCounts);
+    console.log(`   🎭 Non-song content: ${nonSongCount}`);
+    console.log(`   🏆 7-Tier distribution:`, tierCounts);
     
     res.json({
       success: true,
-      message: `Enhanced recalculation complete: ${updated} moments updated`,
+      message: `Simplified 4-factor recalculation complete: ${updated} moments updated`,
+      system: 'simplified-4-factor',
       statistics: {
         totalProcessed: allMoments.length,
         successfulUpdates: updated,
         errors: errors,
-        nonSongContentDetected: nonSongCount,
-        songsNotInCache: songNotInCacheCount,
+        nonSongContent: nonSongCount,
         tierDistribution: tierCounts
-      },
-      details: {
-        updated,
-        errors,
-        total: allMoments.length
       }
     });
     
   } catch (error) {
-    console.error('❌ Enhanced rarity recalculation failed:', error);
+    console.error('❌ Simplified rarity recalculation failed:', error);
     res.status(500).json({
       error: 'Failed to recalculate rarity',
       details: error.message
     });
   }
 });
+
 
 // =============================================================================
 // ERROR HANDLING & STARTUP

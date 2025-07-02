@@ -52,11 +52,11 @@ const momentSchema = new mongoose.Schema({
   rarityScore: { type: Number, default: 0 }, // Calculated automatically (0-200)
   isFirstMomentForSong: { type: Boolean, default: false }, // First moment uploaded for this song
   songTotalPerformances: { type: Number, default: 0 }, // How many times this song has been performed live
-  rarityTier: { 
-    type: String, 
-    enum: ['legendary', 'epic', 'rare', 'uncommon', 'common'], 
-    default: 'common' 
-  },
+ rarityTier: { 
+  type: String, 
+  enum: ['legendary', 'mythic', 'epic', 'rare', 'uncommon', 'common', 'basic'], 
+  default: 'basic' 
+},
   
   // ✅ EXISTING NFT fields (keep these as they are)
   nftMinted: { type: Boolean, default: false },
@@ -118,22 +118,39 @@ momentSchema.virtual('fullVenueName').get(function() {
 });
 
 // Virtual for rarity display
+
+// Replace the existing rarityDisplay virtual in Moment.js with this:
 momentSchema.virtual('rarityDisplay').get(function() {
   const tierEmojis = {
     legendary: '🌟',
+    mythic: '🔮', 
     epic: '💎',
     rare: '🔥',
     uncommon: '⭐',
-    common: '📀'
+    common: '📀',
+    basic: '⚪'
+  };
+  
+  const tierColors = {
+    legendary: '#FFD700',
+    mythic: '#8B5CF6',
+    epic: '#9B59B6', 
+    rare: '#E74C3C',
+    uncommon: '#3498DB',
+    common: '#95A5A6',
+    basic: '#BDC3C7'
   };
   
   return {
-    emoji: tierEmojis[this.rarityTier] || '📀',
+    emoji: tierEmojis[this.rarityTier] || '⚪',
     tier: this.rarityTier,
     score: this.rarityScore,
-    percentage: Math.round((this.rarityScore / 200) * 100)
+    percentage: Math.round((this.rarityScore / 7.0) * 100),
+    color: tierColors[this.rarityTier] || '#BDC3C7',
+    maxScore: 7.0
   };
 });
+
 
 // ✅ NEW VIRTUAL: Check if NFT edition exists
 momentSchema.virtual('hasNFTEdition').get(function() {
@@ -173,12 +190,47 @@ momentSchema.methods.generateNFTMetadata = function() {
   const rarityDisplay = this.rarityDisplay;
   const contentDisplay = this.contentTypeDisplay;
   
+  // Format upload timestamp for provenance
+  const uploadTimestamp = this.createdAt.toISOString();
+  const uploadDate = this.createdAt.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long', 
+    day: 'numeric',
+    timeZone: 'UTC'
+  });
+  const uploadTime = this.createdAt.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone: 'UTC'
+  });
+  
   return {
     name: `${this.songName} - ${this.venueName} (${this.performanceDate})`,
-    description: this.momentDescription || `A ${rarityDisplay.tier} ${contentDisplay.label.toLowerCase()} from ${this.songName} at ${this.venueName} on ${this.performanceDate}`,
+    description: this.momentDescription || `A ${rarityDisplay.tier} ${contentDisplay.label.toLowerCase()} from ${this.songName} at ${this.venueName} on ${this.performanceDate}. Originally uploaded on ${uploadDate} at ${uploadTime} UTC.`,
     image: this.mediaUrl,
     external_url: this.mediaUrl,
     attributes: [
+      // ✅ PROMINENT: Upload provenance attributes first
+      {
+        trait_type: "Upload Date",
+        value: uploadDate
+      },
+      {
+        trait_type: "Upload Time (UTC)",
+        value: uploadTime
+      },
+      {
+        trait_type: "Upload Timestamp",
+        value: uploadTimestamp,
+        display_type: "date"
+      },
+      {
+        trait_type: "Uploader",
+        value: this.user?.displayName || "Anonymous"
+      },
+      
+      // Content identification
       {
         trait_type: "Content Type",
         value: contentDisplay.label
@@ -207,14 +259,16 @@ momentSchema.methods.generateNFTMetadata = function() {
         trait_type: "Set",
         value: this.setName || "Main Set"
       },
-      {
-        trait_type: "Song Position",
-        value: this.songPosition || 0,
-        display_type: "number"
-      },
+      
+      // Media details
       {
         trait_type: "Media Type",
         value: this.mediaType
+      },
+      {
+        trait_type: "File Size (MB)",
+        value: Math.round((this.fileSize || 0) / 1024 / 1024),
+        display_type: "number"
       },
       {
         trait_type: "Audio Quality",
@@ -228,12 +282,8 @@ momentSchema.methods.generateNFTMetadata = function() {
         trait_type: "Moment Type",
         value: this.momentType
       },
-      {
-        trait_type: "File Size (MB)",
-        value: Math.round((this.fileSize || 0) / 1024 / 1024),
-        display_type: "number"
-      },
-      // Rarity attributes
+      
+      // ✅ SIMPLIFIED: Rarity attributes (3-factor system)
       {
         trait_type: "Rarity Tier",
         value: this.rarityTier
@@ -242,17 +292,14 @@ momentSchema.methods.generateNFTMetadata = function() {
         trait_type: "Rarity Score",
         value: this.rarityScore,
         display_type: "number",
-        max_value: 200
+        max_value: 6
       },
       {
         trait_type: "Song Total Performances",
         value: this.songTotalPerformances,
         display_type: "number"
       },
-      {
-        trait_type: "First Moment for Song",
-        value: this.isFirstMomentForSong ? "Yes" : "No"
-      },
+      
       // ✅ NEW: NFT Edition attributes
       {
         trait_type: "Edition Size",
@@ -277,27 +324,99 @@ momentSchema.methods.generateNFTMetadata = function() {
         value: instrument.trim()
       })) : []
     ).filter(attr => attr.value), // Remove empty attributes
+    
     properties: {
+      // ✅ ENHANCED: Provenance properties
       creator: this.user,
+      creator_name: this.user?.displayName || "Anonymous",
+      upload_timestamp_iso: uploadTimestamp,
+      upload_timestamp_unix: Math.floor(this.createdAt.getTime() / 1000),
+      
+      // Content identification
       performance_id: this.performanceId,
       moment_id: this._id,
-      created_at: this.createdAt,
       content_type: this.contentType,
-      personal_note: this.personalNote,
-      crowd_reaction: this.crowdReaction,
+      
+      // ✅ SIMPLIFIED: Only the 6 metadata fields we use for rarity
+      moment_description: this.momentDescription,
+      emotional_tags: this.emotionalTags,
       special_occasion: this.specialOccasion,
-      guest_appearances: this.guestAppearances,
+      instruments: this.instruments,
+      crowd_reaction: this.crowdReaction,
       unique_elements: this.uniqueElements,
+      
+      // Rarity data
       rarity_score: this.rarityScore,
       rarity_tier: this.rarityTier,
-      is_first_moment: this.isFirstMomentForSong,
+      
       // ✅ NEW: NFT edition properties
       nft_contract: this.nftContractAddress,
       splits_contract: this.nftSplitsContract,
       mint_count: this.nftMintedCount,
-      is_minting_active: this.isMintingActive
+      is_minting_active: this.isMintingActive,
+      
+      // ✅ PROVENANCE: File integrity data
+      original_filename: this.fileName,
+      file_size_bytes: this.fileSize,
+      media_url: this.mediaUrl,
+      
+      // Platform info
+      platform: "UMO Archive",
+      platform_version: "1.0",
+      blockchain: "Ethereum",
+      standard: "ERC-1155"
     }
   };
 };
+
+// ✅ ALSO ADD: Method to verify upload authenticity
+momentSchema.methods.getProvenanceData = function() {
+  return {
+    uploader: {
+      id: this.user._id || this.user,
+      name: this.user?.displayName || "Anonymous",
+      email: this.user?.email || null
+    },
+    upload: {
+      timestamp: this.createdAt.toISOString(),
+      unix_timestamp: Math.floor(this.createdAt.getTime() / 1000),
+      date_formatted: this.createdAt.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long', 
+        day: 'numeric',
+        timeZone: 'UTC'
+      }),
+      time_formatted: this.createdAt.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: 'UTC'
+      })
+    },
+    content: {
+      id: this._id,
+      performance_id: this.performanceId,
+      song_name: this.songName,
+      venue: this.venueName,
+      city: this.venueCity,
+      performance_date: this.performanceDate,
+      content_type: this.contentType
+    },
+    file: {
+      original_name: this.fileName,
+      size_bytes: this.fileSize,
+      size_mb: Math.round((this.fileSize || 0) / 1024 / 1024),
+      media_type: this.mediaType,
+      storage_url: this.mediaUrl
+    },
+    blockchain: {
+      nft_minted: this.nftMinted,
+      contract_address: this.nftContractAddress,
+      token_id: this.nftTokenId,
+      creation_tx: this.nftCreationTxHash
+    }
+  };
+};
+
 
 module.exports = mongoose.model('Moment', momentSchema);

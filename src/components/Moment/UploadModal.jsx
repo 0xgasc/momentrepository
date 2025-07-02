@@ -1,4 +1,4 @@
-// src/components/Moment/UploadModal.jsx - FIXED with better refresh logic
+// src/components/Moment/UploadModal.jsx - SIMPLIFIED with removed fields
 import React, { useState, memo } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { styles } from '../../styles';
@@ -28,16 +28,16 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
     
     // Song-specific fields (only for songs)
     setName: uploadingMoment?.setName || 'Main Set',
-    songPosition: uploadingMoment?.songPosition || 1,
+    // ✅ REMOVED: songPosition
     
-    // Metadata (adapted based on content type)
+    // ✅ SIMPLIFIED: Only the 6 metadata fields used in rarity calculation
     momentDescription: '',
     emotionalTags: [],
     specialOccasion: '',
     instruments: [],
     crowdReaction: '',
     uniqueElements: '',
-    personalNote: '',
+    // ✅ REMOVED: guestAppearances, personalNote
     
     // Quality
     audioQuality: 'good',
@@ -132,7 +132,7 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
         venueCountry: formData.venueCountry,
         songName: formData.songName,
         setName: formData.setName,
-        songPosition: formData.songPosition,
+        // ✅ REMOVED: songPosition
         mediaUrl: fileData.fileUri,
         mediaType: file.type.startsWith('video/') ? 'video' : 
                    file.type.startsWith('audio/') ? 'audio' : 
@@ -140,14 +140,14 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
         fileName: file.name,
         fileSize: file.size,
         
-        // Convert arrays to strings for backend
+        // ✅ SIMPLIFIED: Only the 6 metadata fields
         momentDescription: formData.momentDescription,
         emotionalTags: formData.emotionalTags.join(', '),
         specialOccasion: formData.specialOccasion,
         instruments: formData.instruments.join(', '),
         crowdReaction: formData.crowdReaction,
         uniqueElements: formData.uniqueElements,
-        personalNote: formData.personalNote,
+        // ✅ REMOVED: guestAppearances, personalNote
         
         audioQuality: formData.audioQuality,
         videoQuality: formData.videoQuality,
@@ -185,7 +185,7 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
         console.log('🔄 Reloading page to show new content...');
         onClose();
         window.location.reload();
-      }, 1500); // Reduced from 3000ms to 1500ms
+      }, 1500);
 
     } catch (err) {
       console.error('❌ Upload error:', err);
@@ -201,7 +201,7 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
     <div style={styles.modal.overlay} onClick={() => step === 'form' && onClose()}>
       <div style={{...styles.modal.content, maxWidth: '600px', maxHeight: '90vh', overflow: 'auto'}} onClick={(e) => e.stopPropagation()}>
         {step === 'form' && (
-          <SmartUploadForm 
+          <SimplifiedUploadForm 
             formData={formData}
             file={file}
             error={error}
@@ -236,8 +236,8 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
 
 UploadModal.displayName = 'UploadModal';
 
-// ✅ SMART: Context-aware upload form
-const SmartUploadForm = memo(({ 
+// ✅ SIMPLIFIED: Context-aware upload form with removed fields
+const SimplifiedUploadForm = memo(({ 
   formData, 
   file, 
   error,
@@ -297,7 +297,7 @@ const SmartUploadForm = memo(({
         namePlaceholder: 'Enter the song name...',
         bgColor: 'bg-blue-50 border-blue-200',
         textColor: 'text-blue-800',
-        rarityNote: 'Songs get full rarity calculation (0-7 points) based on performance frequency and metadata'
+        rarityNote: 'Songs get rarity based on file size, performance frequency, and metadata completeness'
       };
     }
     return otherContentTypes[formData.contentType] || otherContentTypes.other;
@@ -320,7 +320,7 @@ const SmartUploadForm = memo(({
     if (isSongUpload) {
       return ['', 'First time played live', 'Rarely played song', 'Extended version', 'Acoustic version', 'Cover song', 'Song dedication', 'New arrangement'];
     } else if (formData.contentType === 'jam') {
-      return ['', 'Extended improvisation', 'Unusual instruments', 'Crowd participation', 'Guest musician', 'Spontaneous creation'];
+      return ['', 'Extended improvisation', 'Unusual instruments', 'Crowd participation', 'Spontaneous creation'];
     } else {
       return ['', 'Spontaneous moment', 'Fan interaction', 'Technical issue', 'Unexpected event', 'Rare occurrence'];
     }
@@ -392,7 +392,7 @@ const SmartUploadForm = memo(({
             ))}
           </div>
           
-          {/* Rarity Information for Other Content */}
+          {/* ✅ UPDATED: Simple rarity information */}
           <div style={{
             padding: '14px',
             backgroundColor: '#f0f9ff',
@@ -401,7 +401,7 @@ const SmartUploadForm = memo(({
             fontSize: '12px',
             color: '#0c4a6e'
           }}>
-            <strong>💎 Rarity Impact:</strong> {currentTypeInfo.label.toLowerCase()} content receives lower rarity scores (1-2.5/7 points) and is capped at "uncommon" tier
+            <strong>⚡ Simple Rarity:</strong> All content uses the same 3-factor formula: file size + content rarity + metadata completeness (0-6 points)
           </div>
         </div>
       )}
@@ -458,45 +458,32 @@ const SmartUploadForm = memo(({
           </div>
         </div>
 
-        {/* ✅ SMART: Only show set/position for songs */}
+        {/* ✅ SIMPLIFIED: Only show set for songs, removed song position */}
         {isSongUpload && (
-          <div style={styles.section.grid}>
-            <div>
-              <label style={styles.label}>Set Name</label>
-              <select
-                value={formData.setName}
-                onChange={(e) => onInputChange('setName', e.target.value)}
-                style={styles.input}
-              >
-                <option value="Main Set">Main Set</option>
-                <option value="Encore">Encore</option>
-              </select>
-            </div>
-            
-            <div>
-              <label style={styles.label}>Song Position (if known)</label>
-              <input
-                type="number"
-                value={formData.songPosition}
-                onChange={(e) => onInputChange('songPosition', parseInt(e.target.value) || 1)}
-                style={styles.input}
-                min="1"
-                placeholder="1"
-              />
-            </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={styles.label}>Set Name</label>
+            <select
+              value={formData.setName}
+              onChange={(e) => onInputChange('setName', e.target.value)}
+              style={styles.input}
+            >
+              <option value="Main Set">Main Set</option>
+              <option value="Encore">Encore</option>
+            </select>
           </div>
         )}
       </div>
 
-      {/* ✅ SMART: Description */}
+      {/* ✅ SIMPLIFIED: Description Section (6 fields total) */}
       <div style={styles.section.container}>
         <h3 style={styles.section.title}>
-          {isOtherContentUpload ? '3️⃣' : '2️⃣'} Description
+          {isOtherContentUpload ? '3️⃣' : '2️⃣'} Description & Details
         </h3>
         
         <div style={{ marginBottom: '1rem' }}>
           <label style={styles.label}>
             {isSongUpload ? 'What happens in this moment?' : `Describe this ${currentTypeInfo.label.toLowerCase()}`}
+            <span style={{ color: '#10b981', fontSize: '12px', marginLeft: '8px' }}>+0.33 rarity points</span>
           </label>
           <textarea
             value={formData.momentDescription}
@@ -512,7 +499,10 @@ const SmartUploadForm = memo(({
 
         {/* Emotional Tags */}
         <div style={{ marginBottom: '1rem' }}>
-          <label style={styles.label}>Mood/Energy (Select Multiple)</label>
+          <label style={styles.label}>
+            Mood/Energy (Select Multiple)
+            <span style={{ color: '#10b981', fontSize: '12px', marginLeft: '8px' }}>+0.33 rarity points</span>
+          </label>
           <div style={{
             border: '1px solid #d1d5db',
             borderRadius: '6px',
@@ -544,40 +534,58 @@ const SmartUploadForm = memo(({
           </div>
         </div>
 
-        {/* Crowd Reaction - Relevant for all types */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={styles.label}>Crowd Reaction</label>
-          <select
-            value={formData.crowdReaction}
-            onChange={(e) => onInputChange('crowdReaction', e.target.value)}
-            style={styles.input}
-          >
-            <option value="">Select reaction...</option>
-            <option value="Explosive energy">Explosive energy</option>
-            <option value="Wild dancing">Wild dancing</option>
-            <option value="Massive sing-along">Massive sing-along</option>
-            <option value="Standing ovation">Standing ovation</option>
-            <option value="Dead silence in awe">Dead silence in awe</option>
-            <option value="Everyone jumping">Everyone jumping</option>
-            <option value="Swaying together">Swaying together</option>
-            <option value="Phone lights up">Phone lights up</option>
-            <option value="Emotional tears">Emotional tears</option>
-            <option value="Moderate response">Moderate response</option>
-            <option value="Quiet appreciation">Quiet appreciation</option>
-          </select>
-        </div>
-      </div>
-
-      {/* ✅ SMART: Additional Details (only for songs and jams) */}
-      {(isSongUpload || formData.contentType === 'jam') && (
-        <div style={styles.section.container}>
-          <h3 style={styles.section.title}>
-            {isOtherContentUpload ? '4️⃣' : '3️⃣'} Additional Details
-          </h3>
+        {/* Grid layout for remaining 4 fields */}
+        <div style={styles.section.grid}>
+          <div>
+            <label style={styles.label}>
+              Special Occasion
+              <span style={{ color: '#10b981', fontSize: '12px', marginLeft: '8px' }}>+0.33 pts</span>
+            </label>
+            <select
+              value={formData.specialOccasion}
+              onChange={(e) => onInputChange('specialOccasion', e.target.value)}
+              style={styles.input}
+            >
+              <option value="">None</option>
+              <option value="Birthday show">Birthday show</option>
+              <option value="Festival debut">Festival debut</option>
+              <option value="Last song">Last song</option>
+              <option value="Encore">Encore</option>
+              <option value="First show of tour">First show of tour</option>
+              <option value="Last show of tour">Last show of tour</option>
+              <option value="Album release party">Album release party</option>
+              <option value="Hometown show">Hometown show</option>
+              <option value="New Year's Eve">New Year's Eve</option>
+              <option value="Holiday show">Holiday show</option>
+            </select>
+          </div>
           
-          {/* Instruments - Only for songs and jams */}
+          <div>
+            <label style={styles.label}>
+              Unique Elements
+              <span style={{ color: '#10b981', fontSize: '12px', marginLeft: '8px' }}>+0.33 pts</span>
+            </label>
+            <select
+              value={formData.uniqueElements}
+              onChange={(e) => onInputChange('uniqueElements', e.target.value)}
+              style={styles.input}
+            >
+              {getUniqueElementOptions().map(option => (
+                <option key={option} value={option}>
+                  {option || 'Select if applicable...'}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Instruments - Only for songs and jams */}
+        {(isSongUpload || formData.contentType === 'jam') && (
           <div style={{ marginBottom: '1rem' }}>
-            <label style={styles.label}>Featured Instruments/Elements</label>
+            <label style={styles.label}>
+              Featured Instruments/Elements
+              <span style={{ color: '#10b981', fontSize: '12px', marginLeft: '8px' }}>+0.33 rarity points</span>
+            </label>
             <div style={{
               border: '1px solid #d1d5db',
               borderRadius: '6px',
@@ -608,66 +616,56 @@ const SmartUploadForm = memo(({
               ))}
             </div>
           </div>
+        )}
 
-          <div style={styles.section.grid}>
-            <div>
-              <label style={styles.label}>Special Occasion</label>
-              <select
-                value={formData.specialOccasion}
-                onChange={(e) => onInputChange('specialOccasion', e.target.value)}
-                style={styles.input}
-              >
-                <option value="">None</option>
-                <option value="Birthday show">Birthday show</option>
-                <option value="Festival debut">Festival debut</option>
-                <option value="Last song">Last song</option>
-                <option value="Encore">Encore</option>
-                <option value="First show of tour">First show of tour</option>
-                <option value="Last show of tour">Last show of tour</option>
-                <option value="Album release party">Album release party</option>
-                <option value="Hometown show">Hometown show</option>
-                <option value="New Year's Eve">New Year's Eve</option>
-                <option value="Holiday show">Holiday show</option>
-              </select>
-            </div>
-            
-            <div>
-              <label style={styles.label}>Unique Elements</label>
-              <select
-                value={formData.uniqueElements}
-                onChange={(e) => onInputChange('uniqueElements', e.target.value)}
-                style={styles.input}
-              >
-                {getUniqueElementOptions().map(option => (
-                  <option key={option} value={option}>
-                    {option || 'Select if applicable...'}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={styles.label}>Personal Note</label>
-            <textarea
-              value={formData.personalNote}
-              onChange={(e) => onInputChange('personalNote', e.target.value)}
-              style={styles.textarea}
-              placeholder="Your personal memory or thoughts about this moment"
-            />
-          </div>
+        {/* Crowd Reaction - Always shown */}
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={styles.label}>
+            Crowd Reaction
+            <span style={{ color: '#10b981', fontSize: '12px', marginLeft: '8px' }}>+0.33 rarity points</span>
+          </label>
+          <select
+            value={formData.crowdReaction}
+            onChange={(e) => onInputChange('crowdReaction', e.target.value)}
+            style={styles.input}
+          >
+            <option value="">Select reaction...</option>
+            <option value="Explosive energy">Explosive energy</option>
+            <option value="Wild dancing">Wild dancing</option>
+            <option value="Massive sing-along">Massive sing-along</option>
+            <option value="Standing ovation">Standing ovation</option>
+            <option value="Dead silence in awe">Dead silence in awe</option>
+            <option value="Everyone jumping">Everyone jumping</option>
+            <option value="Swaying together">Swaying together</option>
+            <option value="Phone lights up">Phone lights up</option>
+            <option value="Emotional tears">Emotional tears</option>
+            <option value="Moderate response">Moderate response</option>
+            <option value="Quiet appreciation">Quiet appreciation</option>
+          </select>
         </div>
-      )}
+      </div>
 
       {/* ✅ SMART: File Upload */}
       <div style={styles.section.container}>
         <h3 style={styles.section.title}>
           {(() => {
-            if (isSongUpload) return '4️⃣';
-            if (formData.contentType === 'jam') return '5️⃣';
+            if (isSongUpload) return '3️⃣';
             return '4️⃣';
           })()} Media File
         </h3>
+        
+        {/* ✅ NEW: File size rarity info */}
+        <div style={{
+          padding: '12px',
+          backgroundColor: '#f0f9ff',
+          border: '1px solid #bae6fd',
+          borderRadius: '8px',
+          fontSize: '12px',
+          color: '#0c4a6e',
+          marginBottom: '1rem'
+        }}>
+          <strong>📁 File Size = Rarity Points:</strong> 500MB+ = 2.0pts, 100MB+ = 1.5pts, 50MB+ = 1.0pt, 10MB+ = 0.5pts
+        </div>
         
         <div style={styles.fileUpload.container}>
           <input
@@ -688,6 +686,9 @@ const SmartUploadForm = memo(({
               <div>
                 <p style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>{file.name}</p>
                 <p style={{ color: '#6b7280' }}>{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                <p style={{ color: '#10b981', fontSize: '12px' }}>
+                  Rarity: {file.size >= 500*1024*1024 ? '2.0' : file.size >= 100*1024*1024 ? '1.5' : file.size >= 50*1024*1024 ? '1.0' : file.size >= 10*1024*1024 ? '0.5' : '0.2'} points
+                </p>
               </div>
             )}
           </label>
@@ -712,7 +713,7 @@ const SmartUploadForm = memo(({
   );
 });
 
-SmartUploadForm.displayName = 'SmartUploadForm';
+SimplifiedUploadForm.displayName = 'SimplifiedUploadForm';
 
 const UploadProgress = memo(({ uploadProgress, uploadStage }) => (
   <div style={{ textAlign: 'center', padding: '2rem' }}>
@@ -746,7 +747,7 @@ const UploadProgress = memo(({ uploadProgress, uploadStage }) => (
 
 UploadProgress.displayName = 'UploadProgress';
 
-// ✅ IMPROVED: Success message with refresh info
+// ✅ UPDATED: Success message for simplified system
 const UploadSuccess = memo(({ isSongUpload, contentType }) => {
   const getContentTypeLabel = () => {
     const types = {
@@ -766,7 +767,7 @@ const UploadSuccess = memo(({ isSongUpload, contentType }) => {
         {isSongUpload ? 'Song Moment Created!' : 'Other Content Created!'}
       </h2>
       <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
-        Your {getContentTypeLabel()} has been uploaded successfully.
+        Your {getContentTypeLabel()} has been uploaded with simple 3-factor rarity scoring.
       </p>
       <div style={{
         padding: '12px',
@@ -776,8 +777,8 @@ const UploadSuccess = memo(({ isSongUpload, contentType }) => {
         fontSize: '14px',
         color: '#0c4a6e'
       }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>🔄 Page will refresh shortly</div>
-        <div>Your new content will appear in the appropriate section</div>
+        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>⚡ Simple Scoring Applied</div>
+        <div>File size + content rarity + metadata completeness = your rarity score</div>
       </div>
     </div>
   );

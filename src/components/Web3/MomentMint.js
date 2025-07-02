@@ -8,7 +8,7 @@ import UMOMomentsERC1155Contract from '../../contracts/UMOMomentsERC1155.json';
 import { ethers } from 'ethers';
 
 const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }) => {
-  // ✅ ADD THIS DEBUG CODE
+  // ✅ DEBUG: Log component props
   console.log('🔍 MomentMint Debug:', {
     momentId: moment?._id,
     songName: moment?.songName,
@@ -16,10 +16,12 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
     hasNFTEdition: hasNFTEdition,
     nftMinted: moment?.nftMinted,
     nftContractAddress: moment?.nftContractAddress,
-    nftTokenId: moment?.nftTokenId
+    nftTokenId: moment?.nftTokenId,
+    rarityScore: moment?.rarityScore,
+    rarityTier: moment?.rarityTier
   });
 
-    // State management
+  // State management
   const [isCreatingNFT, setIsCreatingNFT] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
   const [error, setError] = useState('');
@@ -46,7 +48,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
     enabled: !!UMOMomentsERC1155Contract.address
   });
 
-  // ✅ NEW: Read token info if NFT edition exists
+  // ✅ Read token info if NFT edition exists
   const { data: editionData } = useReadContract({
     address: UMOMomentsERC1155Contract.address,
     abi: UMOMomentsERC1155Contract.abi,
@@ -82,6 +84,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
     }
   }, [txError]);
 
+// ✅ UPDATED: Create NFT metadata for simplified 3-factor system with provenance
 const createNFTMetadata = (moment) => {
   // For videos: Create proper thumbnail for OpenSea
   let imageUrl, animationUrl;
@@ -97,11 +100,21 @@ const createNFTMetadata = (moment) => {
     animationUrl = undefined;
   }
   
-  // ✅ Enhanced description with ALL metadata fields
+  // ✅ ENHANCED: Description with provenance and simplified metadata
+  const uploadDate = new Date(moment.createdAt).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC'
+  });
+  
   let description = moment.momentDescription || 
     `A live performance moment of "${moment.songName}" by UMO at ${moment.venueName}, ${moment.venueCity} on ${moment.performanceDate}.`;
   
-  // Add all metadata fields to description if present
+  // Add provenance info
+  description += `\n\n📅 Originally uploaded on ${uploadDate} by ${moment.user?.displayName || 'Anonymous'}.`;
+  
+  // ✅ SIMPLIFIED: Only add the 6 metadata fields we use for rarity
   if (moment.specialOccasion) {
     description += `\n\n🎉 Special Occasion: ${moment.specialOccasion}`;
   }
@@ -110,16 +123,16 @@ const createNFTMetadata = (moment) => {
     description += `\n\n👥 Crowd Reaction: ${moment.crowdReaction}`;
   }
   
-  if (moment.guestAppearances) {
-    description += `\n\n🎤 Guest Appearances: ${moment.guestAppearances}`;
-  }
-  
   if (moment.uniqueElements) {
     description += `\n\n✨ Unique Elements: ${moment.uniqueElements}`;
   }
   
-  if (moment.personalNote) {
-    description += `\n\n💭 Uploader's Note: ${moment.personalNote}`;
+  if (moment.instruments) {
+    description += `\n\n🎸 Instruments: ${moment.instruments}`;
+  }
+  
+  if (moment.emotionalTags) {
+    description += `\n\n🎭 Mood: ${moment.emotionalTags}`;
   }
   
   return {
@@ -130,7 +143,33 @@ const createNFTMetadata = (moment) => {
     external_url: `${window.location.origin}/moments/${moment._id}`,
     
     attributes: [
-      // Core performance attributes
+      // ✅ PROVENANCE: Upload information first (most important)
+      {
+        trait_type: "Upload Date",
+        value: uploadDate
+      },
+      {
+        trait_type: "Upload Time (UTC)",
+        value: new Date(moment.createdAt).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          timeZone: 'UTC'
+        })
+      },
+      {
+        trait_type: "Uploader",
+        value: moment.user?.displayName || "Anonymous"
+      },
+      
+      // Content identification
+      {
+        trait_type: "Content Type",
+        value: moment.contentType === 'song' ? 'Song Performance' : 
+               moment.contentType === 'jam' ? 'Jam/Improv' :
+               moment.contentType === 'intro' ? 'Intro/Outro' :
+               moment.contentType === 'crowd' ? 'Crowd Moment' : 'Other Content'
+      },
       {
         trait_type: "Song",
         value: moment.songName
@@ -173,7 +212,7 @@ const createNFTMetadata = (moment) => {
         value: moment.videoQuality || "good"
       },
       
-      // Rarity attributes
+      // ✅ UPDATED: Simplified 3-factor rarity attributes
       {
         trait_type: "Rarity Tier",
         value: moment.rarityTier || "common"
@@ -182,48 +221,31 @@ const createNFTMetadata = (moment) => {
         trait_type: "Rarity Score",
         value: moment.rarityScore || 0,
         display_type: "number",
-        max_value: 7
-      },
-      {
-        trait_type: "First Moment for Song",
-        value: moment.isFirstMomentForSong ? "Yes" : "No"
+        max_value: 6  // ✅ Updated from 7 to 6
       },
       
       // Performance context
       {
         trait_type: "Moment Type",
         value: moment.momentType || "performance"
-      },
-      {
-        trait_type: "Uploader",
-        value: moment.user?.displayName || "Anonymous"
       }
     ].concat(
       // ✅ Add set info if available
       moment.setName ? [{ trait_type: "Set", value: moment.setName }] : []
     ).concat(
-      // ✅ Add position if available  
-      moment.songPosition ? [{ trait_type: "Song Position", value: moment.songPosition, display_type: "number" }] : []
-    ).concat(
       // ✅ Add special occasion as trait if available
       moment.specialOccasion ? [{ trait_type: "Special Occasion", value: moment.specialOccasion }] : []
     ).concat(
-      // ✅ Add emotional tags as separate attributes
+      // ✅ SIMPLIFIED: Only add emotional tags from our 6 metadata fields
       moment.emotionalTags ? moment.emotionalTags.split(',').map(tag => ({
         trait_type: "Emotion",
         value: tag.trim()
       })) : []
     ).concat(
-      // ✅ Add instruments as separate attributes
+      // ✅ SIMPLIFIED: Only add instruments from our 6 metadata fields
       moment.instruments ? moment.instruments.split(',').map(instrument => ({
         trait_type: "Instrument", 
         value: instrument.trim()
-      })) : []
-    ).concat(
-      // ✅ Add guest appearances as traits if available
-      moment.guestAppearances ? moment.guestAppearances.split(',').map(guest => ({
-        trait_type: "Guest",
-        value: guest.trim()
       })) : []
     ).concat(
       // ✅ Add crowd reaction category if available
@@ -234,23 +256,42 @@ const createNFTMetadata = (moment) => {
     ).filter(attr => attr.value !== undefined && attr.value !== null && attr.value !== ''),
     
     properties: {
-      category: "music",
+      // ✅ ENHANCED: Provenance properties
       creator: moment.user?.displayName || "Unknown",
+      creator_id: moment.user?._id || moment.user?.id,
+      upload_timestamp_iso: moment.createdAt,
+      upload_timestamp_unix: Math.floor(new Date(moment.createdAt).getTime() / 1000),
+      
+      // Content identification
+      category: "music",
       performance_id: moment.performanceId,
       moment_id: moment._id,
-      created_at: moment.createdAt,
-      rarity_score: moment.rarityScore,
-      is_first_moment: moment.isFirstMomentForSong || false,
+      content_type: moment.contentType,
       
-      // ✅ ALL metadata fields in properties for searchability
+      // ✅ SIMPLIFIED: Only the 6 metadata fields used in rarity calculation
       moment_description: moment.momentDescription,
       emotional_tags: moment.emotionalTags,
       special_occasion: moment.specialOccasion,
       instruments: moment.instruments,
-      guest_appearances: moment.guestAppearances,
       crowd_reaction: moment.crowdReaction,
       unique_elements: moment.uniqueElements,
-      personal_note: moment.personalNote,
+      // ✅ REMOVED: guestAppearances, personalNote (not in simplified system)
+      
+      // ✅ UPDATED: Simplified rarity data
+      rarity_score: moment.rarityScore,
+      rarity_tier: moment.rarityTier,
+      rarity_system: "simplified-3-factor",
+      
+      // File integrity
+      original_filename: moment.fileName,
+      file_size_bytes: moment.fileSize,
+      media_url: moment.mediaUrl,
+      
+      // Platform info
+      platform: "UMO Archive",
+      platform_version: "2.0",
+      blockchain: "Ethereum",
+      standard: "ERC-1155",
       
       // ERC1155 specific
       token_standard: "erc1155",
@@ -259,7 +300,7 @@ const createNFTMetadata = (moment) => {
   };
 };
 
-// ✅ Helper function to categorize crowd reaction energy
+// ✅ Helper function to categorize crowd reaction energy (unchanged)
 const getCrowdEnergyLevel = (crowdReaction) => {
   const reaction = crowdReaction.toLowerCase();
   
@@ -280,7 +321,7 @@ const getCrowdEnergyLevel = (crowdReaction) => {
   }
 };
 
-// ✅ Helper function to extract unique element traits
+// ✅ Helper function to extract unique element traits (unchanged)
 const getUniqueElementTraits = (uniqueElements) => {
   const elements = uniqueElements.toLowerCase();
   const traits = [];
@@ -398,7 +439,9 @@ const handleCreateNFTEdition = async () => {
     console.log('📝 Using backend proxy with parameters:', {
       momentId: moment._id.slice(0, 12) + '...',
       mintDuration: `${mintDuration} days`,
-      metadataURI: metadataURI.slice(0, 50) + '...'
+      metadataURI: metadataURI.slice(0, 50) + '...',
+      rarityScore: moment.rarityScore || 0,
+      rarityTier: moment.rarityTier || 'common'
     });
 
     setCurrentStep('confirming');
@@ -523,45 +566,6 @@ const handleCreateNFTEdition = async () => {
     }
   };
 
-  // ✅ Update backend after successful NFT creation (now includes tokenId)
-  const updateBackendAfterCreation = async (transactionHash, metadataURI, tokenId) => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      const nftEditionData = {
-        nftContractAddress: UMOMomentsERC1155Contract.address,
-        nftTokenId: tokenId || 0, // Use the actual token ID from contract
-        nftMetadataHash: metadataURI,
-        splitsContract: '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96',
-        mintPrice: parseEther('0.001').toString(),
-        mintDuration: mintDuration * 24 * 60 * 60,
-        txHash: transactionHash
-      };
-
-      console.log('📝 Updating backend with ERC1155 edition data...');
-
-      const response = await fetch(`${API_BASE_URL}/moments/${String(moment._id)}/create-nft-edition`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(nftEditionData)
-      });
-
-      if (response.ok) {
-        console.log('✅ Backend updated successfully');
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Backend update failed:', errorText);
-        setError('NFT created but backend update failed. Please refresh the page.');
-      }
-    } catch (error) {
-      console.error('❌ Backend update error:', error);
-      setError('NFT created but backend sync failed. Please refresh the page.');
-    }
-  };
-
   // Record mint in backend (prevent double counting)
   const recordMintInBackend = async (transactionHash, quantity) => {
     try {
@@ -680,13 +684,14 @@ const handleCreateNFTEdition = async () => {
               </div>
             )}
 
-            {/* Edition Settings */}
+            {/* ✅ UPDATED: Edition Settings with simplified rarity info */}
             <div className="bg-white/10 p-4 rounded-lg mb-4">
               <h4 className="text-sm font-semibold mb-2">⚙️ ERC1155 Edition Settings</h4>
               <div className="text-xs space-y-1 mb-3">
                 <div>💵 Price: ~$1 USD (0.001 ETH) per NFT</div>
                 <div>📊 Supply: Unlimited (ERC1155 open edition)</div>
-                <div>🎯 Rarity: {moment.rarityScore || 0}/7</div>
+                <div>🎯 Rarity: {moment.rarityScore || 0}/6 ({moment.rarityTier || 'common'})</div>
+                <div>⚡ System: Simplified 3-Factor</div>
                 <div>🏷️ Token Standard: ERC1155</div>
               </div>
               
@@ -734,7 +739,7 @@ const handleCreateNFTEdition = async () => {
             </button>
             
             <div className="text-xs text-white/80 mt-2 leading-tight">
-              ℹ️ Creates an ERC1155 token where multiple collectors can mint the same moment
+              ℹ️ Creates an ERC1155 token where multiple collectors can mint the same moment with enhanced provenance
             </div>
           </div>
         )}
@@ -761,11 +766,13 @@ const handleCreateNFTEdition = async () => {
           </p>
         </div>
 
+        {/* ✅ UPDATED: Stats with simplified rarity */}
         <div className="bg-white/10 p-4 rounded-lg mb-4">
           <h4 className="text-sm font-semibold mb-2">📊 ERC1155 Edition Stats</h4>
           <div className="text-xs space-y-1">
             <div>💎 Total Minted: {moment.nftMintedCount || 0}</div>
             <div>🏷️ Token ID: {moment.nftTokenId !== undefined ? moment.nftTokenId : 'Pending...'}</div>
+            <div>🎯 Rarity: {moment.rarityScore || 0}/6 ({moment.rarityTier || 'common'})</div>
             <div>💰 Your Revenue: ~${((moment.nftMintedCount || 0) * 0.35 * 0.001 * 3500).toFixed(2)} USD</div>
             <div className="flex items-center">
               {timeRemaining?.isActive ? (
@@ -845,7 +852,7 @@ const handleCreateNFTEdition = async () => {
             OpenSea
           </button>
           <button
-            onClick={() => alert(`ERC1155 Analytics:\n• Total Minted: ${moment.nftMintedCount || 0}\n• Token ID: ${moment.nftTokenId}\n• Revenue: ~$${((moment.nftMintedCount || 0) * 0.35 * 0.001 * 3500).toFixed(2)}`)}
+            onClick={() => alert(`ERC1155 Analytics:\n• Total Minted: ${moment.nftMintedCount || 0}\n• Token ID: ${moment.nftTokenId}\n• Rarity: ${moment.rarityScore || 0}/6 (${moment.rarityTier || 'common'})\n• Revenue: ~$${((moment.nftMintedCount || 0) * 0.35 * 0.001 * 3500).toFixed(2)}`)}
             className="flex-1 bg-white/20 border border-white/30 text-white p-2.5 rounded-lg text-xs font-semibold hover:bg-white/30 transition-colors"
           >
             Analytics
@@ -920,11 +927,15 @@ const handleCreateNFTEdition = async () => {
               </div>
             )}
 
+            {/* ✅ UPDATED: Mint info with simplified rarity */}
             <div className="bg-white/10 p-4 rounded-lg mb-4 text-center">
               <div className="text-xs mb-2 opacity-90">💎 ERC1155 Available for Minting</div>
               <div className="text-2xl font-bold mb-1">~$1 USD</div>
               <div className="text-xs opacity-80">
                 {moment.nftMintedCount || 0} copies minted • Token ID: {moment.nftTokenId}
+              </div>
+              <div className="text-xs mt-1 opacity-80">
+                Rarity: {moment.rarityScore || 0}/6 ({moment.rarityTier || 'common'})
               </div>
               {timeRemaining && (
                 <div className="text-xs mt-2 flex items-center justify-center">
