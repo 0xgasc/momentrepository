@@ -788,6 +788,42 @@ app.get('/cached/performances', async (req, res) => {
   }
 });
 
+app.get('/cached/performance/:performanceId', async (req, res) => {
+  try {
+    const { performanceId } = req.params;
+    
+    console.log(`🎸 Looking for performance: ${performanceId}`);
+    
+    // Get all performances from cache
+    const performances = await umoCache.getPerformances();
+    
+    // Find the specific performance by ID
+    const performance = performances.find(p => p.id === performanceId);
+    
+    if (!performance) {
+      console.log(`❌ Performance ${performanceId} not found`);
+      return res.status(404).json({ 
+        error: 'Performance not found',
+        performanceId 
+      });
+    }
+    
+    console.log(`✅ Found performance: ${performance.venue?.name} - ${performance.eventDate}`);
+    
+    res.json({
+      performance,
+      fromCache: true,
+      lastUpdated: umoCache.cache?.lastUpdated
+    });
+    
+  } catch (err) {
+    console.error('❌ Error fetching single performance:', err);
+    res.status(500).json({ 
+      error: 'Failed to fetch performance',
+      details: err.message 
+    });
+  }
+});
 app.get('/cached/songs', async (req, res) => {
   try {
     const { sortBy = 'alphabetical', limit } = req.query;
@@ -1095,6 +1131,7 @@ app.get('/moments', async (req, res) => {
     console.log(`🌍 Returning ${moments.length} moments in global feed`);
     res.json({ moments });
   } catch (err) {
+
     console.error('❌ Fetch all moments error:', err);
     res.status(500).json({ error: 'Failed to fetch moments' });
   }
@@ -1177,7 +1214,37 @@ app.put('/moments/:momentId', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to update moment', details: err.message });
   }
 });
+// Add this endpoint to your server.js file, around line 800 where your other moment endpoints are:
 
+app.get('/moments/song/:songName', async (req, res) => {
+  try {
+    const { songName } = req.params;
+    const decodedSongName = decodeURIComponent(songName);
+    
+    console.log(`🎵 Fetching moments for song: "${decodedSongName}"`);
+    
+    const moments = await Moment.find({ 
+      songName: decodedSongName 
+    })
+    .sort({ createdAt: -1 })
+    .populate('user', 'displayName');
+    
+    console.log(`✅ Found ${moments.length} moments for "${decodedSongName}"`);
+    
+    res.json({ 
+      moments,
+      songName: decodedSongName,
+      count: moments.length
+    });
+    
+  } catch (err) {
+    console.error(`❌ Error fetching moments for song:`, err);
+    res.status(500).json({ 
+      error: 'Failed to fetch song moments',
+      details: err.message 
+    });
+  }
+});
 // =============================================================================
 // RARITY RECALCULATION ENDPOINT
 // =============================================================================

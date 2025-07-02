@@ -1,4 +1,4 @@
-// src/components/Performance/PerformanceDetail.jsx - COMPLETE with sleek dropdown
+// src/components/Performance/PerformanceDetail.jsx - UPDATED with banner upload button
 import React, { useState, useEffect, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useMoments } from '../../hooks';
@@ -164,33 +164,18 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
         onBack={onBack}
       />
 
-      {/* ✅ SLEEK: Simple Upload Other Content Button */}
-      {user && (
-        <div className="mb-6 flex justify-center">
-          <button
-            onClick={() => handleUploadOtherContent('other')}
-            className="group flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105"
-          >
-            <span className="text-lg">📀</span>
-            <span>Upload Other Content</span>
-            <span className="text-xs bg-white/20 px-2 py-1 rounded ml-1">
-              Intro • Outro • Crowd • etc.
-            </span>
-          </button>
-        </div>
-      )}
+      {/* ✅ UPDATED: Other Content Section - ALWAYS SHOW with upload button in banner */}
+      <OtherContentSection
+        user={user}
+        groupedContent={groupedOtherContent}
+        otherContent={otherContent}
+        showOtherContent={showOtherContent}
+        setShowOtherContent={setShowOtherContent}
+        onSelectMoment={setSelectedMoment}
+        onUploadOtherContent={handleUploadOtherContent}
+      />
 
-      {/* ✅ Other Content Section (if any exists) */}
-      {otherContent.length > 0 && (
-        <OtherContentSection
-          groupedContent={groupedOtherContent}
-          showOtherContent={showOtherContent}
-          setShowOtherContent={setShowOtherContent}
-          onSelectMoment={setSelectedMoment}
-        />
-      )}
-
-      {/* ✅ Main Setlist (ONLY actual songs) */}
+      {/* ✅ Main Setlist (ONLY actual songs) - REMOVED filtered content notification */}
       <MainSetlistDisplay 
         performance={performance}
         user={user}
@@ -220,8 +205,6 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
 });
 
 PerformanceDetail.displayName = 'PerformanceDetail';
-
-
 
 // ✅ Header remains the same
 const PerformanceHeader = memo(({ performance, songMoments, otherContent, onBack }) => (
@@ -257,14 +240,18 @@ const PerformanceHeader = memo(({ performance, songMoments, otherContent, onBack
 
 PerformanceHeader.displayName = 'PerformanceHeader';
 
-// ✅ Other Content Section
+// ✅ UPDATED: Other Content Section - ALWAYS SHOW with upload button in banner
 const OtherContentSection = memo(({ 
+  user,
   groupedContent, 
+  otherContent,
   showOtherContent, 
   setShowOtherContent,
-  onSelectMoment
+  onSelectMoment,
+  onUploadOtherContent
 }) => {
   const totalOtherMoments = Object.values(groupedContent).reduce((sum, moments) => sum + moments.length, 0);
+  const hasUploadedMoments = totalOtherMoments > 0;
 
   const getContentTypeInfo = (contentType) => {
     const types = {
@@ -278,30 +265,60 @@ const OtherContentSection = memo(({
 
   return (
     <div className="mb-6 border border-purple-200 rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 shadow-sm">
-      <div 
-        className="p-4 cursor-pointer flex items-center justify-between hover:bg-purple-100/50 transition-colors rounded-t-lg"
-        onClick={() => setShowOtherContent(!showOtherContent)}
-      >
-        <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold text-purple-800">
-            📀 Other Performance Content
-          </h3>
-          <span className="px-2 py-1 text-xs bg-purple-200 text-purple-800 rounded-full">
-            {totalOtherMoments} moment{totalOtherMoments !== 1 ? 's' : ''}
-          </span>
+      {/* ✅ UPDATED: Banner with upload button + expand arrow */}
+      <div className="p-4">
+        <div className="flex items-center justify-between gap-4">
+          {/* Left side: Title + moment count */}
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold text-purple-800">
+              📀 Other Performance Content
+            </h3>
+            {hasUploadedMoments && (
+              <span className="px-2 py-1 text-xs bg-purple-200 text-purple-800 rounded-full">
+                {totalOtherMoments} moment{totalOtherMoments !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {/* Right side: Upload button + expand arrow */}
+          <div className="flex items-center gap-3">
+            {/* Upload button */}
+            {user && (
+              <button
+                onClick={() => onUploadOtherContent('other')}
+                className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 text-sm"
+              >
+                <span className="text-sm">📀</span>
+                <span>Upload</span>
+              </button>
+            )}
+
+            {/* Expand arrow - only show if there are uploaded moments */}
+            {hasUploadedMoments && (
+              <button
+                onClick={() => setShowOtherContent(!showOtherContent)}
+                className="p-2 rounded-lg hover:bg-purple-100/50 transition-colors"
+              >
+                <span className="text-purple-600 text-lg">
+                  {showOtherContent ? '▼' : '▶'}
+                </span>
+              </button>
+            )}
+          </div>
         </div>
-        <span className="text-purple-600 text-lg">
-          {showOtherContent ? '▼' : '▶'}
-        </span>
+
+        {/* Help text when no moments uploaded yet */}
+        {!hasUploadedMoments && (
+          <p className="text-sm text-purple-700 mt-2">
+            Upload intro, outro, soundcheck, crowd reactions, and other non-song content from this performance
+          </p>
+        )}
       </div>
 
-      {showOtherContent && (
-        <div className="p-4 pt-0 border-t border-purple-200/50">
-          <p className="text-sm text-purple-700 mb-4">
-            Intro, outro, soundcheck, and other non-song content from this performance
-          </p>
-          
-          <div className="space-y-4">
+      {/* ✅ Expanded content - only show if there are moments AND user expanded */}
+      {hasUploadedMoments && showOtherContent && (
+        <div className="px-4 pb-4 border-t border-purple-200/50">
+          <div className="space-y-4 mt-4">
             {Object.entries(groupedContent).map(([contentType, moments]) => {
               const typeInfo = getContentTypeInfo(contentType);
               
@@ -404,7 +421,7 @@ const MainSetlistDisplay = memo(({
 
 MainSetlistDisplay.displayName = 'MainSetlistDisplay';
 
-// ✅ SetCard with filtering and updated message
+// ✅ UPDATED: SetCard - REMOVED filtered content notification
 const SetCard = memo(({ 
   set, 
   user, 
@@ -416,7 +433,6 @@ const SetCard = memo(({
 }) => {
   // ✅ FILTER: Only show actual songs in the setlist
   const actualSongs = set.song?.filter(song => isActualSong(song.name)) || [];
-  const filteredItems = set.song?.filter(song => !isActualSong(song.name)) || [];
   
   return (
     <div className="border border-gray-200 rounded-lg bg-white shadow-sm p-4">
@@ -424,29 +440,7 @@ const SetCard = memo(({
         <h4 className="text-lg font-semibold mb-3 text-blue-600">{set.name}</h4>
       )}
       
-      {/* ✅ UPDATED: Sleeker filtered content notice */}
-      {filteredItems.length > 0 && (
-        <div className="mb-4 p-3 bg-purple-50 border-l-4 border-purple-400 rounded-r-lg">
-          <div className="flex items-start gap-2">
-            <span className="text-purple-600 text-sm">📀</span>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-purple-800 mb-1">
-                Non-song content filtered from setlist:
-              </p>
-              <div className="flex flex-wrap gap-1 mb-2">
-                {filteredItems.map((item, i) => (
-                  <span key={i} className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
-                    {item.name}
-                  </span>
-                ))}
-              </div>
-              <p className="text-xs text-purple-600">
-                💡 Upload these using the button above
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ✅ REMOVED: No more filtered content notification */}
       
       {/* Show actual songs only */}
       {actualSongs.length === 0 ? (

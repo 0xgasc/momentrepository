@@ -1,4 +1,4 @@
-// src/components/Moment/MomentDetailModal.jsx - SUPER SIMPLIFIED 3-factor system
+// src/components/Moment/MomentDetailModal.jsx - OPTIMIZED & FIXED
 import React, { useState, useEffect, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { formatFileSize } from '../../utils';
@@ -7,11 +7,9 @@ import MomentMint from '../Web3/MomentMint';
 const MomentDetailModal = memo(({ moment, onClose }) => {
   const { user } = useAuth();
   
-  // ✅ Determine content type
   const contentType = moment.contentType || 'song';
   const isSongContent = contentType === 'song';
   
-  // ✅ Content type display info
   const contentTypeInfo = {
     song: { emoji: '🎵', label: 'Song Performance', showPerformanceStats: true },
     intro: { emoji: '🎭', label: 'Intro/Outro', showPerformanceStats: false },
@@ -23,18 +21,24 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
   const typeInfo = contentTypeInfo[contentType] || contentTypeInfo.other;
   
   const isOwner = React.useMemo(() => {
-    if (!user || !moment?.user) {
-      return false;
-    }
+    if (!user || !moment?.user) return false;
     const userLoggedInId = user.id || user._id;
     const momentUploaderId = moment.user._id || moment.user.id;
     return userLoggedInId === momentUploaderId;
   }, [user, moment]);
 
-  // NFT status state
+  // States
   const [nftStatus, setNftStatus] = useState(null);
   const [fetchingNftStatus, setFetchingNftStatus] = useState(true);
+  const [showRarityBreakdown, setShowRarityBreakdown] = useState(false);
   const [showRarityInfo, setShowRarityInfo] = useState(false);
+  const [showBasicInfo, setShowBasicInfo] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [showFileDetails, setShowFileDetails] = useState(false);
+  const [showEmptyFields, setShowEmptyFields] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [mediaError, setMediaError] = useState(false);
   
   useEffect(() => {
     const fetchNftStatus = async () => {
@@ -72,13 +76,6 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
   }, [moment._id, moment.nftContractAddress, moment.nftTokenId]);
 
   const hasNFTEdition = nftStatus?.hasNFTEdition || false;
-  
-  const [isEditing, setIsEditing] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [videoLoaded, setVideoLoaded] = useState(false);
-  const [mediaError, setMediaError] = useState(false);
-  const [showFileDetails, setShowFileDetails] = useState(false);
-  const [showEmptyFields, setShowEmptyFields] = useState(false);
 
   const handleDownload = () => {
     try {
@@ -89,72 +86,28 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
     }
   };
 
-  // ✅ UPDATED: Get rarity display info for 7-tier system (0-6 points)
+  // Optimized rarity calculations
   const getRarityInfo = () => {
     const tierInfo = {
-      legendary: { 
-        emoji: '🌟', 
-        color: '#FFD700', 
-        bgColor: '#FFFBEE', 
-        name: 'Legendary'
-      },
-      mythic: { 
-        emoji: '🔮', 
-        color: '#8B5CF6', 
-        bgColor: '#F3F0FF', 
-        name: 'Mythic'
-      },
-      epic: { 
-        emoji: '💎', 
-        color: '#9B59B6', 
-        bgColor: '#F4F1FF', 
-        name: 'Epic'
-      },
-      rare: { 
-        emoji: '🔥', 
-        color: '#E74C3C', 
-        bgColor: '#FFEBEE', 
-        name: 'Rare'
-      },
-      uncommon: { 
-        emoji: '⭐', 
-        color: '#3498DB', 
-        bgColor: '#E3F2FD', 
-        name: 'Uncommon'
-      },
-      common: { 
-        emoji: '📀', 
-        color: '#95A5A6', 
-        bgColor: '#F5F5F5', 
-        name: 'Common'
-      },
-      basic: { 
-        emoji: '⚪', 
-        color: '#BDC3C7', 
-        bgColor: '#F8F9FA', 
-        name: 'Basic'
-      }
+      legendary: { emoji: '🌟', color: '#FFD700', bgColor: '#FFFBEE', name: 'Legendary' },
+      mythic: { emoji: '🔮', color: '#8B5CF6', bgColor: '#F3F0FF', name: 'Mythic' },
+      epic: { emoji: '💎', color: '#9B59B6', bgColor: '#F4F1FF', name: 'Epic' },
+      rare: { emoji: '🔥', color: '#E74C3C', bgColor: '#FFEBEE', name: 'Rare' },
+      uncommon: { emoji: '⭐', color: '#3498DB', bgColor: '#E3F2FD', name: 'Uncommon' },
+      common: { emoji: '📀', color: '#95A5A6', bgColor: '#F5F5F5', name: 'Common' },
+      basic: { emoji: '⚪', color: '#BDC3C7', bgColor: '#F8F9FA', name: 'Basic' }
     };
     
     const tier = moment.rarityTier || 'basic';
     const score = moment.rarityScore || 0;
     
-    return {
-      ...tierInfo[tier],
-      score,
-      tier,
-      percentage: Math.round((score / 6.0) * 100) // Now out of 6 points
-    };
+    return { ...tierInfo[tier], score, tier, percentage: Math.round((score / 6.0) * 100) };
   };
 
-  // ✅ UPDATED: Super simplified 3-factor rarity breakdown
   const getRarityBreakdown = () => {
     const totalScore = moment.rarityScore || 0;
-    const contentType = moment.contentType || 'song';
-    const isSongContent = contentType === 'song';
-    
-    // Factor 1: File Size (0-2 points)
     const fileSizeMB = (moment.fileSize || 0) / (1024 * 1024);
+    
     let fileSizeScore = 0;
     if (fileSizeMB >= 500) fileSizeScore = 2.0;
     else if (fileSizeMB >= 100) fileSizeScore = 1.5;
@@ -162,7 +115,6 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
     else if (fileSizeMB >= 10) fileSizeScore = 0.5;
     else fileSizeScore = 0.2;
     
-    // Factor 2: Song/Content Rarity (0-2 points) 
     let rarityScore = 0;
     if (isSongContent) {
       const performances = moment.songTotalPerformances || 0;
@@ -172,61 +124,33 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
       else if (performances <= 200) rarityScore = 0.7;
       else rarityScore = 0.4;
     } else {
-      const contentRarity = {
-        'jam': 1.8, 'intro': 1.2, 'outro': 1.2, 
-        'crowd': 1.0, 'other': 0.8
-      };
+      const contentRarity = { 'jam': 1.8, 'intro': 1.2, 'outro': 1.2, 'crowd': 1.0, 'other': 0.8 };
       rarityScore = contentRarity[contentType] || 1.0;
     }
     
-    // Factor 3: Metadata Quality (0-2 points) - NOW ONLY 6 FIELDS
-    const metadataFields = [
-      moment.momentDescription, 
-      moment.emotionalTags, 
-      moment.specialOccasion,
-      moment.instruments, 
-      moment.crowdReaction,
-      moment.uniqueElements
-      // REMOVED: guestAppearances, personalNote
-    ];
+    const metadataFields = [moment.momentDescription, moment.emotionalTags, moment.specialOccasion, moment.instruments, moment.crowdReaction, moment.uniqueElements];
     const filledFields = metadataFields.filter(field => field && field.trim().length > 0).length;
     const metadataScore = (filledFields / metadataFields.length) * 2.0;
     
     return {
       factors: {
-        fileSize: {
-          score: fileSizeScore.toFixed(1),
-          label: 'File Size',
-          description: `${Math.round(fileSizeMB)}MB file quality`
-        },
-        rarity: {
-          score: rarityScore.toFixed(1),
+        fileSize: { score: fileSizeScore.toFixed(1), label: 'File Size', description: `${Math.round(fileSizeMB)}MB file quality` },
+        rarity: { 
+          score: rarityScore.toFixed(1), 
           label: isSongContent ? 'Song Rarity' : 'Content Rarity',
-          description: isSongContent ? 
-            `${moment.songTotalPerformances || 0} live performances` :
-            `${contentType} content type`
+          description: isSongContent ? `${moment.songTotalPerformances || 0} live performances` : `${contentType} content type`
         },
-        metadata: {
-          score: metadataScore.toFixed(1),
-          label: 'Metadata Quality',
-          description: `${filledFields}/6 fields completed (${Math.round((filledFields/6)*100)}%)`
-        }
+        metadata: { score: metadataScore.toFixed(1), label: 'Metadata Quality', description: `${filledFields}/6 fields completed (${Math.round((filledFields/6)*100)}%)` }
       },
       totalScore: totalScore.toFixed(1),
-      maxPossible: '6.0',
-      contentType,
-      isSongContent
+      maxPossible: '6.0'
     };
   };
 
+  // Optimized media component
   const getMediaComponent = () => {
-    const isVideo = moment.mediaType === 'video' || 
-                   moment.fileName?.toLowerCase().includes('.mov') ||
-                   moment.fileName?.toLowerCase().includes('.mp4') ||
-                   moment.fileName?.toLowerCase().includes('.webm');
-    
-    const isImage = moment.mediaType === 'image' || 
-                   moment.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/);
+    const isVideo = moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/);
+    const isImage = moment.mediaType === 'image' || moment.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/);
 
     if (isVideo) {
       return (
@@ -243,51 +167,24 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             autoPlay
             preload="metadata"
             className={`media-element ${videoLoaded ? 'loaded' : 'loading'}`}
-            onLoadedData={() => {
-              setVideoLoaded(true);
-              setMediaError(false);
-            }}
-            onError={() => {
-              setMediaError(true);
-              setVideoLoaded(false);
-            }}
-            style={{
-              width: '100%',
-              maxHeight: '300px',
-              borderRadius: '8px',
-              backgroundColor: '#000',
-              objectFit: 'contain'
-            }}
+            onLoadedData={() => { setVideoLoaded(true); setMediaError(false); }}
+            onError={() => { setMediaError(true); setVideoLoaded(false); }}
+            style={{ width: '100%', maxHeight: '300px', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
             playsInline
             controlsList="nodownload nofullscreen"
             disablePictureInPicture
           >
             Your browser does not support the video tag.
           </video>
-          
           {videoLoaded && (
-            <div style={{
-              position: 'absolute',
-              top: '8px',
-              left: '8px',
-              background: 'rgba(0,0,0,0.7)',
-              color: 'white',
-              padding: '4px 8px',
-              borderRadius: '4px',
-              fontSize: '12px',
-              opacity: '0.8'
-            }}>
+            <div style={{ position: 'absolute', top: '8px', left: '8px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', opacity: '0.8' }}>
               🎬 Auto-playing (muted)
             </div>
           )}
-          
           {mediaError && (
             <div className="media-error">
               <p className="text-sm text-red-600 mb-2">Unable to load video preview</p>
-              <button
-                onClick={handleDownload}
-                className="text-blue-600 hover:text-blue-800 underline text-sm"
-              >
+              <button onClick={handleDownload} className="text-blue-600 hover:text-blue-800 underline text-sm">
                 Click here to download and view externally
               </button>
             </div>
@@ -309,28 +206,14 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             src={moment.mediaUrl}
             alt={moment.fileName || 'Moment media'}
             className={`media-element ${imageLoaded ? 'loaded' : 'loading'}`}
-            onLoad={() => {
-              setImageLoaded(true);
-              setMediaError(false);
-            }}
-            onError={() => {
-              setMediaError(true);
-              setImageLoaded(false);
-            }}
-            style={{
-              width: '100%',
-              maxHeight: '300px',
-              objectFit: 'contain',
-              borderRadius: '8px'
-            }}
+            onLoad={() => { setImageLoaded(true); setMediaError(false); }}
+            onError={() => { setMediaError(true); setImageLoaded(false); }}
+            style={{ width: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '8px' }}
           />
           {mediaError && (
             <div className="media-error">
               <p className="text-sm text-red-600 mb-2">Unable to load image preview</p>
-              <button
-                onClick={handleDownload}
-                className="text-blue-600 hover:text-blue-800 underline text-sm"
-              >
+              <button onClick={handleDownload} className="text-blue-600 hover:text-blue-800 underline text-sm">
                 Click here to download and view externally
               </button>
             </div>
@@ -347,10 +230,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
           <p className="text-sm text-gray-500 mb-4">
             {moment.fileSize ? formatFileSize(moment.fileSize) : 'Unknown size'} • {moment.mediaType || 'Audio'}
           </p>
-          <button
-            onClick={handleDownload}
-            className="text-blue-600 hover:text-blue-800 underline"
-          >
+          <button onClick={handleDownload} className="text-blue-600 hover:text-blue-800 underline">
             Click here to download and play
           </button>
         </div>
@@ -361,35 +241,18 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
   const rarityInfo = getRarityInfo();
   const rarityBreakdown = getRarityBreakdown();
 
-  const headerStyle = {
-    background: `linear-gradient(135deg, ${rarityInfo.color} 0%, #1d4ed8 100%)`
-  };
-
-  const rarityBadgeStyle = {
-    backgroundColor: rarityInfo.bgColor,
-    color: rarityInfo.color
-  };
-
   return (
     <>
       <div className="modal-overlay" onClick={onClose}>
         <div className="trading-card-modal" onClick={(e) => e.stopPropagation()}>
-          {/* Card Header with Content Type and Rarity */}
-          <div className="card-header" style={headerStyle}>
+          {/* Header */}
+          <div className="card-header" style={{ background: `linear-gradient(135deg, ${rarityInfo.color} 0%, #1d4ed8 100%)` }}>
             <div className="card-title-section">
-              <div className="content-type-badge" style={{ 
-                backgroundColor: 'rgba(255,255,255,0.2)', 
-                color: 'white',
-                padding: '4px 8px',
-                borderRadius: '12px',
-                fontSize: '12px',
-                marginBottom: '8px',
-                display: 'inline-block'
-              }}>
+              <div className="content-type-badge">
                 {typeInfo.emoji} {typeInfo.label}
               </div>
               
-              <div className="rarity-badge" style={rarityBadgeStyle}>
+              <div className="rarity-badge" style={{ backgroundColor: rarityInfo.bgColor, color: rarityInfo.color }}>
                 <span className="rarity-emoji">{rarityInfo.emoji}</span>
                 <span className="rarity-text">{rarityInfo.name}</span>
                 <span className="rarity-score">{rarityInfo.score}</span>
@@ -402,7 +265,6 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
               </p>
               <p className="card-date">{moment.performanceDate}</p>
               
-              {/* ✅ CONDITIONAL: Only show performance stats for songs */}
               {isSongContent && typeInfo.showPerformanceStats && (
                 <p className="song-performances">
                   🎵 {moment.songTotalPerformances || 0} times performed live
@@ -411,163 +273,149 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             </div>
             
             <div className="card-controls">
-              {isOwner && (
-                <button
-                  onClick={() => setIsEditing(!isEditing)}
-                  className={`edit-button ${isEditing ? 'editing' : ''}`}
-                >
-                  {isEditing ? '✕' : '✏️'}
-                </button>
-              )}
               <button onClick={onClose} className="close-button">✕</button>
             </div>
           </div>
 
-          {/* ✅ UPDATED: Super Simple 3-Factor Rarity Section */}
+          {/* ✅ FIXED: Rarity Section - NO SCORE SHOWING */}
           <div className="rarity-section">
-            <div className="rarity-details">
-              <div className="rarity-header">
-                <h4>⚡ Simple 3-Factor Rarity</h4>
+            <div className="rarity-header">
+              <h4>⚡ Simple 3-Factor Rarity</h4>
+              <div className="rarity-controls">
+                <button
+                  onClick={() => setShowRarityBreakdown(!showRarityBreakdown)}
+                  className="toggle-button"
+                >
+                  Details {showRarityBreakdown ? '▼' : '▶'}
+                </button>
                 <button
                   onClick={() => setShowRarityInfo(true)}
                   className="info-button"
-                  title="How is rarity calculated?"
                 >
                   ℹ️
                 </button>
               </div>
-              
-              <div className="rarity-formula">
+            </div>
+            
+            {/* ✅ ONLY show breakdown when toggled */}
+            {showRarityBreakdown && (
+              <div className="rarity-breakdown-detailed">
                 <div className="rarity-total">
                   <span className="rarity-total-label">Score:</span>
-                  <span className="rarity-total-value">
-                    {rarityBreakdown.totalScore}/{rarityBreakdown.maxPossible}
-                  </span>
-                </div>
-                
-                <div className="rarity-breakdown-grid">
-                  {Object.entries(rarityBreakdown.factors).map(([key, factor]) => (
-                    <div key={key} className="rarity-factor">
-                      <span className="factor-label">{factor.label}:</span>
-                      <span className="factor-score">{factor.score}</span>
-                    </div>
-                  ))}
+                  <span className="rarity-total-value">{rarityBreakdown.totalScore}/{rarityBreakdown.maxPossible}</span>
                 </div>
                 
                 <div className="rarity-explanations">
                   {Object.entries(rarityBreakdown.factors).map(([key, factor]) => (
                     <div key={key} className="factor-explanation">
-                      <strong>{factor.label}:</strong> {factor.description}
+                      <strong>{factor.label}:</strong> {factor.score} pts - {factor.description}
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Media Display */}
-          <div className="card-media">
-            {getMediaComponent()}
-          </div>
+          {/* Media */}
+          <div className="card-media">{getMediaComponent()}</div>
 
-          {/* ✅ SIMPLIFIED: Metadata Panel (removed guest appearances, personal note) */}
+          {/* ✅ OPTIMIZED: Metadata Panel */}
           <div className="metadata-panel">
             <div className="metadata-header">
               <h3>Content Details</h3>
               <div className="metadata-toggles">
-                <button
-                  onClick={() => setShowFileDetails(!showFileDetails)}
-                  className="toggle-button"
-                >
+                <button onClick={() => setShowBasicInfo(!showBasicInfo)} className="toggle-button">
+                  Basic Info {showBasicInfo ? '▼' : '▶'}
+                </button>
+                <button onClick={() => setShowDetails(!showDetails)} className="toggle-button">
+                  Details {showDetails ? '▼' : '▶'}
+                </button>
+                <button onClick={() => setShowFileDetails(!showFileDetails)} className="toggle-button">
                   File Details {showFileDetails ? '▼' : '▶'}
                 </button>
-                <button
-                  onClick={() => setShowEmptyFields(!showEmptyFields)}
-                  className="toggle-button"
-                >
-                  All Fields {showEmptyFields ? '▼' : '▶'}
+                <button onClick={() => setShowEmptyFields(!showEmptyFields)} className="toggle-button">
+                  Empty Fields {showEmptyFields ? '▼' : '▶'}
                 </button>
               </div>
             </div>
 
             <div className="metadata-content">
               {/* Basic Info */}
-              <div className="metadata-group">
-                <h4>Basic Information</h4>
-                <div className="metadata-grid">
-                  <div className="metadata-item">
-                    <span className="metadata-label">Content Type:</span>
-                    <span className="metadata-value">{typeInfo.emoji} {typeInfo.label}</span>
-                  </div>
-                  {isSongContent && moment.setName && (
-                    <div className="metadata-item">
-                      <span className="metadata-label">Set:</span>
-                      <span className="metadata-value">{moment.setName}</span>
-                    </div>
-                  )}
-                  <div className="metadata-item">
-                    <span className="metadata-label">Type:</span>
-                    <span className="metadata-value">{moment.momentType || 'Performance'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Description */}
-              {(moment.momentDescription || showEmptyFields) && (
+              {showBasicInfo && (
                 <div className="metadata-group">
-                  <h4>Description</h4>
-                  <p className="metadata-description">
-                    {moment.momentDescription || <em className="text-gray-400">No description provided</em>}
-                  </p>
+                  <h4>Basic Information</h4>
+                  <div className="metadata-grid">
+                    <div className="metadata-item">
+                      <span className="metadata-label">Content Type:</span>
+                      <span className="metadata-value">{typeInfo.emoji} {typeInfo.label}</span>
+                    </div>
+                    {isSongContent && moment.setName && (
+                      <div className="metadata-item">
+                        <span className="metadata-label">Set:</span>
+                        <span className="metadata-value">{moment.setName}</span>
+                      </div>
+                    )}
+                    <div className="metadata-item">
+                      <span className="metadata-label">Type:</span>
+                      <span className="metadata-value">{moment.momentType || 'Performance'}</span>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* ✅ SIMPLIFIED: Only show key metadata fields */}
-              {(moment.emotionalTags || moment.specialOccasion || moment.instruments || moment.crowdReaction || moment.uniqueElements || showEmptyFields) && (
+              {/* ✅ MOVED: Details Section (includes description + metadata) */}
+              {showDetails && (
                 <div className="metadata-group">
                   <h4>Details</h4>
-                  <div className="metadata-grid">
-                    {(moment.emotionalTags || showEmptyFields) && (
-                      <div className="metadata-item">
-                        <span className="metadata-label">Mood:</span>
-                        <span className="metadata-value">
-                          {moment.emotionalTags || <em className="text-gray-400">Not specified</em>}
-                        </span>
-                      </div>
-                    )}
-                    {(moment.specialOccasion || showEmptyFields) && (
-                      <div className="metadata-item">
-                        <span className="metadata-label">Special Occasion:</span>
-                        <span className="metadata-value">
-                          {moment.specialOccasion || <em className="text-gray-400">None</em>}
-                        </span>
-                      </div>
-                    )}
-                    {(moment.instruments || showEmptyFields) && (
-                      <div className="metadata-item">
-                        <span className="metadata-label">Instruments:</span>
-                        <span className="metadata-value">
-                          {moment.instruments || <em className="text-gray-400">Not specified</em>}
-                        </span>
-                      </div>
-                    )}
-                    {(moment.crowdReaction || showEmptyFields) && (
-                      <div className="metadata-item">
-                        <span className="metadata-label">Crowd Reaction:</span>
-                        <span className="metadata-value">
-                          {moment.crowdReaction || <em className="text-gray-400">Not specified</em>}
-                        </span>
-                      </div>
-                    )}
-                    {(moment.uniqueElements || showEmptyFields) && (
-                      <div className="metadata-item">
-                        <span className="metadata-label">Unique Elements:</span>
-                        <span className="metadata-value">
-                          {moment.uniqueElements || <em className="text-gray-400">None</em>}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  
+                  {/* Description */}
+                  {moment.momentDescription && (
+                    <p className="metadata-description">{moment.momentDescription}</p>
+                  )}
+                  
+                  {/* Metadata fields */}
+                  {(() => {
+                    // ✅ FIXED: Only show fields that were available during upload
+                    const availableFields = [
+                      { key: 'emotionalTags', label: 'Mood', value: moment.emotionalTags },
+                      { key: 'specialOccasion', label: 'Special Occasion', value: moment.specialOccasion },
+                      { key: 'crowdReaction', label: 'Crowd Reaction', value: moment.crowdReaction },
+                      { key: 'uniqueElements', label: 'Unique Elements', value: moment.uniqueElements }
+                    ];
+                    
+                    // Add instruments field only for songs and jams (matches upload form)
+                    if (isSongContent || contentType === 'jam') {
+                      availableFields.splice(2, 0, { key: 'instruments', label: 'Instruments', value: moment.instruments });
+                    }
+                    
+                    const fieldsWithContent = availableFields.filter(field => field.value && field.value.trim().length > 0);
+                    
+                    const emptyFields = availableFields.filter(field => {
+                      const value = moment[field.key];
+                      return !value || value.trim().length === 0;
+                    });
+                    
+                    if (fieldsWithContent.length > 0 || (showEmptyFields && emptyFields.length > 0)) {
+                      return (
+                        <div className="metadata-grid" style={{ marginTop: moment.momentDescription ? '1rem' : '0' }}>
+                          {fieldsWithContent.map(field => (
+                            <div key={field.key} className="metadata-item">
+                              <span className="metadata-label">{field.label}:</span>
+                              <span className="metadata-value">{field.value}</span>
+                            </div>
+                          ))}
+                          
+                          {showEmptyFields && emptyFields.map(field => (
+                            <div key={field.key} className="metadata-item">
+                              <span className="metadata-label">{field.label}:</span>
+                              <span className="metadata-value"><em className="text-gray-400">Not specified</em></span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               )}
 
@@ -578,9 +426,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                   <div className="metadata-grid">
                     <div className="metadata-item">
                       <span className="metadata-label">File Size:</span>
-                      <span className="metadata-value">
-                        {moment.fileSize ? formatFileSize(moment.fileSize) : 'Unknown'}
-                      </span>
+                      <span className="metadata-value">{moment.fileSize ? formatFileSize(moment.fileSize) : 'Unknown'}</span>
                     </div>
                     <div className="metadata-item">
                       <span className="metadata-label">Media Type:</span>
@@ -596,7 +442,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             </div>
           </div>
 
-          {/* NFT Section */}
+          {/* NFT Section - UNTOUCHED */}
           {user && (
             <div style={{ 
               padding: '20px', 
@@ -656,51 +502,29 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             </div>
           )}
 
-          {/* Card Footer */}
+          {/* Footer */}
           <div className="card-footer">
             <div className="uploader-info">
-              <span className="uploader-text">
-                Captured by {moment.user?.displayName || 'Anonymous'}
-              </span>
+              <span className="uploader-text">Captured by {moment.user?.displayName || 'Anonymous'}</span>
             </div>
-            
             <div className="download-section">
-              <button
-                onClick={handleDownload}
-                className="download-link"
-              >
-                Click here to download
-              </button>
+              <button onClick={handleDownload} className="download-link">Click here to download</button>
             </div>
           </div>
         </div>
 
-        {/* ✅ UPDATED: Super Simple Rarity Info Modal */}
+        {/* Rarity Info Modal */}
         {showRarityInfo && (
           <div className="rarity-info-overlay" onClick={() => setShowRarityInfo(false)}>
             <div className="rarity-info-modal" onClick={(e) => e.stopPropagation()}>
               <div className="rarity-info-header">
                 <h3>⚡ Super Simple 3-Factor Rarity</h3>
-                <button
-                  onClick={() => setShowRarityInfo(false)}
-                  className="rarity-info-close"
-                >
-                  ✕
-                </button>
+                <button onClick={() => setShowRarityInfo(false)} className="rarity-info-close">✕</button>
               </div>
               
               <div className="rarity-info-content">
                 <div className="rarity-intro">
-                  <p style={{ 
-                    backgroundColor: '#f0f9ff', 
-                    padding: '12px', 
-                    borderRadius: '8px',
-                    border: '1px solid #bae6fd',
-                    color: '#0c4a6e',
-                    fontSize: '14px',
-                    marginBottom: '20px',
-                    fontWeight: '500'
-                  }}>
+                  <p style={{ backgroundColor: '#f0f9ff', padding: '12px', borderRadius: '8px', border: '1px solid #bae6fd', color: '#0c4a6e', fontSize: '14px', marginBottom: '20px', fontWeight: '500' }}>
                     ⚡ <strong>Ultra Simple:</strong> Just 3 factors, 6 metadata fields, 0-6 points total. Clean and fair for everyone!
                   </p>
                 </div>
@@ -752,12 +576,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
 
                 <div className="rarity-criterion">
                   <h4>🏅 7-Tier Rarity System (0-6 points total)</h4>
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-                    gap: '8px',
-                    margin: '12px 0'
-                  }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px', margin: '12px 0' }}>
                     {[
                       { name: 'Legendary', emoji: '🌟', range: '5.5-6.0', color: '#FFD700' },
                       { name: 'Mythic', emoji: '🔮', range: '4.8-5.4', color: '#8B5CF6' },
@@ -767,13 +586,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                       { name: 'Common', emoji: '📀', range: '1.6-2.3', color: '#95A5A6' },
                       { name: 'Basic', emoji: '⚪', range: '0-1.5', color: '#BDC3C7' }
                     ].map(tier => (
-                      <div key={tier.name} style={{
-                        padding: '8px',
-                        border: `2px solid ${tier.color}`,
-                        borderRadius: '6px',
-                        textAlign: 'center',
-                        fontSize: '12px'
-                      }}>
+                      <div key={tier.name} style={{ padding: '8px', border: `2px solid ${tier.color}`, borderRadius: '6px', textAlign: 'center', fontSize: '12px' }}>
                         <div style={{ fontSize: '16px', marginBottom: '4px' }}>{tier.emoji}</div>
                         <div style={{ fontWeight: 'bold', color: tier.color }}>{tier.name}</div>
                         <div style={{ color: '#666' }}>{tier.range} pts</div>
@@ -784,13 +597,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
 
                 <div className="rarity-criterion">
                   <h4>✨ What's Different</h4>
-                  <div style={{
-                    backgroundColor: '#f0fdf4',
-                    border: '1px solid #bbf7d0',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    color: '#166534'
-                  }}>
+                  <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '12px', color: '#166534' }}>
                     <p style={{ margin: '0 0 8px 0', fontWeight: 'bold' }}>⚡ Ultra Simplified:</p>
                     <ul style={{ margin: 0, paddingLeft: '16px' }}>
                       <li>✅ Only 3 factors (was 4)</li>
@@ -809,7 +616,6 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
           </div>
         )}
 
-        {/* All the existing styles... */}
         <style jsx>{`
           .modal-overlay {
             position: fixed;
@@ -865,6 +671,13 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
           }
 
           .content-type-badge {
+            backgroundColor: rgba(255,255,255,0.2);
+            color: white;
+            padding: 4px 8px;
+            borderRadius: 12px;
+            fontSize: 12px;
+            marginBottom: 8px;
+            display: inline-block;
             font-weight: 500;
           }
 
@@ -918,7 +731,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             margin-left: 1rem;
           }
 
-          .edit-button, .close-button {
+          .close-button {
             background: rgba(255, 255, 255, 0.2);
             border: none;
             color: white;
@@ -933,7 +746,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             transition: all 0.2s ease;
           }
 
-          .edit-button:hover, .close-button:hover {
+          .close-button:hover {
             background: rgba(255, 255, 255, 0.3);
             transform: scale(1.05);
           }
@@ -942,12 +755,6 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             padding: 1rem 1.5rem;
             background: linear-gradient(90deg, #f8f9fa 0%, #ffffff 100%);
             border-bottom: 1px solid #e2e8f0;
-          }
-
-          .rarity-details {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
           }
 
           .rarity-header {
@@ -961,6 +768,27 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             font-weight: 600;
             color: #374151;
             margin: 0;
+          }
+
+          .rarity-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+          }
+
+          .toggle-button {
+            background: #e5e7eb;
+            border: 1px solid #d1d5db;
+            color: #374151;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+          }
+
+          .toggle-button:hover {
+            background: #d1d5db;
           }
 
           .info-button {
@@ -982,10 +810,10 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             transform: scale(1.1);
           }
 
-          .rarity-formula {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
+          .rarity-breakdown-detailed {
+            padding-top: 0.75rem;
+            border-top: 1px solid #e5e7eb;
+            margin-top: 0.75rem;
           }
 
           .rarity-total {
@@ -996,6 +824,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             background: rgba(59, 130, 246, 0.1);
             border-radius: 6px;
             border-left: 3px solid #3b82f6;
+            margin-bottom: 0.75rem;
           }
 
           .rarity-total-label {
@@ -1010,42 +839,14 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             font-size: 1rem;
           }
 
-          .rarity-breakdown-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 0.25rem;
-          }
-
-          .rarity-factor {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.25rem 0.5rem;
-            background: #f9fafb;
-            border-radius: 4px;
-            font-size: 0.75rem;
-          }
-
-          .factor-label {
-            color: #6b7280;
-            font-weight: 500;
-          }
-
-          .factor-score {
-            color: #374151;
-            font-weight: 600;
-            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-          }
-
           .rarity-explanations {
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
-            margin-top: 0.5rem;
           }
 
           .factor-explanation {
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             color: #6b7280;
             padding: 0.2rem 0;
           }
@@ -1086,21 +887,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
           .metadata-toggles {
             display: flex;
             gap: 0.5rem;
-          }
-
-          .toggle-button {
-            background: #f3f4f6;
-            border: 1px solid #d1d5db;
-            color: #374151;
-            padding: 0.25rem 0.5rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-          }
-
-          .toggle-button:hover {
-            background: #e5e7eb;
+            flex-wrap: wrap;
           }
 
           .metadata-content {
@@ -1151,7 +938,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             font-size: 0.85rem;
             color: #4b5563;
             line-height: 1.5;
-            margin: 0;
+            margin: 0 0 0.5rem 0;
             padding: 0.5rem;
             background: #f9fafb;
             border-radius: 6px;
