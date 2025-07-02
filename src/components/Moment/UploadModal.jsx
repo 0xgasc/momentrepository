@@ -1,4 +1,4 @@
-// src/components/Moment/UploadModal.jsx - SMART with context-aware content types
+// src/components/Moment/UploadModal.jsx - FIXED with better refresh logic
 import React, { useState, memo } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { styles } from '../../styles';
@@ -157,6 +157,8 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
         contentType: formData.contentType
       };
 
+      console.log('🚀 Uploading moment with contentType:', formData.contentType);
+
       const momentResponse = await fetch(`${API_BASE_URL}/upload-moment`, {
         method: 'POST',
         headers: {
@@ -171,17 +173,22 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
         throw new Error(errorData.error || 'Failed to save moment');
       }
 
+      const momentData = await momentResponse.json();
+      console.log('✅ Moment uploaded successfully:', momentData);
+
       setUploadProgress(100);
       setUploadStage('Complete!');
       setStep('success');
 
+      // ✅ IMPROVED: Immediate reload after success
       setTimeout(() => {
+        console.log('🔄 Reloading page to show new content...');
         onClose();
         window.location.reload();
-      }, 3000);
+      }, 1500); // Reduced from 3000ms to 1500ms
 
     } catch (err) {
-      console.error('Upload error:', err);
+      console.error('❌ Upload error:', err);
       setError(err.message);
       setStep('form');
       setUploadStage('');
@@ -217,7 +224,10 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
         )}
 
         {step === 'success' && (
-          <UploadSuccess isSongUpload={isSongUpload} />
+          <UploadSuccess 
+            isSongUpload={isSongUpload} 
+            contentType={formData.contentType}
+          />
         )}
       </div>
     </div>
@@ -736,18 +746,42 @@ const UploadProgress = memo(({ uploadProgress, uploadStage }) => (
 
 UploadProgress.displayName = 'UploadProgress';
 
-// ✅ SMART: Different success messages
-const UploadSuccess = memo(({ isSongUpload }) => (
-  <div style={{ textAlign: 'center', padding: '2rem' }}>
-    <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
-    <h2 style={{ ...styles.modal.title, color: '#059669' }}>
-      {isSongUpload ? 'Song Moment Created!' : 'Other Content Created!'}
-    </h2>
-    <p style={{ color: '#6b7280' }}>
-      Your {isSongUpload ? 'song moment' : 'content'} has been uploaded and is ready for viewing.
-    </p>
-  </div>
-));
+// ✅ IMPROVED: Success message with refresh info
+const UploadSuccess = memo(({ isSongUpload, contentType }) => {
+  const getContentTypeLabel = () => {
+    const types = {
+      song: 'song moment',
+      intro: 'intro/outro content',
+      jam: 'jam/improv content', 
+      crowd: 'crowd moment',
+      other: 'other content'
+    };
+    return types[contentType] || 'content';
+  };
+
+  return (
+    <div style={{ textAlign: 'center', padding: '2rem' }}>
+      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
+      <h2 style={{ ...styles.modal.title, color: '#059669' }}>
+        {isSongUpload ? 'Song Moment Created!' : 'Other Content Created!'}
+      </h2>
+      <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
+        Your {getContentTypeLabel()} has been uploaded successfully.
+      </p>
+      <div style={{
+        padding: '12px',
+        backgroundColor: '#f0f9ff',
+        border: '1px solid #bae6fd',
+        borderRadius: '8px',
+        fontSize: '14px',
+        color: '#0c4a6e'
+      }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>🔄 Page will refresh shortly</div>
+        <div>Your new content will appear in the appropriate section</div>
+      </div>
+    </div>
+  );
+});
 
 UploadSuccess.displayName = 'UploadSuccess';
 

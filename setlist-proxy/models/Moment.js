@@ -1,4 +1,4 @@
-// setlist-proxy/models/Moment.js - UPDATED WITH NFT FIELDS
+// setlist-proxy/models/Moment.js - FIXED WITH CONTENT TYPE FIELD
 const mongoose = require('mongoose');
 
 const momentSchema = new mongoose.Schema({
@@ -23,6 +23,13 @@ const momentSchema = new mongoose.Schema({
   mediaType: { type: String }, // 'video', 'audio', 'image'
   fileName: { type: String }, // Original filename
   fileSize: { type: Number }, // File size in bytes
+  
+  // ✅ CRITICAL FIX: Added contentType field
+  contentType: { 
+    type: String, 
+    enum: ['song', 'intro', 'jam', 'crowd', 'other'], 
+    default: 'song' 
+  },
   
   // Enhanced metadata for NFT
   personalNote: { type: String }, // User's personal thoughts
@@ -95,6 +102,10 @@ momentSchema.index({ rarityScore: -1 }); // Index for rarity queries
 momentSchema.index({ rarityTier: 1 }); // Index for tier queries
 momentSchema.index({ songName: 1, createdAt: 1 }); // For first moment detection
 
+// ✅ CRITICAL FIX: Added contentType index for filtering
+momentSchema.index({ contentType: 1 }); // Index for content type filtering
+momentSchema.index({ performanceId: 1, contentType: 1 }); // Compound index for performance + content type
+
 // ✅ NEW INDEXES for NFT features (add these)
 momentSchema.index({ nftContractAddress: 1 }); // Find moments by contract
 momentSchema.index({ nftMintEndTime: 1 }); // Find active minting windows
@@ -144,18 +155,36 @@ momentSchema.virtual('mintingTimeRemaining').get(function() {
   return Math.max(0, endTime - now); // milliseconds remaining
 });
 
-// Method to generate NFT metadata (updated with rarity)
+// ✅ UPDATED: Content type virtual for display
+momentSchema.virtual('contentTypeDisplay').get(function() {
+  const typeInfo = {
+    song: { emoji: '🎵', label: 'Song Performance' },
+    intro: { emoji: '🎭', label: 'Intro/Outro' },
+    jam: { emoji: '🎸', label: 'Jam/Improv' },
+    crowd: { emoji: '👥', label: 'Crowd Moment' },
+    other: { emoji: '🎪', label: 'Other Content' }
+  };
+  
+  return typeInfo[this.contentType || 'song'] || typeInfo.other;
+});
+
+// Method to generate NFT metadata (updated with content type)
 momentSchema.methods.generateNFTMetadata = function() {
   const rarityDisplay = this.rarityDisplay;
+  const contentDisplay = this.contentTypeDisplay;
   
   return {
     name: `${this.songName} - ${this.venueName} (${this.performanceDate})`,
-    description: this.momentDescription || `A ${rarityDisplay.tier} moment from ${this.songName} performed at ${this.venueName} on ${this.performanceDate}`,
+    description: this.momentDescription || `A ${rarityDisplay.tier} ${contentDisplay.label.toLowerCase()} from ${this.songName} at ${this.venueName} on ${this.performanceDate}`,
     image: this.mediaUrl,
     external_url: this.mediaUrl,
     attributes: [
       {
-        trait_type: "Song",
+        trait_type: "Content Type",
+        value: contentDisplay.label
+      },
+      {
+        trait_type: "Song/Content Name",
         value: this.songName
       },
       {
@@ -253,6 +282,7 @@ momentSchema.methods.generateNFTMetadata = function() {
       performance_id: this.performanceId,
       moment_id: this._id,
       created_at: this.createdAt,
+      content_type: this.contentType,
       personal_note: this.personalNote,
       crowd_reaction: this.crowdReaction,
       special_occasion: this.specialOccasion,

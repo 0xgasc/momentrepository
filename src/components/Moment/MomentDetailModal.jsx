@@ -1,4 +1,4 @@
-// src/components/Moment/MomentDetailModal.jsx - UPDATED with content-type logic
+// src/components/Moment/MomentDetailModal.jsx - UPDATED with enhanced rarity explanations
 import React, { useState, useEffect, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { formatFileSize } from '../../utils';
@@ -109,18 +109,23 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
     };
   };
 
-  // ✅ UPDATED: Rarity breakdown with content type awareness
+  // ✅ UPDATED: Rarity breakdown with enhanced content type awareness
   const getRarityBreakdown = () => {
     const totalScore = moment.rarityScore || 0;
     
-    // For non-song content, show simplified breakdown
+    // For non-song content, show enhanced breakdown
     if (!isSongContent) {
+      const maxPossible = contentType === 'other' ? '4.0' : '6.0';
+      const tierCap = contentType === 'jam' ? 'epic' : 
+                     contentType === 'crowd' || contentType === 'intro' ? 'rare' : 'uncommon';
+      
       return {
         contentType: contentType,
         isNonSong: true,
         totalScore: totalScore.toFixed(1),
-        maxPossible: '2.5',
-        explanation: `${typeInfo.label} content receives lower scores and is capped at 2.5/7`
+        maxPossible: maxPossible,
+        tierCap: tierCap,
+        explanation: `${typeInfo.label} content can reach up to ${maxPossible}/7 points and "${tierCap}" tier${contentType === 'jam' ? ' (highest for non-songs)' : ''}`
       };
     }
     
@@ -424,7 +429,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                       <span className="component-value">{rarityBreakdown.lengthScore}</span>
                     </div>
                     <div className="rarity-component">
-                      <span className="component-label">Venue Priority:</span>
+                      <span className="component-label">Performance Priority:</span>
                       <span className="component-value">{rarityBreakdown.venueScore}</span>
                     </div>
                   </div>
@@ -434,7 +439,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
               {/* ✅ CONDITIONAL: First moment note only for songs */}
               {isSongContent && moment.isFirstMomentForSong && (
                 <div className="first-moment-note">
-                  🏆 First moment uploaded for this song!
+                  🏆 First moment uploaded for this song at this performance!
                 </div>
               )}
             </div>
@@ -586,7 +591,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
           </div>
         </div>
 
-        {/* Rarity Info Modal - Updated for content types */}
+        {/* ✅ ENHANCED: Rarity Info Modal with new scoring explanations */}
         {showRarityInfo && (
           <div className="rarity-info-overlay" onClick={() => setShowRarityInfo(false)}>
             <div className="rarity-info-modal" onClick={(e) => e.stopPropagation()}>
@@ -600,7 +605,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                 </button>
               </div>
               <div className="rarity-info-content">
-                {/* ✅ Different explanations for different content types */}
+                {/* ✅ ENHANCED: Different explanations for different content types */}
                 {isSongContent ? (
                   <>
                     <div className="rarity-criterion">
@@ -627,22 +632,53 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                     </div>
                     
                     <div className="rarity-criterion">
-                      <h4>🏟️ Venue Priority (0-1 point)</h4>
-                      <p>First moment of this song at this venue gets maximum points</p>
+                      <h4>🏟️ Performance Priority (0-1 point)</h4>
+                      <p>First moment of this song at this specific performance gets maximum points</p>
                     </div>
                   </>
                 ) : (
-                  <div className="rarity-criterion">
-                    <h4>🎭 {typeInfo.label} Scoring</h4>
-                    <p>{typeInfo.label} content receives simplified scoring:</p>
-                    <ul>
-                      <li><strong>Base score:</strong> Fixed based on content type</li>
-                      <li><strong>Metadata bonus:</strong> Up to +0.5 points for detailed descriptions</li>
-                      <li><strong>Maximum score:</strong> Capped at 2.5/7 points</li>
-                      <li><strong>Rarity tier:</strong> Limited to "uncommon" at most</li>
-                    </ul>
-                    <p><em>This ensures song performances maintain higher relative rarity.</em></p>
-                  </div>
+                  <>
+                    <div className="rarity-criterion">
+                      <h4>🎭 Enhanced {typeInfo.label} Scoring (0-{rarityBreakdown.maxPossible} points)</h4>
+                      <p>{typeInfo.label} content uses a sophisticated scoring system:</p>
+                      <ul>
+                        <li><strong>Base Score:</strong> {contentType === 'jam' ? '1.5' : contentType === 'crowd' ? '1.2' : contentType === 'intro' ? '1.0' : '0.8'} points for {contentType} content</li>
+                        <li><strong>🌟 Global First Bonus:</strong> Up to +{contentType === 'jam' ? '1.5' : '1.2'} points for being the FIRST {contentType} content ever uploaded!</li>
+                        <li><strong>Metadata Quality:</strong> Up to +{contentType === 'jam' ? '0.8' : '0.6'} points for detailed descriptions</li>
+                        <li><strong>Performance Priority:</strong> Up to +{contentType === 'jam' ? '0.8' : '0.6'} points for being first at this show</li>
+                        <li><strong>Content Bonuses:</strong> Up to +0.8 points for {
+                          contentType === 'jam' ? 'multi-instrument complexity & guests' :
+                          contentType === 'crowd' ? 'explosive crowd reactions' :
+                          contentType === 'intro' ? 'special occasions & unique elements' :
+                          'special circumstances'
+                        }</li>
+                        <li><strong>Quality Bonus:</strong> Up to +0.4 points for excellent audio/video quality</li>
+                      </ul>
+                      <p><strong>Maximum Tier:</strong> Can reach "{rarityBreakdown.tierCap}" tier{contentType === 'jam' ? ' (highest for non-songs)' : ''}</p>
+                    </div>
+                    
+                    <div className="rarity-criterion">
+                      <h4>🌟 Global First System</h4>
+                      <p>Being the first person to upload {contentType} content gets a major bonus!</p>
+                      <ul>
+                        <li><strong>First jam ever:</strong> +1.5 points → Can reach Epic tier</li>
+                        <li><strong>First crowd/intro/outro ever:</strong> +1.2 points → Can reach Rare tier</li>
+                        <li><strong>First other content ever:</strong> +1.2 points → Can reach Uncommon tier</li>
+                        <li>This creates legendary moments for pioneers who upload new content types first</li>
+                      </ul>
+                    </div>
+
+                    <div className="rarity-criterion">
+                      <h4>📊 Content Type Maximums</h4>
+                      <ul>
+                        <li><strong>🎸 Jams:</strong> Up to 6.0/7 points, Epic tier (compete with songs!)</li>
+                        <li><strong>👥 Crowd Moments:</strong> Up to 6.0/7 points, Rare tier</li>
+                        <li><strong>🎭 Intro/Outro:</strong> Up to 6.0/7 points, Rare tier</li>
+                        <li><strong>🎪 Other Content:</strong> Up to 4.0/7 points, Uncommon tier</li>
+                      </ul>
+                      <p><em>Non-song content now has meaningful rarity potential!</em></p>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
