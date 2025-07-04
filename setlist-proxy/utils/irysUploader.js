@@ -66,7 +66,7 @@ const uploadFileToIrys = async (buffer, filename) => {
       ]
     });
     
-    const arweaveUrl = `https://gateway.irys.xyz/${receipt.id}`;
+    const arweaveUrl = `https://devnet.irys.xyz/${receipt.id}`;
     console.log(`✅ Upload complete: ${arweaveUrl}`);
     console.log(`   - Transaction ID: ${receipt.id}`);
     

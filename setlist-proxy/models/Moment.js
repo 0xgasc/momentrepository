@@ -79,6 +79,7 @@ const momentSchema = new mongoose.Schema({
     txHash: { type: String }, // Transaction hash of the mint
     mintedAt: { type: Date, default: Date.now }
   }],
+  nftCardUrl: { type: String }, // Generated NFT card image URL
   
   // Metadata
   createdAt: { type: Date, default: Date.now },

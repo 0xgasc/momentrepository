@@ -86,6 +86,22 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
     }
   };
 
+  // Refresh moment data after NFT operations
+  const handleRefreshMoment = async () => {
+    console.log('🔄 Refreshing moment data...');
+    try {
+      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}`);
+      if (response.ok) {
+        const updatedMoment = await response.json();
+        console.log('✅ Moment data refreshed:', updatedMoment);
+        // The modal will need to be refreshed by parent component
+        // For now, we'll rely on the page refresh in MomentMint
+      }
+    } catch (error) {
+      console.error('❌ Failed to refresh moment data:', error);
+    }
+  };
+
   // Optimized rarity calculations
   const getRarityInfo = () => {
     const tierInfo = {
@@ -152,9 +168,11 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
     const isVideo = moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/);
     const isImage = moment.mediaType === 'image' || moment.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/);
 
+    // Always show the original media (video/image), NFT card is just for preview in the minting section
+
     if (isVideo) {
       return (
-        <div className="media-container">
+        <div className="media-container relative">
           {!videoLoaded && !mediaError && (
             <div className="media-loading">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
@@ -181,6 +199,11 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
               🎬 Auto-playing (muted)
             </div>
           )}
+          {hasNFTEdition && (
+            <div style={{ position: 'absolute', top: '8px', right: '8px', background: 'linear-gradient(45deg, #FFD700, #FFA500)', color: '#000', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+              🎨 NFT Available
+            </div>
+          )}
           {mediaError && (
             <div className="media-error">
               <p className="text-sm text-red-600 mb-2">Unable to load video preview</p>
@@ -195,7 +218,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
 
     if (isImage) {
       return (
-        <div className="media-container">
+        <div className="media-container relative">
           {!imageLoaded && !mediaError && (
             <div className="media-loading">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
@@ -210,6 +233,11 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
             onError={() => { setMediaError(true); setImageLoaded(false); }}
             style={{ width: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '8px' }}
           />
+          {hasNFTEdition && (
+            <div style={{ position: 'absolute', top: '8px', right: '8px', background: 'linear-gradient(45deg, #FFD700, #FFA500)', color: '#000', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+              🎨 NFT Available
+            </div>
+          )}
           {mediaError && (
             <div className="media-error">
               <p className="text-sm text-red-600 mb-2">Unable to load image preview</p>
@@ -497,6 +525,7 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
                   isOwner={isOwner}
                   hasNFTEdition={hasNFTEdition}
                   isExpanded={true}
+                  onRefresh={handleRefreshMoment}
                 />
               )}
             </div>

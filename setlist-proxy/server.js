@@ -9,6 +9,8 @@ const User = require('./models/User');
 const Moment = require('./models/Moment');
 const { UMOCache } = require('./utils/umoCache');
 const { ethers } = require('ethers');
+const { extractVideoThumbnail } = require('./utils/videoThumbnailExtractor');
+const { generateNFTCard } = require('./utils/nftCardGenerator');
 
 const app = express();
 const PORT = 5050;
@@ -429,6 +431,292 @@ app.get('/metadata/:metadataId', (req, res) => {
 });
 
 // =============================================================================
+// NFT CARD GENERATION ENDPOINT
+// =============================================================================
+
+app.post('/moments/:momentId/preview-nft-card', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { randomSeed, effectIntensity = 1.0, frameTimingMode = 'auto', glitchIntensity = 1.0, zoomLevel = 1.0 } = req.body;
+    const userId = req.user.id;
+    
+    console.log(`🎨 Generating NFT card preview for moment ${momentId}`);
+    
+    const moment = await Moment.findById(momentId).populate('user', 'displayName');
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+    
+    if (moment.user._id.toString() !== userId) {
+      return res.status(403).json({ error: 'Not authorized to preview card for this moment' });
+    }
+    
+    // Extract thumbnail from video if it's a video
+    let thumbnailBuffer = null;
+    console.log('🔍 Moment media info for thumbnail extraction:', {
+      mediaType: moment.mediaType,
+      hasMediaUrl: !!moment.mediaUrl,
+      fileName: moment.fileName,
+      isVideo: moment.mediaType && (moment.mediaType.startsWith('video/') || moment.mediaType === 'video')
+    });
+    
+    // Check for video by mediaType or file extension
+    const isVideo = (moment.mediaType && (moment.mediaType.startsWith('video/') || moment.mediaType === 'video')) ||
+                   (moment.fileName && /\.(mp4|mov|avi|webm|mkv|m4v|3gp)$/i.test(moment.fileName));
+    
+    if (isVideo && moment.mediaUrl) {
+      try {
+        console.log('📹 Moment has video, attempting to extract thumbnail...');
+        
+        // Fetch video from Irys
+        const videoResponse = await fetch(moment.mediaUrl);
+        if (!videoResponse.ok) {
+          throw new Error(`Failed to fetch video: ${videoResponse.status}`);
+        }
+        
+        const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
+        thumbnailBuffer = await extractVideoThumbnail(videoBuffer, moment.fileName || 'video.mp4', {
+          frameTimingMode,
+          customSeed: randomSeed,
+          zoomLevel
+        });
+        
+        if (thumbnailBuffer) {
+          console.log('✅ Thumbnail extracted successfully');
+        }
+      } catch (error) {
+        console.error('⚠️ Thumbnail extraction failed:', error.message);
+        // Continue without thumbnail - will use fallback design
+      }
+    }
+    
+    // Generate NFT card with optional randomness
+    const cardBuffer = await generateNFTCard(thumbnailBuffer, {
+      songName: moment.songName,
+      contentType: moment.contentType,
+      venueName: moment.venueName,
+      venueCity: moment.venueCity,
+      venueCountry: moment.venueCountry,
+      performanceDate: moment.performanceDate,
+      rarityTier: moment.rarityTier,
+      rarityScore: moment.rarityScore,
+      momentDescription: moment.momentDescription,
+      // Add randomness parameters for preview variations
+      randomSeed: randomSeed || undefined,
+      effectIntensity: effectIntensity,
+      glitchIntensity: glitchIntensity
+    });
+    
+    // Return card as base64 data URL for immediate preview
+    const base64Card = cardBuffer.toString('base64');
+    const dataUrl = `data:image/jpeg;base64,${base64Card}`;
+    
+    console.log('✅ NFT card preview generated');
+    
+    res.json({
+      success: true,
+      previewUrl: dataUrl,
+      message: 'NFT card preview generated successfully'
+    });
+    
+  } catch (error) {
+    console.error('❌ NFT card preview generation error:', error);
+    res.status(500).json({
+      error: 'Failed to generate NFT card preview',
+      details: error.message
+    });
+  }
+});
+
+app.post('/moments/:momentId/generate-nft-card', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const userId = req.user.id;
+    
+    console.log(`🎨 Generating NFT card for moment ${momentId}`);
+    
+    const moment = await Moment.findById(momentId).populate('user', 'displayName');
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+    
+    if (moment.user._id.toString() !== userId) {
+      return res.status(403).json({ error: 'Not authorized to generate card for this moment' });
+    }
+    
+    // Extract thumbnail from video if it's a video
+    let thumbnailBuffer = null;
+    console.log('🔍 Moment media info for thumbnail extraction:', {
+      mediaType: moment.mediaType,
+      hasMediaUrl: !!moment.mediaUrl,
+      fileName: moment.fileName,
+      isVideo: moment.mediaType && (moment.mediaType.startsWith('video/') || moment.mediaType === 'video')
+    });
+    
+    // Check for video by mediaType or file extension
+    const isVideo = (moment.mediaType && (moment.mediaType.startsWith('video/') || moment.mediaType === 'video')) ||
+                   (moment.fileName && /\.(mp4|mov|avi|webm|mkv|m4v|3gp)$/i.test(moment.fileName));
+    
+    if (isVideo && moment.mediaUrl) {
+      try {
+        console.log('📹 Moment has video, attempting to extract thumbnail...');
+        
+        // Fetch video from Irys
+        const videoResponse = await fetch(moment.mediaUrl);
+        if (!videoResponse.ok) {
+          throw new Error(`Failed to fetch video: ${videoResponse.status}`);
+        }
+        
+        const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
+        thumbnailBuffer = await extractVideoThumbnail(videoBuffer, moment.fileName || 'video.mp4', {
+          frameTimingMode,
+          customSeed: randomSeed,
+          zoomLevel
+        });
+        
+        if (thumbnailBuffer) {
+          console.log('✅ Thumbnail extracted successfully');
+        }
+      } catch (error) {
+        console.error('⚠️ Thumbnail extraction failed:', error.message);
+        // Continue without thumbnail - will use fallback design
+      }
+    }
+    
+    // Generate NFT card
+    const cardBuffer = await generateNFTCard(thumbnailBuffer, {
+      songName: moment.songName,
+      contentType: moment.contentType,
+      venueName: moment.venueName,
+      venueCity: moment.venueCity,
+      venueCountry: moment.venueCountry,
+      performanceDate: moment.performanceDate,
+      rarityTier: moment.rarityTier,
+      rarityScore: moment.rarityScore,
+      momentDescription: moment.momentDescription // Add description for generative effects
+    });
+    
+    // Upload card to Irys
+    const { uploadFileToIrys } = require('./utils/irysUploader');
+    const cardFilename = `nft_card_${moment._id}.jpg`;
+    const cardUploadResult = await uploadFileToIrys(cardBuffer, cardFilename);
+    
+    console.log('✅ NFT card uploaded to Irys:', cardUploadResult.url);
+    
+    // Save card URL to moment
+    await Moment.findByIdAndUpdate(momentId, {
+      $set: { nftCardUrl: cardUploadResult.url }
+    });
+    
+    res.json({
+      success: true,
+      cardUrl: cardUploadResult.url,
+      message: 'NFT card generated successfully'
+    });
+    
+  } catch (error) {
+    console.error('❌ NFT card generation failed:', error);
+    res.status(500).json({
+      error: 'Failed to generate NFT card',
+      details: error.message
+    });
+  }
+});
+
+// Generate NFT card with custom settings (for final minting)
+app.post('/moments/:momentId/generate-nft-card-with-settings', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { randomSeed, effectIntensity = 1.0, frameTimingMode = 'auto', glitchIntensity = 1.0, zoomLevel = 1.0 } = req.body;
+    const userId = req.user.id;
+    
+    console.log(`🎨 Generating NFT card with custom settings for moment ${momentId}`);
+    
+    const moment = await Moment.findById(momentId).populate('user', 'displayName');
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+    
+    if (moment.user._id.toString() !== userId) {
+      return res.status(403).json({ error: 'Not authorized to generate card for this moment' });
+    }
+    
+    // Extract thumbnail from video if it's a video
+    let thumbnailBuffer = null;
+    console.log('🔍 Moment media info for thumbnail extraction:', {
+      mediaType: moment.mediaType,
+      hasMediaUrl: !!moment.mediaUrl,
+      fileName: moment.fileName,
+      isVideo: moment.mediaType && (moment.mediaType.startsWith('video/') || moment.mediaType === 'video')
+    });
+    
+    // Check for video by mediaType or file extension
+    const isVideo = (moment.mediaType && (moment.mediaType.startsWith('video/') || moment.mediaType === 'video')) ||
+                   (moment.fileName && /\.(mp4|mov|avi|webm|mkv|m4v|3gp)$/i.test(moment.fileName));
+    
+    if (isVideo && moment.mediaUrl) {
+      try {
+        console.log('📹 Moment has video, attempting to extract thumbnail with custom settings...');
+        
+        // Fetch video from Irys
+        const videoResponse = await fetch(moment.mediaUrl);
+        if (!videoResponse.ok) {
+          throw new Error(`Failed to fetch video: ${videoResponse.status}`);
+        }
+        
+        const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
+        thumbnailBuffer = await extractVideoThumbnail(videoBuffer, moment.fileName || 'video.mp4', {
+          frameTimingMode,
+          customSeed: randomSeed,
+          zoomLevel
+        });
+        
+        if (thumbnailBuffer) {
+          console.log('✅ Thumbnail extracted successfully with custom settings');
+        }
+      } catch (error) {
+        console.error('❌ Video thumbnail extraction failed:', error);
+        // Continue without thumbnail - NFT card will use fallback
+      }
+    }
+    
+    // Prepare moment data with custom settings for generative effects
+    const momentDataWithSettings = {
+      ...moment.toObject(),
+      randomSeed: randomSeed,
+      effectIntensity: effectIntensity,
+      glitchIntensity: glitchIntensity
+    };
+    
+    // Generate the NFT card
+    const nftCardBuffer = await generateNFTCard(thumbnailBuffer, momentDataWithSettings);
+    
+    // Upload to Irys and save
+    const uploadResult = await uploadFileToIrys(nftCardBuffer, `nft-card-${momentId}.jpg`, 'image/jpeg');
+    const arweaveUrl = uploadResult.url;
+    
+    // Update moment with NFT card URL
+    moment.nftCardUrl = arweaveUrl;
+    await moment.save();
+    
+    console.log('✅ NFT card with custom settings generated and uploaded:', arweaveUrl);
+    
+    res.json({
+      success: true,
+      cardUrl: arweaveUrl,
+      message: 'NFT card generated with custom settings'
+    });
+    
+  } catch (error) {
+    console.error('❌ Custom NFT card generation failed:', error);
+    res.status(500).json({
+      error: 'Failed to generate NFT card with custom settings',
+      details: error.message
+    });
+  }
+});
+
+// =============================================================================
 // NFT EDITION ENDPOINTS
 // =============================================================================
 
@@ -440,7 +728,8 @@ app.post('/moments/:momentId/create-nft-edition-proxy', authenticateToken, async
       nftMetadataHash,
       splitsContract,
       mintPrice,
-      mintDuration
+      mintDuration,
+      nftCardUrl
     } = req.body;
 
     console.log(`🎯 Backend Proxy: Creating ERC1155 NFT edition for moment ${momentId} by user ${userId}`);
@@ -500,11 +789,53 @@ app.post('/moments/:momentId/create-nft-edition-proxy', authenticateToken, async
     const receipt = await transaction.wait();
     console.log('✅ Proxy transaction confirmed in block:', receipt.blockNumber);
 
-    const eventFilter = contract.filters.MomentEditionCreated();
-    const events = await contract.queryFilter(eventFilter, receipt.blockNumber, receipt.blockNumber);
-    const tokenId = events.length > 0 ? events[0].args.tokenId : null;
-
-    console.log('✅ New token ID created via proxy:', tokenId?.toString());
+    console.log('🔍 Parsing events from transaction receipt...');
+    console.log('📋 Receipt logs:', receipt.logs.length, 'logs found');
+    
+    // Method 1: Try to parse logs directly from receipt
+    let tokenId = null;
+    
+    try {
+      for (const log of receipt.logs) {
+        try {
+          const parsedLog = contract.interface.parseLog(log);
+          console.log('📝 Parsed log:', {
+            name: parsedLog.name,
+            args: parsedLog.args
+          });
+          
+          if (parsedLog.name === 'MomentEditionCreated') {
+            tokenId = parsedLog.args.tokenId;
+            console.log('✅ Found tokenId in receipt logs:', tokenId?.toString());
+            break;
+          }
+        } catch (parseError) {
+          // Skip logs that can't be parsed
+        }
+      }
+    } catch (error) {
+      console.error('⚠️ Error parsing receipt logs:', error.message);
+    }
+    
+    // Method 2: Fallback to event query if receipt parsing failed
+    if (!tokenId) {
+      console.log('🔄 Fallback: Querying events with filter...');
+      
+      const eventFilter = contract.filters.MomentEditionCreated();
+      const events = await contract.queryFilter(eventFilter, receipt.blockNumber, receipt.blockNumber);
+      
+      console.log('📊 Event query results:', {
+        eventsFound: events.length,
+        blockNumber: receipt.blockNumber
+      });
+      
+      if (events.length > 0) {
+        tokenId = events[0].args.tokenId;
+        console.log('✅ Found tokenId via event query:', tokenId?.toString());
+      }
+    }
+    
+    console.log('🎯 Final extracted token ID:', tokenId?.toString());
 
     const updatedMoment = await Moment.findByIdAndUpdate(
       momentId,
@@ -515,12 +846,13 @@ app.post('/moments/:momentId/create-nft-edition-proxy', authenticateToken, async
           nftContractAddress: UMOMomentsERC1155Contract.address,
           nftMetadataHash: nftMetadataHash,
           nftSplitsContract: mockSplitsAddress,
-          nftMintPrice: mintPrice,
+          nftMintPrice: '1000000000000000', // 0.001 ETH in wei
           nftMintDuration: mintDuration,
           nftMintStartTime: new Date(),
           nftMintEndTime: new Date(Date.now() + (mintDuration * 24 * 60 * 60 * 1000)),
           nftCreationTxHash: transaction.hash,
-          nftMintedCount: 0
+          nftMintedCount: 0,
+          nftCardUrl: nftCardUrl // Save the NFT card URL
         }
       },
       { new: true }
@@ -689,6 +1021,91 @@ app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) =
     res.status(500).json({ 
       error: 'Failed to record mint', 
       details: err.message 
+    });
+  }
+});
+
+// Mint NFT proxy endpoint for collectors/creators
+app.post('/moments/:momentId/mint-nft-proxy', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { quantity = 1 } = req.body;
+    const userId = req.user.id;
+
+    console.log(`🎯 Backend Proxy: Minting ${quantity} NFT(s) for moment ${momentId} by user ${userId}`);
+
+    const moment = await Moment.findById(momentId);
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    if (!moment.nftContractAddress || moment.nftTokenId === undefined || moment.nftTokenId === null) {
+      return res.status(400).json({ 
+        error: 'No NFT edition exists for this moment',
+        debug: {
+          hasContract: !!moment.nftContractAddress,
+          tokenId: moment.nftTokenId,
+          tokenIdType: typeof moment.nftTokenId
+        }
+      });
+    }
+
+    // Check if minting is still active
+    if (moment.nftMintEndTime && new Date() > new Date(moment.nftMintEndTime)) {
+      return res.status(400).json({ error: 'Minting period has ended' });
+    }
+
+    // Set up blockchain connection
+    const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC);
+    const devWallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+    
+    const UMOMomentsERC1155Contract = require('../src/contracts/UMOMomentsERC1155.json');
+    const contract = new ethers.Contract(
+      UMOMomentsERC1155Contract.address,
+      UMOMomentsERC1155Contract.abi,
+      devWallet
+    );
+
+    const mintPriceWei = ethers.parseEther('0.001');
+    const totalCost = mintPriceWei * BigInt(quantity);
+
+    console.log('🎯 Proxy mint parameters:', {
+      momentId: moment._id.toString().slice(0, 12) + '...',
+      tokenId: moment.nftTokenId,
+      tokenIdType: typeof moment.nftTokenId,
+      quantity: quantity,
+      mintPrice: ethers.formatEther(mintPriceWei) + ' ETH each',
+      totalCost: ethers.formatEther(totalCost) + ' ETH',
+      devWallet: devWallet.address,
+      momentData: {
+        nftMinted: moment.nftMinted,
+        nftContractAddress: moment.nftContractAddress,
+        nftMintEndTime: moment.nftMintEndTime
+      }
+    });
+
+    // Execute mint transaction
+    const transaction = await contract.mintMoment(
+      moment.nftTokenId,
+      quantity,
+      { value: totalCost }
+    );
+
+    console.log(`✅ Mint transaction submitted: ${transaction.hash}`);
+
+    res.json({
+      success: true,
+      txHash: transaction.hash,
+      quantity: quantity,
+      totalCost: ethers.formatEther(totalCost),
+      message: `Minting ${quantity} NFT(s) initiated`
+    });
+
+  } catch (error) {
+    console.error('❌ Mint proxy error:', error);
+    res.status(500).json({ 
+      error: 'Failed to mint NFT', 
+      details: error.message 
     });
   }
 });
@@ -1128,8 +1545,14 @@ app.get('/moments', async (req, res) => {
       .limit(100)
       .populate('user', 'displayName');
 
+    // Transform moments to include virtual fields
+    const momentsWithVirtuals = moments.map(moment => {
+      const momentObj = moment.toObject({ virtuals: true });
+      return momentObj;
+    });
+
     console.log(`🌍 Returning ${moments.length} moments in global feed`);
-    res.json({ moments });
+    res.json({ moments: momentsWithVirtuals });
   } catch (err) {
 
     console.error('❌ Fetch all moments error:', err);

@@ -1,0 +1,303 @@
+// src/components/Moment/MomentBrowser.jsx
+import React, { memo, useState, useEffect } from 'react';
+import { API_BASE_URL } from '../Auth/AuthProvider';
+import { createTimeoutSignal, formatShortDate } from '../../utils';
+import { Play, Calendar, MapPin, User, Zap, Clock, ExternalLink } from 'lucide-react';
+import MomentDetailModal from './MomentDetailModal';
+
+const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
+  const [moments, setMoments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedMoment, setSelectedMoment] = useState(null);
+
+  useEffect(() => {
+    const fetchMoments = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`${API_BASE_URL}/moments`, {
+          signal: createTimeoutSignal(8000),
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setMoments(data.moments || []);
+        } else {
+          throw new Error(`Failed to load moments: ${response.status}`);
+        }
+      } catch (err) {
+        console.error('Error loading moments:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMoments();
+  }, []);
+
+  if (loading) {
+    return <LoadingState />;
+  }
+
+  if (error) {
+    return <ErrorState error={error} />;
+  }
+
+  return (
+    <div className="mb-8">
+      {/* Header */}
+      <MomentHeader totalMoments={moments.length} />
+
+      {/* Moments Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {moments.map((moment) => (
+          <MomentCard
+            key={moment._id}
+            moment={moment}
+            onSongSelect={onSongSelect}
+            onPerformanceSelect={onPerformanceSelect}
+            onMomentSelect={setSelectedMoment}
+          />
+        ))}
+      </div>
+
+      {moments.length === 0 && (
+        <div className="text-center py-12">
+          <div className="text-gray-500 text-lg mb-2">No moments found</div>
+          <div className="text-gray-400 text-sm">Be the first to upload a moment!</div>
+        </div>
+      )}
+
+      {/* Moment Detail Modal */}
+      {selectedMoment && (
+        <MomentDetailModal 
+          moment={selectedMoment}
+          onClose={() => setSelectedMoment(null)}
+        />
+      )}
+    </div>
+  );
+});
+
+MomentBrowser.displayName = 'MomentBrowser';
+
+// Loading State Component
+const LoadingState = memo(() => (
+  <div className="flex flex-col items-center justify-center py-12">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+    <div className="text-lg font-medium text-gray-700 mb-2">Loading Recent Moments...</div>
+    <div className="text-sm text-gray-500">Fetching the latest uploads from fans</div>
+  </div>
+));
+
+LoadingState.displayName = 'LoadingState';
+
+// Error State Component
+const ErrorState = memo(({ error }) => (
+  <div className="flex flex-col items-center justify-center py-12">
+    <div className="text-red-500 text-6xl mb-4">⚠️</div>
+    <div className="text-xl font-medium text-gray-800 mb-2">Failed to Load Moments</div>
+    <div className="text-gray-600 text-center max-w-md">
+      {error || 'There was an error loading the moments. Please try again later.'}
+    </div>
+  </div>
+));
+
+ErrorState.displayName = 'ErrorState';
+
+// Header Component
+const MomentHeader = memo(({ totalMoments }) => (
+  <div className="mb-6">
+    <div className="flex items-center justify-between mb-4">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+          <Zap className="mr-2 text-blue-600" size={24} />
+          Recent Moments
+        </h2>
+        <p className="text-gray-600 mt-1">
+          Latest uploads from UMO fans around the world
+        </p>
+      </div>
+      <div className="text-right">
+        <div className="text-2xl font-bold text-blue-600">{totalMoments}</div>
+        <div className="text-sm text-gray-500">total moments</div>
+      </div>
+    </div>
+  </div>
+));
+
+MomentHeader.displayName = 'MomentHeader';
+
+// Individual Moment Card Component
+const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSelect }) => {
+  const rarityColors = {
+    legendary: 'bg-gradient-to-r from-yellow-400 to-yellow-600',
+    mythic: 'bg-gradient-to-r from-purple-400 to-pink-600',
+    epic: 'bg-gradient-to-r from-purple-500 to-purple-700',
+    rare: 'bg-gradient-to-r from-blue-400 to-blue-600',
+    uncommon: 'bg-gradient-to-r from-green-400 to-green-600',
+    common: 'bg-gradient-to-r from-gray-400 to-gray-600',
+    basic: 'bg-gradient-to-r from-gray-300 to-gray-500'
+  };
+
+  const rarityColor = rarityColors[moment.rarityTier] || rarityColors.basic;
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200">
+      {/* Media Preview - Clickable */}
+      {(moment.mediaUrl || moment.nftCardUrl) && (
+        <div 
+          className="relative aspect-video bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
+          onClick={() => onMomentSelect(moment)}
+        >
+          {/* Show NFT card if moment has active ERC1155 edition */}
+          {moment.hasNFTEdition && moment.nftCardUrl ? (
+            <div className="relative w-full h-full">
+              <img
+                src={moment.nftCardUrl}
+                alt={`${moment.songName} NFT Card`}
+                className="w-full h-full object-cover"
+              />
+              {/* NFT Edition Badge */}
+              <div className="absolute top-2 left-2 bg-gradient-to-r from-yellow-400 to-yellow-600 text-black text-xs font-bold px-2 py-1 rounded-md shadow-lg">
+                🎨 NFT Edition
+              </div>
+              {/* Original media type indicator */}
+              {moment.mediaType?.startsWith('video') && (
+                <div className="absolute top-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-md">
+                  📹 Video
+                </div>
+              )}
+            </div>
+          ) : moment.mediaType?.startsWith('video') ? (
+            <video
+              className="w-full h-full object-cover pointer-events-none"
+              muted
+              loop
+              onMouseEnter={(e) => {
+                e.target.play().catch(() => {
+                  // Ignore play interruption errors
+                });
+              }}
+              onMouseLeave={(e) => {
+                e.target.pause();
+                e.target.currentTime = 0;
+              }}
+            >
+              <source src={moment.mediaUrl} type={moment.mediaType} />
+            </video>
+          ) : moment.mediaType?.startsWith('image') ? (
+            <img
+              src={moment.mediaUrl}
+              alt={moment.songName}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Play className="text-gray-400" size={48} />
+            </div>
+          )}
+          
+          {/* Play button overlay for clarity - only show for non-NFT cards */}
+          {!(moment.hasNFTEdition && moment.nftCardUrl) && (
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black bg-opacity-20">
+              <div className="bg-white bg-opacity-90 rounded-full p-3">
+                <Play className="text-gray-800" size={24} />
+              </div>
+            </div>
+          )}
+          
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="p-4">
+        {/* Song Name - Clickable */}
+        <button
+          onClick={() => onSongSelect && onSongSelect({ 
+            songName: moment.songName,
+            totalPerformances: 1,
+            performances: [],
+            totalMoments: 1,
+            firstPerformed: moment.performanceDate,
+            lastPerformed: moment.performanceDate,
+            venues: moment.venueName ? [moment.venueName] : [],
+            cities: moment.venueCity ? [moment.venueCity] : []
+          })}
+          className="text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors text-left mb-2 block"
+        >
+          {moment.songName || 'Unknown Song'}
+        </button>
+
+        {/* Performance Details - Clickable */}
+        {moment.venueName && (
+          <button
+            onClick={() => onPerformanceSelect && onPerformanceSelect({
+              venue: moment.venueName,
+              city: moment.venueCity,
+              country: moment.venueCountry,
+              date: moment.performanceDate
+            })}
+            className="flex items-center text-sm text-gray-600 hover:text-blue-600 transition-colors mb-2"
+          >
+            <MapPin size={14} className="mr-1" />
+            {moment.venueName}
+            {moment.venueCity && `, ${moment.venueCity}`}
+          </button>
+        )}
+
+        {/* Date */}
+        {moment.performanceDate && (
+          <div className="flex items-center text-sm text-gray-500 mb-2">
+            <Calendar size={14} className="mr-1" />
+            {formatShortDate(moment.performanceDate)}
+          </div>
+        )}
+
+        {/* Uploader */}
+        {moment.user?.displayName && (
+          <div className="flex items-center text-sm text-gray-500 mb-3">
+            <User size={14} className="mr-1" />
+            by {moment.user.displayName}
+          </div>
+        )}
+
+        {/* Description */}
+        {moment.momentDescription && (
+          <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+            {moment.momentDescription}
+          </p>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center justify-between text-xs text-gray-400">
+          <div className="flex items-center">
+            <Clock size={12} className="mr-1" />
+            {formatShortDate(moment.createdAt)}
+          </div>
+          
+          {moment.mediaUrl && (
+            <a
+              href={moment.mediaUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center hover:text-blue-600 transition-colors"
+            >
+              <ExternalLink size={12} className="mr-1" />
+              View Media
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+MomentCard.displayName = 'MomentCard';
+
+export default MomentBrowser;

@@ -7,6 +7,7 @@ import PerformanceList from './components/Performance/PerformanceList';
 import SongBrowser from './components/Song/SongBrowser';
 import SongDetail from './components/Song/SongDetail';
 import PerformanceDetail from './components/Performance/PerformanceDetail';
+import MomentBrowser from './components/Moment/MomentBrowser';
 import LoginModal from './components/Auth/LoginModal';
 import CreditsFooter from './components/UI/CreditsFooter';
 
@@ -232,28 +233,39 @@ const Header = memo(({
     {/* Bottom Row - Navigation Tabs (only on home view) */}
     {currentView === 'home' && (
       <div className="flex justify-center">
-        <div className="bg-white rounded-xl border border-gray-200 p-1 inline-flex shadow-sm w-full max-w-sm">
+        <div className="bg-white rounded-xl border border-gray-200 p-1 inline-flex shadow-sm w-full max-w-lg">
           <button
             onClick={() => onBrowseModeChange('performances')}
-            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+            className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
               browseMode === 'performances' 
                 ? 'bg-blue-600 text-white shadow-sm' 
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
-            <span className="mr-2">🎸</span>
-            Performances
+            <span className="mr-1">🎸</span>
+            Shows
           </button>
           <button
             onClick={() => onBrowseModeChange('songs')}
-            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+            className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
               browseMode === 'songs' 
                 ? 'bg-blue-600 text-white shadow-sm' 
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
-            <span className="mr-2">🎵</span>
+            <span className="mr-1">🎵</span>
             Songs
+          </button>
+          <button
+            onClick={() => onBrowseModeChange('moments')}
+            className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+              browseMode === 'moments' 
+                ? 'bg-blue-600 text-white shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <span className="mr-1">⚡</span>
+            Moments
           </button>
         </div>
       </div>
@@ -290,11 +302,16 @@ const MainContent = memo(({
       
     case 'home':
     default:
-      return browseMode === 'performances' ? (
-        <PerformanceList onPerformanceSelect={onPerformanceSelect} />
-      ) : (
-        <SongBrowser onSongSelect={onSongSelect} />
-      );
+      switch (browseMode) {
+        case 'performances':
+          return <PerformanceList onPerformanceSelect={onPerformanceSelect} />;
+        case 'songs':
+          return <SongBrowser onSongSelect={onSongSelect} />;
+        case 'moments':
+          return <MomentBrowser onSongSelect={onSongSelect} onPerformanceSelect={onPerformanceSelect} />;
+        default:
+          return <PerformanceList onPerformanceSelect={onPerformanceSelect} />;
+      }
   }
 });
 

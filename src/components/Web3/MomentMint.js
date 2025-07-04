@@ -1,26 +1,12 @@
 /* global BigInt */
 import React, { useState, useEffect } from 'react';
-import { useAccount, useConnect, useWriteContract, useWaitForTransactionReceipt, useReadContract, useChainId } from 'wagmi';
-import { parseEther, formatEther } from 'viem';
-import { Zap, Plus, CheckCircle, ExternalLink, AlertCircle, Clock } from 'lucide-react';
+import { useAccount, useConnect, useWaitForTransactionReceipt, useWriteContract, useReadContract } from 'wagmi';
+import { Plus, Zap } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import UMOMomentsERC1155Contract from '../../contracts/UMOMomentsERC1155.json';
-import { ethers } from 'ethers';
+import { parseEther } from 'viem';
 
-const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }) => {
-  // ✅ DEBUG: Log component props
-  console.log('🔍 MomentMint Debug:', {
-    momentId: moment?._id,
-    songName: moment?.songName,
-    isOwner: isOwner,
-    hasNFTEdition: hasNFTEdition,
-    nftMinted: moment?.nftMinted,
-    nftContractAddress: moment?.nftContractAddress,
-    nftTokenId: moment?.nftTokenId,
-    rarityScore: moment?.rarityScore,
-    rarityTier: moment?.rarityTier
-  });
-
+const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, onRefresh }) => {
   // State management
   const [isCreatingNFT, setIsCreatingNFT] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
@@ -29,32 +15,29 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
   const [txHash, setTxHash] = useState(null);
   const [currentStep, setCurrentStep] = useState('ready');
   const [successMessage, setSuccessMessage] = useState('');
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [randomSeed, setRandomSeed] = useState(0);
+  const [lastMintQuantity, setLastMintQuantity] = useState(0);
 
   // Wagmi hooks
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
-  const chainId = useChainId();
+  const { writeContract } = useWriteContract();
   
   // Transaction confirmation
-  const { isLoading: isConfirming, isSuccess: isConfirmed, error: txError } = useWaitForTransactionReceipt({
+  const { isSuccess: isConfirmed, error: txError } = useWaitForTransactionReceipt({
     hash: txHash,
   });
 
-  // Read current token ID for display
-  const { data: currentTokenId } = useReadContract({
+  // Read user's NFT balance for this token
+  const { data: userBalance, refetch: refetchBalance } = useReadContract({
     address: UMOMomentsERC1155Contract.address,
     abi: UMOMomentsERC1155Contract.abi,
-    functionName: 'getCurrentTokenId',
-    enabled: !!UMOMomentsERC1155Contract.address
-  });
-
-  // ✅ Read token info if NFT edition exists
-  const { data: editionData } = useReadContract({
-    address: UMOMomentsERC1155Contract.address,
-    abi: UMOMomentsERC1155Contract.abi,
-    functionName: 'getEditionByMomentId',
-    args: [moment._id],
-    enabled: !!hasNFTEdition && !!UMOMomentsERC1155Contract.address
+    functionName: 'balanceOf',
+    args: [address, moment.nftTokenId],
+    enabled: !!(isConnected && address && hasNFTEdition && moment.nftTokenId)
   });
 
   // Handle transaction confirmation
@@ -64,11 +47,16 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
       setCurrentStep('success');
       
       if (isCreatingNFT) {
-        setSuccessMessage('🎉 NFT Edition Created Successfully! Page will refresh...');
+        setSuccessMessage('🎉 NFT Edition Created Successfully! Refreshing...');
+        if (onRefresh) {
+          console.log('🔄 Calling onRefresh for NFT creation');
+          onRefresh();
+        }
         setTimeout(() => window.location.reload(), 3000);
       } else if (isMinting) {
-        setSuccessMessage('🎉 NFT Minted Successfully! Check your wallet.');
-        setTimeout(() => window.location.reload(), 3000);
+        setSuccessMessage('🎉 NFT Minted Successfully! Updating records...');
+        // Record the mint in the database
+        recordMintInDatabase();
       }
     }
   }, [isConfirmed, txHash, currentStep, isCreatingNFT, isMinting]);
@@ -84,98 +72,69 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false }
     }
   }, [txError]);
 
-// ✅ UPDATED: Create NFT metadata for simplified 3-factor system with provenance
-const createNFTMetadata = (moment) => {
-  // For videos: Create proper thumbnail for OpenSea
-  let imageUrl, animationUrl;
-  
-  if (moment.mediaType === 'video') {
-    imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&size=512&background=1e3a8a&color=ffffff&bold=true`;
-    animationUrl = moment.mediaUrl;
-  } else if (moment.mediaType === 'audio') {
-    imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&size=512&background=dc2626&color=ffffff&bold=true`;
-    animationUrl = undefined;
-  } else {
-    imageUrl = moment.mediaUrl;
-    animationUrl = undefined;
-  }
-  
-  // ✅ ENHANCED: Description with provenance and simplified metadata
-  const uploadDate = new Date(moment.createdAt).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'UTC'
-  });
-  
-  let description = moment.momentDescription || 
-    `A live performance moment of "${moment.songName}" by UMO at ${moment.venueName}, ${moment.venueCity} on ${moment.performanceDate}.`;
-  
-  // Add provenance info
-  description += `\n\n📅 Originally uploaded on ${uploadDate} by ${moment.user?.displayName || 'Anonymous'}.`;
-  
-  // ✅ SIMPLIFIED: Only add the 6 metadata fields we use for rarity
-  if (moment.specialOccasion) {
-    description += `\n\n🎉 Special Occasion: ${moment.specialOccasion}`;
-  }
-  
-  if (moment.crowdReaction) {
-    description += `\n\n👥 Crowd Reaction: ${moment.crowdReaction}`;
-  }
-  
-  if (moment.uniqueElements) {
-    description += `\n\n✨ Unique Elements: ${moment.uniqueElements}`;
-  }
-  
-  if (moment.instruments) {
-    description += `\n\n🎸 Instruments: ${moment.instruments}`;
-  }
-  
-  if (moment.emotionalTags) {
-    description += `\n\n🎭 Mood: ${moment.emotionalTags}`;
-  }
-  
-  return {
-    name: `${moment.songName} - ${moment.venueName} (${moment.performanceDate})`,
-    description: description,
-    image: imageUrl,
-    animation_url: animationUrl,
-    external_url: `${window.location.origin}/moments/${moment._id}`,
+  // Create NFT metadata
+  const createNFTMetadata = (moment, cardUrl = null) => {
+    console.log('🎨 Creating NFT metadata with:', {
+      cardUrl: cardUrl,
+      momentMediaType: moment.mediaType,
+      hasCard: !!cardUrl
+    });
     
-    attributes: [
-      // ✅ PROVENANCE: Upload information first (most important)
+    // Always use the NFT card as the image for OpenSea display
+    let imageUrl = cardUrl;
+    
+    // Fallback only if no NFT card was generated
+    if (!imageUrl) {
+      if (moment.mediaType === 'video') {
+        imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(moment.songName)}&size=512&background=1e3a8a&color=ffffff&bold=true`;
+      } else {
+        imageUrl = moment.mediaUrl;
+      }
+    }
+    
+    const uploadDate = new Date(moment.createdAt).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: 'UTC'
+    });
+    
+    const uploadTime = new Date(moment.createdAt).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: 'UTC'
+    });
+    
+    let description = moment.momentDescription || 
+      `A live performance moment of "${moment.songName}" by UMO at ${moment.venueName}, ${moment.venueCity} on ${moment.performanceDate}.`;
+    
+    description += `\n\n📅 Originally uploaded on ${uploadDate} at ${uploadTime} UTC by ${moment.user?.displayName || 'Anonymous'}.`;
+    description += `\n\n🎬 Download original ${moment.mediaType || 'media'}: ${moment.mediaUrl}`;
+    
+    // Build comprehensive attributes array
+    const attributes = [
+      // Upload provenance (most important)
       {
         trait_type: "Upload Date",
         value: uploadDate
       },
       {
         trait_type: "Upload Time (UTC)",
-        value: new Date(moment.createdAt).toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          timeZone: 'UTC'
-        })
+        value: uploadTime
       },
       {
         trait_type: "Uploader",
         value: moment.user?.displayName || "Anonymous"
       },
       
-      // Content identification
-      {
-        trait_type: "Content Type",
-        value: moment.contentType === 'song' ? 'Song Performance' : 
-               moment.contentType === 'jam' ? 'Jam/Improv' :
-               moment.contentType === 'intro' ? 'Intro/Outro' :
-               moment.contentType === 'crowd' ? 'Crowd Moment' : 'Other Content'
-      },
+      // Performance details
       {
         trait_type: "Song",
         value: moment.songName
       },
       {
-        trait_type: "Venue", 
+        trait_type: "Venue",
         value: moment.venueName
       },
       {
@@ -183,18 +142,18 @@ const createNFTMetadata = (moment) => {
         value: moment.venueCity
       },
       {
-        trait_type: "Country",
-        value: moment.venueCountry || "Unknown"
-      },
-      {
         trait_type: "Performance Date",
         value: moment.performanceDate
       },
       
-      // Media attributes
+      // Content details
+      {
+        trait_type: "Content Type",
+        value: moment.contentType || 'song'
+      },
       {
         trait_type: "Media Type",
-        value: moment.mediaType || "video"
+        value: moment.mediaType
       },
       {
         trait_type: "File Size (MB)",
@@ -205,162 +164,119 @@ const createNFTMetadata = (moment) => {
       // Quality attributes
       {
         trait_type: "Audio Quality",
-        value: moment.audioQuality || "good"
+        value: moment.audioQuality || 'good'
       },
       {
-        trait_type: "Video Quality", 
-        value: moment.videoQuality || "good"
+        trait_type: "Video Quality",
+        value: moment.videoQuality || 'good'
       },
       
-      // ✅ UPDATED: Simplified 3-factor rarity attributes
+      // Rarity attributes
       {
         trait_type: "Rarity Tier",
-        value: moment.rarityTier || "common"
+        value: moment.rarityTier || 'basic'
       },
       {
         trait_type: "Rarity Score",
         value: moment.rarityScore || 0,
         display_type: "number",
-        max_value: 6  // ✅ Updated from 7 to 6
-      },
-      
-      // Performance context
-      {
-        trait_type: "Moment Type",
-        value: moment.momentType || "performance"
+        max_value: 6
       }
-    ].concat(
-      // ✅ Add set info if available
-      moment.setName ? [{ trait_type: "Set", value: moment.setName }] : []
-    ).concat(
-      // ✅ Add special occasion as trait if available
-      moment.specialOccasion ? [{ trait_type: "Special Occasion", value: moment.specialOccasion }] : []
-    ).concat(
-      // ✅ SIMPLIFIED: Only add emotional tags from our 6 metadata fields
-      moment.emotionalTags ? moment.emotionalTags.split(',').map(tag => ({
-        trait_type: "Emotion",
-        value: tag.trim()
-      })) : []
-    ).concat(
-      // ✅ SIMPLIFIED: Only add instruments from our 6 metadata fields
-      moment.instruments ? moment.instruments.split(',').map(instrument => ({
-        trait_type: "Instrument", 
-        value: instrument.trim()
-      })) : []
-    ).concat(
-      // ✅ Add crowd reaction category if available
-      moment.crowdReaction ? [{ trait_type: "Crowd Energy", value: getCrowdEnergyLevel(moment.crowdReaction) }] : []
-    ).concat(
-      // ✅ Add unique elements as traits if available
-      moment.uniqueElements ? getUniqueElementTraits(moment.uniqueElements) : []
-    ).filter(attr => attr.value !== undefined && attr.value !== null && attr.value !== ''),
+    ];
     
-    properties: {
-      // ✅ ENHANCED: Provenance properties
-      creator: moment.user?.displayName || "Unknown",
-      creator_id: moment.user?._id || moment.user?.id,
-      upload_timestamp_iso: moment.createdAt,
-      upload_timestamp_unix: Math.floor(new Date(moment.createdAt).getTime() / 1000),
-      
-      // Content identification
-      category: "music",
-      performance_id: moment.performanceId,
-      moment_id: moment._id,
-      content_type: moment.contentType,
-      
-      // ✅ SIMPLIFIED: Only the 6 metadata fields used in rarity calculation
-      moment_description: moment.momentDescription,
-      emotional_tags: moment.emotionalTags,
-      special_occasion: moment.specialOccasion,
-      instruments: moment.instruments,
-      crowd_reaction: moment.crowdReaction,
-      unique_elements: moment.uniqueElements,
-      // ✅ REMOVED: guestAppearances, personalNote (not in simplified system)
-      
-      // ✅ UPDATED: Simplified rarity data
-      rarity_score: moment.rarityScore,
-      rarity_tier: moment.rarityTier,
-      rarity_system: "simplified-3-factor",
-      
-      // File integrity
-      original_filename: moment.fileName,
-      file_size_bytes: moment.fileSize,
-      media_url: moment.mediaUrl,
-      
-      // Platform info
-      platform: "UMO Archive",
-      platform_version: "2.0",
-      blockchain: "Ethereum",
-      standard: "ERC-1155",
-      
-      // ERC1155 specific
-      token_standard: "erc1155",
-      supply: moment.nftMintedCount || 0
+    // Add conditional attributes if they exist
+    if (moment.venueCountry) {
+      attributes.push({
+        trait_type: "Country",
+        value: moment.venueCountry
+      });
     }
+    
+    if (moment.setName) {
+      attributes.push({
+        trait_type: "Set",
+        value: moment.setName
+      });
+    }
+    
+    if (moment.songPosition) {
+      attributes.push({
+        trait_type: "Song Position",
+        value: moment.songPosition,
+        display_type: "number"
+      });
+    }
+    
+    if (moment.specialOccasion) {
+      attributes.push({
+        trait_type: "Special Occasion",
+        value: moment.specialOccasion
+      });
+    }
+    
+    if (moment.instruments) {
+      // Split instruments and add each as separate attribute
+      moment.instruments.split(',').forEach(instrument => {
+        attributes.push({
+          trait_type: "Instrument",
+          value: instrument.trim()
+        });
+      });
+    }
+    
+    if (moment.emotionalTags) {
+      // Split emotional tags and add each as separate attribute
+      moment.emotionalTags.split(',').forEach(tag => {
+        attributes.push({
+          trait_type: "Emotion",
+          value: tag.trim()
+        });
+      });
+    }
+    
+    if (moment.crowdReaction) {
+      attributes.push({
+        trait_type: "Crowd Reaction",
+        value: moment.crowdReaction
+      });
+    }
+    
+    if (moment.uniqueElements) {
+      attributes.push({
+        trait_type: "Unique Elements",
+        value: moment.uniqueElements
+      });
+    }
+    
+    if (moment.guestAppearances) {
+      attributes.push({
+        trait_type: "Guest Appearances",
+        value: moment.guestAppearances
+      });
+    }
+    
+    const metadata = {
+      name: `${moment.songName} - ${moment.venueName} (${moment.performanceDate})`,
+      description: description,
+      image: imageUrl,
+      external_url: `${window.location.origin}/moments/${moment._id}`,
+      attributes: attributes.filter(attr => attr.value !== undefined && attr.value !== null && attr.value !== '')
+    };
+
+    console.log('🎨 Generated NFT metadata:', {
+      name: metadata.name,
+      imageUrl: metadata.image,
+      attributeCount: metadata.attributes.length,
+      hasImage: !!metadata.image
+    });
+
+    return metadata;
   };
-};
 
-// ✅ Helper function to categorize crowd reaction energy (unchanged)
-const getCrowdEnergyLevel = (crowdReaction) => {
-  const reaction = crowdReaction.toLowerCase();
-  
-  if (reaction.includes('wild') || reaction.includes('crazy') || reaction.includes('insane') || 
-      reaction.includes('explosive') || reaction.includes('erupted')) {
-    return 'Explosive';
-  } else if (reaction.includes('loud') || reaction.includes('cheering') || reaction.includes('excited') ||
-             reaction.includes('jumping') || reaction.includes('dancing')) {
-    return 'High Energy';
-  } else if (reaction.includes('singing') || reaction.includes('clapping') || reaction.includes('swaying') ||
-             reaction.includes('engaged') || reaction.includes('moving')) {
-    return 'Engaged';
-  } else if (reaction.includes('quiet') || reaction.includes('silent') || reaction.includes('awe') ||
-             reaction.includes('mesmerized') || reaction.includes('focused')) {
-    return 'Captivated';
-  } else {
-    return 'Moderate';
-  }
-};
-
-// ✅ Helper function to extract unique element traits (unchanged)
-const getUniqueElementTraits = (uniqueElements) => {
-  const elements = uniqueElements.toLowerCase();
-  const traits = [];
-  
-  if (elements.includes('first time') || elements.includes('debut') || elements.includes('premiere')) {
-    traits.push({ trait_type: "Performance History", value: "First Time Played" });
-  }
-  
-  if (elements.includes('acoustic') || elements.includes('stripped')) {
-    traits.push({ trait_type: "Arrangement", value: "Acoustic" });
-  }
-  
-  if (elements.includes('extended') || elements.includes('jam') || elements.includes('longer')) {
-    traits.push({ trait_type: "Performance Style", value: "Extended" });
-  }
-  
-  if (elements.includes('cover') || elements.includes('tribute')) {
-    traits.push({ trait_type: "Song Type", value: "Cover" });
-  }
-  
-  if (elements.includes('improvisation') || elements.includes('improv') || elements.includes('freestyle')) {
-    traits.push({ trait_type: "Performance Style", value: "Improvised" });
-  }
-  
-  if (elements.includes('rare') || elements.includes('seldom') || elements.includes('rarely')) {
-    traits.push({ trait_type: "Performance History", value: "Rarely Played" });
-  }
-  
-  if (elements.includes('last time') || elements.includes('final') || elements.includes('farewell')) {
-    traits.push({ trait_type: "Performance History", value: "Final Performance" });
-  }
-  
-  return traits;
-};
-
-  // ✅ Upload metadata to Irys/Arweave (browser-compatible)
+  // Upload metadata to Irys
   const uploadMetadataToIrys = async (metadata) => {
     try {
-      console.log('📤 Uploading metadata to Irys/Arweave...');
+      console.log('📤 Uploading metadata to Irys...');
       
       const metadataJson = JSON.stringify(metadata, null, 2);
       const metadataBlob = new Blob([metadataJson], { type: 'application/json' });
@@ -368,8 +284,6 @@ const getUniqueElementTraits = (uniqueElements) => {
       const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('file', metadataBlob, `metadata-${Date.now()}.json`);
-      
-      console.log('📄 Metadata size:', metadataBlob.size, 'bytes');
       
       const response = await fetch(`${API_BASE_URL}/upload-file`, {
         method: 'POST',
@@ -381,597 +295,463 @@ const getUniqueElementTraits = (uniqueElements) => {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Metadata uploaded to Arweave:', result.fileUri);
+        console.log('✅ Metadata uploaded:', result.fileUri);
         return result.fileUri;
       } else {
-        const errorText = await response.text();
-        console.error('❌ Upload response error:', errorText);
-        throw new Error(`Failed to upload metadata to Irys: ${response.status}`);
+        throw new Error('Failed to upload metadata');
       }
     } catch (error) {
-      console.error('❌ Metadata upload to Irys failed:', error);
-      throw new Error(`Metadata upload failed: ${error.message}`);
-    }
-  };
-
-  // ✅ Get next token ID from backend
-  const getNextTokenId = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/get-next-token-id`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const { tokenId } = await response.json();
-        return tokenId;
-      } else {
-        throw new Error('Failed to get next token ID');
-      }
-    } catch (error) {
-      console.error('❌ Error getting next token ID:', error);
+      console.error('❌ Metadata upload failed:', error);
       throw error;
     }
   };
 
-// ✅ ERC1155: Create NFT Edition via Backend Proxy (for owners)
-const handleCreateNFTEdition = async () => {
-  if (!isConnected) {
-    setError('Please connect your wallet first');
-    return;
-  }
+  // Generate preview
+  const handleGeneratePreview = async () => {
+    setIsGeneratingPreview(true);
+    try {
+      const newSeed = Math.floor(Math.random() * 1000) + 1;
+      setRandomSeed(newSeed);
+      
+      const token = localStorage.getItem('token');
+      const previewResponse = await fetch(`${API_BASE_URL}/moments/${moment._id}/preview-nft-card`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          randomSeed: newSeed
+        })
+      });
 
-  setIsCreatingNFT(true);
-  setError('');
-  setCurrentStep('creating');
+      if (!previewResponse.ok) {
+        throw new Error('Failed to generate preview');
+      }
 
-  try {
-    console.log('🚀 Creating ERC1155 NFT edition via backend proxy...');
-
-    // Create proper metadata
-    const metadata = createNFTMetadata(moment);
-    const metadataURI = await uploadMetadataToIrys(metadata);
-    
-    const mockSplitsAddress = '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96';
-
-    console.log('📝 Using backend proxy with parameters:', {
-      momentId: moment._id.slice(0, 12) + '...',
-      mintDuration: `${mintDuration} days`,
-      metadataURI: metadataURI.slice(0, 50) + '...',
-      rarityScore: moment.rarityScore || 0,
-      rarityTier: moment.rarityTier || 'common'
-    });
-
-    setCurrentStep('confirming');
-
-    // ✅ CALL BACKEND PROXY instead of contract directly
-    const token = localStorage.getItem('token');
-    const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/create-nft-edition-proxy`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        nftMetadataHash: metadataURI,
-        splitsContract: mockSplitsAddress,
-        mintPrice: '1000000000000000', // 0.001 ETH in wei as string
-        mintDuration: mintDuration
-      })
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.error || 'Backend proxy failed');
+      const previewResult = await previewResponse.json();
+      setPreviewUrl(previewResult.previewUrl);
+      setShowPreview(true);
+      console.log('✅ Preview generated with seed:', newSeed);
+    } catch (err) {
+      console.error('❌ Preview generation failed:', err);
+      setError('Failed to generate preview: ' + err.message);
+    } finally {
+      setIsGeneratingPreview(false);
     }
+  };
 
-    console.log('✅ Backend proxy success:', result);
-    setTxHash(result.txHash);
-    setCurrentStep('success');
-    
-    setSuccessMessage('🎉 NFT Edition Created Successfully via Proxy! Page will refresh...');
-    setTimeout(() => window.location.reload(), 3000);
-
-  } catch (error) {
-    console.error('❌ Backend proxy NFT creation failed:', error);
-    
-    let errorMessage = error.message || 'Unknown error';
-    
-    if (errorMessage.includes('Not authorized')) {
-      errorMessage = 'You are not authorized to create NFT for this moment';
-    } else if (errorMessage.includes('already exists')) {
-      errorMessage = 'NFT edition already exists for this moment';
-    } else if (errorMessage.includes('Dev wallet')) {
-      errorMessage = 'Backend service temporarily unavailable (dev wallet issue)';
-    } else if (errorMessage.includes('Network')) {
-      errorMessage = 'Network connection failed - please try again';
-    }
-    
-    setError(errorMessage);
-    setCurrentStep('ready');
-  } finally {
-    setIsCreatingNFT(false);
-  }
-};
-
-  // ✅ ERC1155: Mint NFT (for both owners and collectors)
-  const handleMintNFT = async (quantity = 1) => {
+  // Create NFT Edition
+  const handleCreateNFTEdition = async () => {
     if (!isConnected) {
       setError('Please connect your wallet first');
       return;
     }
 
-    if (chainId !== 84532) {
-      setError('Please switch to Base Sepolia network');
+    setIsCreatingNFT(true);
+    setError('');
+    setCurrentStep('creating');
+    setShowPreview(false); // Close preview modal when creating NFT
+
+    try {
+      console.log('🚀 Creating NFT edition...');
+
+      // Generate NFT card
+      let cardUrl = null;
+      console.log('🎨 Generating NFT card...');
+      setCurrentStep('generating-card');
+      
+      const token = localStorage.getItem('token');
+      const endpoint = randomSeed > 0 
+        ? `${API_BASE_URL}/moments/${moment._id}/generate-nft-card-with-settings`
+        : `${API_BASE_URL}/moments/${moment._id}/generate-nft-card`;
+      
+      const cardResponse = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          randomSeed: randomSeed > 0 ? randomSeed : undefined
+        })
+      });
+
+      if (cardResponse.ok) {
+        const cardResult = await cardResponse.json();
+        cardUrl = cardResult.cardUrl;
+        console.log('✅ NFT card generated:', cardUrl);
+      } else {
+        throw new Error('Failed to generate NFT card');
+      }
+
+      // Create metadata
+      const metadata = createNFTMetadata(moment, cardUrl);
+      const metadataURI = await uploadMetadataToIrys(metadata);
+      
+      console.log('📝 Creating NFT edition with metadata:', metadataURI);
+      setCurrentStep('confirming');
+
+      // Call backend proxy
+      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/create-nft-edition-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          nftMetadataHash: metadataURI,
+          splitsContract: '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96',
+          mintPrice: '1000000000000000',
+          mintDuration: mintDuration,
+          nftCardUrl: cardUrl // Pass the generated card URL
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create NFT edition');
+      }
+
+      console.log('✅ NFT edition created:', result);
+      setTxHash(result.txHash);
+      
+    } catch (error) {
+      console.error('❌ NFT creation failed:', error);
+      setError(error.message || 'Failed to create NFT');
+      setCurrentStep('ready');
+    } finally {
+      setIsCreatingNFT(false);
+    }
+  };
+
+  // Record mint in database for tracking
+  const recordMintInDatabase = async () => {
+    try {
+      console.log('📝 Recording mint in database...', {
+        momentId: moment._id,
+        quantity: lastMintQuantity,
+        minterAddress: address,
+        txHash: txHash
+      });
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/record-mint`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          quantity: lastMintQuantity,
+          minterAddress: address,
+          txHash: txHash
+        })
+      });
+
+      const result = await response.json();
+      console.log('📝 Record mint response:', response.status, result);
+
+      if (response.ok) {
+        console.log('✅ Mint recorded in database:', result);
+        // Refetch balance and refresh data
+        refetchBalance();
+        if (onRefresh) {
+          console.log('🔄 Calling onRefresh callback');
+          onRefresh();
+        }
+        setTimeout(() => window.location.reload(), 2000);
+      } else {
+        console.error('❌ Failed to record mint in database:', result);
+        // Still refresh to show updated balance
+        refetchBalance();
+        if (onRefresh) onRefresh();
+        setTimeout(() => window.location.reload(), 2000);
+      }
+    } catch (error) {
+      console.error('❌ Error recording mint:', error);
+      // Still refresh to show updated balance
+      refetchBalance();
+      if (onRefresh) onRefresh();
+      setTimeout(() => window.location.reload(), 2000);
+    }
+  };
+
+  // Handle NFT minting for collectors
+  const handleMintNFT = async (quantity) => {
+    if (!isConnected) {
+      setError('Please connect your wallet first');
       return;
     }
 
     setIsMinting(true);
     setError('');
-    setCurrentStep('creating');
+    setCurrentStep('minting');
+    setLastMintQuantity(quantity); // Store quantity for database recording
 
     try {
-      console.log(`🎯 Minting ${quantity} ERC1155 NFT(s) for moment:`, moment._id.slice(0, 12) + '...');
-
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const contract = new ethers.Contract(
-        moment.nftContractAddress,
-        UMOMomentsERC1155Contract.abi,
-        signer
-      );
-
+      console.log('🎯 Minting NFT with user wallet...', { 
+        quantity, 
+        tokenId: moment.nftTokenId,
+        contractAddress: UMOMomentsERC1155Contract.address 
+      });
+      
       const mintPrice = parseEther('0.001');
-      const totalCost = mintPrice * BigInt(quantity);
+      const totalValue = mintPrice * BigInt(quantity);
 
-      console.log(`💰 Minting ${quantity} NFT(s) for ${formatEther(totalCost)} ETH`);
-
-      setCurrentStep('confirming');
-
-      // ✅ ERC1155: Mint by moment database ID (uses backwards compatibility function)
-      const transaction = await contract.mintMomentById(String(moment._id), quantity, {
-        value: totalCost
+      // Call contract directly with user's wallet
+      const hash = await writeContract({
+        address: UMOMomentsERC1155Contract.address,
+        abi: UMOMomentsERC1155Contract.abi,
+        functionName: 'mintMoment',
+        args: [moment.nftTokenId, quantity],
+        value: totalValue
       });
 
-      console.log('✅ Mint transaction submitted:', transaction.hash);
-      setTxHash(transaction.hash);
-
-      // Wait for confirmation
-      const receipt = await transaction.wait();
-      console.log('✅ Mint confirmed in block:', receipt.blockNumber);
-
-      // Record mint in backend
-      await recordMintInBackend(transaction.hash, quantity);
-
+      console.log('✅ NFT mint transaction submitted:', hash);
+      setTxHash(hash);
+      
     } catch (error) {
-      console.error('❌ Error minting ERC1155 NFT:', error);
-      
-      let errorMessage = error.message || 'Failed to mint NFT';
-      
-      if (error.code === 'ACTION_REJECTED') {
-        errorMessage = 'Transaction was rejected in MetaMask';
-      } else if (errorMessage.includes('insufficient funds')) {
-        errorMessage = 'Insufficient ETH for gas fees and mint cost';
-      } else if (errorMessage.includes('Minting not active')) {
-        errorMessage = 'Minting period has ended for this moment';
-      }
-      
-      setError(errorMessage);
+      console.error('❌ NFT mint failed:', error);
+      setError(`Failed to mint NFT: ${error.message}`);
       setCurrentStep('ready');
     } finally {
       setIsMinting(false);
     }
   };
 
-  // Record mint in backend (prevent double counting)
-  const recordMintInBackend = async (transactionHash, quantity) => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      const mintData = {
-        quantity: quantity,
-        minterAddress: address,
-        txHash: transactionHash
-      };
-
-      console.log('📝 Recording ERC1155 mint in backend:', mintData);
-
-      const response = await fetch(`${API_BASE_URL}/moments/${String(moment._id)}/record-mint`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(mintData)
-      });
-
-      if (response.ok) {
-        console.log('✅ Mint recorded in backend');
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Backend mint recording failed:', errorText);
-      }
-    } catch (error) {
-      console.error('❌ Failed to record mint in backend:', error);
-    }
-  };
-
-  // Utility functions
-
-// ✅ FIXED: Use helper function with correct OpenSea URL format
-  const handleViewOnOpenSea = () => {
-    if (moment.nftContractAddress && moment.nftTokenId !== undefined) {
-      // ✅ FIXED: Use base_sepolia (underscore) and lowercase address
-      const baseUrl = 'https://testnets.opensea.io/assets/base_sepolia';
-      const lowercaseAddress = moment.nftContractAddress.toLowerCase();
-      const openSeaUrl = `${baseUrl}/${lowercaseAddress}/${moment.nftTokenId}`;
-      
-      console.log('🔗 Opening OpenSea URL:', openSeaUrl);
-      window.open(openSeaUrl, '_blank', 'noopener,noreferrer');
-    }
-  };
-
-  const getMintingTimeRemaining = () => {
-    if (!moment.nftMintEndTime) return null;
-    const now = new Date();
-    const endTime = new Date(moment.nftMintEndTime);
-    const timeRemaining = endTime - now;
-    
-    if (timeRemaining <= 0) return null;
-    
-    const days = Math.floor(timeRemaining / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((timeRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    
-    return { days, hours, isActive: true };
-  };
-
   // Simple wallet connect component
   const SimpleWalletConnect = () => (
     <button
-      onClick={() => connectors.length > 0 && connect({ connector: connectors[0] })}
-      className="bg-white/20 border border-white/30 text-white px-5 py-2.5 rounded-lg font-semibold hover:bg-white/30 transition-colors"
+      onClick={() => connect({ connector: connectors[0] })}
+      className="w-full bg-white/20 border border-white/40 text-white px-4 py-2 rounded-lg hover:bg-white/30 transition-colors text-sm font-medium"
     >
       Connect Wallet
     </button>
   );
 
-  // ===================================================================
-  // STEP 1: OWNER + NO NFT CREATED = Show "Create NFT Edition"
-  // ===================================================================
+  // Owner view - Create NFT
   if (isOwner && !hasNFTEdition) {
     return (
       <div className="bg-gradient-to-r from-emerald-500 to-blue-500 text-white p-5 rounded-xl">
         <div className="mb-4">
           <h3 className="text-lg font-bold flex items-center mb-2">
             <Plus className="w-5 h-5 mr-2" />
-            Create ERC1155 NFT Edition
-            <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded-full">Owner</span>
+            Create NFT Edition
           </h3>
           <p className="text-sm opacity-90">
-            Turn your moment into mintable ERC1155 NFTs and earn 35% of mint revenue
+            Turn your moment into mintable NFTs
+          </p>
+        </div>
+
+        {!isConnected ? (
+          <SimpleWalletConnect />
+        ) : (
+          <div>
+            <div className="mb-4">
+              <label className="block text-xs font-semibold mb-1">Minting Duration:</label>
+              <select
+                value={mintDuration}
+                onChange={(e) => setMintDuration(parseInt(e.target.value))}
+                disabled={currentStep !== 'ready'}
+                className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-xs"
+              >
+                <option value={7}>7 Days</option>
+                <option value={14}>14 Days</option>
+                <option value={30}>30 Days</option>
+              </select>
+            </div>
+
+            {error && (
+              <div className="bg-red-500/20 border border-red-500/30 text-red-100 p-3 rounded-lg mb-4 text-xs">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {currentStep !== 'success' && (
+                <button
+                  onClick={handleGeneratePreview}
+                  disabled={isGeneratingPreview || isCreatingNFT}
+                  className={`w-full ${
+                    isGeneratingPreview || isCreatingNFT ? 'bg-white/10 cursor-not-allowed' : 'bg-green-600/80 hover:bg-green-600'
+                  } border border-white/30 text-white p-3 rounded-lg font-semibold`}
+                >
+                  {isGeneratingPreview ? 'Generating Preview...' : '🎨 Preview NFT Card'}
+                </button>
+              )}
+
+              <button
+                onClick={handleCreateNFTEdition}
+                disabled={isCreatingNFT || currentStep !== 'ready'}
+                className={`w-full ${
+                  isCreatingNFT || currentStep !== 'ready' ? 'bg-white/10 cursor-not-allowed' : 'bg-blue-600/80 hover:bg-blue-600'
+                } border border-white/30 text-white p-3 rounded-lg font-semibold`}
+              >
+                {currentStep === 'generating-card' ? '🎨 Generating Card...' :
+                 currentStep === 'confirming' ? '⏳ Creating Edition...' :
+                 currentStep === 'success' ? successMessage :
+                 '🚀 Create NFT Edition'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Simple Preview Modal */}
+        {showPreview && previewUrl && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-gray-800">NFT Preview</h3>
+                  <button
+                    onClick={() => setShowPreview(false)}
+                    className="text-gray-500 hover:text-gray-700 text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+                
+                <img 
+                  src={previewUrl} 
+                  alt="NFT Card Preview" 
+                  className="w-full rounded-lg shadow-lg mb-4"
+                />
+                
+                <div className="text-center">
+                  <button
+                    onClick={handleGeneratePreview}
+                    disabled={isGeneratingPreview || isCreatingNFT}
+                    className={`w-full py-3 px-4 rounded-lg font-medium ${
+                      isGeneratingPreview || isCreatingNFT
+                        ? 'bg-gray-300 text-gray-500'
+                        : 'bg-purple-600 text-white hover:bg-purple-700'
+                    }`}
+                  >
+                    {isGeneratingPreview ? 'Generating...' : '🎲 Try Another Variation'}
+                  </button>
+                  
+                  {randomSeed > 0 && (
+                    <div className="text-xs text-gray-500 mt-2">
+                      Variation #{randomSeed}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => setShowPreview(false)}
+                    className="flex-1 py-2 px-4 bg-gray-200 text-gray-800 rounded-lg"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowPreview(false);
+                      handleCreateNFTEdition();
+                    }}
+                    disabled={isCreatingNFT}
+                    className={`flex-1 py-2 px-4 rounded-lg font-semibold ${
+                      isCreatingNFT 
+                        ? 'bg-blue-400 text-blue-100 cursor-not-allowed' 
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    {isCreatingNFT ? 'Creating...' : 'Create NFT'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Collector/Owner view - Mint NFT (when NFT edition already exists)
+  if (hasNFTEdition) {
+    return (
+      <div className="bg-gradient-to-r from-purple-600 to-pink-500 text-white p-5 rounded-xl">
+        <div className="mb-4">
+          <h3 className="text-lg font-bold flex items-center mb-2">
+            <Zap className="w-5 h-5 mr-2" />
+            Mint NFT
+            <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded-full">
+              {isOwner ? 'Creator' : 'Collector'}
+            </span>
+          </h3>
+          <p className="text-sm opacity-90">
+            {isOwner ? 'Mint copies of your own NFT edition' : 'Support the artist and uploader by minting this moment'}
           </p>
         </div>
 
         {!isConnected ? (
           <div className="text-center">
-            <p className="mb-4 text-sm">Connect your wallet to create NFT editions</p>
+            <p className="mb-4 text-sm">
+              Connect your wallet to mint NFTs
+            </p>
             <SimpleWalletConnect />
           </div>
         ) : (
           <div>
-            {/* Progress indicator */}
-            {currentStep !== 'ready' && (
-              <div className="bg-white/10 p-4 rounded-lg mb-4 text-center">
-                <div className="text-sm mb-2">
-                  {currentStep === 'creating' && '📝 Preparing transaction...'}
-                  {currentStep === 'confirming' && '⏳ Confirming on blockchain...'}
-                  {currentStep === 'updating' && '💾 Updating database...'}
-                  {currentStep === 'success' && successMessage}
+            {/* NFT Card Preview */}
+            {moment.nftCardUrl && (
+              <div className="mb-4">
+                <div className="text-xs mb-2 opacity-90 text-center">
+                  🎨 NFT Card Preview
                 </div>
-                {txHash && (
-                  <a
-                    href={`https://sepolia.basescan.org/tx/${txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white/80 text-xs underline"
-                  >
-                    View Transaction →
-                  </a>
-                )}
+                <img 
+                  src={moment.nftCardUrl} 
+                  alt="NFT Card Preview" 
+                  className="w-full rounded-lg shadow-lg"
+                  style={{ maxHeight: '200px', objectFit: 'contain' }}
+                />
               </div>
             )}
 
-            {/* ✅ UPDATED: Edition Settings with simplified rarity info */}
-            <div className="bg-white/10 p-4 rounded-lg mb-4">
-              <h4 className="text-sm font-semibold mb-2">⚙️ ERC1155 Edition Settings</h4>
-              <div className="text-xs space-y-1 mb-3">
-                <div>💵 Price: ~$1 USD (0.001 ETH) per NFT</div>
-                <div>📊 Supply: Unlimited (ERC1155 open edition)</div>
-                <div>🎯 Rarity: {moment.rarityScore || 0}/6 ({moment.rarityTier || 'common'})</div>
-                <div>⚡ System: Simplified 3-Factor</div>
-                <div>🏷️ Token Standard: ERC1155</div>
+            <div className="bg-white/10 p-4 rounded-lg mb-4 text-center">
+              <div className="text-xs mb-2 opacity-90">
+                💎 Available for Minting
               </div>
-              
-              <div>
-                <label className="block text-xs font-semibold mb-1">⏰ Minting Duration:</label>
-                <select
-                  value={mintDuration}
-                  onChange={(e) => setMintDuration(parseInt(e.target.value))}
-                  disabled={currentStep !== 'ready'}
-                  className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-xs"
-                >
-                  <option value={1} style={{ background: '#333', color: 'white' }}>1 Day</option>
-                  <option value={3} style={{ background: '#333', color: 'white' }}>3 Days</option>
-                  <option value={7} style={{ background: '#333', color: 'white' }}>7 Days (Recommended)</option>
-                  <option value={14} style={{ background: '#333', color: 'white' }}>14 Days</option>
-                  <option value={30} style={{ background: '#333', color: 'white' }}>30 Days</option>
-                </select>
+              <div className="text-2xl font-bold mb-1">
+                ~$1 USD
               </div>
+              <div className="text-xs opacity-80">
+                {moment.nftMintedCount || 0} already minted
+              </div>
+              {userBalance && Number(userBalance) > 0 && (
+                <div className="text-xs mt-2 px-2 py-1 bg-green-500/20 border border-green-500/30 rounded-lg text-green-200">
+                  ✅ You own {Number(userBalance)} NFT{Number(userBalance) !== 1 ? 's' : ''}
+                </div>
+              )}
             </div>
 
             {error && (
               <div className="bg-red-500/20 border border-red-500/30 text-red-100 p-3 rounded-lg mb-4 text-xs">
-                ❌ {error}
+                {error}
               </div>
             )}
 
-            <button
-              onClick={handleCreateNFTEdition}
-              disabled={isCreatingNFT || currentStep !== 'ready'}
-              className={`w-full ${
-                isCreatingNFT ? 'bg-white/10 cursor-not-allowed opacity-70' : 'bg-white/20 hover:bg-white/30'
-              } border border-white/30 text-white p-3 rounded-lg font-semibold flex items-center justify-center transition-colors`}
-            >
-              {isCreatingNFT ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                  Creating ERC1155 Edition...
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4 mr-2" />
-                  Create ERC1155 NFT Edition
-                </>
-              )}
-            </button>
-            
-            <div className="text-xs text-white/80 mt-2 leading-tight">
-              ℹ️ Creates an ERC1155 token where multiple collectors can mint the same moment with enhanced provenance
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ===================================================================
-  // STEP 2: OWNER + NFT CREATED = Show "Manage Edition" + MINT ABILITY
-  // ===================================================================
-  if (isOwner && hasNFTEdition) {
-    const timeRemaining = getMintingTimeRemaining();
-    
-    return (
-      <div className="bg-gradient-to-r from-emerald-600 to-blue-600 text-white p-5 rounded-xl">
-        <div className="mb-4">
-          <h3 className="text-lg font-bold flex items-center mb-2">
-            <CheckCircle className="w-5 h-5 mr-2" />
-            ERC1155 NFT Edition Active
-            <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded-full">Owner</span>
-          </h3>
-          <p className="text-sm opacity-90">
-            Your ERC1155 moment is live for minting! Earning 35% of mint revenue.
-          </p>
-        </div>
-
-        {/* ✅ UPDATED: Stats with simplified rarity */}
-        <div className="bg-white/10 p-4 rounded-lg mb-4">
-          <h4 className="text-sm font-semibold mb-2">📊 ERC1155 Edition Stats</h4>
-          <div className="text-xs space-y-1">
-            <div>💎 Total Minted: {moment.nftMintedCount || 0}</div>
-            <div>🏷️ Token ID: {moment.nftTokenId !== undefined ? moment.nftTokenId : 'Pending...'}</div>
-            <div>🎯 Rarity: {moment.rarityScore || 0}/6 ({moment.rarityTier || 'common'})</div>
-            <div>💰 Your Revenue: ~${((moment.nftMintedCount || 0) * 0.35 * 0.001 * 3500).toFixed(2)} USD</div>
-            <div className="flex items-center">
-              {timeRemaining?.isActive ? (
-                <>
-                  <Clock className="w-3 h-3 mr-1" />
-                  ⏰ Active: {timeRemaining.days}d {timeRemaining.hours}h remaining
-                </>
-              ) : (
-                '⏰ Minting Ended'
-              )}
-            </div>
-            <div>🔗 Contract: {moment.nftContractAddress?.slice(0, 8)}...</div>
-          </div>
-        </div>
-
-        {/* Owner Minting Section */}
-        {isConnected && timeRemaining?.isActive && (
-          <div className="bg-white/10 p-4 rounded-lg mb-4">
-            <h4 className="text-sm font-semibold mb-2">🎨 Owner Mint (ERC1155)</h4>
-            <p className="text-xs opacity-90 mb-3">
-              As the owner, you can mint your own ERC1155 NFTs:
-            </p>
-
-            {currentStep !== 'ready' && (
-              <div className="bg-white/10 p-3 rounded text-center mb-3">
-                <div className="text-xs mb-1">
-                  {currentStep === 'creating' && '💰 Preparing mint...'}
-                  {currentStep === 'confirming' && '⏳ Confirming mint...'}
-                  {currentStep === 'success' && successMessage}
-                </div>
-                {txHash && (
-                  <a
-                    href={`https://sepolia.basescan.org/tx/${txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white/80 text-xs underline"
-                  >
-                    View Transaction →
-                  </a>
-                )}
-              </div>
-            )}
-
-            {error && (
-              <div className="bg-red-500/20 border border-red-500/30 text-red-100 p-2 rounded mb-3 text-xs">
-                ❌ {error}
-              </div>
-            )}
-
-            <div className="flex gap-2">
+            <div className="flex gap-3 mb-4">
               <button 
                 onClick={() => handleMintNFT(1)}
                 disabled={isMinting || currentStep !== 'ready'}
-                className={`flex-1 ${
-                  isMinting ? 'bg-white/10 opacity-70' : 'bg-white/20 hover:bg-white/30'
-                } border border-white/30 text-white p-2 rounded text-xs font-semibold transition-colors`}
+                className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm ${
+                  isMinting || currentStep !== 'ready' 
+                    ? 'bg-purple-800 cursor-not-allowed opacity-70' 
+                    : 'bg-purple-700 hover:bg-purple-600'
+                }`}
               >
                 {isMinting ? 'Minting...' : 'Mint 1 NFT'}
               </button>
               <button 
-                onClick={() => handleMintNFT(3)}
-                disabled={isMinting || currentStep !== 'ready'}
-                className="flex-1 bg-white/10 border border-white/30 text-white p-2 rounded text-xs font-semibold hover:bg-white/20 transition-colors disabled:opacity-70"
-              >
-                Mint 3
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <button
-            onClick={handleViewOnOpenSea}
-            className="flex-1 bg-white/20 border border-white/30 text-white p-2.5 rounded-lg text-xs font-semibold flex items-center justify-center hover:bg-white/30 transition-colors"
-          >
-            <ExternalLink className="w-3 h-3 mr-1" />
-            OpenSea
-          </button>
-          <button
-            onClick={() => alert(`ERC1155 Analytics:\n• Total Minted: ${moment.nftMintedCount || 0}\n• Token ID: ${moment.nftTokenId}\n• Rarity: ${moment.rarityScore || 0}/6 (${moment.rarityTier || 'common'})\n• Revenue: ~$${((moment.nftMintedCount || 0) * 0.35 * 0.001 * 3500).toFixed(2)}`)}
-            className="flex-1 bg-white/20 border border-white/30 text-white p-2.5 rounded-lg text-xs font-semibold hover:bg-white/30 transition-colors"
-          >
-            Analytics
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ===================================================================
-  // STEP 3: NON-OWNER + NO NFT = Show simple message
-  // ===================================================================
-  if (!isOwner && !hasNFTEdition) {
-    return (
-      <div className="bg-gradient-to-r from-gray-100 to-gray-200 text-gray-600 p-4 rounded-lg text-center text-sm">
-        ERC1155 NFT not yet available for this moment
-      </div>
-    );
-  }
-
-  // ===================================================================
-  // STEP 4: NON-OWNER + NFT CREATED = Show "Mint NFT"
-  // ===================================================================
-  if (!isOwner && hasNFTEdition) {
-    const timeRemaining = getMintingTimeRemaining();
-    
-    return (
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white p-5 rounded-xl">
-        <div className="mb-4">
-          <h3 className="text-lg font-bold flex items-center mb-2">
-            <Zap className="w-5 h-5 mr-2" />
-            Mint ERC1155 NFT
-            <span className="ml-2 text-xs bg-white/20 px-2 py-1 rounded-full">Collector</span>
-          </h3>
-          <p className="text-sm opacity-90">
-            Support the artist and uploader by minting this ERC1155 moment
-          </p>
-        </div>
-
-        {!timeRemaining?.isActive && (
-          <div className="bg-red-500/20 border border-red-500/30 p-3 rounded-lg mb-4 text-center">
-            <AlertCircle className="w-4 h-4 mx-auto mb-1" />
-            <div className="text-sm font-semibold">Minting Period Ended</div>
-            <div className="text-xs opacity-80">This ERC1155 moment is no longer available for minting</div>
-          </div>
-        )}
-
-        {!isConnected ? (
-          <div className="text-center">
-            <p className="mb-4 text-sm">Connect your wallet to mint ERC1155 NFTs</p>
-            <SimpleWalletConnect />
-          </div>
-        ) : timeRemaining?.isActive ? (
-          <div>
-            {currentStep !== 'ready' && (
-              <div className="bg-white/10 p-4 rounded-lg mb-4 text-center">
-                <div className="text-sm mb-2">
-                  {currentStep === 'creating' && '💰 Preparing mint...'}
-                  {currentStep === 'confirming' && '⏳ Confirming mint...'}
-                  {currentStep === 'success' && successMessage}
-                </div>
-                {txHash && (
-                  <a
-                    href={`https://sepolia.basescan.org/tx/${txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white/80 text-xs underline"
-                  >
-                    View Transaction →
-                  </a>
-                )}
-              </div>
-            )}
-
-            {/* ✅ UPDATED: Mint info with simplified rarity */}
-            <div className="bg-white/10 p-4 rounded-lg mb-4 text-center">
-              <div className="text-xs mb-2 opacity-90">💎 ERC1155 Available for Minting</div>
-              <div className="text-2xl font-bold mb-1">~$1 USD</div>
-              <div className="text-xs opacity-80">
-                {moment.nftMintedCount || 0} copies minted • Token ID: {moment.nftTokenId}
-              </div>
-              <div className="text-xs mt-1 opacity-80">
-                Rarity: {moment.rarityScore || 0}/6 ({moment.rarityTier || 'common'})
-              </div>
-              {timeRemaining && (
-                <div className="text-xs mt-2 flex items-center justify-center">
-                  <Clock className="w-3 h-3 mr-1" />
-                  {timeRemaining.days}d {timeRemaining.hours}h remaining
-                </div>
-              )}
-            </div>
-
-            {error && (
-              <div className="bg-red-500/20 border border-red-500/30 text-red-100 p-3 rounded-lg mb-4 text-xs">
-                ❌ {error}
-              </div>
-            )}
-
-            <div className="flex gap-2 mb-4">
-              <button 
-                onClick={() => handleMintNFT(1)}
-                disabled={isMinting || currentStep !== 'ready'}
-                className={`flex-[2] ${
-                  isMinting ? 'bg-purple-700 opacity-70' : 'bg-purple-500 hover:bg-purple-600'
-                } text-white border-none p-3 rounded-lg text-sm font-semibold flex items-center justify-center transition-colors`}
-              >
-                {isMinting ? (
-                  <>
-                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                    Minting...
-                  </>
-                ) : (
-                  'Mint 1 ERC1155 NFT'
-                )}
-              </button>
-              <button 
                 onClick={() => handleMintNFT(5)}
                 disabled={isMinting || currentStep !== 'ready'}
-                className="flex-1 bg-white/20 border border-white/30 text-white p-3 rounded-lg text-sm font-semibold hover:bg-white/30 transition-colors disabled:opacity-70"
+                className={`px-4 py-3 rounded-lg text-sm border border-white/30 ${
+                  isMinting || currentStep !== 'ready'
+                    ? 'bg-white/10 cursor-not-allowed opacity-70'
+                    : 'bg-white/20 hover:bg-white/30'
+                }`}
               >
                 Mint 5
               </button>
@@ -982,22 +762,12 @@ const handleCreateNFTEdition = async () => {
               🎵 UMO: 55% • 📤 Uploader: 35% • ⚙️ Platform: 10%
             </div>
           </div>
-        ) : (
-          <div className="text-center">
-            <p className="text-sm mb-4">Minting has ended for this ERC1155 moment</p>
-            <button
-              onClick={handleViewOnOpenSea}
-              className="bg-white/20 border border-white/30 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white/30 transition-colors"
-            >
-              View on OpenSea
-            </button>
-          </div>
         )}
       </div>
     );
   }
 
-  // Fallback
+  // Return null for other states (simplified)
   return null;
 };
 
