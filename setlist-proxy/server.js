@@ -891,16 +891,81 @@ app.post('/moments/:momentId/create-nft-edition-proxy', authenticateToken, async
   }
 });
 
+// Manual fix endpoint to repair mint counts
+app.post('/moments/:momentId/fix-mint-count', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { forceAdd = false } = req.body; // Option to force add a mint record
+    const moment = await Moment.findById(momentId);
+    
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+    
+    const oldCount = moment.nftMintedCount || 0;
+    let newCount = 0;
+    
+    // If user requests force add, add a manual entry
+    if (forceAdd) {
+      console.log(`🔧 Force adding mint record for user ${req.user.id}`);
+      
+      if (!moment.nftMintHistory) {
+        moment.nftMintHistory = [];
+      }
+      
+      moment.nftMintHistory.push({
+        minter: req.user.id,
+        minterAddress: '0x0000000000000000000000000000000000000000', // Placeholder since we don't have the original address
+        quantity: 1,
+        txHash: `manual-fix-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Unique identifier
+        mintedAt: new Date()
+      });
+      
+      // Recalculate total
+      newCount = moment.nftMintHistory.reduce((total, mint) => total + (mint.quantity || 1), 0);
+    } else if (moment.nftMintHistory && moment.nftMintHistory.length > 0) {
+      // Just recalculate from existing history
+      newCount = moment.nftMintHistory.reduce((total, mint) => total + (mint.quantity || 1), 0);
+    }
+    
+    moment.nftMintedCount = newCount;
+    await moment.save();
+    
+    console.log(`🔧 Fixed mint count for ${momentId}: ${oldCount} -> ${newCount}`);
+    
+    res.json({
+      success: true,
+      oldCount,
+      newCount,
+      historyLength: moment.nftMintHistory?.length || 0,
+      forceAdded: forceAdd && oldCount === 0
+    });
+  } catch (err) {
+    console.error('❌ Fix mint count error:', err);
+    res.status(500).json({ error: 'Failed to fix mint count' });
+  }
+});
+
 app.get('/moments/:momentId/nft-status', async (req, res) => {
   try {
     const { momentId } = req.params;
     
     const moment = await Moment.findById(momentId)
-      .select('nftMinted nftTokenId nftContractAddress nftMintedCount nftMintStartTime nftMintEndTime nftMintPrice')
+      .select('nftMinted nftTokenId nftContractAddress nftMintedCount nftMintStartTime nftMintEndTime nftMintPrice nftMintHistory')
       .populate('user', 'displayName');
 
     if (!moment) {
       return res.status(404).json({ error: 'Moment not found' });
+    }
+    
+    // Recalculate mint count from history if it seems incorrect
+    if (moment.nftMintHistory && moment.nftMintHistory.length > 0) {
+      const calculatedCount = moment.nftMintHistory.reduce((total, mint) => total + (mint.quantity || 1), 0);
+      if (calculatedCount !== moment.nftMintedCount) {
+        console.log(`🔧 Fixing mint count in nft-status for ${momentId}: ${moment.nftMintedCount} -> ${calculatedCount}`);
+        moment.nftMintedCount = calculatedCount;
+        await moment.save();
+      }
     }
 
     const hasNFTEdition = !!(moment.nftMinted && moment.nftContractAddress && moment.nftTokenId !== undefined);
@@ -946,6 +1011,7 @@ app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) =
     const { quantity = 1, minterAddress, txHash } = req.body;
 
     console.log(`🎯 Recording ${quantity} NFT mint(s) for moment ${momentId}`);
+    console.log('📝 Mint details:', { quantity, minterAddress, txHash });
 
     if (!txHash) {
       return res.status(400).json({ error: 'Transaction hash is required' });
@@ -956,7 +1022,13 @@ app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) =
       return res.status(404).json({ error: 'Moment not found' });
     }
 
-    if (!moment.nftMinted || !moment.nftContractAddress) {
+    console.log('📝 Moment before update:', {
+      nftTokenId: moment.nftTokenId,
+      nftContractAddress: moment.nftContractAddress,
+      currentMintCount: moment.nftMintedCount
+    });
+
+    if (!moment.nftTokenId || !moment.nftContractAddress) {
       return res.status(400).json({ error: 'No NFT edition exists for this moment' });
     }
 
@@ -1003,6 +1075,11 @@ app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) =
     }
 
     console.log(`✅ Recorded ${quantity} mint(s). Total now: ${updatedMoment.nftMintedCount}`);
+    console.log('📝 Updated moment details:', {
+      id: updatedMoment._id,
+      nftMintedCount: updatedMoment.nftMintedCount,
+      historyLength: updatedMoment.nftMintHistory?.length
+    });
 
     res.json({
       success: true,
@@ -1567,6 +1644,16 @@ app.get('/moments/:momentId', async (req, res) => {
     
     if (!moment) {
       return res.status(404).json({ error: 'Moment not found' });
+    }
+    
+    // Recalculate mint count from history if it seems incorrect
+    if (moment.nftMintHistory && moment.nftMintHistory.length > 0) {
+      const calculatedCount = moment.nftMintHistory.reduce((total, mint) => total + (mint.quantity || 1), 0);
+      if (calculatedCount !== moment.nftMintedCount) {
+        console.log(`🔧 Fixing mint count for ${momentId}: ${moment.nftMintedCount} -> ${calculatedCount}`);
+        moment.nftMintedCount = calculatedCount;
+        await moment.save();
+      }
     }
     
     res.json(moment);

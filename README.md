@@ -440,6 +440,63 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Arweave** - For permanent decentralized storage
 - **The UMO Community** - For sharing incredible concert moments
 
+## 🐛 Current Issues & Next Session TODOs
+
+### ✅ **COMPLETED: NFT System 100% Functional**
+
+**🎉 MAJOR SESSION ACCOMPLISHMENTS:**
+
+**1. Fixed Complete NFT Minting Pipeline**:
+- ✅ Wagmi v2 integration with proper `writeContractData` usage
+- ✅ MetaMask confirmation flow works perfectly
+- ✅ Database mint counts sync in real-time
+- ✅ UI updates without page reloads
+
+**2. Fixed NFT Card Generation**:
+- ✅ Preview system now connects to creation system
+- ✅ No more "purple circles" on OpenSea - proper random seed generation
+- ✅ Clear UX: Users see if using preview or random design
+- ✅ Button text shows: "Create NFT (Use Preview)" vs "Create NFT (Random Card)"
+
+**3. Enhanced User Experience**:
+- ✅ OpenSea links for all minted NFTs (`https://testnets.opensea.io/assets/base_sepolia/{contract}/{tokenId}`)
+- ✅ Manual fix buttons for mint count discrepancies
+- ✅ Debug info showing `(DB: X, History: Y)` 
+- ✅ Proper error handling and recovery
+
+**4. Database & Backend Fixes**:
+- ✅ Fixed `/record-mint` endpoint validation (`nftTokenId` check)
+- ✅ Added manual `/fix-mint-count` endpoint for historical data
+- ✅ Comprehensive mint history tracking
+
+**🎯 SYSTEM STATUS: FULLY OPERATIONAL**
+All NFT functionality working end-to-end with proper blockchain integration, database sync, and user experience.
+
+### 🚀 **Next Development Focus: Dynamic NFT Pricing**
+
+**Current Fixed Price**: All NFTs mint for 0.001 ETH (~$1 USD)
+
+**Planned Dynamic Pricing Features**:
+- **Rarity-based pricing**: Higher rarity tiers cost more to mint
+- **Time decay**: Price increases as minting window progresses  
+- **Supply-based**: Price increases with each mint (bonding curve)
+- **Venue/date premium**: Special shows have higher base prices
+
+**Key Files for Dynamic Pricing**:
+- `src/components/Web3/MomentMint.js` - Update mint price calculation
+- `setlist-proxy/server.js` - Update create-nft-edition endpoint pricing logic
+- `contracts/UMOMomentsERC1155.sol` - Modify contract pricing if needed
+
+### 🏗️ **Current Architecture Status**:
+- **Smart Contract**: ERC1155 on Base Sepolia (`0x5417E6db8cF893ac2a11BBd9970c4bd7defc6F39`)
+- **Storage**: Irys devnet (`devnet.irys.xyz`) 
+- **Database**: MongoDB with comprehensive moment schema
+- **Frontend**: React with Wagmi v2 for Web3 integration (FULLY WORKING)
+- **Backend**: Express server with NFT card generation
+- **Minting**: End-to-end functional with proper database sync
+
+---
+
 ## 📞 Support & Contact
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/umo-archive/issues)

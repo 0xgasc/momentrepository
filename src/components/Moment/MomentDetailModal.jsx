@@ -4,8 +4,14 @@ import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { formatFileSize } from '../../utils';
 import MomentMint from '../Web3/MomentMint';
 
-const MomentDetailModal = memo(({ moment, onClose }) => {
+const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   const { user } = useAuth();
+  const [moment, setMoment] = useState(initialMoment);
+  
+  // Update moment state when initialMoment prop changes
+  useEffect(() => {
+    setMoment(initialMoment);
+  }, [initialMoment]);
   
   const contentType = moment.contentType || 'song';
   const isSongContent = contentType === 'song';
@@ -94,8 +100,8 @@ const MomentDetailModal = memo(({ moment, onClose }) => {
       if (response.ok) {
         const updatedMoment = await response.json();
         console.log('✅ Moment data refreshed:', updatedMoment);
-        // The modal will need to be refreshed by parent component
-        // For now, we'll rely on the page refresh in MomentMint
+        console.log('📊 Updated mint count:', updatedMoment.nftMintedCount);
+        setMoment(updatedMoment);
       }
     } catch (error) {
       console.error('❌ Failed to refresh moment data:', error);

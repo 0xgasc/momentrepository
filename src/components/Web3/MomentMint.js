@@ -20,16 +20,37 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [randomSeed, setRandomSeed] = useState(0);
   const [lastMintQuantity, setLastMintQuantity] = useState(0);
+  const [pendingMintRecord, setPendingMintRecord] = useState(null);
 
   // Wagmi hooks
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
-  const { writeContract } = useWriteContract();
+  const { 
+    writeContract, 
+    data: writeContractData, 
+    isPending: writeContractPending,
+    isSuccess: writeContractSuccess,
+    error: writeContractError 
+  } = useWriteContract();
   
-  // Transaction confirmation
-  const { isSuccess: isConfirmed, error: txError } = useWaitForTransactionReceipt({
-    hash: txHash,
+  // Transaction confirmation - use the hash from writeContract hook
+  const { isSuccess: isConfirmed, error: txError, isLoading: txLoading } = useWaitForTransactionReceipt({
+    hash: writeContractData,
   });
+
+  // Debug transaction state changes
+  useEffect(() => {
+    if (txHash) {
+      console.log('🔍 Transaction state update:', {
+        txHash,
+        isConfirmed,
+        txLoading,
+        txError: !!txError,
+        currentStep,
+        pendingMintRecord
+      });
+    }
+  }, [txHash, isConfirmed, txLoading, txError, currentStep, pendingMintRecord]);
 
   // Read user's NFT balance for this token
   const { data: userBalance, refetch: refetchBalance } = useReadContract({
@@ -42,8 +63,17 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
 
   // Handle transaction confirmation
   useEffect(() => {
-    if (isConfirmed && txHash && currentStep !== 'success') {
-      console.log('✅ Transaction confirmed:', txHash);
+    if (isConfirmed && writeContractData && currentStep !== 'success') {
+      console.log('✅ Transaction confirmed:', writeContractData);
+      console.log('📊 Transaction state:', {
+        isConfirmed,
+        writeContractData,
+        currentStep,
+        isCreatingNFT,
+        isMinting,
+        lastMintQuantity,
+        pendingMintRecord
+      });
       setCurrentStep('success');
       
       if (isCreatingNFT) {
@@ -52,25 +82,50 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
           console.log('🔄 Calling onRefresh for NFT creation');
           onRefresh();
         }
-        setTimeout(() => window.location.reload(), 3000);
-      } else if (isMinting) {
+      } else if (pendingMintRecord) {
         setSuccessMessage('🎉 NFT Minted Successfully! Updating records...');
-        // Record the mint in the database
-        recordMintInDatabase();
+        console.log('🎯 About to call recordMintInDatabase() with pending record:', pendingMintRecord);
+        
+        // Update pending record with real transaction hash
+        const updatedRecord = {
+          ...pendingMintRecord,
+          txHash: writeContractData
+        };
+        
+        // Record the mint in the database using the pending record
+        recordMintInDatabaseWithData(updatedRecord);
+        // Clear pending record
+        setPendingMintRecord(null);
+        // Reset minting flag after recording
+        setIsMinting(false);
+      } else {
+        console.warn('⚠️ Transaction confirmed but no pending mint record found!');
+        console.warn('⚠️ Attempting emergency record with fallback data');
+        // Emergency fallback - try to record with whatever data we have
+        if (lastMintQuantity > 0) {
+          const emergencyRecord = {
+            quantity: lastMintQuantity,
+            txHash: writeContractData,
+            minterAddress: address
+          };
+          recordMintInDatabaseWithData(emergencyRecord);
+        }
       }
     }
-  }, [isConfirmed, txHash, currentStep, isCreatingNFT, isMinting]);
+  }, [isConfirmed, writeContractData, currentStep, isCreatingNFT, isMinting, pendingMintRecord]);
 
   // Handle transaction errors
   useEffect(() => {
-    if (txError) {
-      console.error('❌ Transaction failed:', txError);
-      setError(txError.message || 'Transaction failed');
+    if (txError || writeContractError) {
+      const error = txError || writeContractError;
+      console.error('❌ Transaction failed:', error);
+      setError(error.message || 'Transaction failed');
       setCurrentStep('ready');
       setIsCreatingNFT(false);
       setIsMinting(false);
+      setPendingMintRecord(null);
     }
-  }, [txError]);
+  }, [txError, writeContractError]);
 
   // Create NFT metadata
   const createNFTMetadata = (moment, cardUrl = null) => {
@@ -356,24 +411,25 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
     try {
       console.log('🚀 Creating NFT edition...');
 
-      // Generate NFT card
+      // Generate NFT card - use preview if available, otherwise generate random
       let cardUrl = null;
       console.log('🎨 Generating NFT card...');
       setCurrentStep('generating-card');
       
       const token = localStorage.getItem('token');
-      const endpoint = randomSeed > 0 
-        ? `${API_BASE_URL}/moments/${moment._id}/generate-nft-card-with-settings`
-        : `${API_BASE_URL}/moments/${moment._id}/generate-nft-card`;
       
-      const cardResponse = await fetch(endpoint, {
+      // If user previewed a card, use that seed; otherwise generate random
+      const useRandomSeed = randomSeed > 0 ? randomSeed : Math.floor(Math.random() * 1000) + 1;
+      console.log('🎲 Using seed for NFT card:', useRandomSeed, randomSeed > 0 ? '(from preview)' : '(random)');
+      
+      const cardResponse = await fetch(`${API_BASE_URL}/moments/${moment._id}/generate-nft-card-with-settings`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          randomSeed: randomSeed > 0 ? randomSeed : undefined
+          randomSeed: useRandomSeed
         })
       });
 
@@ -382,6 +438,8 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         cardUrl = cardResult.cardUrl;
         console.log('✅ NFT card generated:', cardUrl);
       } else {
+        const errorText = await cardResponse.text();
+        console.error('❌ Card generation failed:', errorText);
         throw new Error('Failed to generate NFT card');
       }
 
@@ -425,6 +483,62 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
     }
   };
 
+  // Record mint in database with specific data
+  const recordMintInDatabaseWithData = async (mintData) => {
+    try {
+      console.log('📝 Recording mint in database with data:', {
+        momentId: moment._id,
+        quantity: mintData.quantity,
+        minterAddress: mintData.minterAddress,
+        txHash: mintData.txHash,
+        currentMintCount: moment.nftMintedCount
+      });
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/record-mint`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          quantity: mintData.quantity,
+          minterAddress: mintData.minterAddress,
+          txHash: mintData.txHash
+        })
+      });
+
+      const result = await response.json();
+      console.log('📝 Record mint response:', response.status, result);
+      console.log('📝 Response details:', {
+        success: result.success,
+        totalMinted: result.totalMinted,
+        isDuplicate: result.isDuplicate,
+        error: result.error
+      });
+
+      if (response.ok) {
+        console.log('✅ Mint recorded in database:', result);
+        // Refetch balance and refresh data
+        refetchBalance();
+        if (onRefresh) {
+          console.log('🔄 Calling onRefresh callback');
+          onRefresh();
+        }
+      } else {
+        console.error('❌ Failed to record mint in database:', result);
+        // Still refresh to show updated balance
+        refetchBalance();
+        if (onRefresh) onRefresh();
+      }
+    } catch (error) {
+      console.error('❌ Error recording mint:', error);
+      // Still refresh to show updated balance
+      refetchBalance();
+      if (onRefresh) onRefresh();
+    }
+  };
+
   // Record mint in database for tracking
   const recordMintInDatabase = async () => {
     try {
@@ -432,7 +546,8 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         momentId: moment._id,
         quantity: lastMintQuantity,
         minterAddress: address,
-        txHash: txHash
+        txHash: txHash,
+        currentMintCount: moment.nftMintedCount
       });
 
       const token = localStorage.getItem('token');
@@ -451,6 +566,12 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
 
       const result = await response.json();
       console.log('📝 Record mint response:', response.status, result);
+      console.log('📝 Response details:', {
+        success: result.success,
+        totalMinted: result.totalMinted,
+        isDuplicate: result.isDuplicate,
+        error: result.error
+      });
 
       if (response.ok) {
         console.log('✅ Mint recorded in database:', result);
@@ -460,30 +581,32 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
           console.log('🔄 Calling onRefresh callback');
           onRefresh();
         }
-        setTimeout(() => window.location.reload(), 2000);
       } else {
         console.error('❌ Failed to record mint in database:', result);
         // Still refresh to show updated balance
         refetchBalance();
         if (onRefresh) onRefresh();
-        setTimeout(() => window.location.reload(), 2000);
       }
     } catch (error) {
       console.error('❌ Error recording mint:', error);
       // Still refresh to show updated balance
       refetchBalance();
       if (onRefresh) onRefresh();
-      setTimeout(() => window.location.reload(), 2000);
     }
   };
 
   // Handle NFT minting for collectors
   const handleMintNFT = async (quantity) => {
+    console.log('🔥 FUNCTION START - handleMintNFT called');
+    console.log('🚀 MINT BUTTON CLICKED - Starting mint process...', { quantity });
+    
     if (!isConnected) {
+      console.error('❌ Wallet not connected');
       setError('Please connect your wallet first');
       return;
     }
 
+    console.log('✅ Wallet connected, proceeding with mint...');
     setIsMinting(true);
     setError('');
     setCurrentStep('minting');
@@ -493,13 +616,36 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
       console.log('🎯 Minting NFT with user wallet...', { 
         quantity, 
         tokenId: moment.nftTokenId,
-        contractAddress: UMOMomentsERC1155Contract.address 
+        contractAddress: UMOMomentsERC1155Contract.address,
+        userAddress: address
       });
       
       const mintPrice = parseEther('0.001');
       const totalValue = mintPrice * BigInt(quantity);
 
+      console.log('💰 Calculated mint cost:', {
+        mintPrice: mintPrice.toString(),
+        totalValue: totalValue.toString(),
+        quantity
+      });
+
+      console.log('📝 About to call writeContract with:', {
+        address: UMOMomentsERC1155Contract.address,
+        functionName: 'mintMoment',
+        args: [moment.nftTokenId, quantity],
+        value: totalValue.toString()
+      });
+
+      // Store mint data for when transaction confirms
+      setPendingMintRecord({
+        quantity: quantity,
+        txHash: 'pending', // Will be updated when we get the real hash
+        minterAddress: address
+      });
+
       // Call contract directly with user's wallet
+      // Note: In Wagmi v2, writeContract may return undefined even on success
+      console.log('📝 Calling writeContract...');
       const hash = await writeContract({
         address: UMOMomentsERC1155Contract.address,
         abi: UMOMomentsERC1155Contract.abi,
@@ -508,14 +654,22 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         value: totalValue
       });
 
-      console.log('✅ NFT mint transaction submitted:', hash);
-      setTxHash(hash);
+      console.log('✅ writeContract completed, hash:', hash);
+      
+      // Don't rely on the hash from writeContract - it might be undefined
+      // The useWaitForTransactionReceipt hook will handle the actual transaction monitoring
+      console.log('⏳ Transaction submitted to MetaMask, waiting for confirmation...');
       
     } catch (error) {
       console.error('❌ NFT mint failed:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        code: error.code,
+        cause: error.cause,
+        stack: error.stack
+      });
       setError(`Failed to mint NFT: ${error.message}`);
       setCurrentStep('ready');
-    } finally {
       setIsMinting(false);
     }
   };
@@ -591,8 +745,16 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
                 {currentStep === 'generating-card' ? '🎨 Generating Card...' :
                  currentStep === 'confirming' ? '⏳ Creating Edition...' :
                  currentStep === 'success' ? successMessage :
-                 '🚀 Create NFT Edition'}
+                 randomSeed > 0 ? '🚀 Create NFT (Use Preview)' : '🚀 Create NFT (Random Card)'}
               </button>
+              
+              {currentStep === 'ready' && (
+                <p className="text-xs text-center mt-2 opacity-80">
+                  {randomSeed > 0 
+                    ? '✨ Will use your previewed card design' 
+                    : '🎲 Will generate a random card design'}
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -718,11 +880,57 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
               </div>
               <div className="text-xs opacity-80">
                 {moment.nftMintedCount || 0} already minted
+                {/* Debug info */}
+                {process.env.NODE_ENV === 'development' && (
+                  <span className="ml-2 text-yellow-400">
+                    (DB: {moment.nftMintedCount}, History: {moment.nftMintHistory?.length || 0})
+                  </span>
+                )}
               </div>
               {userBalance && Number(userBalance) > 0 && (
                 <div className="text-xs mt-2 px-2 py-1 bg-green-500/20 border border-green-500/30 rounded-lg text-green-200">
                   ✅ You own {Number(userBalance)} NFT{Number(userBalance) !== 1 ? 's' : ''}
                 </div>
+              )}
+              
+              {/* Manual fix button for debugging */}
+              {userBalance && Number(userBalance) > 0 && Number(userBalance) > moment.nftMintedCount && (
+                <button
+                  onClick={async () => {
+                    console.log('🔧 Manually fixing mint count...');
+                    const difference = Number(userBalance) - moment.nftMintedCount;
+                    const message = `You own ${Number(userBalance)} NFTs but database shows ${moment.nftMintedCount}. Add ${difference} missing mint(s) to database?`;
+                    
+                    if (window.confirm(message)) {
+                      try {
+                        const token = localStorage.getItem('token');
+                        
+                        // Add missing mints one by one
+                        for (let i = 0; i < difference; i++) {
+                          const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/fix-mint-count`, {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${token}`,
+                              'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ forceAdd: true })
+                          });
+                          const result = await response.json();
+                          console.log(`🔧 Added mint ${i + 1}/${difference}:`, result);
+                        }
+                        
+                        if (onRefresh) {
+                          onRefresh();
+                        }
+                      } catch (error) {
+                        console.error('❌ Fix failed:', error);
+                      }
+                    }
+                  }}
+                  className="mt-2 text-xs underline text-yellow-400 hover:text-yellow-300"
+                >
+                  🔧 Fix mint count
+                </button>
               )}
             </div>
 
@@ -734,7 +942,14 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
 
             <div className="flex gap-3 mb-4">
               <button 
-                onClick={() => handleMintNFT(1)}
+                onClick={() => {
+                  console.log('🖱️ MINT BUTTON CLICKED!', {
+                    isMinting,
+                    currentStep,
+                    disabled: isMinting || currentStep !== 'ready'
+                  });
+                  handleMintNFT(1);
+                }}
                 disabled={isMinting || currentStep !== 'ready'}
                 className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm ${
                   isMinting || currentStep !== 'ready' 
@@ -743,6 +958,12 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
                 }`}
               >
                 {isMinting ? 'Minting...' : 'Mint 1 NFT'}
+                {/* Debug info */}
+                {process.env.NODE_ENV === 'development' && (
+                  <span className="block text-xs opacity-60">
+                    {currentStep} | {isMinting ? 'minting' : 'idle'}
+                  </span>
+                )}
               </button>
               <button 
                 onClick={() => handleMintNFT(5)}
@@ -757,10 +978,22 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
               </button>
             </div>
 
-            <div className="bg-white/10 p-3 rounded-lg text-xs leading-relaxed">
+            <div className="bg-white/10 p-3 rounded-lg text-xs leading-relaxed mb-3">
               <strong>Revenue goes to:</strong><br/>
               🎵 UMO: 55% • 📤 Uploader: 35% • ⚙️ Platform: 10%
             </div>
+
+            {/* OpenSea Link */}
+            {moment.nftContractAddress && moment.nftTokenId && (
+              <a
+                href={`https://testnets.opensea.io/assets/base_sepolia/${moment.nftContractAddress.toLowerCase()}/${moment.nftTokenId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full text-center py-2 px-4 bg-blue-600/20 border border-blue-500/30 text-blue-200 rounded-lg hover:bg-blue-600/30 transition-colors text-xs font-medium"
+              >
+                🌊 View on OpenSea
+              </a>
+            )}
           </div>
         )}
       </div>
