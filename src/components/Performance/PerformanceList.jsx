@@ -209,31 +209,76 @@ const PerformanceCard = memo(({ setlist, momentCount, onSelect }) => {
   return (
     <button
       onClick={onSelect}
-      className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-blue-300 text-left group"
+      style={{
+        padding: '1rem',
+        backgroundColor: 'rgba(26, 26, 26, 0.95)',
+        borderRadius: '12px',
+        border: '1px solid rgba(64, 64, 64, 0.3)',
+        textAlign: 'left',
+        width: '100%',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(184, 134, 11, 0.03)',
+        transition: 'all 0.3s ease',
+        cursor: 'pointer'
+      }}
+      onMouseEnter={(e) => {
+        e.target.style.transform = 'translateY(-2px)';
+        e.target.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(184, 134, 11, 0.08)';
+        e.target.style.borderColor = 'rgba(100, 100, 100, 0.5)';
+      }}
+      onMouseLeave={(e) => {
+        e.target.style.transform = 'translateY(0)';
+        e.target.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(184, 134, 11, 0.03)';
+        e.target.style.borderColor = 'rgba(64, 64, 64, 0.3)';
+      }}
     >
-      <div className="font-medium text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+      <div style={{
+        fontWeight: '600',
+        color: 'rgba(245, 245, 220, 0.95)',
+        marginBottom: '0.5rem',
+        fontSize: '1rem',
+        lineHeight: '1.4'
+      }}>
         {setlist.venue.name}
       </div>
-      <div className="text-sm text-gray-600 mb-1">
+      <div style={{
+        fontSize: '0.875rem',
+        color: 'rgba(245, 245, 220, 0.8)',
+        marginBottom: '0.25rem'
+      }}>
         {setlist.venue.city.name}
         {setlist.venue.city.country && (
-          <span className="text-gray-500">, {setlist.venue.city.country.name}</span>
+          <span style={{ color: 'rgba(245, 245, 220, 0.6)' }}>, {setlist.venue.city.country.name}</span>
         )}
       </div>
-      <div className="text-sm text-blue-600 font-medium mb-2">
+      <div style={{
+        fontSize: '0.875rem',
+        color: 'rgba(160, 160, 160, 0.9)',
+        fontWeight: '500',
+        marginBottom: '0.5rem'
+      }}>
         {formatShortDate(setlist.eventDate)}
       </div>
       
-      <div className="space-y-1">
-        <div className="text-xs text-gray-500">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+        <div style={{
+          fontSize: '0.75rem',
+          color: 'rgba(245, 245, 220, 0.7)'
+        }}>
           {songCount} song{songCount !== 1 ? 's' : ''}
         </div>
         {momentCount > 0 ? (
-          <div className="text-xs text-green-600 font-medium">
+          <div style={{
+            fontSize: '0.75rem',
+            color: 'rgba(16, 185, 129, 0.9)',
+            fontWeight: '500'
+          }}>
             {momentCount} moment{momentCount !== 1 ? 's' : ''} uploaded
           </div>
         ) : (
-          <div className="text-xs text-gray-400">
+          <div style={{
+            fontSize: '0.75rem',
+            color: 'rgba(245, 245, 220, 0.5)'
+          }}>
             No moments yet
           </div>
         )}

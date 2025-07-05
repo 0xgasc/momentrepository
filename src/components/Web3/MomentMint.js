@@ -4,7 +4,7 @@ import { useAccount, useConnect, useWaitForTransactionReceipt, useWriteContract,
 import { Plus, Zap } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import UMOMomentsERC1155Contract from '../../contracts/UMOMomentsERC1155.json';
-import { parseEther } from 'viem';
+import { parseEther, formatEther } from 'viem';
 
 const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, onRefresh }) => {
   // State management
@@ -12,6 +12,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
   const [isMinting, setIsMinting] = useState(false);
   const [error, setError] = useState('');
   const [mintDuration, setMintDuration] = useState(7);
+  const [customPrice, setCustomPrice] = useState(0.00005); // Default price in ETH
   const [txHash, setTxHash] = useState(null);
   const [currentStep, setCurrentStep] = useState('ready');
   const [successMessage, setSuccessMessage] = useState('');
@@ -21,6 +22,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
   const [randomSeed, setRandomSeed] = useState(0);
   const [lastMintQuantity, setLastMintQuantity] = useState(0);
   const [pendingMintRecord, setPendingMintRecord] = useState(null);
+  const [mintQuantity, setMintQuantity] = useState(1); // User-selected quantity
 
   // Wagmi hooks
   const { address, isConnected } = useAccount();
@@ -78,9 +80,13 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
       
       if (isCreatingNFT) {
         setSuccessMessage('🎉 NFT Edition Created Successfully! Refreshing...');
+        setIsCreatingNFT(false); // Reset creation state
         if (onRefresh) {
           console.log('🔄 Calling onRefresh for NFT creation');
-          onRefresh();
+          // Force refresh to get updated moment data with new price
+          setTimeout(() => {
+            onRefresh();
+          }, 1000);
         }
       } else if (pendingMintRecord) {
         setSuccessMessage('🎉 NFT Minted Successfully! Updating records...');
@@ -98,6 +104,14 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         setPendingMintRecord(null);
         // Reset minting flag after recording
         setIsMinting(false);
+        
+        // Refresh the modal to show updated mint counts
+        if (onRefresh) {
+          console.log('🔄 Refreshing after successful mint');
+          setTimeout(() => {
+            onRefresh();
+          }, 2000); // Give time for success message to be seen
+        }
       } else {
         console.warn('⚠️ Transaction confirmed but no pending mint record found!');
         console.warn('⚠️ Attempting emergency record with fallback data');
@@ -460,7 +474,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         body: JSON.stringify({
           nftMetadataHash: metadataURI,
           splitsContract: '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96',
-          mintPrice: '1000000000000000',
+          mintPrice: parseEther(customPrice.toString()).toString(),
           mintDuration: mintDuration,
           nftCardUrl: cardUrl // Pass the generated card URL
         })
@@ -474,12 +488,30 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
       console.log('✅ NFT edition created:', result);
       setTxHash(result.txHash);
       
+      // NFT creation success - show message and refresh immediately
+      setSuccessMessage('🎉 NFT Edition Created Successfully! Refreshing...');
+      setCurrentStep('success');
+      setIsCreatingNFT(false); // Reset creation state
+      
+      if (onRefresh) {
+        console.log('🔄 Calling onRefresh immediately after NFT creation', {
+          hasOnRefresh: !!onRefresh,
+          randomSeed,
+          currentStep,
+          isPreviewMode: showPreview
+        });
+        setTimeout(() => {
+          onRefresh();
+        }, 1000);
+      } else {
+        console.warn('⚠️ onRefresh not available for modal refresh!');
+      }
+      
     } catch (error) {
       console.error('❌ NFT creation failed:', error);
       setError(error.message || 'Failed to create NFT');
       setCurrentStep('ready');
-    } finally {
-      setIsCreatingNFT(false);
+      setIsCreatingNFT(false); // Reset on error too
     }
   };
 
@@ -609,6 +641,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
     console.log('✅ Wallet connected, proceeding with mint...');
     setIsMinting(true);
     setError('');
+    setSuccessMessage(''); // Clear any previous success message
     setCurrentStep('minting');
     setLastMintQuantity(quantity); // Store quantity for database recording
 
@@ -620,13 +653,16 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         userAddress: address
       });
       
-      const mintPrice = parseEther('0.001');
-      const totalValue = mintPrice * BigInt(quantity);
+      // Use the custom price set by the owner when creating the NFT edition
+      const mintPriceWei = moment.nftMintPrice || '50000000000000'; // Fallback to 0.00005 ETH
+      const totalValue = BigInt(mintPriceWei) * BigInt(quantity);
 
       console.log('💰 Calculated mint cost:', {
-        mintPrice: mintPrice.toString(),
+        momentNftMintPrice: moment.nftMintPrice,
+        mintPriceWei: mintPriceWei,
         totalValue: totalValue.toString(),
-        quantity
+        quantity,
+        priceInEth: parseFloat(mintPriceWei) / 1e18
       });
 
       console.log('📝 About to call writeContract with:', {
@@ -716,6 +752,32 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
               </select>
             </div>
 
+            <div className="mb-4">
+              <label className="block text-xs font-semibold mb-1">Mint Price:</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.00001"
+                  min="0.00005"
+                  max="0.01"
+                  value={customPrice}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    if (value >= 0.00005 && value <= 0.01) {
+                      setCustomPrice(value);
+                    }
+                  }}
+                  disabled={currentStep !== 'ready'}
+                  className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-xs pr-12"
+                  placeholder="0.00005"
+                />
+                <span className="absolute right-3 top-2 text-xs opacity-70">ETH</span>
+              </div>
+              <div className="text-xs opacity-70 mt-1">
+                ≈ ${(customPrice * 2500).toFixed(2)} USD (Range: 0.00005 - 0.01 ETH)
+              </div>
+            </div>
+
             {error && (
               <div className="bg-red-500/20 border border-red-500/30 text-red-100 p-3 rounded-lg mb-4 text-xs">
                 {error}
@@ -765,7 +827,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
             <div className="bg-white rounded-lg max-w-md w-full">
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-bold text-gray-800">NFT Preview</h3>
+                  <h3 className="text-lg font-bold text-gray-800"></h3>
                   <button
                     onClick={() => setShowPreview(false)}
                     className="text-gray-500 hover:text-gray-700 text-2xl"
@@ -793,11 +855,6 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
                     {isGeneratingPreview ? 'Generating...' : '🎲 Try Another Variation'}
                   </button>
                   
-                  {randomSeed > 0 && (
-                    <div className="text-xs text-gray-500 mt-2">
-                      Variation #{randomSeed}
-                    </div>
-                  )}
                 </div>
                 
                 <div className="flex gap-3 mt-4">
@@ -843,7 +900,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
             </span>
           </h3>
           <p className="text-sm opacity-90">
-            {isOwner ? 'Mint copies of your own NFT edition' : 'Support the artist and uploader by minting this moment'}
+            {isOwner ? '' : 'Support the artist and uploader by minting this moment'}
           </p>
         </div>
 
@@ -859,9 +916,6 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
             {/* NFT Card Preview */}
             {moment.nftCardUrl && (
               <div className="mb-4">
-                <div className="text-xs mb-2 opacity-90 text-center">
-                  🎨 NFT Card Preview
-                </div>
                 <img 
                   src={moment.nftCardUrl} 
                   alt="NFT Card Preview" 
@@ -876,14 +930,33 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
                 💎 Available for Minting
               </div>
               <div className="text-2xl font-bold mb-1">
-                ~$1 USD
+                {(() => {
+                  const priceInEth = moment.nftMintPrice ? 
+                    parseFloat(formatEther(BigInt(moment.nftMintPrice))) : 0.00005;
+                  const priceInUsd = priceInEth * 2500;
+                  console.log('💎 Price Display Debug:', {
+                    momentNftMintPrice: moment.nftMintPrice,
+                    priceInEth,
+                    priceInUsd
+                  });
+                  return `~$${priceInUsd.toFixed(2)} USD`;
+                })()}
+              </div>
+              <div className="text-xs opacity-70">
+                {(() => {
+                  const priceInEth = moment.nftMintPrice ? 
+                    parseFloat(formatEther(BigInt(moment.nftMintPrice))) : 0.00005;
+                  return `${priceInEth.toFixed(4)} ETH per NFT`;
+                })()}
               </div>
               <div className="text-xs opacity-80">
                 {moment.nftMintedCount || 0} already minted
                 {/* Debug info */}
                 {process.env.NODE_ENV === 'development' && (
                   <span className="ml-2 text-yellow-400">
-                    (DB: {moment.nftMintedCount}, History: {moment.nftMintHistory?.length || 0})
+                    (DB: {moment.nftMintedCount}, History: {
+                      moment.nftMintHistory?.reduce((total, mint) => total + (mint.quantity || 1), 0) || 0
+                    })
                   </span>
                 )}
               </div>
@@ -940,42 +1013,62 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
               </div>
             )}
 
-            <div className="flex gap-3 mb-4">
-              <button 
-                onClick={() => {
-                  console.log('🖱️ MINT BUTTON CLICKED!', {
-                    isMinting,
-                    currentStep,
-                    disabled: isMinting || currentStep !== 'ready'
-                  });
-                  handleMintNFT(1);
-                }}
-                disabled={isMinting || currentStep !== 'ready'}
-                className={`flex-1 py-3 px-4 rounded-lg font-semibold text-sm ${
-                  isMinting || currentStep !== 'ready' 
-                    ? 'bg-purple-800 cursor-not-allowed opacity-70' 
-                    : 'bg-purple-700 hover:bg-purple-600'
-                }`}
-              >
-                {isMinting ? 'Minting...' : 'Mint 1 NFT'}
-                {/* Debug info */}
-                {process.env.NODE_ENV === 'development' && (
-                  <span className="block text-xs opacity-60">
-                    {currentStep} | {isMinting ? 'minting' : 'idle'}
-                  </span>
-                )}
-              </button>
-              <button 
-                onClick={() => handleMintNFT(5)}
-                disabled={isMinting || currentStep !== 'ready'}
-                className={`px-4 py-3 rounded-lg text-sm border border-white/30 ${
-                  isMinting || currentStep !== 'ready'
-                    ? 'bg-white/10 cursor-not-allowed opacity-70'
-                    : 'bg-white/20 hover:bg-white/30'
-                }`}
-              >
-                Mint 5
-              </button>
+            {successMessage && currentStep === 'success' && (
+              <div className="bg-green-500/20 border border-green-500/30 text-green-100 p-3 rounded-lg mb-4 text-xs">
+                {successMessage}
+              </div>
+            )}
+
+            {/* Quantity Input */}
+            <div className="mb-4">
+              <label className="block text-xs font-semibold mb-1">Quantity to Mint:</label>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={mintQuantity}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value >= 1 && value <= 10) {
+                        setMintQuantity(value);
+                      }
+                    }}
+                    disabled={isMinting || currentStep !== 'ready'}
+                    className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-sm"
+                    placeholder="1"
+                  />
+                  <div className="text-xs opacity-70 mt-1">
+                    {(() => {
+                      const priceInEth = moment.nftMintPrice ? 
+                        parseFloat(formatEther(BigInt(moment.nftMintPrice))) : 0.00005;
+                      const totalEth = priceInEth * mintQuantity;
+                      const totalUsd = totalEth * 2500;
+                      return `Total: ${totalEth.toFixed(4)} ETH (~$${totalUsd.toFixed(2)} USD)`;
+                    })()}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    console.log('🖱️ MINT BUTTON CLICKED!', {
+                      mintQuantity,
+                      isMinting,
+                      currentStep,
+                      disabled: isMinting || currentStep !== 'ready'
+                    });
+                    handleMintNFT(mintQuantity);
+                  }}
+                  disabled={isMinting || currentStep !== 'ready'}
+                  className={`px-6 py-2 rounded-lg font-semibold text-sm ${
+                    isMinting || currentStep !== 'ready' 
+                      ? 'bg-purple-800 cursor-not-allowed opacity-70' 
+                      : 'bg-purple-700 hover:bg-purple-600'
+                  }`}
+                >
+                  {isMinting ? 'Minting...' : `Mint ${mintQuantity}`}
+                </button>
+              </div>
             </div>
 
             <div className="bg-white/10 p-3 rounded-lg text-xs leading-relaxed mb-3">
@@ -983,8 +1076,8 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
               🎵 UMO: 55% • 📤 Uploader: 35% • ⚙️ Platform: 10%
             </div>
 
-            {/* OpenSea Link */}
-            {moment.nftContractAddress && moment.nftTokenId && (
+            {/* OpenSea Link - only show if NFT has been minted at least once */}
+            {moment.nftContractAddress && moment.nftTokenId && (moment.nftMintedCount > 0) && (
               <a
                 href={`https://testnets.opensea.io/assets/base_sepolia/${moment.nftContractAddress.toLowerCase()}/${moment.nftTokenId}`}
                 target="_blank"

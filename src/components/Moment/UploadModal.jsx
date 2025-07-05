@@ -17,7 +17,7 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
   
   const [formData, setFormData] = useState({
     // ✅ SMART: Set content type based on upload context
-    contentType: isSongUpload ? 'song' : (uploadingMoment?.contentType || 'intro'),
+    contentType: isSongUpload ? 'song' : '',
     
     // Core fields (always needed)
     songName: uploadingMoment?.songName || '',
@@ -85,8 +85,19 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
         return;
       }
     } else {
-      if (!formData.songName || !formData.venueName || !formData.venueCity) {
-        setError('Please fill in required fields: Content Name, Venue, and City');
+      // For other content, must select a content type
+      if (!formData.contentType) {
+        setError('Please select a content type');
+        return;
+      }
+      // songName is only required if contentType is "other"
+      const requiresCustomTitle = formData.contentType === 'other';
+      if (requiresCustomTitle && !formData.songName) {
+        setError('Please enter a custom title for this content');
+        return;
+      }
+      if (!formData.venueName || !formData.venueCity) {
+        setError('Please fill in required fields: Venue and City');
         return;
       }
     }
@@ -106,8 +117,20 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
         throw new Error('Please log in to upload moments');
       }
 
-      setUploadProgress(10);
+      // Estimate upload progress based on file size
+      const fileSizeMB = file.size / (1024 * 1024);
+      const estimatedUploadTime = Math.min(Math.max(fileSizeMB * 100, 2000), 10000); // 2-10 seconds
+      
+      setUploadProgress(15);
       setUploadStage('Uploading to decentralized storage...');
+
+      // Simulate progressive upload based on file size
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev < 60) return prev + Math.random() * 5 + 3;
+          return prev;
+        });
+      }, estimatedUploadTime / 20);
 
       const fileResponse = await fetch(`${API_BASE_URL}/upload-file`, {
         method: 'POST',
@@ -115,13 +138,15 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
         body: formDataUpload
       });
 
+      clearInterval(progressInterval);
+
       if (!fileResponse.ok) {
         const errorData = await fileResponse.json();
         throw new Error(errorData.error || 'File upload failed');
       }
 
       const fileData = await fileResponse.json();
-      setUploadProgress(70);
+      setUploadProgress(75);
       setUploadStage('Saving moment metadata...');
 
       const momentPayload = {
@@ -180,12 +205,11 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
       setUploadStage('Complete!');
       setStep('success');
 
-      // ✅ IMPROVED: Immediate reload after success
+      // Auto-close modal after success
       setTimeout(() => {
-        console.log('🔄 Reloading page to show new content...');
+        console.log('✅ Upload completed successfully');
         onClose();
-        window.location.reload();
-      }, 1500);
+      }, 2000);
 
     } catch (err) {
       console.error('❌ Upload error:', err);
@@ -250,27 +274,44 @@ const SimplifiedUploadForm = memo(({
   onUpload, 
   onClose
 }) => {
+  const [showDetails, setShowDetails] = useState(false);
   
   // ✅ Content type definitions (no song option for other content)
   const otherContentTypes = {
     intro: {
-      label: '🎭 Intro/Outro',
-      description: 'Performance intro, outro, or transition',
+      label: 'Intro',
+      description: 'Performance intro or opening',
       nameLabel: 'Content Name',
-      namePlaceholder: 'e.g., "Intro", "Outro", "Set Break"',
+      namePlaceholder: 'e.g., "Intro", "Set Break"',
+      bgColor: 'bg-purple-50 border-purple-200',
+      textColor: 'text-purple-800'
+    },
+    outro: {
+      label: 'Outro',
+      description: 'Performance outro or closing',
+      nameLabel: 'Content Name',
+      namePlaceholder: 'e.g., "Outro", "Final Bow"',
       bgColor: 'bg-purple-50 border-purple-200',
       textColor: 'text-purple-800'
     },
     jam: {
-      label: '🎸 Jam/Improv',
-      description: 'Improvised or extended musical section',
+      label: 'Jam',
+      description: 'Extended jam session',
       nameLabel: 'Jam Description',
-      namePlaceholder: 'e.g., "Guitar Jam", "Extended Outro", "Free Improv"',
+      namePlaceholder: 'e.g., "Guitar Jam", "Extended Outro"',
+      bgColor: 'bg-orange-50 border-orange-200',
+      textColor: 'text-orange-800'
+    },
+    improv: {
+      label: 'Improv',
+      description: 'Improvised musical section',
+      nameLabel: 'Improv Description',
+      namePlaceholder: 'e.g., "Free Improv", "Spontaneous Creation"',
       bgColor: 'bg-orange-50 border-orange-200',
       textColor: 'text-orange-800'
     },
     crowd: {
-      label: '👥 Crowd Moment',
+      label: 'Crowd Moment',
       description: 'Audience reaction or interaction',
       nameLabel: 'Crowd Moment',
       namePlaceholder: 'e.g., "Crowd Singing", "Standing Ovation", "Audience Reaction"',
@@ -278,7 +319,7 @@ const SimplifiedUploadForm = memo(({
       textColor: 'text-green-800'
     },
     other: {
-      label: '🎪 Other Content',
+      label: 'Other Content',
       description: 'Soundcheck, banter, or other content',
       nameLabel: 'Content Description',
       namePlaceholder: 'e.g., "Soundcheck", "Band Banter", "Technical Issue"',
@@ -291,7 +332,7 @@ const SimplifiedUploadForm = memo(({
   const getCurrentTypeInfo = () => {
     if (isSongUpload) {
       return {
-        label: '🎵 Song Performance',
+        label: 'Song Performance',
         description: 'A complete or partial song performance',
         nameLabel: 'Song Name',
         namePlaceholder: 'Enter the song name...',
@@ -300,17 +341,26 @@ const SimplifiedUploadForm = memo(({
         rarityNote: 'Songs get rarity based on file size, performance frequency, and metadata completeness'
       };
     }
-    return otherContentTypes[formData.contentType] || otherContentTypes.other;
+    return otherContentTypes[formData.contentType] || {
+      label: 'Content',
+      description: 'Select a content type',
+      nameLabel: 'Content Name',
+      namePlaceholder: 'Select content type first...',
+      bgColor: 'bg-gray-50 border-gray-200',
+      textColor: 'text-gray-800'
+    };
   };
 
   const currentTypeInfo = getCurrentTypeInfo();
 
   // ✅ SMART: Enhanced options based on content type
   const getEmotionalOptions = () => {
-    if (isSongUpload || formData.contentType === 'jam') {
+    if (isSongUpload || formData.contentType === 'jam' || formData.contentType === 'improv') {
       return ['Energetic', 'Emotional', 'Epic', 'Chill', 'Intense', 'Groovy', 'Dreamy', 'Raw', 'Powerful', 'Intimate', 'Psychedelic', 'Melancholic'];
     } else if (formData.contentType === 'crowd') {
       return ['Explosive', 'Excited', 'Emotional', 'Enthusiastic', 'Quiet', 'Respectful', 'Wild', 'Engaged'];
+    } else if (formData.contentType === 'intro' || formData.contentType === 'outro') {
+      return ['Energetic', 'Emotional', 'Buildup', 'Anticipation', 'Climactic', 'Gentle', 'Powerful'];
     } else {
       return ['Casual', 'Funny', 'Interesting', 'Technical', 'Unexpected'];
     }
@@ -319,8 +369,10 @@ const SimplifiedUploadForm = memo(({
   const getUniqueElementOptions = () => {
     if (isSongUpload) {
       return ['', 'First time played live', 'Rarely played song', 'Extended version', 'Acoustic version', 'Cover song', 'Song dedication', 'New arrangement'];
-    } else if (formData.contentType === 'jam') {
+    } else if (formData.contentType === 'jam' || formData.contentType === 'improv') {
       return ['', 'Extended improvisation', 'Unusual instruments', 'Crowd participation', 'Spontaneous creation'];
+    } else if (formData.contentType === 'intro' || formData.contentType === 'outro') {
+      return ['', 'Extended intro/outro', 'Unusual opening/closing', 'Crowd participation', 'Special announcement'];
     } else {
       return ['', 'Spontaneous moment', 'Fan interaction', 'Technical issue', 'Unexpected event', 'Rare occurrence'];
     }
@@ -346,83 +398,55 @@ const SimplifiedUploadForm = memo(({
 
       {error && <div style={styles.message.error}>{error}</div>}
 
-      {/* ✅ SMART: Content Type Selection (only for other content) */}
-      {isOtherContentUpload && (
-        <div style={styles.section.container}>
-          <h3 style={styles.section.title}>1️⃣ Content Type</h3>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '12px',
-            marginBottom: '1rem'
-          }}>
-            {Object.entries(otherContentTypes).map(([key, type]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => onInputChange('contentType', key)}
-                style={{
-                  padding: '14px',
-                  borderRadius: '10px',
-                  border: '2px solid',
-                  borderColor: formData.contentType === key ? '#3b82f6' : '#d1d5db',
-                  backgroundColor: formData.contentType === key ? '#eff6ff' : '#f9fafb',
-                  color: formData.contentType === key ? '#1e40af' : '#374151',
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.2s',
-                  position: 'relative'
-                }}
-              >
-                <div style={{ fontWeight: 'bold', marginBottom: '6px' }}>{type.label}</div>
-                <div style={{ fontSize: '11px', opacity: 0.8, lineHeight: '1.3' }}>{type.description}</div>
-                {formData.contentType === key && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '8px',
-                    right: '8px',
-                    color: '#3b82f6',
-                    fontSize: '14px'
-                  }}>
-                    ✓
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-          
-          {/* ✅ UPDATED: Simple rarity information */}
-          <div style={{
-            padding: '14px',
-            backgroundColor: '#f0f9ff',
-            border: '1px solid #bae6fd',
-            borderRadius: '8px',
-            fontSize: '12px',
-            color: '#0c4a6e'
-          }}>
-            <strong>⚡ Simple Rarity:</strong> All content uses the same 3-factor formula: file size + content rarity + metadata completeness (0-6 points)
-          </div>
-        </div>
-      )}
 
       {/* ✅ SMART: Basic Information */}
       <div style={styles.section.container}>
         <h3 style={styles.section.title}>
-          {isOtherContentUpload ? '2️⃣' : '1️⃣'} Basic Information
+          Basic Information
         </h3>
         
         <div style={styles.section.grid}>
           <div>
             <label style={styles.label}>{currentTypeInfo.nameLabel}</label>
-            <input
-              type="text"
-              value={formData.songName}
-              onChange={(e) => onInputChange('songName', e.target.value)}
-              style={isSongUpload ? {...styles.input, backgroundColor: '#f9fafb', cursor: 'not-allowed'} : styles.input}
-              placeholder={currentTypeInfo.namePlaceholder}
-              readOnly={isSongUpload} // ✅ SMART: Song name is readonly for song uploads
-            />
+            {isSongUpload ? (
+              <input
+                type="text"
+                value={formData.songName}
+                onChange={(e) => onInputChange('songName', e.target.value)}
+                style={{...styles.input, backgroundColor: '#f9fafb', cursor: 'not-allowed'}}
+                placeholder={currentTypeInfo.namePlaceholder}
+                readOnly
+              />
+            ) : (
+              <select
+                value={formData.contentType}
+                onChange={(e) => {
+                  onInputChange('contentType', e.target.value);
+                  // Auto-populate songName based on content type, except for "other"
+                  if (e.target.value !== 'other') {
+                    const contentTypeLabels = {
+                      intro: 'Intro',
+                      outro: 'Outro',
+                      jam: 'Jam',
+                      improv: 'Improv',
+                      crowd: 'Crowd Moment'
+                    };
+                    onInputChange('songName', contentTypeLabels[e.target.value] || '');
+                  } else {
+                    onInputChange('songName', '');
+                  }
+                }}
+                style={styles.input}
+              >
+                <option value="">Select content type...</option>
+                <option value="intro">Intro</option>
+                <option value="outro">Outro</option>
+                <option value="jam">Jam</option>
+                <option value="improv">Improv</option>
+                <option value="crowd">Crowd Moment</option>
+                <option value="other">Other Content</option>
+              </select>
+            )}
           </div>
           
           <div>
@@ -435,6 +459,20 @@ const SimplifiedUploadForm = memo(({
             />
           </div>
         </div>
+
+        {/* Custom title field for "Other Content" */}
+        {isOtherContentUpload && formData.contentType === 'other' && (
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={styles.label}>Custom Title</label>
+            <input
+              type="text"
+              value={formData.songName}
+              onChange={(e) => onInputChange('songName', e.target.value)}
+              style={styles.input}
+              placeholder="Enter custom title for this content..."
+            />
+          </div>
+        )}
 
         <div style={styles.section.grid}>
           <div>
@@ -476,14 +514,21 @@ const SimplifiedUploadForm = memo(({
 
       {/* ✅ SIMPLIFIED: Description Section (6 fields total) */}
       <div style={styles.section.container}>
-        <h3 style={styles.section.title}>
-          {isOtherContentUpload ? '3️⃣' : '2️⃣'} Description & Details
+        <h3 
+          style={{...styles.section.title, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'}}
+          onClick={() => setShowDetails(!showDetails)}
+        >
+          Description & Details 
+          <span style={{fontSize: '12px', opacity: 0.7}}>
+            (Optional) {showDetails ? '▼' : '▶'}
+          </span>
         </h3>
         
+        {showDetails && (
+        <div>
         <div style={{ marginBottom: '1rem' }}>
           <label style={styles.label}>
             {isSongUpload ? 'What happens in this moment?' : `Describe this ${currentTypeInfo.label.toLowerCase()}`}
-            <span style={{ color: '#10b981', fontSize: '12px', marginLeft: '8px' }}>+0.33 rarity points</span>
           </label>
           <textarea
             value={formData.momentDescription}
@@ -501,7 +546,6 @@ const SimplifiedUploadForm = memo(({
         <div style={{ marginBottom: '1rem' }}>
           <label style={styles.label}>
             Mood/Energy (Select Multiple)
-            <span style={{ color: '#10b981', fontSize: '12px', marginLeft: '8px' }}>+0.33 rarity points</span>
           </label>
           <div style={{
             border: '1px solid #d1d5db',
@@ -539,7 +583,6 @@ const SimplifiedUploadForm = memo(({
           <div>
             <label style={styles.label}>
               Special Occasion
-              <span style={{ color: '#10b981', fontSize: '12px', marginLeft: '8px' }}>+0.33 pts</span>
             </label>
             <select
               value={formData.specialOccasion}
@@ -563,7 +606,6 @@ const SimplifiedUploadForm = memo(({
           <div>
             <label style={styles.label}>
               Unique Elements
-              <span style={{ color: '#10b981', fontSize: '12px', marginLeft: '8px' }}>+0.33 pts</span>
             </label>
             <select
               value={formData.uniqueElements}
@@ -579,12 +621,11 @@ const SimplifiedUploadForm = memo(({
           </div>
         </div>
 
-        {/* Instruments - Only for songs and jams */}
-        {(isSongUpload || formData.contentType === 'jam') && (
+        {/* Instruments - Only for songs, jams, and improv */}
+        {(isSongUpload || formData.contentType === 'jam' || formData.contentType === 'improv') && (
           <div style={{ marginBottom: '1rem' }}>
             <label style={styles.label}>
               Featured Instruments/Elements
-              <span style={{ color: '#10b981', fontSize: '12px', marginLeft: '8px' }}>+0.33 rarity points</span>
             </label>
             <div style={{
               border: '1px solid #d1d5db',
@@ -622,7 +663,6 @@ const SimplifiedUploadForm = memo(({
         <div style={{ marginBottom: '1rem' }}>
           <label style={styles.label}>
             Crowd Reaction
-            <span style={{ color: '#10b981', fontSize: '12px', marginLeft: '8px' }}>+0.33 rarity points</span>
           </label>
           <select
             value={formData.crowdReaction}
@@ -643,29 +683,16 @@ const SimplifiedUploadForm = memo(({
             <option value="Quiet appreciation">Quiet appreciation</option>
           </select>
         </div>
+        </div>
+        )}
       </div>
 
       {/* ✅ SMART: File Upload */}
       <div style={styles.section.container}>
         <h3 style={styles.section.title}>
-          {(() => {
-            if (isSongUpload) return '3️⃣';
-            return '4️⃣';
-          })()} Media File
+          Media File
         </h3>
         
-        {/* ✅ NEW: File size rarity info */}
-        <div style={{
-          padding: '12px',
-          backgroundColor: '#f0f9ff',
-          border: '1px solid #bae6fd',
-          borderRadius: '8px',
-          fontSize: '12px',
-          color: '#0c4a6e',
-          marginBottom: '1rem'
-        }}>
-          <strong>📁 File Size = Rarity Points:</strong> 500MB+ = 2.0pts, 100MB+ = 1.5pts, 50MB+ = 1.0pt, 10MB+ = 0.5pts
-        </div>
         
         <div style={styles.fileUpload.container}>
           <input
@@ -678,17 +705,13 @@ const SimplifiedUploadForm = memo(({
           <label htmlFor="file-upload" style={{ cursor: 'pointer' }}>
             {!file ? (
               <div>
-                <div style={styles.fileUpload.icon}>📁</div>
-                <p style={styles.fileUpload.text}>Click to select media file</p>
+                <p style={styles.fileUpload.text}>Click here to select media file</p>
                 <p style={styles.fileUpload.subtext}>Video, Audio, or Image files up to 6GB</p>
               </div>
             ) : (
               <div>
-                <p style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>{file.name}</p>
-                <p style={{ color: '#6b7280' }}>{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                <p style={{ color: '#10b981', fontSize: '12px' }}>
-                  Rarity: {file.size >= 500*1024*1024 ? '2.0' : file.size >= 100*1024*1024 ? '1.5' : file.size >= 50*1024*1024 ? '1.0' : file.size >= 10*1024*1024 ? '0.5' : '0.2'} points
-                </p>
+                <p style={{ fontWeight: 'bold', marginBottom: '0.5rem', color: '#F5F5DC' }}>{file.name}</p>
+                <p style={{ color: '#B8860B' }}>{(file.size / 1024 / 1024).toFixed(2)} MB</p>
               </div>
             )}
           </label>
@@ -701,8 +724,14 @@ const SimplifiedUploadForm = memo(({
         
         <button
           onClick={onUpload}
-          disabled={!file || !formData.songName || !formData.venueName || !formData.venueCity}
-          style={(!file || !formData.songName || !formData.venueName || !formData.venueCity) 
+          disabled={!file || !formData.venueName || !formData.venueCity || 
+                   (isSongUpload && !formData.songName) || 
+                   (!isSongUpload && !formData.contentType) ||
+                   (!isSongUpload && formData.contentType === 'other' && !formData.songName)}
+          style={(!file || !formData.venueName || !formData.venueCity || 
+                 (isSongUpload && !formData.songName) || 
+                 (!isSongUpload && !formData.contentType) ||
+                 (!isSongUpload && formData.contentType === 'other' && !formData.songName)) 
             ? styles.button.disabled 
             : styles.button.primary}
         >
@@ -737,11 +766,30 @@ const UploadProgress = memo(({ uploadProgress, uploadStage }) => (
     </div>
     
     <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '0.5rem' }}>
-      {uploadProgress}% Complete
+      {Math.round(uploadProgress)}% Complete
     </p>
     <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
       {uploadStage}
     </p>
+    
+    <div style={{
+      marginTop: '1rem',
+      padding: '1rem',
+      backgroundColor: '#1A1A1A',
+      borderRadius: '8px',
+      border: '1px solid #4A0E0E'
+    }}>
+      <p style={{ 
+        fontSize: '0.75rem', 
+        textAlign: 'center', 
+        margin: 0,
+        color: '#F5F5DC',
+        lineHeight: '1.4'
+      }}>
+        <strong style={{ color: '#B8860B' }}>⚠️ Please wait - do not close this window</strong><br/>
+        Your file is being secured by millions of computers worldwide through decentralized storage. This ensures permanent, censorship-resistant preservation of your moment.
+      </p>
+    </div>
   </div>
 ));
 
@@ -771,13 +819,13 @@ const UploadSuccess = memo(({ isSongUpload, contentType }) => {
       </p>
       <div style={{
         padding: '12px',
-        backgroundColor: '#f0f9ff',
-        border: '1px solid #bae6fd',
+        backgroundColor: '#1A1A1A',
+        border: '1px solid #4A0E0E',
         borderRadius: '8px',
         fontSize: '14px',
-        color: '#0c4a6e'
+        color: '#F5F5DC'
       }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>⚡ Simple Scoring Applied</div>
+        <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#B8860B' }}>⚡ Simple Scoring Applied</div>
         <div>File size + content rarity + metadata completeness = your rarity score</div>
       </div>
     </div>

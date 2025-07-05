@@ -43,29 +43,6 @@ const MainApp = memo(() => {
   
   const { user, logout, loading } = useAuth();
 
-  // MOBILE DEBUG FUNCTION - ADD THIS FIRST
-  const testAPI = async () => {
-    const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:5050'  
-      : `http://${window.location.hostname}:5050`;
-      
-    console.log('🔍 Testing API:', API_BASE_URL);
-    console.log('🔍 Current hostname:', window.location.hostname);
-    console.log('🔍 Full URL:', window.location.href);
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/cache/status`);
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', [...response.headers.entries()]);
-      
-      const data = await response.json();
-      console.log('✅ API Test Success:', data);
-      alert('API Test Success! Check console for details.');
-    } catch (error) {
-      console.error('❌ API Test Failed:', error);
-      alert('API Test Failed: ' + error.message + '\nCheck console for details.');
-    }
-  };
 
   // Navigation handlers
   const handleSongBrowseSelect = (songData) => {
@@ -138,21 +115,6 @@ const MainApp = memo(() => {
           onHomeClick={handleBackToHome}
         />
 
-        {/* MOBILE DEBUG SECTION - TEMPORARY */}
-        <div className="mb-4 p-4 bg-yellow-100 border-2 border-yellow-400 rounded-lg">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div>
-              <p className="text-sm font-medium text-yellow-800 mb-1">🧪 Mobile Debug Test</p>
-              <p className="text-xs text-yellow-700">Test API connection and check console logs</p>
-            </div>
-            <button 
-              onClick={testAPI}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors font-medium"
-            >
-              Test API Connection
-            </button>
-          </div>
-        </div>
 
         {/* Cache Status */}
         <CacheStatusDisplay />

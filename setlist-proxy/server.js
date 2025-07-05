@@ -760,7 +760,7 @@ app.post('/moments/:momentId/create-nft-edition-proxy', authenticateToken, async
       devWallet
     );
 
-    const mintPriceWei = ethers.parseEther('0.001');
+    const mintPriceWei = BigInt(mintPrice); // mintPrice is already in wei from frontend
     const mintDurationSeconds = mintDuration * 24 * 60 * 60;
     const rarityScore = Math.floor(Math.min(7, Math.max(1, moment.rarityScore || 1)));
     const mockSplitsAddress = splitsContract || '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96';
@@ -846,7 +846,7 @@ app.post('/moments/:momentId/create-nft-edition-proxy', authenticateToken, async
           nftContractAddress: UMOMomentsERC1155Contract.address,
           nftMetadataHash: nftMetadataHash,
           nftSplitsContract: mockSplitsAddress,
-          nftMintPrice: '1000000000000000', // 0.001 ETH in wei
+          nftMintPrice: mintPriceWei.toString(), // Custom price in wei
           nftMintDuration: mintDuration,
           nftMintStartTime: new Date(),
           nftMintEndTime: new Date(Date.now() + (mintDuration * 24 * 60 * 60 * 1000)),
@@ -1143,7 +1143,7 @@ app.post('/moments/:momentId/mint-nft-proxy', authenticateToken, async (req, res
       devWallet
     );
 
-    const mintPriceWei = ethers.parseEther('0.001');
+    const mintPriceWei = BigInt(moment.nftMintPrice || '50000000000000'); // Use stored price or fallback to 0.00005 ETH
     const totalCost = mintPriceWei * BigInt(quantity);
 
     console.log('🎯 Proxy mint parameters:', {

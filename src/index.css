@@ -1,15 +1,1178 @@
+/* UMO CURSE EP-Inspired Dark Theme */
+:root {
+  /* CURSE EP Color Palette - Italian Horror + Doom Aesthetic */
+  --blood-red: #8B0000;
+  --crimson-wine: #4A0E0E;
+  --void-black: #0A0A0A;
+  --shadow-gray: #1A1A1A;
+  --bone-white: #F5F5DC;
+  --spectral-purple: #2D1B69;
+  --doom-orange: #B8860B;
+  --cursed-green: #1B4D3E;
+  
+  /* Gradients inspired by Giallo films */
+  --horror-gradient: linear-gradient(135deg, var(--void-black) 0%, var(--crimson-wine) 50%, var(--blood-red) 100%);
+  --void-gradient: linear-gradient(180deg, var(--void-black) 0%, var(--shadow-gray) 100%);
+  --spectral-gradient: linear-gradient(45deg, var(--spectral-purple) 0%, var(--void-black) 100%);
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Courier New', 'Monaco', 'Menlo', monospace; /* Horror film typewriter aesthetic */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--horror-gradient);
+  background-attachment: fixed;
+  color: var(--bone-white);
+  min-height: 100vh;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* UMO CURSE EP-Inspired Component Styles */
+
+/* Haunted Button Styles - Doom Metal Aesthetic */
+button, .btn {
+  background: var(--void-gradient) !important;
+  border: 1px solid var(--blood-red) !important;
+  color: var(--bone-white) !important;
+  font-family: 'Courier New', monospace !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 0 10px rgba(139, 0, 0, 0.3) !important;
+}
+
+button:hover, .btn:hover {
+  background: var(--blood-red) !important;
+  box-shadow: 0 0 20px rgba(139, 0, 0, 0.8) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Cursed Input Fields */
+input, textarea, select {
+  background: var(--shadow-gray) !important;
+  border: 1px solid rgba(100, 100, 100, 0.4) !important;
+  color: var(--bone-white) !important;
+  font-family: 'Courier New', monospace !important;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8) !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--blood-red) !important;
+  box-shadow: 0 0 15px rgba(139, 0, 0, 0.5) !important;
+  outline: none !important;
+}
+
+/* Blood-Specked Cards - Italian Horror Inspired */
+.card, .modal-content, .bg-white\/10 {
+  background: var(--void-gradient) !important;
+  border: 1px solid var(--crimson-wine) !important;
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(139, 0, 0, 0.2) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* Haunted Headers */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--bone-white) !important;
+  font-family: 'Courier New', monospace !important;
+  text-shadow: 0 0 10px rgba(139, 0, 0, 0.5) !important;
+  letter-spacing: 1px !important;
+}
+
+/* Spectral Links */
+a {
+  color: rgba(180, 180, 180, 0.9) !important;
+  text-decoration: none !important;
+  transition: all 0.3s ease !important;
+}
+
+a:hover {
+  color: var(--bone-white) !important;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Doom Progress Bars */
+.progress, .bg-blue-600 {
+  background: var(--spectral-gradient) !important;
+}
+
+/* Cursed Success/Error Messages */
+.bg-green-500\/20 {
+  background: var(--cursed-green) !important;
+  border-color: rgba(100, 100, 100, 0.4) !important;
+}
+
+.bg-red-500\/20 {
+  background: var(--blood-red) !important;
+  border-color: var(--crimson-wine) !important;
+}
+
+/* CURSE EP Special Effects */
+
+/* Haunted Glow Animation */
+@keyframes hauntedGlow {
+  0%, 100% { box-shadow: 0 0 5px rgba(139, 0, 0, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(139, 0, 0, 0.8), 0 0 30px rgba(139, 0, 0, 0.4); }
+}
+
+/* Spectral Flicker */
+@keyframes spectralFlicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+/* NFT Cards - "Blood-Specked Daisies" Effect */
+.moment-card, .nft-card {
+  background: var(--void-gradient) !important;
+  border: 1px solid var(--crimson-wine) !important;
+  animation: hauntedGlow 3s ease-in-out infinite !important;
+  position: relative !important;
+}
+
+.moment-card::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(139, 0, 0, 0.1) 2px, transparent 2px),
+    radial-gradient(circle at 70% 70%, rgba(139, 0, 0, 0.1) 1px, transparent 1px),
+    radial-gradient(circle at 40% 80%, rgba(139, 0, 0, 0.1) 1px, transparent 1px) !important;
+  pointer-events: none !important;
+  border-radius: inherit !important;
+}
+
+/* Doom Metal Typography */
+.title, .header {
+  font-family: 'Courier New', monospace !important;
+  text-transform: uppercase !important;
+  letter-spacing: 2px !important;
+  text-shadow: 
+    0 0 10px rgba(139, 0, 0, 0.8),
+    0 0 20px rgba(139, 0, 0, 0.4),
+    0 0 30px rgba(139, 0, 0, 0.2) !important;
+}
+
+/* Cursed Scrollbar */
+::-webkit-scrollbar {
+  width: 12px !important;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--void-black) !important;
+  border: 1px solid var(--crimson-wine) !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--blood-red) !important;
+  border-radius: 6px !important;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5) !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 120, 120, 0.9) !important;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Horror Film Modal Overlay */
+.modal-overlay {
+  background: rgba(10, 10, 10, 0.95) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+/* Rarity Badges - "Hundred Bats" Inspired */
+.rarity-legendary, .rarity-mythic {
+  background: var(--spectral-gradient) !important;
+  color: var(--bone-white) !important;
+  text-shadow: 0 0 8px rgba(45, 27, 105, 0.8) !important;
+  animation: spectralFlicker 2s ease-in-out infinite !important;
+}
+
+.rarity-epic, .rarity-rare {
+  background: var(--blood-red) !important;
+  color: var(--bone-white) !important;
+  box-shadow: 0 0 15px rgba(139, 0, 0, 0.6) !important;
+}
+
+/* Web3 Connection - "Sorcerers of Silence" Theme */
+.wallet-connection {
+  background: var(--horror-gradient) !important;
+  border: 2px solid var(--doom-orange) !important;
+  animation: hauntedGlow 4s ease-in-out infinite !important;
+}
+
+/* COMPREHENSIVE BACKGROUND OVERRIDES - Eliminate All White/Gray */
+
+/* All white backgrounds to dark */
+.bg-white, .bg-gray-50, .bg-gray-100, .bg-gray-200, .bg-gray-300, 
+.bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-neutral-50, 
+.bg-neutral-100, .bg-stone-50, .bg-stone-100 {
+  background: var(--void-black) !important;
+  color: var(--bone-white) !important;
+}
+
+/* All semi-transparent whites to dark */
+.bg-white\/5, .bg-white\/10, .bg-white\/20, .bg-white\/30, .bg-white\/40, 
+.bg-white\/50, .bg-white\/60, .bg-white\/70, .bg-white\/80, .bg-white\/90 {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+}
+
+/* All grays to dark gradient */
+.bg-gray-400, .bg-gray-500, .bg-gray-600, .bg-gray-700, .bg-gray-800, .bg-gray-900,
+.bg-slate-400, .bg-slate-500, .bg-slate-600, .bg-slate-700, .bg-slate-800, .bg-slate-900 {
+  background: var(--void-gradient) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Modal and overlay backgrounds */
+.modal, .overlay, .backdrop, .bg-black\/50, .bg-black\/60, .bg-black\/70, 
+.bg-black\/80, .bg-black\/90, .fixed.inset-0 {
+  background: var(--void-black) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Card and panel backgrounds */
+.card, .panel, .container, .wrapper, .section, 
+.bg-gradient-to-br, .bg-gradient-to-r, .bg-gradient-to-l, .bg-gradient-to-t, .bg-gradient-to-b {
+  background: var(--void-gradient) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Specific component overrides */
+.moment-upload, .performance-card, .song-card, .user-card, 
+.search-result, .filter-panel, .sidebar, .navbar, .header, .footer {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+  border-color: var(--crimson-wine) !important;
+}
+
+/* Table and list backgrounds */
+table, tbody, thead, tr, td, th, ul, ol, li {
+  background: transparent !important;
+  color: var(--bone-white) !important;
+}
+
+/* Form field backgrounds */
+.form-control, .form-input, .form-select, .form-textarea,
+.border-gray-300, .border-gray-200, .border-white {
+  background: var(--shadow-gray) !important;
+  border-color: rgba(100, 100, 100, 0.4) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Text colors that might be dark on dark */
+.text-black, .text-gray-900, .text-gray-800, .text-gray-700, .text-gray-600,
+.text-slate-900, .text-slate-800, .text-slate-700 {
+  color: var(--bone-white) !important;
+}
+
+/* Dropdown and popup backgrounds */
+.dropdown, .menu, .popup, .tooltip, .popover {
+  background: var(--void-black) !important;
+  border: 1px solid var(--crimson-wine) !important;
+  color: var(--bone-white) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Loading and skeleton backgrounds */
+.loading, .skeleton, .placeholder, .spinner {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Ensure all divs inherit dark theme */
+div {
+  color: var(--bone-white);
+}
+
+/* Override any remaining white backgrounds */
+* {
+  scrollbar-color: var(--blood-red) var(--void-black) !important;
+}
+
+/* Focus states */
+*:focus {
+  outline: 2px solid var(--blood-red) !important;
+  outline-offset: 2px !important;
+}
+
+/* React/Web3 Specific Component Overrides */
+
+/* Wallet Connect Modal */
+.walletconnect-modal, .web3modal, .connect-wallet-modal {
+  background: var(--void-black) !important;
+  color: var(--bone-white) !important;
+}
+
+/* MetaMask and wallet interfaces */
+.metamask-popup, .wallet-interface, .ethereum-popup {
+  background: var(--void-black) !important;
+  color: var(--bone-white) !important;
+}
+
+/* React Select components */
+.react-select__control, .react-select__menu, .react-select__option {
+  background: var(--shadow-gray) !important;
+  border-color: var(--doom-orange) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Any remaining Tailwind utilities */
+.rounded, .rounded-lg, .rounded-xl, .rounded-full, .shadow, .shadow-lg, .shadow-xl {
+  background-color: transparent !important;
+}
+
+/* Ensure no element has a white or light gray background */
+[style*="background: white"], [style*="background: #fff"], [style*="background: #ffffff"],
+[style*="background-color: white"], [style*="background-color: #fff"], [style*="background-color: #ffffff"],
+[style*="background: rgb(255"], [style*="background-color: rgb(255"] {
+  background: var(--void-black) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Override inline styles for gray backgrounds */
+[style*="background: gray"], [style*="background: #ccc"], [style*="background: #ddd"],
+[style*="background: #eee"], [style*="background: #f5f5f5"] {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+}
+
+/* ENHANCED COLOR CONTRAST - CURSE EP PALETTE */
+
+/* Vibrant Blues - "Death Comes From The Sky" */
+.text-blue-400, .text-blue-500, .text-blue-600, .text-blue-700, .text-blue-800, .text-blue-900,
+.bg-blue-400, .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-blue-800, .bg-blue-900 {
+  color: #60A5FA !important; /* Bright sky blue */
+  text-shadow: 0 0 8px rgba(96, 165, 250, 0.6) !important;
+}
+
+.bg-blue-400, .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-blue-800, .bg-blue-900 {
+  background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%) !important;
+  color: var(--bone-white) !important;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4) !important;
+}
+
+/* Vibrant Greens - "Cursed Forest" */
+.text-green-400, .text-green-500, .text-green-600, .text-green-700, .text-green-800, .text-green-900,
+.bg-green-400, .bg-green-500, .bg-green-600, .bg-green-700, .bg-green-800, .bg-green-900 {
+  color: #4ADE80 !important; /* Bright lime green */
+  text-shadow: 0 0 8px rgba(74, 222, 128, 0.6) !important;
+}
+
+.bg-green-400, .bg-green-500, .bg-green-600, .bg-green-700, .bg-green-800, .bg-green-900 {
+  background: linear-gradient(135deg, var(--cursed-green) 0%, #10B981 100%) !important;
+  color: var(--bone-white) !important;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4) !important;
+}
+
+/* Vibrant Purples - "Spectral Aura" */
+.text-purple-400, .text-purple-500, .text-purple-600, .text-purple-700, .text-purple-800, .text-purple-900,
+.bg-purple-400, .bg-purple-500, .bg-purple-600, .bg-purple-700, .bg-purple-800, .bg-purple-900 {
+  color: #A855F7 !important; /* Bright violet */
+  text-shadow: 0 0 8px rgba(168, 85, 247, 0.6) !important;
+}
+
+.bg-purple-400, .bg-purple-500, .bg-purple-600, .bg-purple-700, .bg-purple-800, .bg-purple-900 {
+  background: var(--spectral-gradient) !important;
+  color: var(--bone-white) !important;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.4) !important;
+}
+
+/* Vibrant Golds/Yellows - "Doom Orange" */
+.text-yellow-400, .text-yellow-500, .text-yellow-600, .text-yellow-700, .text-yellow-800, .text-yellow-900,
+.text-amber-400, .text-amber-500, .text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900,
+.text-orange-400, .text-orange-500, .text-orange-600, .text-orange-700, .text-orange-800, .text-orange-900 {
+  color: rgba(180, 180, 180, 0.9) !important; /* Muted gray instead of bright gold */
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.2) !important;
+}
+
+.bg-yellow-400, .bg-yellow-500, .bg-yellow-600, .bg-yellow-700, .bg-yellow-800, .bg-yellow-900,
+.bg-amber-400, .bg-amber-500, .bg-amber-600, .bg-amber-700, .bg-amber-800, .bg-amber-900,
+.bg-orange-400, .bg-orange-500, .bg-orange-600, .bg-orange-700, .bg-orange-800, .bg-orange-900 {
+  background: linear-gradient(135deg, var(--doom-orange) 0%, #F59E0B 100%) !important;
+  color: var(--void-black) !important; /* Dark text on bright background */
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.4) !important;
+}
+
+/* Enhanced Reds - "Blood Moon" */
+.text-red-400, .text-red-500, .text-red-600, .text-red-700, .text-red-800, .text-red-900 {
+  color: #F87171 !important; /* Bright coral red */
+  text-shadow: 0 0 8px rgba(248, 113, 113, 0.6) !important;
+}
+
+.bg-red-400, .bg-red-500, .bg-red-600, .bg-red-700, .bg-red-800, .bg-red-900 {
+  background: linear-gradient(135deg, var(--blood-red) 0%, #DC2626 100%) !important;
+  color: var(--bone-white) !important;
+  box-shadow: 0 0 15px rgba(220, 38, 38, 0.4) !important;
+}
+
+/* Bright Cyans/Teals - "Spectral Ice" */
+.text-cyan-400, .text-cyan-500, .text-cyan-600, .text-cyan-700, .text-cyan-800, .text-cyan-900,
+.text-teal-400, .text-teal-500, .text-teal-600, .text-teal-700, .text-teal-800, .text-teal-900 {
+  color: #22D3EE !important; /* Bright cyan */
+  text-shadow: 0 0 8px rgba(34, 211, 238, 0.6) !important;
+}
+
+.bg-cyan-400, .bg-cyan-500, .bg-cyan-600, .bg-cyan-700, .bg-cyan-800, .bg-cyan-900,
+.bg-teal-400, .bg-teal-500, .bg-teal-600, .bg-teal-700, .bg-teal-800, .bg-teal-900 {
+  background: linear-gradient(135deg, #0891B2 0%, #06B6D4 100%) !important;
+  color: var(--bone-white) !important;
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.4) !important;
+}
+
+/* Enhanced Indigos - "Midnight Void" */
+.text-indigo-400, .text-indigo-500, .text-indigo-600, .text-indigo-700, .text-indigo-800, .text-indigo-900 {
+  color: #818CF8 !important; /* Bright indigo */
+  text-shadow: 0 0 8px rgba(129, 140, 248, 0.6) !important;
+}
+
+.bg-indigo-400, .bg-indigo-500, .bg-indigo-600, .bg-indigo-700, .bg-indigo-800, .bg-indigo-900 {
+  background: linear-gradient(135deg, #4338CA 0%, #6366F1 100%) !important;
+  color: var(--bone-white) !important;
+  box-shadow: 0 0 15px rgba(99, 102, 241, 0.4) !important;
+}
+
+/* CURSE EP-Specific Element Enhancements */
+
+/* Success Messages - "Cursed Forest Glow" */
+.success, .completed, .confirmed {
+  color: #4ADE80 !important;
+  text-shadow: 0 0 10px rgba(74, 222, 128, 0.8) !important;
+  animation: spectralFlicker 2s ease-in-out infinite !important;
+}
+
+/* Warning Messages - "Doom Metal Fire" */
+.warning, .pending, .caution {
+  color: rgba(255, 193, 7, 0.8) !important;
+  text-shadow: 0 0 6px rgba(255, 193, 7, 0.3) !important;
+}
+
+/* Error Messages - "Blood Curse" */
+.error, .failed, .rejected {
+  color: #F87171 !important;
+  text-shadow: 0 0 10px rgba(248, 113, 113, 0.8) !important;
+}
+
+/* Info Messages - "Spectral Blue" */
+.info, .minting, .processing {
+  color: #60A5FA !important;
+  text-shadow: 0 0 10px rgba(96, 165, 250, 0.8) !important;
+}
+
+/* Rarity Colors Enhancement */
+.legendary, .mythic {
+  color: #A855F7 !important;
+  text-shadow: 0 0 12px rgba(168, 85, 247, 0.9) !important;
+  animation: spectralFlicker 1.5s ease-in-out infinite !important;
+}
+
+.epic, .rare {
+  color: #F87171 !important;
+  text-shadow: 0 0 10px rgba(248, 113, 113, 0.8) !important;
+}
+
+.uncommon {
+  color: rgba(255, 193, 7, 0.8) !important;
+  text-shadow: 0 0 6px rgba(255, 193, 7, 0.3) !important;
+}
+
+.common, .basic {
+  color: #4ADE80 !important;
+  text-shadow: 0 0 6px rgba(74, 222, 128, 0.6) !important;
+}
+
+/* Links and Interactive Elements */
+.link, .clickable, .interactive {
+  color: rgba(180, 180, 180, 0.9) !important;
+  transition: all 0.3s ease !important;
+}
+
+.link:hover, .clickable:hover, .interactive:hover {
+  color: #F87171 !important;
+  text-shadow: 0 0 15px rgba(248, 113, 113, 0.9) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Badge and Tag Enhancements */
+.badge, .tag, .chip {
+  border: 1px solid currentColor !important;
+  backdrop-filter: blur(5px) !important;
+  font-weight: bold !important;
+}
+
+/* Ensure minimum contrast for all text */
+.text-opacity-50, .text-opacity-60, .text-opacity-70 {
+  opacity: 0.9 !important; /* Increase opacity for better readability */
+}
+
+/* Dark text overrides for better visibility */
+.text-gray-500, .text-gray-400, .text-slate-500, .text-slate-400 {
+  color: var(--bone-white) !important;
+  opacity: 0.8 !important;
+}
+
+/* NUCLEAR MODAL BACKGROUND OVERRIDES - Eliminate All White */
+
+/* Moment Modal Specific Targeting */
+.moment-modal, .modal, [role="dialog"], [aria-modal="true"] {
+  background: var(--void-black) !important;
+  color: var(--bone-white) !important;
+  border: 1px solid var(--crimson-wine) !important;
+}
+
+/* Modal Content and Wrapper */
+.modal-content, .modal-wrapper, .modal-container, .modal-body, .modal-header, .modal-footer {
+  background: var(--void-gradient) !important;
+  color: var(--bone-white) !important;
+  border-color: var(--crimson-wine) !important;
+}
+
+/* React Modal Specific Classes */
+.ReactModal__Content, .ReactModal__Overlay {
+  background: var(--void-black) !important;
+  color: var(--bone-white) !important;
+}
+
+.ReactModal__Content {
+  border: 2px solid var(--blood-red) !important;
+  box-shadow: 0 0 30px rgba(139, 0, 0, 0.8) !important;
+}
+
+/* Modal Backdrop/Overlay */
+.modal-backdrop, .overlay, .backdrop {
+  background: rgba(10, 10, 10, 0.95) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+/* Any div inside modals */
+.modal div, [role="dialog"] div, [aria-modal="true"] div {
+  background-color: transparent !important;
+  color: var(--bone-white) !important;
+}
+
+/* Fixed positioned elements (likely modals) */
+.fixed {
+  background-color: transparent !important;
+  color: var(--bone-white) !important;
+}
+
+/* Inset positioned elements (modal overlays) */
+.inset-0 {
+  background: rgba(10, 10, 10, 0.95) !important;
+}
+
+/* Z-index high elements (likely modals) */
+.z-50, .z-40, .z-30, .z-20 {
+  background-color: var(--void-black) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Flex centered elements (common modal pattern) */
+.flex.items-center.justify-center {
+  background-color: transparent !important;
+}
+
+/* Portal and root modal containers */
+#modal-root, #portal-root, .portal, [data-portal] {
+  background: transparent !important;
+  color: var(--bone-white) !important;
+}
+
+/* Absolute positioned modal content */
+.absolute {
+  background-color: transparent !important;
+  color: var(--bone-white) !important;
+}
+
+/* Transform centered elements (modal centering) */
+.transform.-translate-x-1\/2.-translate-y-1\/2, 
+.transform.translate-x-1\/2.translate-y-1\/2 {
+  background: var(--void-gradient) !important;
+  border: 2px solid var(--blood-red) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Any remaining white backgrounds with high specificity */
+div[style*="background-color: white"], 
+div[style*="background-color: #fff"],
+div[style*="background-color: #ffffff"],
+div[style*="background: white"],
+div[style*="background: #fff"],
+div[style*="background: #ffffff"] {
+  background: var(--void-black) !important;
+  color: var(--bone-white) !important;
+}
+
+/* SPECIFIC MOMENT MODAL TARGETING */
+.trading-card-modal {
+  background: var(--void-gradient) !important;
+  color: var(--bone-white) !important;
+  border: 2px solid var(--blood-red) !important;
+  box-shadow: 0 0 40px rgba(139, 0, 0, 0.9) !important;
+}
+
+.modal-overlay {
+  background: rgba(10, 10, 10, 0.95) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* Card sections */
+.card-header, .card-body, .card-footer, .card-content {
+  background: transparent !important;
+  color: var(--bone-white) !important;
+}
+
+.card-title-section, .content-type-badge, .rarity-badge {
+  background: transparent !important;
+  color: var(--bone-white) !important;
+}
+
+.metadata-grid, .metadata-item, .metadata-label, .metadata-value {
+  background: transparent !important;
+  color: var(--bone-white) !important;
+}
+
+.media-container, .audio-placeholder, .media-loading {
+  background: transparent !important;
+  color: var(--bone-white) !important;
+}
+
+/* SPECIFIC MODAL CONTENT SECTIONS */
+
+/* Video container and surrounding areas */
+.trading-card-modal .media-container,
+.trading-card-modal .video-container,
+.trading-card-modal .image-container,
+.trading-card-modal .audio-container {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+  border: 1px solid var(--crimson-wine) !important;
+  border-radius: 8px !important;
+}
+
+/* Rarity section - "⚡ Simple 3-Factor Rarity" */
+.trading-card-modal .rarity-section,
+.trading-card-modal .rarity-breakdown,
+.trading-card-modal .rarity-info,
+.trading-card-modal .factor-breakdown,
+.trading-card-modal .rarity-details {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+  border: 1px solid var(--doom-orange) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+}
+
+/* Moment Details section */
+.trading-card-modal .moment-details,
+.trading-card-modal .details-section,
+.trading-card-modal .file-details,
+.trading-card-modal .performance-details,
+.trading-card-modal .metadata-section {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+  border: 1px solid var(--cursed-green) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+}
+
+/* All sections inside the modal */
+.trading-card-modal section,
+.trading-card-modal .section,
+.trading-card-modal .content-section,
+.trading-card-modal .info-section {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+  border: 1px solid var(--crimson-wine) !important;
+  border-radius: 8px !important;
+  margin: 8px 0 !important;
+  padding: 12px !important;
+}
+
+/* Any divs with specific background patterns */
+.trading-card-modal div[class*="bg-"],
+.trading-card-modal div[class*="background"],
+.trading-card-modal .panel,
+.trading-card-modal .box,
+.trading-card-modal .container {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Headers and titles in modal */
+.trading-card-modal h1, .trading-card-modal h2, .trading-card-modal h3,
+.trading-card-modal h4, .trading-card-modal h5, .trading-card-modal h6 {
+  color: var(--bone-white) !important;
+  text-shadow: 0 0 8px rgba(139, 0, 0, 0.6) !important;
+}
+
+/* Paragraphs and text content */
+.trading-card-modal p, .trading-card-modal span, .trading-card-modal div {
+  color: var(--bone-white) !important;
+}
+
+/* Any remaining elements with classes containing 'white' or 'gray' */
+.trading-card-modal [class*="white"],
+.trading-card-modal [class*="gray"],
+.trading-card-modal [class*="light"] {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Nuclear option - override ALL remaining white backgrounds */
+*[style*="background-color: white"], 
+*[style*="background-color: #fff"],
+*[style*="background-color: #ffffff"],
+*[style*="background: white"],
+*[style*="background: #fff"],
+*[style*="background: #ffffff"] {
+  background: var(--void-black) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Absolutely nuclear - target all elements inside trading card modal */
+.trading-card-modal * {
+  background-color: transparent !important;
+  color: var(--bone-white) !important;
+}
+
+/* But give specific sections their dark backgrounds */
+.trading-card-modal .media-container *,
+.trading-card-modal .rarity-section *,
+.trading-card-modal .moment-details *,
+.trading-card-modal section * {
+  background-color: var(--shadow-gray) !important;
+}
+
+/* NFT STATUS AND MINTING SECTION - "Sorcerers of Silence" */
+
+/* NFT Status container */
+.trading-card-modal .nft-status,
+.trading-card-modal .nft-section,
+.trading-card-modal .mint-section,
+.trading-card-modal .web3-section,
+.trading-card-modal .blockchain-section {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+  border: 2px solid var(--spectral-purple) !important;
+  border-radius: 8px !important;
+  padding: 16px !important;
+  margin: 12px 0 !important;
+}
+
+/* Mint NFT component and all its children */
+.trading-card-modal .moment-mint,
+.trading-card-modal .mint-component,
+.trading-card-modal .nft-mint,
+.trading-card-modal .web3-mint {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+  border: 1px solid var(--doom-orange) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+}
+
+/* All Web3 related elements */
+.trading-card-modal [class*="mint"],
+.trading-card-modal [class*="nft"],
+.trading-card-modal [class*="web3"],
+.trading-card-modal [class*="blockchain"],
+.trading-card-modal [class*="wallet"],
+.trading-card-modal [class*="token"] {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Specific mint status indicators */
+.trading-card-modal .mint-status,
+.trading-card-modal .nft-available,
+.trading-card-modal .mint-button,
+.trading-card-modal .minting-info,
+.trading-card-modal .token-info {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+  border: 1px solid var(--blood-red) !important;
+  border-radius: 6px !important;
+  padding: 8px !important;
+}
+
+/* Any form elements in the mint section */
+.trading-card-modal input,
+.trading-card-modal select,
+.trading-card-modal textarea,
+.trading-card-modal button {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+  border: 1px solid var(--doom-orange) !important;
+}
+
+/* Price display and mint information */
+.trading-card-modal .price-display,
+.trading-card-modal .mint-price,
+.trading-card-modal .token-price,
+.trading-card-modal .quantity-selector,
+.trading-card-modal .mint-controls {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+  border: 1px solid var(--cursed-green) !important;
+  border-radius: 6px !important;
+  padding: 8px !important;
+}
+
+/* Success and error messages in mint section */
+.trading-card-modal .success-message,
+.trading-card-modal .error-message,
+.trading-card-modal .info-message,
+.trading-card-modal .warning-message {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+  border: 1px solid currentColor !important;
+  border-radius: 6px !important;
+  padding: 8px !important;
+}
+
+/* Absolutely nuclear for mint section */
+.trading-card-modal .moment-mint *,
+.trading-card-modal .nft-section *,
+.trading-card-modal .mint-section *,
+.trading-card-modal .web3-section * {
+  background-color: transparent !important;
+  color: var(--bone-white) !important;
+}
+
+/* Force dark backgrounds on any remaining mint elements */
+.trading-card-modal .moment-mint div,
+.trading-card-modal .nft-section div,
+.trading-card-modal .mint-section div,
+.trading-card-modal .web3-section div {
+  background: var(--shadow-gray) !important;
+  border: 1px solid var(--crimson-wine) !important;
+}
+
+/* FINAL NUCLEAR OPTION - Target ALL possible NFT/Mint backgrounds */
+
+/* Any element with gray background classes in modal */
+.trading-card-modal .bg-gray-100,
+.trading-card-modal .bg-gray-200,
+.trading-card-modal .bg-gray-300,
+.trading-card-modal .bg-gray-400,
+.trading-card-modal .bg-gray-500 {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Close button and other gray elements */
+.trading-card-modal .bg-gray-200,
+.trading-card-modal .text-gray-800,
+.trading-card-modal .text-gray-500,
+.trading-card-modal .text-gray-600 {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Purple button backgrounds to our theme */
+.trading-card-modal .bg-purple-600,
+.trading-card-modal .bg-purple-700 {
+  background: var(--spectral-gradient) !important;
+  color: var(--bone-white) !important;
+}
+
+/* Any remaining problematic Tailwind classes */
+.trading-card-modal .bg-white,
+.trading-card-modal .bg-slate-100,
+.trading-card-modal .bg-neutral-100 {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+}
+
+/* The absolute final nuclear option - every single div in the modal */
+.trading-card-modal div {
+  background-color: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+}
+
+/* NFT SIDE PANEL LAYOUT - "Sorcerers of Silence" */
+
+/* Modal with side panel support */
+.trading-card-modal.with-side-panel {
+  max-width: 95vw !important;
+  width: 1400px !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Main content container - flexbox layout */
+.modal-content-container {
+  display: flex !important;
+  flex: 1 !important;
+  gap: 20px !important;
+  overflow: hidden !important;
+}
+
+/* Main content area */
+.main-content {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  background: transparent !important;
+  color: var(--bone-white) !important;
+}
+
+/* NFT Side Panel */
+.nft-side-panel {
+  position: relative !important; /* For absolute positioning of preview modal */
+  width: 400px !important;
+  min-width: 400px !important;
+  background: var(--void-gradient) !important;
+  border: 2px solid var(--spectral-purple) !important;
+  border-radius: 12px !important;
+  box-shadow: 
+    0 0 30px rgba(45, 27, 105, 0.8),
+    inset 0 1px 0 rgba(168, 85, 247, 0.2) !important;
+  animation: hauntedGlow 4s ease-in-out infinite !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* NFT Panel Header */
+.nft-panel-header {
+  background: var(--spectral-gradient) !important;
+  color: var(--bone-white) !important;
+  padding: 16px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  border-bottom: 1px solid var(--doom-orange) !important;
+}
+
+.nft-panel-header h3 {
+  margin: 0 !important;
+  font-family: 'Courier New', monospace !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  text-shadow: 0 0 10px rgba(168, 85, 247, 0.8) !important;
+}
+
+.panel-close-button {
+  background: transparent !important;
+  border: 1px solid var(--bone-white) !important;
+  color: var(--bone-white) !important;
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  font-size: 16px !important;
+  transition: all 0.3s ease !important;
+}
+
+.panel-close-button:hover {
+  background: var(--blood-red) !important;
+  border-color: var(--blood-red) !important;
+  box-shadow: 0 0 15px rgba(139, 0, 0, 0.8) !important;
+}
+
+/* NFT Panel Content */
+.nft-panel-content {
+  flex: 1 !important;
+  padding: 20px !important;
+  overflow-y: auto !important;
+  background: transparent !important;
+}
+
+/* NFT Toggle Button in Header */
+.nft-toggle-button {
+  background: var(--spectral-gradient) !important;
+  border: 1px solid var(--spectral-purple) !important;
+  color: var(--bone-white) !important;
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  font-family: 'Courier New', monospace !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  margin-right: 12px !important;
+  transition: all 0.3s ease !important;
+  cursor: pointer !important;
+  font-size: 12px !important;
+  font-weight: bold !important;
+}
+
+.nft-toggle-button:hover {
+  background: var(--spectral-purple) !important;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.8) !important;
+  transform: translateY(-1px) !important;
+}
+
+.nft-toggle-button.active {
+  background: var(--doom-orange) !important;
+  border-color: var(--doom-orange) !important;
+  color: var(--void-black) !important;
+  box-shadow: 0 0 15px rgba(184, 134, 11, 0.8) !important;
+}
+
+/* Remove NFT section from main content when panel is open */
+.trading-card-modal.with-side-panel .moment-mint {
+  display: none !important;
+}
+
+/* NFT PREVIEW MODAL POSITIONING IN SIDE PANEL */
+
+/* When preview is shown in side panel, position it over the panel */
+.nft-side-panel .fixed.inset-0 {
+  position: absolute !important;
+  inset: 0 !important;
+  background: rgba(10, 10, 10, 0.95) !important;
+  backdrop-filter: blur(8px) !important;
+  z-index: 100 !important;
+}
+
+/* Preview modal content in side panel */
+.nft-side-panel .fixed.inset-0 > div {
+  background: var(--void-gradient) !important;
+  border: 2px solid var(--doom-orange) !important;
+  color: var(--bone-white) !important;
+  max-width: 95% !important;
+  max-height: 85% !important;
+  overflow-y: auto !important;
+  box-shadow: 0 0 30px rgba(184, 134, 11, 0.8) !important;
+  margin: auto !important;
+}
+
+/* Preview modal header in side panel */
+.nft-side-panel .fixed.inset-0 h3 {
+  color: var(--bone-white) !important;
+  text-shadow: 0 0 8px rgba(184, 134, 11, 0.6) !important;
+}
+
+/* Preview modal buttons in side panel */
+.nft-side-panel .fixed.inset-0 button {
+  background: var(--shadow-gray) !important;
+  color: var(--bone-white) !important;
+  border: 1px solid var(--doom-orange) !important;
+}
+
+.nft-side-panel .fixed.inset-0 button:hover {
+  background: var(--doom-orange) !important;
+  color: var(--void-black) !important;
+}
+
+/* Close button in preview */
+.nft-side-panel .fixed.inset-0 button[class*="text-2xl"] {
+  background: transparent !important;
+  border: none !important;
+  color: var(--doom-orange) !important;
+  font-size: 20px !important;
+}
+
+.nft-side-panel .fixed.inset-0 button[class*="text-2xl"]:hover {
+  color: var(--blood-red) !important;
+  background: transparent !important;
+}
+
+/* COMPACT PREVIEW MODAL STYLING FOR SIDE PANEL */
+
+/* Make preview modal content more compact */
+.nft-side-panel .fixed.inset-0 .p-6 {
+  padding: 12px !important;
+}
+
+/* Compact header */
+.nft-side-panel .fixed.inset-0 h3 {
+  font-size: 16px !important;
+  margin-bottom: 8px !important;
+}
+
+/* Compact image */
+.nft-side-panel .fixed.inset-0 img {
+  margin-bottom: 12px !important;
+}
+
+/* Compact buttons */
+.nft-side-panel .fixed.inset-0 button:not([class*="text-2xl"]) {
+  padding: 8px 12px !important;
+  font-size: 12px !important;
+  margin: 4px 0 !important;
+}
+
+/* Specific button text overrides */
+.nft-side-panel .fixed.inset-0 button {
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Try Another Variation button */
+.nft-side-panel .fixed.inset-0 button[class*="w-full"] {
+  padding: 10px 8px !important;
+  font-size: 11px !important;
+}
+
+/* Compact close and create buttons section */
+.nft-side-panel .fixed.inset-0 .flex.gap-3 button {
+  padding: 8px 10px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+
+/* Make variation number text smaller */
+.nft-side-panel .fixed.inset-0 .text-xs {
+  font-size: 9px !important;
+}
+
+/* Compact spacing between elements */
+.nft-side-panel .fixed.inset-0 .mb-4 {
+  margin-bottom: 8px !important;
+}
+
+.nft-side-panel .fixed.inset-0 .mt-4 {
+  margin-top: 8px !important;
+}
+
+/* Scrollable content area */
+.nft-side-panel .fixed.inset-0 > div {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.nft-side-panel .fixed.inset-0 .p-6 {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  max-height: calc(85vh - 40px) !important;
+}
+
+/* Responsive - stack on mobile */
+@media (max-width: 1200px) {
+  .trading-card-modal.with-side-panel {
+    flex-direction: column !important;
+    width: 95vw !important;
+    max-height: 95vh !important;
+  }
+  
+  .modal-content-container {
+    flex-direction: column !important;
+  }
+  
+  .nft-side-panel {
+    width: 100% !important;
+    min-width: unset !important;
+    max-height: 400px !important;
+  }
+  
+  /* On mobile, preview modal should still cover full screen */
+  .nft-side-panel .fixed.inset-0 {
+    position: fixed !important;
+    inset: 0 !important;
+  }
 }
 
 
