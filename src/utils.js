@@ -172,6 +172,36 @@ export const mobileButtonStyles = {
 // CACHE-AWARE API HELPERS
 // =============================================================================
 
+// Function to get ALL UMO performances from cache (for filtering)
+export const fetchAllUMOSetlists = async (apiBaseUrl) => {
+  try {
+    console.log(`🎸 Fetching ALL UMO performances from cache...`);
+    
+    const url = `${apiBaseUrl}/cached/performances?page=1&limit=1000`; // Large limit to get all
+    console.log(`📡 Cache URL: ${url}`);
+    
+    const response = await safeFetch(url);
+    const data = await response.json();
+    
+    console.log(`📋 All performances data received:`, {
+      total: data.pagination.total,
+      performanceCount: data.performances.length,
+      fromCache: data.fromCache,
+      lastUpdated: data.lastUpdated
+    });
+
+    return {
+      setlist: data.performances,
+      total: data.pagination.total,
+      fromCache: data.fromCache
+    };
+    
+  } catch (error) {
+    console.error(`❌ Error fetching all cached UMO setlists:`, error);
+    throw error;
+  }
+};
+
 // Main function to get UMO performances from cache
 export const fetchUMOSetlists = async (page = 1, apiBaseUrl) => {
   try {

@@ -319,7 +319,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
                   className={`nft-toggle-button ${showNftPanel ? 'active' : ''}`}
                   title={showNftPanel ? 'Close NFT Panel' : 'Open NFT Panel'}
                 >
-                  {showNftPanel ? 'Close' : (isOwner ? 'Tokenize' : 'See Token Details')}
+                  {showNftPanel ? 'Close' : (isOwner ? 'Create Artifact' : 'Artifact Details')}
                 </button>
               )}
               <button onClick={onClose} className="close-button">✕</button>
@@ -492,7 +492,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             {showNftPanel && (
               <div className="nft-side-panel">
                 <div className="nft-panel-header">
-                  <h3>🔥 NFT Controls</h3>
+                  <h3>Controls</h3>
                   <button 
                     onClick={() => setShowNftPanel(false)}
                     className="panel-close-button"

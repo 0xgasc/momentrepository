@@ -1,5 +1,5 @@
 // src/components/Performance/PerformanceList.jsx
-import React, { useEffect, memo } from 'react';
+import React, { useEffect, memo, useMemo } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { usePerformances, useMoments } from '../../hooks';
 import { formatShortDate } from '../../utils';
@@ -14,10 +14,12 @@ const PerformanceList = memo(({ onPerformanceSelect }) => {
     hasMore,
     citySearch,
     isSearchMode,
+    showOnlyWithMoments,
     loadInitialPerformances,
     loadMorePerformances,
     clearSearch,
-    handleSearchChange
+    handleSearchChange,
+    setShowOnlyWithMoments
   } = usePerformances(API_BASE_URL);
 
   const { 
@@ -25,6 +27,19 @@ const PerformanceList = memo(({ onPerformanceSelect }) => {
     loadingMoments, 
     loadMomentCounts 
   } = useMoments(API_BASE_URL);
+
+  // Filter performances based on moments toggle
+  const filteredPerformances = useMemo(() => {
+    if (!showOnlyWithMoments) {
+      return displayedPerformances;
+    }
+    
+    // Filter to only show performances that have moments
+    return displayedPerformances.filter(performance => {
+      const count = momentCounts[performance.id];
+      return count && count > 0;
+    });
+  }, [displayedPerformances, showOnlyWithMoments, momentCounts]);
 
   // Load moment counts when performances change
   useEffect(() => {
@@ -54,18 +69,21 @@ const PerformanceList = memo(({ onPerformanceSelect }) => {
         onClearSearch={clearSearch}
         loadingMoments={loadingMoments}
         isSearchMode={isSearchMode}
-        resultCount={displayedPerformances.length}
+        resultCount={filteredPerformances.length}
+        totalCount={displayedPerformances.length}
+        showOnlyWithMoments={showOnlyWithMoments}
+        onToggleMomentsFilter={setShowOnlyWithMoments}
       />
       
       {/* Performance Grid */}
       <PerformanceGrid 
-        performances={displayedPerformances}
+        performances={filteredPerformances}
         momentCounts={momentCounts}
         onPerformanceSelect={onPerformanceSelect}
       />
       
       {/* No Results */}
-      {displayedPerformances.length === 0 && !loading && !searching && (
+      {filteredPerformances.length === 0 && !loading && !searching && (
         <NoResultsState 
           isSearchMode={isSearchMode}
           searchQuery={citySearch}
@@ -127,7 +145,10 @@ const PerformanceHeader = memo(({
   onClearSearch,
   loadingMoments,
   isSearchMode,
-  resultCount
+  resultCount,
+  totalCount,
+  showOnlyWithMoments,
+  onToggleMomentsFilter
 }) => (
   <>
     {/* Header with Search */}
@@ -183,6 +204,19 @@ const PerformanceHeader = memo(({
         )}
       </div>
     )}
+
+    {/* Moments filter toggle */}
+    <div className="mb-4 flex items-center justify-end">
+      <label className="flex items-center cursor-pointer">
+        <input
+          type="checkbox"
+          checked={showOnlyWithMoments}
+          onChange={(e) => onToggleMomentsFilter(e.target.checked)}
+          className="mr-2"
+        />
+        <span className="text-sm text-gray-700">With moments only</span>
+      </label>
+    </div>
   </>
 ));
 

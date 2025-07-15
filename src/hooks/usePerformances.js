@@ -1,6 +1,6 @@
 // src/hooks/usePerformances.js - FIXED VERSION without duplicates
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { fetchUMOSetlists, searchUMOPerformances } from '../utils';
+import { fetchUMOSetlists, fetchAllUMOSetlists, searchUMOPerformances } from '../utils';
 import { useDebounce } from './useDebounce';
 
 export const usePerformances = (apiBaseUrl) => {
@@ -13,6 +13,8 @@ export const usePerformances = (apiBaseUrl) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [citySearch, setCitySearch] = useState('');
   const [isSearchMode, setIsSearchMode] = useState(false);
+  const [showOnlyWithMoments, setShowOnlyWithMoments] = useState(false);
+  const [allPerformances, setAllPerformances] = useState([]); // Cache all performances when needed
   
   // FIXED: Better search state tracking
   const [searchState, setSearchState] = useState({
@@ -49,6 +51,33 @@ export const usePerformances = (apiBaseUrl) => {
       console.error('Error loading performances:', err);
       setError(`Failed to load performances: ${err.message}`);
       setDisplayedPerformances([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiBaseUrl]);
+
+  // Load all performances when moments filter is enabled
+  const loadAllPerformances = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const data = await fetchAllUMOSetlists(apiBaseUrl);
+      
+      if (data?.setlist?.length > 0) {
+        setAllPerformances(data.setlist);
+        setDisplayedPerformances(data.setlist);
+        setHasMore(false); // No pagination when showing all
+      } else {
+        setAllPerformances([]);
+        setDisplayedPerformances([]);
+        setError('No UMO performances found');
+      }
+    } catch (err) {
+      console.error('Error loading all performances:', err);
+      setError(`Failed to load performances: ${err.message}`);
+      setDisplayedPerformances([]);
+      setAllPerformances([]);
     } finally {
       setLoading(false);
     }
@@ -227,6 +256,18 @@ export const usePerformances = (apiBaseUrl) => {
     loadInitialPerformances();
   }, []); // Only run once on mount
 
+  // Handle moments filter toggle
+  useEffect(() => {
+    if (showOnlyWithMoments && allPerformances.length === 0) {
+      // Load all performances when moments filter is first enabled
+      loadAllPerformances();
+    } else if (!showOnlyWithMoments && allPerformances.length > 0) {
+      // Return to paginated view when filter is disabled
+      setAllPerformances([]);
+      loadInitialPerformances();
+    }
+  }, [showOnlyWithMoments, allPerformances.length, loadAllPerformances, loadInitialPerformances]);
+
   // FIXED: Handle search with proper dependency management
   useEffect(() => {
     const searchTerm = debouncedCitySearch.trim();
@@ -267,11 +308,13 @@ export const usePerformances = (apiBaseUrl) => {
     hasMore: isSearchMode ? searchState.hasMore : hasMore,
     citySearch,
     isSearchMode,
+    showOnlyWithMoments,
     
     // Actions
     loadInitialPerformances,
     loadMorePerformances,
     clearSearch,
-    handleSearchChange
+    handleSearchChange,
+    setShowOnlyWithMoments
   };
 };

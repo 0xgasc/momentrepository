@@ -245,7 +245,15 @@ const SongDetailHeader = memo(({ songData, songMoments, nonSongMoments, onBack }
     </button>
     
     <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-      <h2 className="text-2xl sm:text-3xl font-bold mb-4">{songData.songName}</h2>
+      <div className="flex items-end gap-4 mb-4">
+        <h2 className="text-2xl sm:text-3xl font-bold">{songData.songName}</h2>
+        <div className="text-xs text-gray-500 pb-1">
+          First performed: <strong>{formatDate(songData.firstPerformed)}</strong>
+          {songData.firstPerformed !== songData.lastPerformed && (
+            <> • Last performed: <strong>{formatDate(songData.lastPerformed)}</strong></>
+          )}
+        </div>
+      </div>
       
       {/* Song Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
@@ -276,15 +284,6 @@ const SongDetailHeader = memo(({ songData, songMoments, nonSongMoments, onBack }
         </div>
       )}
       
-      {/* Date Range */}
-      <div className="mt-4 text-center text-gray-600 space-y-2">
-        <div className="text-sm">
-          First performed: <strong>{formatDate(songData.firstPerformed)}</strong>
-          {songData.firstPerformed !== songData.lastPerformed && (
-            <> • Last performed: <strong>{formatDate(songData.lastPerformed)}</strong></>
-          )}
-        </div>
-      </div>
     </div>
   </div>
 ));
@@ -390,33 +389,36 @@ NonSongMomentsSection.displayName = 'NonSongMomentsSection';
 // ✅ UNCHANGED: Controls remain the same
 const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShowPositions, showOnlyWithMoments, setShowOnlyWithMoments }) => (
   <div className="mb-6 space-y-4">
-    <div className="flex items-center gap-3 mb-4">
-      <h3 className="text-xl font-bold text-gray-900">🎵 Song Performance History</h3>
-      <div className="h-px flex-1 bg-gray-200"></div>
-    </div>
-    
-    {/* View Mode Toggle */}
-    <div className="flex items-center gap-2">
-      <span className="text-sm font-medium text-gray-700">View:</span>
-      <div className="bg-white rounded-lg border border-gray-200 p-1 inline-flex">
-        {[
-          { key: 'chronological', label: '📅 Chronological' },
-          { key: 'byVenue', label: '🏟️ By Venue' },
-          { key: 'byYear', label: '📆 By Year' }
-        ].map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setViewMode(key)}
-            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-              viewMode === key 
-                ? 'bg-blue-600 text-white' 
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-4">
+        <h3 className="text-xl font-bold text-gray-900">🎵 Song Performance History</h3>
+        
+        {/* View Mode Toggle - moved inline with title */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-700">View:</span>
+          <div className="bg-white rounded-lg border border-gray-200 p-1 inline-flex">
+            {[
+              { key: 'chronological', label: '📅 Chronological' },
+              { key: 'byVenue', label: '🏟️ By Venue' },
+              { key: 'byYear', label: '📆 By Year' }
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setViewMode(key)}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === key 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
+      
+      <div className="h-px flex-1 bg-gray-200 ml-4"></div>
     </div>
 
     <div className="flex items-center gap-6">
@@ -441,11 +443,6 @@ const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShow
       </label>
     </div>
 
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-      <p className="text-sm text-blue-800">
-        💡 <strong>Tip:</strong> Click on any performance date/venue to view the complete setlist for that show!
-      </p>
-    </div>
   </div>
 ));
 

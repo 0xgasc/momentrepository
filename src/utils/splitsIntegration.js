@@ -51,18 +51,18 @@ export const SPLITS_ABI = [
 
 // Default split configurations
 export const DEFAULT_SPLITS = {
-  // 80% Artist, 15% Uploader, 5% Platform
+  // 65% UMO, 30% Creator, 5% Platform
   STANDARD: {
     platformFee: 50000,    // 5% in basis points (5 * 1000)
-    uploaderFee: 150000,   // 15%
-    artistFee: 800000,     // 80%
+    creatorFee: 300000,    // 30%
+    umoFee: 650000,        // 65%
   },
   
-  // 70% Artist, 20% Uploader, 10% Platform (for high-rarity moments)
+  // Same split for all moments - consistent structure
   HIGH_RARITY: {
-    platformFee: 100000,   // 10%
-    uploaderFee: 200000,   // 20%
-    artistFee: 700000,     // 70%
+    platformFee: 50000,    // 5%
+    creatorFee: 300000,    // 30%
+    umoFee: 650000,        // 65%
   }
 };
 
@@ -117,20 +117,20 @@ export class SplitsManager {
     
     const split = customSplit || defaultSplit;
     
-    // Default addresses (replace with actual addresses)
-    const PLATFORM_ADDRESS = process.env.REACT_APP_PLATFORM_ADDRESS || '0x...';
-    const ARTIST_ADDRESS = process.env.REACT_APP_ARTIST_ADDRESS || '0x...'; // UMO's address
+    // Default addresses
+    const PLATFORM_ADDRESS = process.env.REACT_APP_PLATFORM_ADDRESS || '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96';
+    const UMO_ADDRESS = '0x2e8D1eAd7Ba51e04c2A8ec40a8A3eD49CC4E1ceF'; // UMO's official address
     
     return {
       accounts: [
         PLATFORM_ADDRESS,
         uploaderAddress,
-        ARTIST_ADDRESS
+        UMO_ADDRESS
       ],
       percentAllocations: [
         split.platformFee,
-        split.uploaderFee,
-        split.artistFee
+        split.creatorFee,
+        split.umoFee
       ],
       controller: PLATFORM_ADDRESS, // Platform controls the split
       distributorFee: 0
@@ -234,8 +234,8 @@ export class SplitsManager {
     
     return {
       platform: (total * BigInt(splitConfig.percentAllocations[0])) / 1000000n,
-      uploader: (total * BigInt(splitConfig.percentAllocations[1])) / 1000000n,
-      artist: (total * BigInt(splitConfig.percentAllocations[2])) / 1000000n,
+      creator: (total * BigInt(splitConfig.percentAllocations[1])) / 1000000n,
+      umo: (total * BigInt(splitConfig.percentAllocations[2])) / 1000000n,
       configuration: splitConfig
     };
   }

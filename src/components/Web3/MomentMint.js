@@ -5,6 +5,7 @@ import { Plus, Zap } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import UMOMomentsERC1155Contract from '../../contracts/UMOMomentsERC1155.json';
 import { parseEther, formatEther } from 'viem';
+import { useSplits } from '../../utils/splitsIntegration';
 
 const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, onRefresh }) => {
   // State management
@@ -12,7 +13,9 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
   const [isMinting, setIsMinting] = useState(false);
   const [error, setError] = useState('');
   const [mintDuration, setMintDuration] = useState(7);
-  const [customPrice, setCustomPrice] = useState(0.00005); // Default price in ETH
+  const [customPriceUSD, setCustomPriceUSD] = useState(0.15); // Default price in USD
+  const ETH_PRICE_USD = 3000; // Current ETH price
+  const customPrice = customPriceUSD / ETH_PRICE_USD; // Convert to ETH
   const [txHash, setTxHash] = useState(null);
   const [currentStep, setCurrentStep] = useState('ready');
   const [successMessage, setSuccessMessage] = useState('');
@@ -23,10 +26,26 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
   const [lastMintQuantity, setLastMintQuantity] = useState(0);
   const [pendingMintRecord, setPendingMintRecord] = useState(null);
   const [mintQuantity, setMintQuantity] = useState(1); // User-selected quantity
+  
+  // Editable metadata state
+  const [editableMetadata, setEditableMetadata] = useState({
+    description: moment.momentDescription || '',
+    audioQuality: moment.audioQuality || 'good',
+    videoQuality: moment.videoQuality || 'good',
+    specialOccasion: moment.specialOccasion || '',
+    instruments: moment.instruments || '',
+    emotionalTags: moment.emotionalTags || '',
+    crowdReaction: moment.crowdReaction || '',
+    uniqueElements: moment.uniqueElements || ''
+  });
+  const [showMetadataEditor, setShowMetadataEditor] = useState(false);
 
   // Wagmi hooks
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
+  
+  // 0xSplits integration
+  const { createSplit, isReady: splitsReady } = useSplits();
   const { 
     writeContract, 
     data: writeContractData, 
@@ -175,7 +194,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
       timeZone: 'UTC'
     });
     
-    let description = moment.momentDescription || 
+    let description = editableMetadata.description || 
       `A live performance moment of "${moment.songName}" by UMO at ${moment.venueName}, ${moment.venueCity} on ${moment.performanceDate}.`;
     
     description += `\n\n📅 Originally uploaded on ${uploadDate} at ${uploadTime} UTC by ${moment.user?.displayName || 'Anonymous'}.`;
@@ -233,11 +252,11 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
       // Quality attributes
       {
         trait_type: "Audio Quality",
-        value: moment.audioQuality || 'good'
+        value: editableMetadata.audioQuality
       },
       {
         trait_type: "Video Quality",
-        value: moment.videoQuality || 'good'
+        value: editableMetadata.videoQuality
       },
       
       // Rarity attributes
@@ -276,16 +295,16 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
       });
     }
     
-    if (moment.specialOccasion) {
+    if (editableMetadata.specialOccasion) {
       attributes.push({
         trait_type: "Special Occasion",
-        value: moment.specialOccasion
+        value: editableMetadata.specialOccasion
       });
     }
     
-    if (moment.instruments) {
+    if (editableMetadata.instruments) {
       // Split instruments and add each as separate attribute
-      moment.instruments.split(',').forEach(instrument => {
+      editableMetadata.instruments.split(',').forEach(instrument => {
         attributes.push({
           trait_type: "Instrument",
           value: instrument.trim()
@@ -293,9 +312,9 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
       });
     }
     
-    if (moment.emotionalTags) {
+    if (editableMetadata.emotionalTags) {
       // Split emotional tags and add each as separate attribute
-      moment.emotionalTags.split(',').forEach(tag => {
+      editableMetadata.emotionalTags.split(',').forEach(tag => {
         attributes.push({
           trait_type: "Emotion",
           value: tag.trim()
@@ -303,17 +322,17 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
       });
     }
     
-    if (moment.crowdReaction) {
+    if (editableMetadata.crowdReaction) {
       attributes.push({
         trait_type: "Crowd Reaction",
-        value: moment.crowdReaction
+        value: editableMetadata.crowdReaction
       });
     }
     
-    if (moment.uniqueElements) {
+    if (editableMetadata.uniqueElements) {
       attributes.push({
         trait_type: "Unique Elements",
-        value: moment.uniqueElements
+        value: editableMetadata.uniqueElements
       });
     }
     
@@ -462,6 +481,21 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
       const metadataURI = await uploadMetadataToIrys(metadata);
       
       console.log('📝 Creating NFT edition with metadata:', metadataURI);
+      setCurrentStep('creating-split');
+
+      // Create 0xSplits contract for revenue sharing
+      let splitsContract = '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96'; // fallback
+      if (splitsReady) {
+        try {
+          console.log('🔧 Creating 0xSplits contract...');
+          const splitResult = await createSplit(moment, address);
+          splitsContract = splitResult.splitAddress;
+          console.log('✅ Split created:', splitsContract);
+        } catch (splitError) {
+          console.warn('⚠️ Split creation failed, using fallback:', splitError);
+        }
+      }
+      
       setCurrentStep('confirming');
 
       // Call backend proxy
@@ -473,7 +507,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         },
         body: JSON.stringify({
           nftMetadataHash: metadataURI,
-          splitsContract: '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96',
+          splitsContract: splitsContract,
           mintPrice: parseEther(customPrice.toString()).toString(),
           mintDuration: mintDuration,
           nftCardUrl: cardUrl // Pass the generated card URL
@@ -727,10 +761,10 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         <div className="mb-4">
           <h3 className="text-lg font-bold flex items-center mb-2">
             <Plus className="w-5 h-5 mr-2" />
-            Create NFT Edition
+            Create Artifact
           </h3>
           <p className="text-sm opacity-90">
-            Turn your moment into mintable NFTs
+            Let fans collect and own this moment
           </p>
         </div>
 
@@ -739,7 +773,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         ) : (
           <div>
             <div className="mb-4">
-              <label className="block text-xs font-semibold mb-1">Minting Duration:</label>
+              <label className="block text-xs font-semibold mb-1">Available for:</label>
               <select
                 value={mintDuration}
                 onChange={(e) => setMintDuration(parseInt(e.target.value))}
@@ -753,28 +787,28 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs font-semibold mb-1">Mint Price:</label>
+              <label className="block text-xs font-semibold mb-1">Collection Price:</label>
               <div className="relative">
                 <input
                   type="number"
-                  step="0.00001"
-                  min="0.00005"
-                  max="0.01"
-                  value={customPrice}
+                  step="0.01"
+                  min="0.10"
+                  max="30.00"
+                  value={customPriceUSD}
                   onChange={(e) => {
                     const value = parseFloat(e.target.value);
-                    if (value >= 0.00005 && value <= 0.01) {
-                      setCustomPrice(value);
+                    if (value >= 0.10 && value <= 30.00) {
+                      setCustomPriceUSD(value);
                     }
                   }}
                   disabled={currentStep !== 'ready'}
                   className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-xs pr-12"
-                  placeholder="0.00005"
+                  placeholder="0.15"
                 />
-                <span className="absolute right-3 top-2 text-xs opacity-70">ETH</span>
+                <span className="absolute right-3 top-2 text-xs opacity-70">USD</span>
               </div>
               <div className="text-xs opacity-70 mt-1">
-                ≈ ${(customPrice * 2500).toFixed(2)} USD (Range: 0.00005 - 0.01 ETH)
+                ≈ {customPrice.toFixed(6)} ETH (Range: $0.10 - $30.00)
               </div>
             </div>
 
@@ -785,6 +819,107 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
             )}
 
             <div className="space-y-3">
+              <button
+                onClick={() => setShowMetadataEditor(!showMetadataEditor)}
+                className="w-full bg-purple-600/80 hover:bg-purple-600 border border-white/30 text-white p-3 rounded-lg font-semibold"
+              >
+                {showMetadataEditor ? 'Hide Details' : '📝 Edit Details'}
+              </button>
+
+              {showMetadataEditor && (
+                <div className="bg-white/10 p-4 rounded-lg space-y-3 text-sm">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1">Description:</label>
+                    <textarea
+                      value={editableMetadata.description}
+                      onChange={(e) => setEditableMetadata(prev => ({...prev, description: e.target.value}))}
+                      className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-xs"
+                      rows="3"
+                      placeholder="Describe this moment..."
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold mb-1">Audio Quality:</label>
+                      <select
+                        value={editableMetadata.audioQuality}
+                        onChange={(e) => setEditableMetadata(prev => ({...prev, audioQuality: e.target.value}))}
+                        className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-xs"
+                      >
+                        <option value="excellent">Excellent</option>
+                        <option value="good">Good</option>
+                        <option value="fair">Fair</option>
+                        <option value="poor">Poor</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1">Video Quality:</label>
+                      <select
+                        value={editableMetadata.videoQuality}
+                        onChange={(e) => setEditableMetadata(prev => ({...prev, videoQuality: e.target.value}))}
+                        className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-xs"
+                      >
+                        <option value="excellent">Excellent</option>
+                        <option value="good">Good</option>
+                        <option value="fair">Fair</option>
+                        <option value="poor">Poor</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold mb-1">Instruments (comma-separated):</label>
+                    <input
+                      value={editableMetadata.instruments}
+                      onChange={(e) => setEditableMetadata(prev => ({...prev, instruments: e.target.value}))}
+                      className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-xs"
+                      placeholder="guitar, bass, drums..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold mb-1">Emotions (comma-separated):</label>
+                    <input
+                      value={editableMetadata.emotionalTags}
+                      onChange={(e) => setEditableMetadata(prev => ({...prev, emotionalTags: e.target.value}))}
+                      className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-xs"
+                      placeholder="energetic, dreamy, intense..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold mb-1">Special Occasion:</label>
+                    <input
+                      value={editableMetadata.specialOccasion}
+                      onChange={(e) => setEditableMetadata(prev => ({...prev, specialOccasion: e.target.value}))}
+                      className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-xs"
+                      placeholder="debut, anniversary, birthday..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold mb-1">Crowd Reaction:</label>
+                    <input
+                      value={editableMetadata.crowdReaction}
+                      onChange={(e) => setEditableMetadata(prev => ({...prev, crowdReaction: e.target.value}))}
+                      className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-xs"
+                      placeholder="wild, singing along, mesmerized..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold mb-1">Unique Elements:</label>
+                    <input
+                      value={editableMetadata.uniqueElements}
+                      onChange={(e) => setEditableMetadata(prev => ({...prev, uniqueElements: e.target.value}))}
+                      className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-xs"
+                      placeholder="jam session, solo, cover..."
+                    />
+                  </div>
+                </div>
+              )}
+
               {currentStep !== 'success' && (
                 <button
                   onClick={handleGeneratePreview}
@@ -793,7 +928,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
                     isGeneratingPreview || isCreatingNFT ? 'bg-white/10 cursor-not-allowed' : 'bg-green-600/80 hover:bg-green-600'
                   } border border-white/30 text-white p-3 rounded-lg font-semibold`}
                 >
-                  {isGeneratingPreview ? 'Generating Preview...' : '🎨 Preview NFT Card'}
+                  {isGeneratingPreview ? 'Generating Preview...' : '🎨 Preview Artifact Card'}
                 </button>
               )}
 
@@ -805,9 +940,10 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
                 } border border-white/30 text-white p-3 rounded-lg font-semibold`}
               >
                 {currentStep === 'generating-card' ? '🎨 Generating Card...' :
+                 currentStep === 'creating-split' ? '🔧 Setting up Revenue Split...' :
                  currentStep === 'confirming' ? '⏳ Creating Edition...' :
                  currentStep === 'success' ? successMessage :
-                 randomSeed > 0 ? '🚀 Create NFT (Use Preview)' : '🚀 Create NFT (Random Card)'}
+                 randomSeed > 0 ? '🚀 Create Artifact (Use Preview)' : '🚀 Create Artifact'}
               </button>
               
               {currentStep === 'ready' && (
@@ -876,7 +1012,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
                         : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                   >
-                    {isCreatingNFT ? 'Creating...' : 'Create NFT'}
+                    {isCreatingNFT ? 'Creating...' : 'Create Artifact'}
                   </button>
                 </div>
               </div>
@@ -927,7 +1063,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
 
             <div className="bg-white/10 p-4 rounded-lg mb-4 text-center">
               <div className="text-xs mb-2 opacity-90">
-                💎 Available for Minting
+                💎 Available to Collect
               </div>
               <div className="text-2xl font-bold mb-1">
                 {(() => {
@@ -1066,14 +1202,14 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
                       : 'bg-purple-700 hover:bg-purple-600'
                   }`}
                 >
-                  {isMinting ? 'Minting...' : `Mint ${mintQuantity}`}
+                  {isMinting ? 'Collecting...' : `Collect ${mintQuantity}`}
                 </button>
               </div>
             </div>
 
             <div className="bg-white/10 p-3 rounded-lg text-xs leading-relaxed mb-3">
-              <strong>Revenue goes to:</strong><br/>
-              🎵 UMO: 55% • 📤 Uploader: 35% • ⚙️ Platform: 10%
+              <strong>Revenue split:</strong><br/>
+              🎵 UMO: 65% • 📤 Creator: 30% • ⚙️ Platform: 5%
             </div>
 
             {/* OpenSea Link - only show if NFT has been minted at least once */}

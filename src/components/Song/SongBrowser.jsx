@@ -131,15 +131,6 @@ const SongHeader = memo(({
 }) => (
   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
     <div>
-      <div className="text-sm text-blue-800">
-        <strong>Total moments: {totalMoments}</strong>
-        {` • Songs with moments: ${songsWithMoments}`}
-        {searchQuery.trim() && (
-          <span className="text-blue-600 ml-2">
-            - {displayedSongs.length} matching "{searchQuery}"
-          </span>
-        )}
-      </div>
     </div>
     
     <div className="flex items-center gap-3">
