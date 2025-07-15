@@ -1,30 +1,40 @@
-/* UMO CURSE EP-Inspired Dark Theme */
+/* UMO Archive - Modern Sleek Theme */
 :root {
-  /* CURSE EP Color Palette - Italian Horror + Doom Aesthetic */
-  --blood-red: #8B0000;
-  --crimson-wine: #4A0E0E;
-  --void-black: #0A0A0A;
-  --shadow-gray: #1A1A1A;
-  --bone-white: #F5F5DC;
-  --spectral-purple: #2D1B69;
-  --doom-orange: #B8860B;
-  --cursed-green: #1B4D3E;
+  /* Modern Color Palette - Sleek & Eye-Friendly */
+  --primary-red: #E53E3E;
+  --accent-red: #FC8181;
+  --dark-bg: #1A202C;
+  --card-bg: #2D3748;
+  --surface-bg: #4A5568;
+  --text-primary: #F7FAFC;
+  --text-secondary: #CBD5E0;
+  --text-muted: #A0ADB8;
+  --border-color: #4A5568;
+  --border-light: #718096;
   
-  /* Gradients inspired by Giallo films */
-  --horror-gradient: linear-gradient(135deg, var(--void-black) 0%, var(--crimson-wine) 50%, var(--blood-red) 100%);
-  --void-gradient: linear-gradient(180deg, var(--void-black) 0%, var(--shadow-gray) 100%);
-  --spectral-gradient: linear-gradient(45deg, var(--spectral-purple) 0%, var(--void-black) 100%);
+  /* Accent Colors */
+  --blue-primary: #4299E1;
+  --blue-light: #63B3ED;
+  --green-success: #48BB78;
+  --orange-accent: #ED8936;
+  --purple-accent: #9F7AEA;
+  
+  /* Modern Gradients */
+  --primary-gradient: linear-gradient(135deg, var(--dark-bg) 0%, var(--card-bg) 100%);
+  --surface-gradient: linear-gradient(180deg, var(--card-bg) 0%, var(--surface-bg) 100%);
+  --accent-gradient: linear-gradient(45deg, var(--primary-red) 0%, var(--accent-red) 100%);
 }
 
 body {
   margin: 0;
-  font-family: 'Courier New', 'Monaco', 'Menlo', monospace; /* Horror film typewriter aesthetic */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: var(--horror-gradient);
+  background: var(--primary-gradient);
   background-attachment: fixed;
-  color: var(--bone-white);
+  color: var(--text-primary);
   min-height: 100vh;
+  line-height: 1.6;
 }
 
 code {
@@ -32,180 +42,173 @@ code {
     monospace;
 }
 
-/* UMO CURSE EP-Inspired Component Styles */
+/* Modern Component Styles */
 
-/* Haunted Button Styles - Doom Metal Aesthetic */
+/* Sleek Button Styles */
 button, .btn {
-  background: var(--void-gradient) !important;
-  border: 1px solid var(--blood-red) !important;
-  color: var(--bone-white) !important;
-  font-family: 'Courier New', monospace !important;
-  text-transform: uppercase !important;
-  letter-spacing: 1px !important;
-  transition: all 0.3s ease !important;
-  box-shadow: 0 0 10px rgba(139, 0, 0, 0.3) !important;
+  background: var(--surface-gradient) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+  font-family: inherit !important;
+  font-weight: 500 !important;
+  border-radius: 8px !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
 }
 
 button:hover, .btn:hover {
-  background: var(--blood-red) !important;
-  box-shadow: 0 0 20px rgba(139, 0, 0, 0.8) !important;
-  transform: translateY(-2px) !important;
+  background: var(--primary-red) !important;
+  border-color: var(--accent-red) !important;
+  box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3) !important;
+  transform: translateY(-1px) !important;
 }
 
-/* Cursed Input Fields */
+/* Modern Input Fields */
 input, textarea, select {
-  background: var(--shadow-gray) !important;
-  border: 1px solid rgba(100, 100, 100, 0.4) !important;
-  color: var(--bone-white) !important;
-  font-family: 'Courier New', monospace !important;
-  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8) !important;
+  background: var(--card-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+  font-family: inherit !important;
+  border-radius: 6px !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2) !important;
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: var(--blood-red) !important;
-  box-shadow: 0 0 15px rgba(139, 0, 0, 0.5) !important;
+  border-color: var(--blue-primary) !important;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1) !important;
   outline: none !important;
 }
 
-/* Blood-Specked Cards - Italian Horror Inspired */
+/* Modern Cards */
 .card, .modal-content, .bg-white\/10 {
-  background: var(--void-gradient) !important;
-  border: 1px solid var(--crimson-wine) !important;
+  background: var(--card-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 12px !important;
   box-shadow: 
-    0 4px 20px rgba(0, 0, 0, 0.8),
-    inset 0 1px 0 rgba(139, 0, 0, 0.2) !important;
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.1) !important;
   backdrop-filter: blur(10px) !important;
 }
 
-/* Haunted Headers */
+/* Modern Headers */
 h1, h2, h3, h4, h5, h6 {
-  color: var(--bone-white) !important;
-  font-family: 'Courier New', monospace !important;
-  text-shadow: 0 0 10px rgba(139, 0, 0, 0.5) !important;
-  letter-spacing: 1px !important;
+  color: var(--text-primary) !important;
+  font-family: inherit !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.025em !important;
 }
 
-/* Spectral Links */
+/* Clean Links */
 a {
-  color: rgba(180, 180, 180, 0.9) !important;
+  color: var(--blue-light) !important;
   text-decoration: none !important;
-  transition: all 0.3s ease !important;
+  transition: all 0.2s ease !important;
 }
 
 a:hover {
-  color: var(--bone-white) !important;
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3) !important;
+  color: var(--blue-primary) !important;
+  text-decoration: underline !important;
 }
 
-/* Doom Progress Bars */
+/* Modern Progress Bars */
 .progress, .bg-blue-600 {
-  background: var(--spectral-gradient) !important;
+  background: linear-gradient(90deg, var(--blue-primary) 0%, var(--blue-light) 100%) !important;
+  border-radius: 6px !important;
 }
 
-/* Cursed Success/Error Messages */
+/* Modern Success/Error Messages */
 .bg-green-500\/20 {
-  background: var(--cursed-green) !important;
-  border-color: rgba(100, 100, 100, 0.4) !important;
+  background: rgba(72, 187, 120, 0.2) !important;
+  border-color: var(--green-success) !important;
+  border-radius: 8px !important;
 }
 
 .bg-red-500\/20 {
-  background: var(--blood-red) !important;
-  border-color: var(--crimson-wine) !important;
+  background: rgba(229, 62, 62, 0.2) !important;
+  border-color: var(--primary-red) !important;
+  border-radius: 8px !important;
 }
 
-/* CURSE EP Special Effects */
+/* Modern Subtle Effects */
 
-/* Haunted Glow Animation */
-@keyframes hauntedGlow {
-  0%, 100% { box-shadow: 0 0 5px rgba(139, 0, 0, 0.3); }
-  50% { box-shadow: 0 0 20px rgba(139, 0, 0, 0.8), 0 0 30px rgba(139, 0, 0, 0.4); }
+/* Gentle Glow Animation */
+@keyframes gentleGlow {
+  0%, 100% { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+  50% { box-shadow: 0 4px 16px rgba(66, 153, 225, 0.2); }
 }
 
-/* Spectral Flicker */
-@keyframes spectralFlicker {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
+/* Fade In Animation */
+@keyframes fadeIn {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
-/* NFT Cards - "Blood-Specked Daisies" Effect */
+/* Modern Moment Cards */
 .moment-card, .nft-card {
-  background: var(--void-gradient) !important;
-  border: 1px solid var(--crimson-wine) !important;
-  animation: hauntedGlow 3s ease-in-out infinite !important;
+  background: var(--card-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 12px !important;
+  transition: all 0.2s ease !important;
   position: relative !important;
 }
 
-.moment-card::before {
-  content: '' !important;
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  background: 
-    radial-gradient(circle at 20% 30%, rgba(139, 0, 0, 0.1) 2px, transparent 2px),
-    radial-gradient(circle at 70% 70%, rgba(139, 0, 0, 0.1) 1px, transparent 1px),
-    radial-gradient(circle at 40% 80%, rgba(139, 0, 0, 0.1) 1px, transparent 1px) !important;
-  pointer-events: none !important;
-  border-radius: inherit !important;
+.moment-card:hover, .nft-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+  border-color: var(--border-light) !important;
 }
 
-/* Doom Metal Typography */
+/* Modern Typography */
 .title, .header {
-  font-family: 'Courier New', monospace !important;
-  text-transform: uppercase !important;
-  letter-spacing: 2px !important;
-  text-shadow: 
-    0 0 10px rgba(139, 0, 0, 0.8),
-    0 0 20px rgba(139, 0, 0, 0.4),
-    0 0 30px rgba(139, 0, 0, 0.2) !important;
+  font-family: inherit !important;
+  font-weight: 700 !important;
 }
 
-/* Cursed Scrollbar */
+/* Modern Scrollbar */
 ::-webkit-scrollbar {
-  width: 12px !important;
+  width: 8px !important;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--void-black) !important;
-  border: 1px solid var(--crimson-wine) !important;
+  background: var(--dark-bg) !important;
+  border-radius: 4px !important;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--blood-red) !important;
-  border-radius: 6px !important;
-  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5) !important;
+  background: var(--surface-bg) !important;
+  border-radius: 4px !important;
+  transition: background 0.2s ease !important;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 120, 120, 0.9) !important;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.2) !important;
+  background: var(--border-light) !important;
 }
 
-/* Horror Film Modal Overlay */
+/* Modern Modal Overlay */
 .modal-overlay {
-  background: rgba(10, 10, 10, 0.95) !important;
+  background: rgba(26, 32, 44, 0.9) !important;
   backdrop-filter: blur(8px) !important;
 }
 
-/* Rarity Badges - "Hundred Bats" Inspired */
+/* Modern Rarity Badges */
 .rarity-legendary, .rarity-mythic {
-  background: var(--spectral-gradient) !important;
-  color: var(--bone-white) !important;
-  text-shadow: 0 0 8px rgba(45, 27, 105, 0.8) !important;
-  animation: spectralFlicker 2s ease-in-out infinite !important;
+  background: linear-gradient(135deg, var(--purple-accent) 0%, var(--blue-primary) 100%) !important;
+  color: var(--text-primary) !important;
+  border-radius: 6px !important;
+  font-weight: 600 !important;
 }
 
 .rarity-epic, .rarity-rare {
-  background: var(--blood-red) !important;
-  color: var(--bone-white) !important;
-  box-shadow: 0 0 15px rgba(139, 0, 0, 0.6) !important;
+  background: var(--accent-gradient) !important;
+  color: var(--text-primary) !important;
+  border-radius: 6px !important;
+  font-weight: 600 !important;
 }
 
 /* Web3 Connection - "Sorcerers of Silence" Theme */
 .wallet-connection {
-  background: var(--horror-gradient) !important;
-  border: 2px solid var(--doom-orange) !important;
+  background: var(--primary-gradient) !important;
+  border: 2px solid var(--orange-accent) !important;
   animation: hauntedGlow 4s ease-in-out infinite !important;
 }
 
@@ -215,50 +218,50 @@ a:hover {
 .bg-white, .bg-gray-50, .bg-gray-100, .bg-gray-200, .bg-gray-300, 
 .bg-slate-50, .bg-slate-100, .bg-slate-200, .bg-neutral-50, 
 .bg-neutral-100, .bg-stone-50, .bg-stone-100 {
-  background: var(--void-black) !important;
-  color: var(--bone-white) !important;
+  background: var(--dark-bg) !important;
+  color: var(--text-primary) !important;
 }
 
 /* All semi-transparent whites to dark */
 .bg-white\/5, .bg-white\/10, .bg-white\/20, .bg-white\/30, .bg-white\/40, 
 .bg-white\/50, .bg-white\/60, .bg-white\/70, .bg-white\/80, .bg-white\/90 {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* All grays to dark gradient */
 .bg-gray-400, .bg-gray-500, .bg-gray-600, .bg-gray-700, .bg-gray-800, .bg-gray-900,
 .bg-slate-400, .bg-slate-500, .bg-slate-600, .bg-slate-700, .bg-slate-800, .bg-slate-900 {
-  background: var(--void-gradient) !important;
-  color: var(--bone-white) !important;
+  background: var(--surface-gradient) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Modal and overlay backgrounds */
 .modal, .overlay, .backdrop, .bg-black\/50, .bg-black\/60, .bg-black\/70, 
 .bg-black\/80, .bg-black\/90, .fixed.inset-0 {
-  background: var(--void-black) !important;
-  color: var(--bone-white) !important;
+  background: var(--dark-bg) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Card and panel backgrounds */
 .card, .panel, .container, .wrapper, .section, 
 .bg-gradient-to-br, .bg-gradient-to-r, .bg-gradient-to-l, .bg-gradient-to-t, .bg-gradient-to-b {
-  background: var(--void-gradient) !important;
-  color: var(--bone-white) !important;
+  background: var(--surface-gradient) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Specific component overrides */
 .moment-upload, .performance-card, .song-card, .user-card, 
 .search-result, .filter-panel, .sidebar, .navbar, .header, .footer {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
-  border-color: var(--crimson-wine) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
 }
 
 /* Table and list backgrounds */
 table, tbody, thead, tr, td, th, ul, ol, li {
   background: transparent !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Form field backgrounds */
@@ -266,42 +269,42 @@ table, tbody, thead, tr, td, th, ul, ol, li {
 .border-gray-300, .border-gray-200, .border-white {
   background: var(--shadow-gray) !important;
   border-color: rgba(100, 100, 100, 0.4) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Text colors that might be dark on dark */
 .text-black, .text-gray-900, .text-gray-800, .text-gray-700, .text-gray-600,
 .text-slate-900, .text-slate-800, .text-slate-700 {
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Dropdown and popup backgrounds */
 .dropdown, .menu, .popup, .tooltip, .popover {
-  background: var(--void-black) !important;
-  border: 1px solid var(--crimson-wine) !important;
-  color: var(--bone-white) !important;
+  background: var(--dark-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8) !important;
 }
 
 /* Loading and skeleton backgrounds */
 .loading, .skeleton, .placeholder, .spinner {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Ensure all divs inherit dark theme */
 div {
-  color: var(--bone-white);
+  color: var(--text-primary);
 }
 
 /* Override any remaining white backgrounds */
 * {
-  scrollbar-color: var(--blood-red) var(--void-black) !important;
+  scrollbar-color: var(--primary-red) var(--dark-bg) !important;
 }
 
 /* Focus states */
 *:focus {
-  outline: 2px solid var(--blood-red) !important;
+  outline: 2px solid var(--primary-red) !important;
   outline-offset: 2px !important;
 }
 
@@ -309,21 +312,21 @@ div {
 
 /* Wallet Connect Modal */
 .walletconnect-modal, .web3modal, .connect-wallet-modal {
-  background: var(--void-black) !important;
-  color: var(--bone-white) !important;
+  background: var(--dark-bg) !important;
+  color: var(--text-primary) !important;
 }
 
 /* MetaMask and wallet interfaces */
 .metamask-popup, .wallet-interface, .ethereum-popup {
-  background: var(--void-black) !important;
-  color: var(--bone-white) !important;
+  background: var(--dark-bg) !important;
+  color: var(--text-primary) !important;
 }
 
 /* React Select components */
 .react-select__control, .react-select__menu, .react-select__option {
   background: var(--shadow-gray) !important;
-  border-color: var(--doom-orange) !important;
-  color: var(--bone-white) !important;
+  border-color: var(--orange-accent) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Any remaining Tailwind utilities */
@@ -335,15 +338,15 @@ div {
 [style*="background: white"], [style*="background: #fff"], [style*="background: #ffffff"],
 [style*="background-color: white"], [style*="background-color: #fff"], [style*="background-color: #ffffff"],
 [style*="background: rgb(255"], [style*="background-color: rgb(255"] {
-  background: var(--void-black) !important;
-  color: var(--bone-white) !important;
+  background: var(--dark-bg) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Override inline styles for gray backgrounds */
 [style*="background: gray"], [style*="background: #ccc"], [style*="background: #ddd"],
 [style*="background: #eee"], [style*="background: #f5f5f5"] {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* ENHANCED COLOR CONTRAST - CURSE EP PALETTE */
@@ -357,7 +360,7 @@ div {
 
 .bg-blue-400, .bg-blue-500, .bg-blue-600, .bg-blue-700, .bg-blue-800, .bg-blue-900 {
   background: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
   box-shadow: 0 0 15px rgba(59, 130, 246, 0.4) !important;
 }
 
@@ -369,8 +372,8 @@ div {
 }
 
 .bg-green-400, .bg-green-500, .bg-green-600, .bg-green-700, .bg-green-800, .bg-green-900 {
-  background: linear-gradient(135deg, var(--cursed-green) 0%, #10B981 100%) !important;
-  color: var(--bone-white) !important;
+  background: linear-gradient(135deg, var(--green-success) 0%, #10B981 100%) !important;
+  color: var(--text-primary) !important;
   box-shadow: 0 0 15px rgba(16, 185, 129, 0.4) !important;
 }
 
@@ -382,8 +385,8 @@ div {
 }
 
 .bg-purple-400, .bg-purple-500, .bg-purple-600, .bg-purple-700, .bg-purple-800, .bg-purple-900 {
-  background: var(--spectral-gradient) !important;
-  color: var(--bone-white) !important;
+  background: linear-gradient(135deg, var(--purple-accent) 0%, var(--blue-primary) 100%) !important;
+  color: var(--text-primary) !important;
   box-shadow: 0 0 15px rgba(168, 85, 247, 0.4) !important;
 }
 
@@ -398,8 +401,8 @@ div {
 .bg-yellow-400, .bg-yellow-500, .bg-yellow-600, .bg-yellow-700, .bg-yellow-800, .bg-yellow-900,
 .bg-amber-400, .bg-amber-500, .bg-amber-600, .bg-amber-700, .bg-amber-800, .bg-amber-900,
 .bg-orange-400, .bg-orange-500, .bg-orange-600, .bg-orange-700, .bg-orange-800, .bg-orange-900 {
-  background: linear-gradient(135deg, var(--doom-orange) 0%, #F59E0B 100%) !important;
-  color: var(--void-black) !important; /* Dark text on bright background */
+  background: linear-gradient(135deg, var(--orange-accent) 0%, #F59E0B 100%) !important;
+  color: var(--dark-bg) !important; /* Dark text on bright background */
   box-shadow: 0 0 15px rgba(245, 158, 11, 0.4) !important;
 }
 
@@ -410,8 +413,8 @@ div {
 }
 
 .bg-red-400, .bg-red-500, .bg-red-600, .bg-red-700, .bg-red-800, .bg-red-900 {
-  background: linear-gradient(135deg, var(--blood-red) 0%, #DC2626 100%) !important;
-  color: var(--bone-white) !important;
+  background: linear-gradient(135deg, var(--primary-red) 0%, #DC2626 100%) !important;
+  color: var(--text-primary) !important;
   box-shadow: 0 0 15px rgba(220, 38, 38, 0.4) !important;
 }
 
@@ -425,7 +428,7 @@ div {
 .bg-cyan-400, .bg-cyan-500, .bg-cyan-600, .bg-cyan-700, .bg-cyan-800, .bg-cyan-900,
 .bg-teal-400, .bg-teal-500, .bg-teal-600, .bg-teal-700, .bg-teal-800, .bg-teal-900 {
   background: linear-gradient(135deg, #0891B2 0%, #06B6D4 100%) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
   box-shadow: 0 0 15px rgba(6, 182, 212, 0.4) !important;
 }
 
@@ -437,7 +440,7 @@ div {
 
 .bg-indigo-400, .bg-indigo-500, .bg-indigo-600, .bg-indigo-700, .bg-indigo-800, .bg-indigo-900 {
   background: linear-gradient(135deg, #4338CA 0%, #6366F1 100%) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
   box-shadow: 0 0 15px rgba(99, 102, 241, 0.4) !important;
 }
 
@@ -516,7 +519,7 @@ div {
 
 /* Dark text overrides for better visibility */
 .text-gray-500, .text-gray-400, .text-slate-500, .text-slate-400 {
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
   opacity: 0.8 !important;
 }
 
@@ -524,26 +527,26 @@ div {
 
 /* Moment Modal Specific Targeting */
 .moment-modal, .modal, [role="dialog"], [aria-modal="true"] {
-  background: var(--void-black) !important;
-  color: var(--bone-white) !important;
-  border: 1px solid var(--crimson-wine) !important;
+  background: var(--dark-bg) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
 }
 
 /* Modal Content and Wrapper */
 .modal-content, .modal-wrapper, .modal-container, .modal-body, .modal-header, .modal-footer {
-  background: var(--void-gradient) !important;
-  color: var(--bone-white) !important;
-  border-color: var(--crimson-wine) !important;
+  background: var(--surface-gradient) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
 }
 
 /* React Modal Specific Classes */
 .ReactModal__Content, .ReactModal__Overlay {
-  background: var(--void-black) !important;
-  color: var(--bone-white) !important;
+  background: var(--dark-bg) !important;
+  color: var(--text-primary) !important;
 }
 
 .ReactModal__Content {
-  border: 2px solid var(--blood-red) !important;
+  border: 2px solid var(--primary-red) !important;
   box-shadow: 0 0 30px rgba(139, 0, 0, 0.8) !important;
 }
 
@@ -556,13 +559,13 @@ div {
 /* Any div inside modals */
 .modal div, [role="dialog"] div, [aria-modal="true"] div {
   background-color: transparent !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Fixed positioned elements (likely modals) */
 .fixed {
   background-color: transparent !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Inset positioned elements (modal overlays) */
@@ -572,8 +575,8 @@ div {
 
 /* Z-index high elements (likely modals) */
 .z-50, .z-40, .z-30, .z-20 {
-  background-color: var(--void-black) !important;
-  color: var(--bone-white) !important;
+  background-color: var(--dark-bg) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Flex centered elements (common modal pattern) */
@@ -584,21 +587,21 @@ div {
 /* Portal and root modal containers */
 #modal-root, #portal-root, .portal, [data-portal] {
   background: transparent !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Absolute positioned modal content */
 .absolute {
   background-color: transparent !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Transform centered elements (modal centering) */
 .transform.-translate-x-1\/2.-translate-y-1\/2, 
 .transform.translate-x-1\/2.translate-y-1\/2 {
-  background: var(--void-gradient) !important;
-  border: 2px solid var(--blood-red) !important;
-  color: var(--bone-white) !important;
+  background: var(--surface-gradient) !important;
+  border: 2px solid var(--primary-red) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Any remaining white backgrounds with high specificity */
@@ -608,15 +611,15 @@ div[style*="background-color: #ffffff"],
 div[style*="background: white"],
 div[style*="background: #fff"],
 div[style*="background: #ffffff"] {
-  background: var(--void-black) !important;
-  color: var(--bone-white) !important;
+  background: var(--dark-bg) !important;
+  color: var(--text-primary) !important;
 }
 
 /* SPECIFIC MOMENT MODAL TARGETING */
 .trading-card-modal {
-  background: var(--void-gradient) !important;
-  color: var(--bone-white) !important;
-  border: 2px solid var(--blood-red) !important;
+  background: var(--surface-gradient) !important;
+  color: var(--text-primary) !important;
+  border: 2px solid var(--primary-red) !important;
   box-shadow: 0 0 40px rgba(139, 0, 0, 0.9) !important;
 }
 
@@ -628,22 +631,22 @@ div[style*="background: #ffffff"] {
 /* Card sections */
 .card-header, .card-body, .card-footer, .card-content {
   background: transparent !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 .card-title-section, .content-type-badge, .rarity-badge {
   background: transparent !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 .metadata-grid, .metadata-item, .metadata-label, .metadata-value {
   background: transparent !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 .media-container, .audio-placeholder, .media-loading {
   background: transparent !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* SPECIFIC MODAL CONTENT SECTIONS */
@@ -654,8 +657,8 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .image-container,
 .trading-card-modal .audio-container {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
-  border: 1px solid var(--crimson-wine) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
   border-radius: 8px !important;
 }
 
@@ -666,8 +669,8 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .factor-breakdown,
 .trading-card-modal .rarity-details {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
-  border: 1px solid var(--doom-orange) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--orange-accent) !important;
   border-radius: 8px !important;
   padding: 12px !important;
 }
@@ -679,8 +682,8 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .performance-details,
 .trading-card-modal .metadata-section {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
-  border: 1px solid var(--cursed-green) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--green-success) !important;
   border-radius: 8px !important;
   padding: 12px !important;
 }
@@ -691,8 +694,8 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .content-section,
 .trading-card-modal .info-section {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
-  border: 1px solid var(--crimson-wine) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
   border-radius: 8px !important;
   margin: 8px 0 !important;
   padding: 12px !important;
@@ -705,19 +708,19 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .box,
 .trading-card-modal .container {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Headers and titles in modal */
 .trading-card-modal h1, .trading-card-modal h2, .trading-card-modal h3,
 .trading-card-modal h4, .trading-card-modal h5, .trading-card-modal h6 {
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
   text-shadow: 0 0 8px rgba(139, 0, 0, 0.6) !important;
 }
 
 /* Paragraphs and text content */
 .trading-card-modal p, .trading-card-modal span, .trading-card-modal div {
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Any remaining elements with classes containing 'white' or 'gray' */
@@ -725,7 +728,7 @@ div[style*="background: #ffffff"] {
 .trading-card-modal [class*="gray"],
 .trading-card-modal [class*="light"] {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Nuclear option - override ALL remaining white backgrounds */
@@ -735,14 +738,14 @@ div[style*="background: #ffffff"] {
 *[style*="background: white"],
 *[style*="background: #fff"],
 *[style*="background: #ffffff"] {
-  background: var(--void-black) !important;
-  color: var(--bone-white) !important;
+  background: var(--dark-bg) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Absolutely nuclear - target all elements inside trading card modal */
 .trading-card-modal * {
   background-color: transparent !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* But give specific sections their dark backgrounds */
@@ -762,8 +765,8 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .web3-section,
 .trading-card-modal .blockchain-section {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
-  border: 2px solid var(--spectral-purple) !important;
+  color: var(--text-primary) !important;
+  border: 2px solid var(--purple-accent) !important;
   border-radius: 8px !important;
   padding: 16px !important;
   margin: 12px 0 !important;
@@ -775,8 +778,8 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .nft-mint,
 .trading-card-modal .web3-mint {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
-  border: 1px solid var(--doom-orange) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--orange-accent) !important;
   border-radius: 8px !important;
   padding: 12px !important;
 }
@@ -789,7 +792,7 @@ div[style*="background: #ffffff"] {
 .trading-card-modal [class*="wallet"],
 .trading-card-modal [class*="token"] {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Specific mint status indicators */
@@ -799,8 +802,8 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .minting-info,
 .trading-card-modal .token-info {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
-  border: 1px solid var(--blood-red) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--primary-red) !important;
   border-radius: 6px !important;
   padding: 8px !important;
 }
@@ -811,8 +814,8 @@ div[style*="background: #ffffff"] {
 .trading-card-modal textarea,
 .trading-card-modal button {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
-  border: 1px solid var(--doom-orange) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--orange-accent) !important;
 }
 
 /* Price display and mint information */
@@ -822,8 +825,8 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .quantity-selector,
 .trading-card-modal .mint-controls {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
-  border: 1px solid var(--cursed-green) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--green-success) !important;
   border-radius: 6px !important;
   padding: 8px !important;
 }
@@ -834,7 +837,7 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .info-message,
 .trading-card-modal .warning-message {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
   border: 1px solid currentColor !important;
   border-radius: 6px !important;
   padding: 8px !important;
@@ -846,7 +849,7 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .mint-section *,
 .trading-card-modal .web3-section * {
   background-color: transparent !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Force dark backgrounds on any remaining mint elements */
@@ -855,7 +858,7 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .mint-section div,
 .trading-card-modal .web3-section div {
   background: var(--shadow-gray) !important;
-  border: 1px solid var(--crimson-wine) !important;
+  border: 1px solid var(--border-color) !important;
 }
 
 /* FINAL NUCLEAR OPTION - Target ALL possible NFT/Mint backgrounds */
@@ -867,7 +870,7 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .bg-gray-400,
 .trading-card-modal .bg-gray-500 {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Close button and other gray elements */
@@ -876,14 +879,14 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .text-gray-500,
 .trading-card-modal .text-gray-600 {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Purple button backgrounds to our theme */
 .trading-card-modal .bg-purple-600,
 .trading-card-modal .bg-purple-700 {
-  background: var(--spectral-gradient) !important;
-  color: var(--bone-white) !important;
+  background: linear-gradient(135deg, var(--purple-accent) 0%, var(--blue-primary) 100%) !important;
+  color: var(--text-primary) !important;
 }
 
 /* Any remaining problematic Tailwind classes */
@@ -891,13 +894,13 @@ div[style*="background: #ffffff"] {
 .trading-card-modal .bg-slate-100,
 .trading-card-modal .bg-neutral-100 {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* The absolute final nuclear option - every single div in the modal */
 .trading-card-modal div {
   background-color: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* NFT SIDE PANEL LAYOUT - "Sorcerers of Silence" */
@@ -923,7 +926,7 @@ div[style*="background: #ffffff"] {
   flex: 1 !important;
   overflow-y: auto !important;
   background: transparent !important;
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
 }
 
 /* NFT Side Panel */
@@ -931,8 +934,8 @@ div[style*="background: #ffffff"] {
   position: relative !important; /* For absolute positioning of preview modal */
   width: 400px !important;
   min-width: 400px !important;
-  background: var(--void-gradient) !important;
-  border: 2px solid var(--spectral-purple) !important;
+  background: var(--surface-gradient) !important;
+  border: 2px solid var(--purple-accent) !important;
   border-radius: 12px !important;
   box-shadow: 
     0 0 30px rgba(45, 27, 105, 0.8),
@@ -945,13 +948,13 @@ div[style*="background: #ffffff"] {
 
 /* NFT Panel Header */
 .nft-panel-header {
-  background: var(--spectral-gradient) !important;
-  color: var(--bone-white) !important;
+  background: linear-gradient(135deg, var(--purple-accent) 0%, var(--blue-primary) 100%) !important;
+  color: var(--text-primary) !important;
   padding: 16px !important;
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
-  border-bottom: 1px solid var(--doom-orange) !important;
+  border-bottom: 1px solid var(--orange-accent) !important;
 }
 
 .nft-panel-header h3 {
@@ -964,8 +967,8 @@ div[style*="background: #ffffff"] {
 
 .panel-close-button {
   background: transparent !important;
-  border: 1px solid var(--bone-white) !important;
-  color: var(--bone-white) !important;
+  border: 1px solid var(--text-primary) !important;
+  color: var(--text-primary) !important;
   width: 30px !important;
   height: 30px !important;
   border-radius: 50% !important;
@@ -975,8 +978,8 @@ div[style*="background: #ffffff"] {
 }
 
 .panel-close-button:hover {
-  background: var(--blood-red) !important;
-  border-color: var(--blood-red) !important;
+  background: var(--primary-red) !important;
+  border-color: var(--primary-red) !important;
   box-shadow: 0 0 15px rgba(139, 0, 0, 0.8) !important;
 }
 
@@ -990,9 +993,9 @@ div[style*="background: #ffffff"] {
 
 /* NFT Toggle Button in Header */
 .nft-toggle-button {
-  background: var(--spectral-gradient) !important;
-  border: 1px solid var(--spectral-purple) !important;
-  color: var(--bone-white) !important;
+  background: linear-gradient(135deg, var(--purple-accent) 0%, var(--blue-primary) 100%) !important;
+  border: 1px solid var(--purple-accent) !important;
+  color: var(--text-primary) !important;
   padding: 8px 16px !important;
   border-radius: 6px !important;
   font-family: 'Courier New', monospace !important;
@@ -1006,15 +1009,15 @@ div[style*="background: #ffffff"] {
 }
 
 .nft-toggle-button:hover {
-  background: var(--spectral-purple) !important;
+  background: var(--purple-accent) !important;
   box-shadow: 0 0 15px rgba(168, 85, 247, 0.8) !important;
   transform: translateY(-1px) !important;
 }
 
 .nft-toggle-button.active {
-  background: var(--doom-orange) !important;
-  border-color: var(--doom-orange) !important;
-  color: var(--void-black) !important;
+  background: var(--orange-accent) !important;
+  border-color: var(--orange-accent) !important;
+  color: var(--dark-bg) !important;
   box-shadow: 0 0 15px rgba(184, 134, 11, 0.8) !important;
 }
 
@@ -1036,9 +1039,9 @@ div[style*="background: #ffffff"] {
 
 /* Preview modal content in side panel */
 .nft-side-panel .fixed.inset-0 > div {
-  background: var(--void-gradient) !important;
-  border: 2px solid var(--doom-orange) !important;
-  color: var(--bone-white) !important;
+  background: var(--surface-gradient) !important;
+  border: 2px solid var(--orange-accent) !important;
+  color: var(--text-primary) !important;
   max-width: 95% !important;
   max-height: 85% !important;
   overflow-y: auto !important;
@@ -1048,32 +1051,32 @@ div[style*="background: #ffffff"] {
 
 /* Preview modal header in side panel */
 .nft-side-panel .fixed.inset-0 h3 {
-  color: var(--bone-white) !important;
+  color: var(--text-primary) !important;
   text-shadow: 0 0 8px rgba(184, 134, 11, 0.6) !important;
 }
 
 /* Preview modal buttons in side panel */
 .nft-side-panel .fixed.inset-0 button {
   background: var(--shadow-gray) !important;
-  color: var(--bone-white) !important;
-  border: 1px solid var(--doom-orange) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--orange-accent) !important;
 }
 
 .nft-side-panel .fixed.inset-0 button:hover {
-  background: var(--doom-orange) !important;
-  color: var(--void-black) !important;
+  background: var(--orange-accent) !important;
+  color: var(--dark-bg) !important;
 }
 
 /* Close button in preview */
 .nft-side-panel .fixed.inset-0 button[class*="text-2xl"] {
   background: transparent !important;
   border: none !important;
-  color: var(--doom-orange) !important;
+  color: var(--orange-accent) !important;
   font-size: 20px !important;
 }
 
 .nft-side-panel .fixed.inset-0 button[class*="text-2xl"]:hover {
-  color: var(--blood-red) !important;
+  color: var(--primary-red) !important;
   background: transparent !important;
 }
 

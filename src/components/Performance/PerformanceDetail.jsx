@@ -190,7 +190,11 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
       {uploadingMoment && user && (
         <UploadModal
           uploadingMoment={uploadingMoment}
-          onClose={() => setUploadingMoment(null)}
+          onClose={() => {
+            setUploadingMoment(null);
+            // Refresh moments data after upload
+            loadMomentDetails(`performance/${performance.id}`, `performance ${performance.id}`);
+          }}
         />
       )}
 

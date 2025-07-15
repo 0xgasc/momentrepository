@@ -12,6 +12,7 @@ export const useSongDatabase = (apiBaseUrl) => {
   const [sortDirection, setSortDirection] = useState('asc');
   const [momentProgress, setMomentProgress] = useState({ current: 0, total: 0 });
   const [searchQuery, setSearchQuery] = useState('');
+  const [showOnlyWithMoments, setShowOnlyWithMoments] = useState(false);
   
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const { fetchMoments } = useMoments(apiBaseUrl);
@@ -98,14 +99,20 @@ export const useSongDatabase = (apiBaseUrl) => {
   const displayedSongs = useMemo(() => {
     let filtered = songs;
     
+    // Filter by search query
     if (debouncedSearchQuery.trim()) {
       const query = debouncedSearchQuery.toLowerCase();
-      filtered = songs.filter(song => 
+      filtered = filtered.filter(song => 
         song.songName.toLowerCase().includes(query) ||
         song.venues.some(venue => venue.toLowerCase().includes(query)) ||
         song.cities.some(city => city.toLowerCase().includes(query)) ||
         song.countries.some(country => country.toLowerCase().includes(query))
       );
+    }
+
+    // Filter by songs with moments only
+    if (showOnlyWithMoments) {
+      filtered = filtered.filter(song => song.totalMoments && song.totalMoments > 0);
     }
     
     const sorted = [...filtered];
@@ -143,7 +150,7 @@ export const useSongDatabase = (apiBaseUrl) => {
     });
     
     return sorted;
-  }, [songs, debouncedSearchQuery, sortBy, sortDirection]);
+  }, [songs, debouncedSearchQuery, sortBy, sortDirection, showOnlyWithMoments]);
 
   // Actions
   const toggleSortDirection = useCallback(() => {
@@ -162,6 +169,10 @@ export const useSongDatabase = (apiBaseUrl) => {
     setSortBy(newSortBy);
   }, []);
 
+  const toggleShowOnlyWithMoments = useCallback((value) => {
+    setShowOnlyWithMoments(value);
+  }, []);
+
   // ✅ UPDATED: Computed values now only count song moments
   const totalSongMoments = songs.reduce((total, song) => total + song.totalMoments, 0);
   const songsWithMoments = songs.filter(song => song.totalMoments > 0).length;
@@ -176,6 +187,7 @@ export const useSongDatabase = (apiBaseUrl) => {
     sortDirection,
     momentProgress,
     searchQuery,
+    showOnlyWithMoments,
     
     // ✅ UPDATED: Computed values exclude non-song moments
     totalMoments: totalSongMoments,
@@ -185,6 +197,7 @@ export const useSongDatabase = (apiBaseUrl) => {
     toggleSortDirection,
     clearSearch,
     handleSearchChange,
-    handleSortChange
+    handleSortChange,
+    toggleShowOnlyWithMoments
   };
 };

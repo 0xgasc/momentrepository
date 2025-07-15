@@ -282,7 +282,7 @@ class UMOCache {
       const cacheData = {
         lastUpdated: new Date().toISOString(),
         totalApiCalls: page - 1,
-        performances: allPerformances.sort((a, b) => new Date(b.eventDate) - new Date(a.eventDate)),
+        performances: allPerformances.sort((a, b) => this.parseDate(b.eventDate) - this.parseDate(a.eventDate)),
         songDatabase,
         searchIndexes: {
           cities: Array.from(cities).sort(),

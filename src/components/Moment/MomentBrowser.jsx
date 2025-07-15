@@ -26,6 +26,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
         if (response.ok) {
           const data = await response.json();
           setMoments(data.moments || []);
+          
         } else {
           throw new Error(`Failed to load moments: ${response.status}`);
         }
@@ -39,6 +40,8 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
 
     fetchMoments();
   }, []);
+
+
 
   if (loading) {
     return <LoadingState />;
@@ -126,6 +129,16 @@ const MomentHeader = memo(({ totalMoments }) => (
       <div className="text-right">
         <div className="text-2xl font-bold text-blue-600">{totalMoments}</div>
         <div className="text-sm text-gray-500">total moments</div>
+        <div className="flex items-center justify-end mt-2 text-xs text-gray-400 space-x-3">
+          <div className="flex items-center">
+            <div className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+            <span>minting now</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-1"></div>
+            <span>tokenized</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -155,42 +168,58 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
           className="relative aspect-video bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
           onClick={() => onMomentSelect(moment)}
         >
-          {/* Show NFT card if moment has active ERC1155 edition */}
-          {moment.hasNFTEdition && moment.nftCardUrl ? (
+          {/* Show auto-playing video for all video moments */}
+          {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
+            <div className="relative w-full h-full">
+              <video
+                src={moment.mediaUrl}
+                className="w-full h-full object-cover pointer-events-none"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                onError={(e) => {
+                  console.log('Video error for', moment.songName, ':', {
+                    error: e.target.error,
+                    networkState: e.target.networkState,
+                    readyState: e.target.readyState,
+                    src: e.target.src,
+                    mediaType: moment.mediaType
+                  });
+                }}
+                onLoadStart={() => console.log('Video loading started for', moment.songName)}
+                onCanPlay={() => console.log('Video can play for', moment.songName)}
+              >
+                Your browser does not support the video tag.
+              </video>
+              {/* NFT Edition Badge - subtle bottom left */}
+              {moment.hasNFTEdition && moment.nftCardUrl && (
+                <div className="absolute bottom-2 left-2 flex items-center">
+                  {moment.isMintingActive ? (
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  ) : (
+                    <div className="w-2 h-2 bg-gray-400 rounded-full opacity-60"></div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : moment.hasNFTEdition && moment.nftCardUrl ? (
             <div className="relative w-full h-full">
               <img
                 src={moment.nftCardUrl}
                 alt={`${moment.songName} NFT Card`}
                 className="w-full h-full object-cover"
               />
-              {/* NFT Edition Badge */}
-              <div className="absolute top-2 left-2 bg-gradient-to-r from-yellow-400 to-yellow-600 text-black text-xs font-bold px-2 py-1 rounded-md shadow-lg">
-                🎨 NFT Edition
+              {/* NFT Edition Badge - subtle bottom left */}
+              <div className="absolute bottom-2 left-2 flex items-center">
+                {moment.isMintingActive ? (
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                ) : (
+                  <div className="w-2 h-2 bg-gray-400 rounded-full opacity-60"></div>
+                )}
               </div>
-              {/* Original media type indicator */}
-              {moment.mediaType?.startsWith('video') && (
-                <div className="absolute top-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-md">
-                  📹 Video
-                </div>
-              )}
             </div>
-          ) : moment.mediaType?.startsWith('video') ? (
-            <video
-              className="w-full h-full object-cover pointer-events-none"
-              muted
-              loop
-              onMouseEnter={(e) => {
-                e.target.play().catch(() => {
-                  // Ignore play interruption errors
-                });
-              }}
-              onMouseLeave={(e) => {
-                e.target.pause();
-                e.target.currentTime = 0;
-              }}
-            >
-              <source src={moment.mediaUrl} type={moment.mediaType} />
-            </video>
           ) : moment.mediaType?.startsWith('image') ? (
             <img
               src={moment.mediaUrl}
@@ -198,13 +227,15 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Play className="text-gray-400" size={48} />
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+              <div className="text-gray-500">
+                <Zap className="text-gray-400" size={32} />
+              </div>
             </div>
           )}
           
-          {/* Play button overlay for clarity - only show for non-NFT cards */}
-          {!(moment.hasNFTEdition && moment.nftCardUrl) && (
+          {/* Play button overlay for clarity - only show for non-video content */}
+          {!(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) && (
             <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black bg-opacity-20">
               <div className="bg-white bg-opacity-90 rounded-full p-3">
                 <Play className="text-gray-800" size={24} />

@@ -201,11 +201,6 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           >
             Your browser does not support the video tag.
           </video>
-          {videoLoaded && (
-            <div style={{ position: 'absolute', top: '8px', left: '8px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', opacity: '0.8' }}>
-              🎬 Auto-playing (muted)
-            </div>
-          )}
           {hasNFTEdition && (
             <div style={{ position: 'absolute', top: '8px', right: '8px', background: 'linear-gradient(45deg, #FFD700, #FFA500)', color: '#000', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
               🎨 NFT Available
@@ -324,7 +319,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
                   className={`nft-toggle-button ${showNftPanel ? 'active' : ''}`}
                   title={showNftPanel ? 'Close NFT Panel' : 'Open NFT Panel'}
                 >
-                  {showNftPanel ? '🔥 Close' : (isOwner ? '🔥 Tokenize' : '🔥 See Token Details')}
+                  {showNftPanel ? 'Close' : (isOwner ? 'Tokenize' : 'See Token Details')}
                 </button>
               )}
               <button onClick={onClose} className="close-button">✕</button>

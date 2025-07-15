@@ -13,6 +13,7 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
   const [showPositions, setShowPositions] = useState(false);
   const [expandedPerformances, setExpandedPerformances] = useState(new Set());
   const [showNonSongMoments, setShowNonSongMoments] = useState(false); // ✅ NEW: Toggle for non-song moments
+  const [showOnlyWithMoments, setShowOnlyWithMoments] = useState(false); // ✅ NEW: Toggle to show only performances with moments
   const { user } = useAuth();
   
   const { moments, loadingMomentDetails: loading, loadMomentDetails } = useMoments(API_BASE_URL);
@@ -28,6 +29,7 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
     }
     
     setUploadingMoment({ 
+      type: 'song', // ✅ FIXED: Add type field for UploadModal detection
       performanceId: performance.id,
       performanceDate: performance.date,
       venueName: performance.venue,
@@ -121,10 +123,15 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
   };
 
   const groupedPerformances = useMemo(() => {
+    // Filter performances based on whether they have moments (if toggle is enabled)
+    const filteredPerformances = showOnlyWithMoments 
+      ? songData.performances.filter(perf => getPerformanceSongMoments(perf.id).length > 0)
+      : songData.performances;
+
     switch (viewMode) {
       case 'byVenue':
         const byVenue = {};
-        songData.performances.forEach(perf => {
+        filteredPerformances.forEach(perf => {
           const key = `${perf.venue} (${perf.city})`;
           if (!byVenue[key]) byVenue[key] = [];
           byVenue[key].push(perf);
@@ -133,7 +140,7 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
         
       case 'byYear':
         const byYear = {};
-        songData.performances.forEach(perf => {
+        filteredPerformances.forEach(perf => {
           const year = perf.date.split('-')[2] || 'Unknown';
           if (!byYear[year]) byYear[year] = [];
           byYear[year].push(perf);
@@ -142,9 +149,9 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
         
       case 'chronological':
       default:
-        return [['All Performances', songData.performances]];
+        return [['All Performances', filteredPerformances]];
     }
-  }, [songData.performances, viewMode]);
+  }, [songData.performances, viewMode, showOnlyWithMoments, moments]);
 
   if (loading) {
     return (
@@ -189,6 +196,8 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
         setViewMode={setViewMode}
         showPositions={showPositions}
         setShowPositions={setShowPositions}
+        showOnlyWithMoments={showOnlyWithMoments}
+        setShowOnlyWithMoments={setShowOnlyWithMoments}
       />
 
       {/* ✅ UPDATED: Song Performances List (only actual song performances) */}
@@ -379,7 +388,7 @@ const NonSongMomentsSection = memo(({
 NonSongMomentsSection.displayName = 'NonSongMomentsSection';
 
 // ✅ UNCHANGED: Controls remain the same
-const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShowPositions }) => (
+const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShowPositions, showOnlyWithMoments, setShowOnlyWithMoments }) => (
   <div className="mb-6 space-y-4">
     <div className="flex items-center gap-3 mb-4">
       <h3 className="text-xl font-bold text-gray-900">🎵 Song Performance History</h3>
@@ -410,7 +419,7 @@ const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShow
       </div>
     </div>
 
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-6">
       <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
         <input
           type="checkbox"
@@ -419,6 +428,16 @@ const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShow
           className="rounded border-gray-300"
         />
         Show song positions in setlist
+      </label>
+      
+      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={showOnlyWithMoments}
+          onChange={(e) => setShowOnlyWithMoments(e.target.checked)}
+          className="rounded border-gray-300"
+        />
+        Show only performances with moments
       </label>
     </div>
 

@@ -13,12 +13,14 @@ const SongBrowser = memo(({ onSongSelect }) => {
     sortDirection,
     momentProgress,
     searchQuery,
+    showOnlyWithMoments,
     totalMoments,
     songsWithMoments,
     toggleSortDirection,
     clearSearch,
     handleSearchChange,
-    handleSortChange
+    handleSortChange,
+    toggleShowOnlyWithMoments
   } = useSongDatabase(API_BASE_URL);
 
   if (loading) {
@@ -37,12 +39,14 @@ const SongBrowser = memo(({ onSongSelect }) => {
         songsWithMoments={songsWithMoments}
         searchQuery={searchQuery}
         displayedSongs={displayedSongs}
+        showOnlyWithMoments={showOnlyWithMoments}
         onSearchChange={handleSearchChange}
         onClearSearch={clearSearch}
         sortBy={sortBy}
         sortDirection={sortDirection}
         onSortChange={handleSortChange}
         onToggleSortDirection={toggleSortDirection}
+        onToggleShowOnlyWithMoments={toggleShowOnlyWithMoments}
       />
 
       {/* Search Results Info */}
@@ -116,12 +120,14 @@ const SongHeader = memo(({
   songsWithMoments, 
   searchQuery, 
   displayedSongs,
+  showOnlyWithMoments,
   onSearchChange,
   onClearSearch,
   sortBy,
   sortDirection,
   onSortChange,
-  onToggleSortDirection
+  onToggleSortDirection,
+  onToggleShowOnlyWithMoments
 }) => (
   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
     <div>
@@ -137,6 +143,17 @@ const SongHeader = memo(({
     </div>
     
     <div className="flex items-center gap-3">
+      {/* Filter Toggle */}
+      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={showOnlyWithMoments}
+          onChange={(e) => onToggleShowOnlyWithMoments(e.target.checked)}
+          className="rounded border-gray-300"
+        />
+        Songs with moments only
+      </label>
+
       {/* Search Bar */}
       <div className="relative w-80">
         <input
