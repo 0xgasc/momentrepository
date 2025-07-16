@@ -38,6 +38,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   const [fetchingNftStatus, setFetchingNftStatus] = useState(true);
   const [showRarityBreakdown, setShowRarityBreakdown] = useState(false);
   const [showRarityInfo, setShowRarityInfo] = useState(false);
+  const [showRaritySection, setShowRaritySection] = useState(false);
   const [showBasicInfo, setShowBasicInfo] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showFileDetails, setShowFileDetails] = useState(false);
@@ -102,6 +103,9 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
         const updatedMoment = await response.json();
         console.log('✅ Moment data refreshed:', updatedMoment);
         console.log('📊 Updated mint count:', updatedMoment.nftMintedCount);
+        console.log('🏷️ NFT Token ID:', updatedMoment.nftTokenId);
+        console.log('🏠 NFT Contract Address:', updatedMoment.nftContractAddress);
+        console.log('💰 NFT Mint Price:', updatedMoment.nftMintPrice);
         setMoment(updatedMoment);
       }
     } catch (error) {
@@ -201,11 +205,6 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           >
             Your browser does not support the video tag.
           </video>
-          {hasNFTEdition && (
-            <div style={{ position: 'absolute', top: '8px', right: '8px', background: 'linear-gradient(45deg, #FFD700, #FFA500)', color: '#000', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
-              🎨 NFT Available
-            </div>
-          )}
           {mediaError && (
             <div className="media-error">
               <p className="text-sm text-red-600 mb-2">Unable to load video preview</p>
@@ -235,11 +234,6 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             onError={() => { setMediaError(true); setImageLoaded(false); }}
             style={{ width: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '8px' }}
           />
-          {hasNFTEdition && (
-            <div style={{ position: 'absolute', top: '8px', right: '8px', background: 'linear-gradient(45deg, #FFD700, #FFA500)', color: '#000', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
-              🎨 NFT Available
-            </div>
-          )}
           {mediaError && (
             <div className="media-error">
               <p className="text-sm text-red-600 mb-2">Unable to load image preview</p>
@@ -278,24 +272,6 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           {/* Header */}
           <div className="card-header" style={{ background: `linear-gradient(135deg, ${rarityInfo.color} 0%, #1d4ed8 100%)` }}>
             <div className="card-title-section">
-              <div className="rarity-badge-container">
-                <div 
-                  className="rarity-badge clickable" 
-                  style={{ backgroundColor: rarityInfo.bgColor, color: rarityInfo.color, cursor: 'pointer' }}
-                  onClick={() => setShowRarityBreakdown(!showRarityBreakdown)}
-                >
-                  <span className="rarity-emoji">{rarityInfo.emoji}</span>
-                  <span className="rarity-text">{rarityInfo.name}</span>
-                  <span className="rarity-score">{rarityInfo.score}</span>
-                  <span className="rarity-arrow">{showRarityBreakdown ? '▼' : '▶'}</span>
-                </div>
-                <button
-                  onClick={() => setShowRarityInfo(true)}
-                  className="info-button"
-                >
-                  ℹ️
-                </button>
-              </div>
               
               <h2 className="card-title">{moment.songName}</h2>
               <p className="card-subtitle">
@@ -304,11 +280,6 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
               </p>
               <p className="card-date">{moment.performanceDate}</p>
               
-              {isSongContent && typeInfo.showPerformanceStats && (
-                <p className="song-performances">
-                  🎵 {moment.songTotalPerformances || 0} times performed live
-                </p>
-              )}
             </div>
             
             <div className="card-controls">
@@ -317,9 +288,9 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
                 <button 
                   onClick={() => setShowNftPanel(!showNftPanel)}
                   className={`nft-toggle-button ${showNftPanel ? 'active' : ''}`}
-                  title={showNftPanel ? 'Close NFT Panel' : 'Open NFT Panel'}
+                  title={showNftPanel ? 'Close Controls' : 'Open Controls'}
                 >
-                  {showNftPanel ? 'Close' : (isOwner ? 'Create Artifact' : 'Artifact Details')}
+                  {showNftPanel ? 'Close' : (hasNFTEdition ? 'Controls' : 'Launch Token')}
                 </button>
               )}
               <button onClick={onClose} className="close-button">✕</button>
@@ -330,23 +301,6 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           <div className="modal-content-container">
             <div className="main-content">
 
-          {/* Rarity breakdown details moved to header */}
-          {showRarityBreakdown && (
-            <div className="rarity-breakdown-detailed">
-              <div className="rarity-total">
-                <span className="rarity-total-label">Score:</span>
-                <span className="rarity-total-value">{rarityBreakdown.totalScore}/{rarityBreakdown.maxPossible}</span>
-              </div>
-              
-              <div className="rarity-explanations">
-                {Object.entries(rarityBreakdown.factors).map(([key, factor]) => (
-                  <div key={key} className="factor-explanation">
-                    <strong>{factor.label}:</strong> {factor.score} pts - {factor.description}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Media */}
           <div className="card-media">{getMediaComponent()}</div>
@@ -355,7 +309,11 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           <div className="metadata-panel">
             <div className="metadata-header">
               <h3>Content Details</h3>
+              
               <div className="metadata-toggles">
+                <button onClick={() => setShowRaritySection(!showRaritySection)} className="toggle-button">
+                  {rarityInfo.name} {rarityInfo.emoji} {showRaritySection ? '▼' : '▶'}
+                </button>
                 <button onClick={() => setShowBasicInfo(!showBasicInfo)} className="toggle-button">
                   Basic Info {showBasicInfo ? '▼' : '▶'}
                 </button>
@@ -372,6 +330,37 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             </div>
 
             <div className="metadata-content">
+              {/* Rarity Section */}
+              {showRaritySection && (
+                <div className="metadata-group">
+                  <div className="rarity-section-header">
+                    <h4>Rarity Details</h4>
+                    <button
+                      onClick={() => setShowRarityInfo(true)}
+                      className="info-button-inline"
+                      title="Learn about the rarity system"
+                    >
+                      ℹ️
+                    </button>
+                  </div>
+                  
+                  <div className="rarity-breakdown-detailed">
+                    <div className="rarity-total">
+                      <span className="rarity-total-label">Score:</span>
+                      <span className="rarity-total-value">{rarityBreakdown.totalScore}/{rarityBreakdown.maxPossible}</span>
+                    </div>
+                    
+                    <div className="rarity-explanations">
+                      {Object.entries(rarityBreakdown.factors).map(([key, factor]) => (
+                        <div key={key} className="factor-explanation">
+                          <strong>{factor.label}:</strong> {factor.score} pts - {factor.description}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {/* Basic Info */}
               {showBasicInfo && (
                 <div className="metadata-group">
@@ -747,11 +736,15 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             margin: 0;
           }
 
-          .song-performances {
-            font-size: 0.8rem;
-            opacity: 0.9;
-            margin: 0.5rem 0 0 0;
+          .song-performances-detail {
+            font-size: 0.85rem;
+            color: #4b5563;
+            margin: 0.5rem 0;
             font-weight: 500;
+            padding: 0.5rem;
+            background: #f9fafb;
+            border-radius: 6px;
+            border-left: 3px solid #3b82f6;
           }
 
           .card-controls {
@@ -837,6 +830,32 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           .info-button:hover {
             background: #d1d5db;
             transform: scale(1.1);
+          }
+          
+          .info-button-inline {
+            background: #e5e7eb;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            margin-left: 0.5rem;
+          }
+          
+          .info-button-inline:hover {
+            background: #d1d5db;
+            transform: scale(1.1);
+          }
+          
+          .rarity-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
           }
 
           .rarity-breakdown-detailed {

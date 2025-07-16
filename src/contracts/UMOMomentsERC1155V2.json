@@ -1,0 +1,1072 @@
+{
+  "address": "0xFb7B8578f6312B4C581A1Aa1EC25834E3842cAB7",
+  "abi": [
+    {
+      "type": "constructor",
+      "stateMutability": "undefined",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "string",
+          "name": "baseURI"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "ApprovalForAll",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "account",
+          "indexed": true
+        },
+        {
+          "type": "address",
+          "name": "operator",
+          "indexed": true
+        },
+        {
+          "type": "bool",
+          "name": "approved",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "EmergencyWithdrawal",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "owner",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "amount",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "MintPriceUpdated",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "oldPrice",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "newPrice",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "MintingDurationExtended",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "additionalSeconds",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "MomentEditionCreated",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": true
+        },
+        {
+          "type": "string",
+          "name": "momentId",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "mintPrice",
+          "indexed": false
+        },
+        {
+          "type": "address",
+          "name": "umoWallet",
+          "indexed": false
+        },
+        {
+          "type": "address",
+          "name": "creatorWallet",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "OwnershipTransferred",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "previousOwner",
+          "indexed": true
+        },
+        {
+          "type": "address",
+          "name": "newOwner",
+          "indexed": true
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "PercentagesUpdated",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "newUmoPercentage",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "newCreatorPercentage",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "newPlatformPercentage",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "RevenueSplitExecuted",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": true
+        },
+        {
+          "type": "address",
+          "name": "umoWallet",
+          "indexed": false
+        },
+        {
+          "type": "address",
+          "name": "creatorWallet",
+          "indexed": false
+        },
+        {
+          "type": "address",
+          "name": "platformWallet",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "umoAmount",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "creatorAmount",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "platformAmount",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "TransferBatch",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "operator",
+          "indexed": true
+        },
+        {
+          "type": "address",
+          "name": "from",
+          "indexed": true
+        },
+        {
+          "type": "address",
+          "name": "to",
+          "indexed": true
+        },
+        {
+          "type": "uint256[]",
+          "name": "ids"
+        },
+        {
+          "type": "uint256[]",
+          "name": "values"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "TransferSingle",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "operator",
+          "indexed": true
+        },
+        {
+          "type": "address",
+          "name": "from",
+          "indexed": true
+        },
+        {
+          "type": "address",
+          "name": "to",
+          "indexed": true
+        },
+        {
+          "type": "uint256",
+          "name": "id",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "value",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "URI",
+      "inputs": [
+        {
+          "type": "string",
+          "name": "value",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "id",
+          "indexed": true
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "WalletsUpdated",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId",
+          "indexed": true
+        },
+        {
+          "type": "address",
+          "name": "oldUmoWallet",
+          "indexed": false
+        },
+        {
+          "type": "address",
+          "name": "oldCreatorWallet",
+          "indexed": false
+        },
+        {
+          "type": "address",
+          "name": "oldPlatformWallet",
+          "indexed": false
+        },
+        {
+          "type": "address",
+          "name": "newUmoWallet",
+          "indexed": false
+        },
+        {
+          "type": "address",
+          "name": "newCreatorWallet",
+          "indexed": false
+        },
+        {
+          "type": "address",
+          "name": "newPlatformWallet",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "balanceOf",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "account"
+        },
+        {
+          "type": "uint256",
+          "name": "id"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "balanceOfBatch",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address[]",
+          "name": "accounts"
+        },
+        {
+          "type": "uint256[]",
+          "name": "ids"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256[]",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "bulkUpdateWallets",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256[]",
+          "name": "tokenIds"
+        },
+        {
+          "type": "address",
+          "name": "newUmoWallet"
+        },
+        {
+          "type": "address",
+          "name": "newCreatorWallet"
+        },
+        {
+          "type": "address",
+          "name": "newPlatformWallet"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "createMomentEdition",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "string",
+          "name": "momentId"
+        },
+        {
+          "type": "string",
+          "name": "metadataURI"
+        },
+        {
+          "type": "uint256",
+          "name": "mintPrice"
+        },
+        {
+          "type": "uint256",
+          "name": "mintDuration"
+        },
+        {
+          "type": "uint256",
+          "name": "maxSupply"
+        },
+        {
+          "type": "address",
+          "name": "umoWallet"
+        },
+        {
+          "type": "address",
+          "name": "creatorWallet"
+        },
+        {
+          "type": "address",
+          "name": "platformWallet"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "emergencyWithdraw",
+      "constant": false,
+      "payable": false,
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "extendMintingDuration",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        },
+        {
+          "type": "uint256",
+          "name": "additionalSeconds"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "getCurrentTokenId",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getEditionInfo",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "string",
+          "name": "momentId"
+        },
+        {
+          "type": "string",
+          "name": "metadataURI"
+        },
+        {
+          "type": "uint256",
+          "name": "mintPrice"
+        },
+        {
+          "type": "uint256",
+          "name": "mintDuration"
+        },
+        {
+          "type": "uint256",
+          "name": "totalMinted"
+        },
+        {
+          "type": "uint256",
+          "name": "startTime"
+        },
+        {
+          "type": "bool",
+          "name": "isActive"
+        },
+        {
+          "type": "address",
+          "name": "umoWallet"
+        },
+        {
+          "type": "address",
+          "name": "creatorWallet"
+        },
+        {
+          "type": "address",
+          "name": "platformWallet"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getRevenueSplit",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "address",
+          "name": "umoWallet"
+        },
+        {
+          "type": "address",
+          "name": "creatorWallet"
+        },
+        {
+          "type": "address",
+          "name": "platformWallet"
+        },
+        {
+          "type": "uint256",
+          "name": "umoPercentage"
+        },
+        {
+          "type": "uint256",
+          "name": "creatorPercentage"
+        },
+        {
+          "type": "uint256",
+          "name": "platformPercentage"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getTotalMinted",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "isApprovedForAll",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "account"
+        },
+        {
+          "type": "address",
+          "name": "operator"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "bool",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "isMintingActive",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "bool",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "mintMoment",
+      "constant": false,
+      "stateMutability": "payable",
+      "payable": true,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        },
+        {
+          "type": "uint256",
+          "name": "quantity"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "mintMomentById",
+      "constant": false,
+      "stateMutability": "payable",
+      "payable": true,
+      "inputs": [
+        {
+          "type": "string",
+          "name": "momentId"
+        },
+        {
+          "type": "uint256",
+          "name": "quantity"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "mintsPerWallet",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        },
+        {
+          "type": "address",
+          "name": ""
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "momentEditions",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ],
+      "outputs": [
+        {
+          "type": "string",
+          "name": "momentId"
+        },
+        {
+          "type": "string",
+          "name": "metadataURI"
+        },
+        {
+          "type": "uint256",
+          "name": "mintPrice"
+        },
+        {
+          "type": "uint256",
+          "name": "mintDuration"
+        },
+        {
+          "type": "uint256",
+          "name": "maxSupply"
+        },
+        {
+          "type": "uint256",
+          "name": "totalMinted"
+        },
+        {
+          "type": "uint256",
+          "name": "startTime"
+        },
+        {
+          "type": "bool",
+          "name": "isActive"
+        },
+        {
+          "type": "tuple",
+          "name": "splits",
+          "components": [
+            {
+              "type": "address",
+              "name": "umoWallet"
+            },
+            {
+              "type": "address",
+              "name": "creatorWallet"
+            },
+            {
+              "type": "address",
+              "name": "platformWallet"
+            },
+            {
+              "type": "uint256",
+              "name": "umoPercentage"
+            },
+            {
+              "type": "uint256",
+              "name": "creatorPercentage"
+            },
+            {
+              "type": "uint256",
+              "name": "platformPercentage"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "momentIdToTokenId",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "string",
+          "name": ""
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "owner",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "pauseToken",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "renounceOwnership",
+      "constant": false,
+      "payable": false,
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "resumeToken",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "safeBatchTransferFrom",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "from"
+        },
+        {
+          "type": "address",
+          "name": "to"
+        },
+        {
+          "type": "uint256[]",
+          "name": "ids"
+        },
+        {
+          "type": "uint256[]",
+          "name": "amounts"
+        },
+        {
+          "type": "bytes",
+          "name": "data"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "safeTransferFrom",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "from"
+        },
+        {
+          "type": "address",
+          "name": "to"
+        },
+        {
+          "type": "uint256",
+          "name": "id"
+        },
+        {
+          "type": "uint256",
+          "name": "amount"
+        },
+        {
+          "type": "bytes",
+          "name": "data"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "setApprovalForAll",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "operator"
+        },
+        {
+          "type": "bool",
+          "name": "approved"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "setURI",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "string",
+          "name": "newURI"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "supportsInterface",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "bytes4",
+          "name": "interfaceId"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "bool",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "tokenIdToMomentId",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ],
+      "outputs": [
+        {
+          "type": "string",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "transferOwnership",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "newOwner"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "updateMintPrice",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        },
+        {
+          "type": "uint256",
+          "name": "newMintPrice"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "updateRevenueSplit",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        },
+        {
+          "type": "address",
+          "name": "newUmoWallet"
+        },
+        {
+          "type": "address",
+          "name": "newCreatorWallet"
+        },
+        {
+          "type": "address",
+          "name": "newPlatformWallet"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "updateRevenueSplitPercentages",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        },
+        {
+          "type": "uint256",
+          "name": "newUmoPercentage"
+        },
+        {
+          "type": "uint256",
+          "name": "newCreatorPercentage"
+        },
+        {
+          "type": "uint256",
+          "name": "newPlatformPercentage"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "uri",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "tokenId"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "string",
+          "name": ""
+        }
+      ]
+    }
+  ]
+}

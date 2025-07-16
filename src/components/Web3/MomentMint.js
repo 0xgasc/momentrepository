@@ -4,8 +4,9 @@ import { useAccount, useConnect, useWaitForTransactionReceipt, useWriteContract,
 import { Plus, Zap } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import UMOMomentsERC1155Contract from '../../contracts/UMOMomentsERC1155.json';
+import UMOMomentsERC1155V2Contract from '../../contracts/UMOMomentsERC1155V2.json';
 import { parseEther, formatEther } from 'viem';
-import { useSplits } from '../../utils/splitsIntegration';
+// Removed: import { useSplits } from '../../utils/splitsIntegration'; // No longer needed with V2 contract
 
 const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, onRefresh }) => {
   // State management
@@ -13,9 +14,9 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
   const [isMinting, setIsMinting] = useState(false);
   const [error, setError] = useState('');
   const [mintDuration, setMintDuration] = useState(7);
-  const [customPriceUSD, setCustomPriceUSD] = useState(0.15); // Default price in USD
+  const [customPrice, setCustomPrice] = useState(0.0001); // Default price in ETH (0.0001 ETH = ~$0.30)
   const ETH_PRICE_USD = 3000; // Current ETH price
-  const customPrice = customPriceUSD / ETH_PRICE_USD; // Convert to ETH
+  const customPriceUSD = customPrice * ETH_PRICE_USD; // Convert to USD for display
   const [txHash, setTxHash] = useState(null);
   const [currentStep, setCurrentStep] = useState('ready');
   const [successMessage, setSuccessMessage] = useState('');
@@ -45,7 +46,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
   const { connect, connectors } = useConnect();
   
   // 0xSplits integration
-  const { createSplit, isReady: splitsReady } = useSplits();
+  // Removed: const { createSplit, isReady: splitsReady } = useSplits(); // No longer needed with V2 contract
   const { 
     writeContract, 
     data: writeContractData, 
@@ -73,10 +74,13 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
     }
   }, [txHash, isConfirmed, txLoading, txError, currentStep, pendingMintRecord]);
 
-  // Read user's NFT balance for this token
+  // Read user's NFT balance for this token (use correct contract based on NFT)
+  const isV2NFT = moment.nftContractAddress === UMOMomentsERC1155V2Contract.address;
+  const balanceContract = isV2NFT ? UMOMomentsERC1155V2Contract : UMOMomentsERC1155Contract;
+  
   const { data: userBalance, refetch: refetchBalance } = useReadContract({
-    address: UMOMomentsERC1155Contract.address,
-    abi: UMOMomentsERC1155Contract.abi,
+    address: balanceContract.address,
+    abi: balanceContract.abi,
     functionName: 'balanceOf',
     args: [address, moment.nftTokenId],
     enabled: !!(isConnected && address && hasNFTEdition && moment.nftTokenId)
@@ -110,6 +114,12 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
       } else if (pendingMintRecord) {
         setSuccessMessage('🎉 NFT Minted Successfully! Updating records...');
         console.log('🎯 About to call recordMintInDatabase() with pending record:', pendingMintRecord);
+        
+        // Clear success message after 3 seconds to allow more minting
+        setTimeout(() => {
+          setSuccessMessage('');
+          setCurrentStep('ready');
+        }, 3000);
         
         // Update pending record with real transaction hash
         const updatedRecord = {
@@ -438,10 +448,15 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
 
     setIsCreatingNFT(true);
     setError('');
-    setCurrentStep('creating');
+    setCurrentStep('launching-token');
     setShowPreview(false); // Close preview modal when creating NFT
 
     try {
+      console.log('🚀 Launching token...');
+      
+      // Brief delay to show the launching message
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       console.log('🚀 Creating NFT edition...');
 
       // Generate NFT card - use preview if available, otherwise generate random
@@ -481,20 +496,11 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
       const metadataURI = await uploadMetadataToIrys(metadata);
       
       console.log('📝 Creating NFT edition with metadata:', metadataURI);
-      setCurrentStep('creating-split');
+      setCurrentStep('creating-contract');
 
-      // Create 0xSplits contract for revenue sharing
-      let splitsContract = '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96'; // fallback
-      if (splitsReady) {
-        try {
-          console.log('🔧 Creating 0xSplits contract...');
-          const splitResult = await createSplit(moment, address);
-          splitsContract = splitResult.splitAddress;
-          console.log('✅ Split created:', splitsContract);
-        } catch (splitError) {
-          console.warn('⚠️ Split creation failed, using fallback:', splitError);
-        }
-      }
+      // V2 Contract has built-in revenue splits - no need for 0xSplits!
+      console.log('✅ Using V2 contract with built-in revenue splits (65% UMO, 30% Creator, 5% Platform)');
+      const splitsContract = null; // V2 contract handles splits automatically
       
       setCurrentStep('confirming');
 
@@ -508,6 +514,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         body: JSON.stringify({
           nftMetadataHash: metadataURI,
           splitsContract: splitsContract,
+          uploaderAddress: address, // Pass the uploader's wallet address
           mintPrice: parseEther(customPrice.toString()).toString(),
           mintDuration: mintDuration,
           nftCardUrl: cardUrl // Pass the generated card URL
@@ -680,10 +687,23 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
     setLastMintQuantity(quantity); // Store quantity for database recording
 
     try {
+      // Validate required data
+      if (!moment.nftTokenId && moment.nftTokenId !== 0) {
+        throw new Error('NFT Token ID is missing. The NFT edition may not have been created yet.');
+      }
+      
+      if (!moment.nftContractAddress) {
+        throw new Error('NFT Contract Address is missing. The NFT edition may not have been created yet.');
+      }
+      
+      if (!quantity || quantity < 1) {
+        throw new Error('Invalid quantity. Must be at least 1.');
+      }
+      
       console.log('🎯 Minting NFT with user wallet...', { 
         quantity, 
         tokenId: moment.nftTokenId,
-        contractAddress: UMOMomentsERC1155Contract.address,
+        contractAddress: moment.nftContractAddress,
         userAddress: address
       });
       
@@ -699,11 +719,17 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         priceInEth: parseFloat(mintPriceWei) / 1e18
       });
 
-      console.log('📝 About to call writeContract with:', {
-        address: UMOMomentsERC1155Contract.address,
+      // Determine which contract to use based on the NFT's contract address
+      const isV2Contract = moment.nftContractAddress === UMOMomentsERC1155V2Contract.address;
+      const contractToUse = isV2Contract ? UMOMomentsERC1155V2Contract : UMOMomentsERC1155Contract;
+      
+      console.log(`📝 About to call writeContract with ${isV2Contract ? 'V2 (with splits)' : 'V1 (legacy)'}:`, {
+        address: contractToUse.address,
         functionName: 'mintMoment',
         args: [moment.nftTokenId, quantity],
-        value: totalValue.toString()
+        value: totalValue.toString(),
+        contractVersion: isV2Contract ? 'V2' : 'V1',
+        hasSplits: isV2Contract
       });
 
       // Store mint data for when transaction confirms
@@ -715,10 +741,10 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
 
       // Call contract directly with user's wallet
       // Note: In Wagmi v2, writeContract may return undefined even on success
-      console.log('📝 Calling writeContract...');
+      console.log(`📝 Calling writeContract on ${isV2Contract ? 'V2' : 'V1'} contract...`);
       const hash = await writeContract({
-        address: UMOMomentsERC1155Contract.address,
-        abi: UMOMomentsERC1155Contract.abi,
+        address: contractToUse.address,
+        abi: contractToUse.abi,
         functionName: 'mintMoment',
         args: [moment.nftTokenId, quantity],
         value: totalValue
@@ -758,15 +784,6 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
   if (isOwner && !hasNFTEdition) {
     return (
       <div className="bg-gradient-to-r from-emerald-500 to-blue-500 text-white p-5 rounded-xl">
-        <div className="mb-4">
-          <h3 className="text-lg font-bold flex items-center mb-2">
-            <Plus className="w-5 h-5 mr-2" />
-            Create Artifact
-          </h3>
-          <p className="text-sm opacity-90">
-            Let fans collect and own this moment
-          </p>
-        </div>
 
         {!isConnected ? (
           <SimpleWalletConnect />
@@ -787,28 +804,33 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs font-semibold mb-1">Collection Price:</label>
-              <div className="relative">
+              <label className="block text-xs font-semibold mb-1">Price:</label>
+              <div className="space-y-2">
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0.10"
-                  max="30.00"
-                  value={customPriceUSD}
+                  type="range"
+                  min="0.0001"
+                  max="0.015"
+                  step="0.0001"
+                  value={customPrice}
                   onChange={(e) => {
                     const value = parseFloat(e.target.value);
-                    if (value >= 0.10 && value <= 30.00) {
-                      setCustomPriceUSD(value);
-                    }
+                    setCustomPrice(value);
                   }}
                   disabled={currentStep !== 'ready'}
-                  className="w-full bg-white/20 border border-white/30 text-white p-2 rounded text-xs pr-12"
-                  placeholder="0.15"
+                  className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
                 />
-                <span className="absolute right-3 top-2 text-xs opacity-70">USD</span>
-              </div>
-              <div className="text-xs opacity-70 mt-1">
-                ≈ {customPrice.toFixed(6)} ETH (Range: $0.10 - $30.00)
+                <div className="flex justify-between text-xs opacity-70">
+                  <span>0.0001 ETH</span>
+                  <span>0.015 ETH</span>
+                </div>
+                <div className="text-center">
+                  <div className="text-sm font-semibold text-white">
+                    {customPrice.toFixed(6)} ETH
+                  </div>
+                  <div className="text-xs opacity-70">
+                    ≈ ${customPriceUSD.toFixed(2)} USD
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -920,7 +942,27 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
                 </div>
               )}
 
-              {currentStep !== 'success' && (
+              {/* Status Display */}
+              {isCreatingNFT && currentStep !== 'success' && (
+                <div className="w-full bg-blue-600/20 border border-blue-500/30 text-blue-100 p-4 rounded-lg mb-4 text-center">
+                  <div className="text-lg font-semibold mb-2">
+                    {currentStep === 'launching-token' ? '🚀 Launching Token...' :
+                     currentStep === 'generating-card' ? '🎨 Generating Card...' :
+                     currentStep === 'creating-contract' ? '🔧 Creating NFT Contract...' :
+                     currentStep === 'confirming' ? '⏳ Creating Edition...' :
+                     '🔄 Processing...'}
+                  </div>
+                  <div className="text-xs opacity-80">
+                    {currentStep === 'launching-token' ? 'Initializing your NFT collection...' :
+                     currentStep === 'generating-card' ? 'Creating your artifact card design...' :
+                     currentStep === 'creating-contract' ? 'Setting up smart contract...' :
+                     currentStep === 'confirming' ? 'Please confirm in your wallet...' :
+                     'Please wait...'}
+                  </div>
+                </div>
+              )}
+
+              {currentStep !== 'success' && !isCreatingNFT && (
                 <button
                   onClick={handleGeneratePreview}
                   disabled={isGeneratingPreview || isCreatingNFT}
@@ -932,21 +974,8 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
                 </button>
               )}
 
-              <button
-                onClick={handleCreateNFTEdition}
-                disabled={isCreatingNFT || currentStep !== 'ready'}
-                className={`w-full ${
-                  isCreatingNFT || currentStep !== 'ready' ? 'bg-white/10 cursor-not-allowed' : 'bg-blue-600/80 hover:bg-blue-600'
-                } border border-white/30 text-white p-3 rounded-lg font-semibold`}
-              >
-                {currentStep === 'generating-card' ? '🎨 Generating Card...' :
-                 currentStep === 'creating-split' ? '🔧 Setting up Revenue Split...' :
-                 currentStep === 'confirming' ? '⏳ Creating Edition...' :
-                 currentStep === 'success' ? successMessage :
-                 randomSeed > 0 ? '🚀 Create Artifact (Use Preview)' : '🚀 Create Artifact'}
-              </button>
               
-              {currentStep === 'ready' && (
+              {currentStep === 'ready' && !isCreatingNFT && (
                 <p className="text-xs text-center mt-2 opacity-80">
                   {randomSeed > 0 
                     ? '✨ Will use your previewed card design' 
@@ -1230,7 +1259,53 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
   }
 
   // Return null for other states (simplified)
-  return null;
+  return (
+    <>
+      <style jsx>{`
+        .slider::-webkit-slider-thumb {
+          appearance: none;
+          height: 20px;
+          width: 20px;
+          border-radius: 50%;
+          background: #3b82f6;
+          cursor: pointer;
+          border: 2px solid #ffffff;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .slider::-moz-range-thumb {
+          height: 20px;
+          width: 20px;
+          border-radius: 50%;
+          background: #3b82f6;
+          cursor: pointer;
+          border: 2px solid #ffffff;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .slider::-webkit-slider-track {
+          height: 8px;
+          border-radius: 4px;
+          background: rgba(255, 255, 255, 0.2);
+        }
+
+        .slider::-moz-range-track {
+          height: 8px;
+          border-radius: 4px;
+          background: rgba(255, 255, 255, 0.2);
+        }
+
+        .slider:focus {
+          outline: none;
+        }
+
+        .slider:focus::-webkit-slider-thumb {
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+      `}</style>
+      {null}
+    </>
+  );
 };
 
 export default MomentMint;

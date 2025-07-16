@@ -1,11 +1,12 @@
 // src/components/Moment/UploadModal.jsx - SIMPLIFIED with removed fields
-import React, { useState, memo } from 'react';
+import React, { useState, memo, useEffect } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { styles } from '../../styles';
 
 const UploadModal = memo(({ uploadingMoment, onClose }) => {
   const [step, setStep] = useState('form');
   const [file, setFile] = useState(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
@@ -58,6 +59,15 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
     }));
   };
 
+  // Cleanup preview URL when component unmounts or file changes
+  useEffect(() => {
+    return () => {
+      if (filePreviewUrl) {
+        URL.revokeObjectURL(filePreviewUrl);
+      }
+    };
+  }, [filePreviewUrl]);
+
   const handleFileSelect = (event) => {
     const selectedFile = event.target.files[0];
     if (!selectedFile) return;
@@ -68,8 +78,20 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
       return;
     }
 
+    // Cleanup previous preview URL
+    if (filePreviewUrl) {
+      URL.revokeObjectURL(filePreviewUrl);
+      setFilePreviewUrl(null);
+    }
+
     setFile(selectedFile);
     setError('');
+    
+    // Create preview URL for video/image files
+    if (selectedFile.type.startsWith('video/') || selectedFile.type.startsWith('image/')) {
+      const url = URL.createObjectURL(selectedFile);
+      setFilePreviewUrl(url);
+    }
   };
 
   const handleUpload = async () => {
@@ -228,6 +250,7 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
           <SimplifiedUploadForm 
             formData={formData}
             file={file}
+            filePreviewUrl={filePreviewUrl}
             error={error}
             uploadingMoment={uploadingMoment}
             isSongUpload={isSongUpload}
@@ -264,6 +287,7 @@ UploadModal.displayName = 'UploadModal';
 const SimplifiedUploadForm = memo(({ 
   formData, 
   file, 
+  filePreviewUrl,
   error,
   uploadingMoment,
   isSongUpload,
@@ -712,6 +736,36 @@ const SimplifiedUploadForm = memo(({
               <div>
                 <p style={{ fontWeight: 'bold', marginBottom: '0.5rem', color: '#F5F5DC' }}>{file.name}</p>
                 <p style={{ color: '#B8860B' }}>{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                
+                {/* Media Preview */}
+                {filePreviewUrl && (
+                  <div style={{ marginTop: '1rem' }}>
+                    {file.type.startsWith('video/') ? (
+                      <video 
+                        src={filePreviewUrl} 
+                        controls 
+                        style={{ 
+                          width: '100%', 
+                          maxHeight: '200px', 
+                          backgroundColor: '#000',
+                          borderRadius: '8px'
+                        }}
+                        preload="metadata"
+                      />
+                    ) : file.type.startsWith('image/') ? (
+                      <img 
+                        src={filePreviewUrl} 
+                        alt="Preview" 
+                        style={{ 
+                          width: '100%', 
+                          maxHeight: '200px', 
+                          objectFit: 'contain',
+                          borderRadius: '8px'
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                )}
               </div>
             )}
           </label>

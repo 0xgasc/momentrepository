@@ -727,6 +727,7 @@ app.post('/moments/:momentId/create-nft-edition-proxy', authenticateToken, async
     const {
       nftMetadataHash,
       splitsContract,
+      uploaderAddress,
       mintPrice,
       mintDuration,
       nftCardUrl
@@ -748,30 +749,36 @@ app.post('/moments/:momentId/create-nft-edition-proxy', authenticateToken, async
       return res.status(400).json({ error: 'NFT edition already exists for this moment' });
     }
 
-    console.log('🔧 Using dev wallet to create NFT edition on behalf of user...');
+    console.log('🔧 Using dev wallet to create NFT edition with V2 contract (built-in revenue splits)...');
     
     const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC);
     const devWallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
     
-    const UMOMomentsERC1155Contract = require('../src/contracts/UMOMomentsERC1155.json');
+    const UMOMomentsERC1155V2Contract = require('../src/contracts/UMOMomentsERC1155V2.json');
     const contract = new ethers.Contract(
-      UMOMomentsERC1155Contract.address,
-      UMOMomentsERC1155Contract.abi,
+      UMOMomentsERC1155V2Contract.address,
+      UMOMomentsERC1155V2Contract.abi,
       devWallet
     );
 
     const mintPriceWei = BigInt(mintPrice); // mintPrice is already in wei from frontend
     const mintDurationSeconds = mintDuration * 24 * 60 * 60;
-    const rarityScore = Math.floor(Math.min(7, Math.max(1, moment.rarityScore || 1)));
-    const mockSplitsAddress = splitsContract || '0x742d35cc6634c0532925a3b8d76c7de9f45f6c96';
+    
+    // Define wallet addresses for revenue splits
+    const umoWallet = '0xd573BeCb6A6B0a0D43065d468D07787ca65dAF8a'; // UMO treasury wallet (65%)
+    const creatorWallet = uploaderAddress || '0x23de198F1520ad386565fc98AEE6abb3Ae5052BE'; // Creator's wallet (30%)
+    const platformWallet = '0x23de198F1520ad386565fc98AEE6abb3Ae5052BE'; // Platform fee wallet (5%)
 
-    console.log('📝 Proxy transaction parameters:', {
+    console.log('📝 Proxy transaction parameters (V2):', {
       momentId: moment._id.toString().slice(0, 12) + '...',
       mintPrice: ethers.formatEther(mintPriceWei) + ' ETH',
       duration: `${mintDuration} days`,
-      rarity: rarityScore,
       metadataURI: nftMetadataHash.slice(0, 50) + '...',
-      devWallet: devWallet.address
+      devWallet: devWallet.address,
+      umoWallet: umoWallet,
+      creatorWallet: creatorWallet,
+      platformWallet: platformWallet,
+      contractV2: UMOMomentsERC1155V2Contract.address
     });
 
     const transaction = await contract.createMomentEdition(
@@ -779,9 +786,10 @@ app.post('/moments/:momentId/create-nft-edition-proxy', authenticateToken, async
       nftMetadataHash,
       mintPriceWei,
       mintDurationSeconds,
-      0,
-      mockSplitsAddress,
-      rarityScore
+      0, // maxSupply (unlimited in V2)
+      umoWallet,
+      creatorWallet,
+      platformWallet
     );
 
     console.log('✅ Proxy transaction submitted:', transaction.hash);
@@ -843,9 +851,11 @@ app.post('/moments/:momentId/create-nft-edition-proxy', authenticateToken, async
         $set: {
           nftMinted: true,
           nftTokenId: parseInt(tokenId?.toString() || 0),
-          nftContractAddress: UMOMomentsERC1155Contract.address,
+          nftContractAddress: UMOMomentsERC1155V2Contract.address,
           nftMetadataHash: nftMetadataHash,
-          nftSplitsContract: mockSplitsAddress,
+          nftUmoWallet: umoWallet,
+          nftCreatorWallet: creatorWallet,
+          nftPlatformWallet: platformWallet,
           nftMintPrice: mintPriceWei.toString(), // Custom price in wei
           nftMintDuration: mintDuration,
           nftMintStartTime: new Date(),
@@ -1136,17 +1146,25 @@ app.post('/moments/:momentId/mint-nft-proxy', authenticateToken, async (req, res
     const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC);
     const devWallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
     
+    // Determine which contract to use based on the NFT's contract address
+    const UMOMomentsERC1155V2Contract = require('../src/contracts/UMOMomentsERC1155V2.json');
     const UMOMomentsERC1155Contract = require('../src/contracts/UMOMomentsERC1155.json');
+    
+    const isV2Contract = moment.nftContractAddress === UMOMomentsERC1155V2Contract.address;
+    
+    const contractABI = isV2Contract ? UMOMomentsERC1155V2Contract.abi : UMOMomentsERC1155Contract.abi;
     const contract = new ethers.Contract(
-      UMOMomentsERC1155Contract.address,
-      UMOMomentsERC1155Contract.abi,
+      moment.nftContractAddress,
+      contractABI,
       devWallet
     );
+    
+    console.log(`🔧 Using ${isV2Contract ? 'V2' : 'V1'} contract for minting:`, moment.nftContractAddress);
 
     const mintPriceWei = BigInt(moment.nftMintPrice || '50000000000000'); // Use stored price or fallback to 0.00005 ETH
     const totalCost = mintPriceWei * BigInt(quantity);
 
-    console.log('🎯 Proxy mint parameters:', {
+    console.log(`🎯 Proxy mint parameters (${isV2Contract ? 'V2' : 'V1'}):`, {
       momentId: moment._id.toString().slice(0, 12) + '...',
       tokenId: moment.nftTokenId,
       tokenIdType: typeof moment.nftTokenId,
@@ -1154,6 +1172,7 @@ app.post('/moments/:momentId/mint-nft-proxy', authenticateToken, async (req, res
       mintPrice: ethers.formatEther(mintPriceWei) + ' ETH each',
       totalCost: ethers.formatEther(totalCost) + ' ETH',
       devWallet: devWallet.address,
+      contractVersion: isV2Contract ? 'V2 (with built-in splits)' : 'V1 (legacy)',
       momentData: {
         nftMinted: moment.nftMinted,
         nftContractAddress: moment.nftContractAddress,
