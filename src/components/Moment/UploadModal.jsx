@@ -78,6 +78,15 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
       return;
     }
 
+    // Warn about large files on mobile
+    const fileSizeMB = selectedFile.size / (1024 * 1024);
+    if (fileSizeMB > 100) {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        setError(`Warning: ${Math.round(fileSizeMB)}MB file may take several minutes to upload on mobile. Consider using a smaller file or uploading from a computer.`);
+      }
+    }
+
     // Cleanup previous preview URL
     if (filePreviewUrl) {
       URL.revokeObjectURL(filePreviewUrl);
@@ -154,13 +163,59 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
         });
       }, estimatedUploadTime / 20);
 
-      const fileResponse = await fetch(`${API_BASE_URL}/upload-file`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formDataUpload
+      // Create XMLHttpRequest for better progress tracking
+      const xhr = new XMLHttpRequest();
+      
+      // Track real upload progress
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const percentComplete = Math.round((e.loaded / e.total) * 100);
+          // Update progress from 60% to 90% based on actual upload
+          setUploadProgress(60 + (percentComplete * 0.3));
+          console.log(`Upload progress: ${percentComplete}%`);
+        }
       });
 
-      clearInterval(progressInterval);
+      // Create a promise for the XHR request
+      const uploadPromise = new Promise((resolve, reject) => {
+        xhr.onload = function() {
+          clearInterval(progressInterval);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const response = JSON.parse(xhr.responseText);
+              resolve({ ok: true, json: () => Promise.resolve(response) });
+            } catch (e) {
+              reject(new Error('Invalid response from server'));
+            }
+          } else {
+            try {
+              const errorData = JSON.parse(xhr.responseText);
+              reject(new Error(errorData.error || `Upload failed with status ${xhr.status}`));
+            } catch (e) {
+              reject(new Error(`Upload failed with status ${xhr.status}`));
+            }
+          }
+        };
+        
+        xhr.onerror = function() {
+          clearInterval(progressInterval);
+          reject(new Error('Network error during upload'));
+        };
+        
+        xhr.ontimeout = function() {
+          clearInterval(progressInterval);
+          reject(new Error('Upload timeout - please try again with a smaller file or better connection'));
+        };
+        
+        // Set timeout to 10 minutes for large files on mobile
+        xhr.timeout = 600000;
+        
+        xhr.open('POST', `${API_BASE_URL}/upload-file`, true);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.send(formDataUpload);
+      });
+
+      const fileResponse = await uploadPromise;
 
       if (!fileResponse.ok) {
         const errorData = await fileResponse.json();

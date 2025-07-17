@@ -398,6 +398,7 @@ const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShow
           <span className="text-sm font-medium text-gray-700">View:</span>
           <div className="bg-white rounded-lg border border-gray-200 p-1 inline-flex">
             {[
+              ...(showOnlyWithMoments ? [{ key: 'moments', label: '🎬 Moments' }] : []),
               { key: 'chronological', label: '📅 Chronological' },
               { key: 'byVenue', label: '🏟️ By Venue' },
               { key: 'byYear', label: '📆 By Year' }
@@ -436,7 +437,13 @@ const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShow
         <input
           type="checkbox"
           checked={showOnlyWithMoments}
-          onChange={(e) => setShowOnlyWithMoments(e.target.checked)}
+          onChange={(e) => {
+            setShowOnlyWithMoments(e.target.checked);
+            // If turning off the toggle while in moments view, switch to chronological
+            if (!e.target.checked && viewMode === 'moments') {
+              setViewMode('chronological');
+            }
+          }}
           className="rounded border-gray-300"
         />
         Show only performances with moments
@@ -460,9 +467,45 @@ const SongPerformancesList = memo(({
   onPerformanceClick,
   expandedPerformances,
   togglePerformanceExpanded
-}) => (
-  <div className="space-y-6">
-    {groupedPerformances.map(([groupName, performances]) => (
+}) => {
+  // For moments view, collect all moments from all performances
+  if (viewMode === 'moments') {
+    const allMoments = [];
+    groupedPerformances.forEach(([groupName, performances]) => {
+      performances.forEach(performance => {
+        const performanceMoments = getPerformanceSongMoments(performance.id);
+        allMoments.push(...performanceMoments);
+      });
+    });
+
+    return (
+      <div className="space-y-6">
+        <div className="text-center text-gray-600 text-sm mb-4">
+          Showing {allMoments.length} moment{allMoments.length !== 1 ? 's' : ''} with video previews
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {allMoments.map((moment) => (
+            <SongMomentCard
+              key={moment._id}
+              moment={moment}
+              onMomentSelect={onSelectMoment}
+            />
+          ))}
+        </div>
+        {allMoments.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-gray-500 text-lg mb-2">No moments found</div>
+            <div className="text-gray-400 text-sm">Upload the first moment for this song!</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Default performance list view
+  return (
+    <div className="space-y-6">
+      {groupedPerformances.map(([groupName, performances]) => (
       <div key={groupName} className="border border-gray-200 rounded-lg bg-white shadow-sm">
         {viewMode !== 'chronological' && (
           <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
@@ -576,9 +619,111 @@ const SongPerformancesList = memo(({
         </div>
       </div>
     ))}
-  </div>
-));
+    </div>
+  );
+});
 
 SongPerformancesList.displayName = 'SongPerformancesList';
+
+// ✅ NEW: Song Moment Card for moments view
+const SongMomentCard = memo(({ moment, onMomentSelect }) => {
+  const rarityColors = {
+    legendary: 'bg-gradient-to-r from-yellow-400 to-yellow-600',
+    mythic: 'bg-gradient-to-r from-purple-400 to-pink-600',
+    epic: 'bg-gradient-to-r from-purple-500 to-purple-700',
+    rare: 'bg-gradient-to-r from-red-400 to-red-600',
+    uncommon: 'bg-gradient-to-r from-blue-400 to-blue-600',
+    common: 'bg-gradient-to-r from-gray-400 to-gray-600',
+    basic: 'bg-gradient-to-r from-gray-300 to-gray-500'
+  };
+
+  const rarityColor = rarityColors[moment.rarityTier] || rarityColors.basic;
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200">
+      {/* Media Preview - Clickable */}
+      {moment.mediaUrl && (
+        <div 
+          className="relative aspect-video bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
+          onClick={() => onMomentSelect(moment)}
+        >
+          {/* Show auto-playing video for all video moments */}
+          {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
+            <div className="relative w-full h-full">
+              <video
+                src={moment.mediaUrl}
+                className="w-full h-full object-cover pointer-events-none"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+              >
+                Your browser does not support the video tag.
+              </video>
+              {/* NFT Edition Badge - subtle bottom left */}
+              {moment.hasNFTEdition && (
+                <div className="absolute bottom-2 left-2 flex items-center">
+                  {moment.isMintingActive ? (
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  ) : (
+                    <div className="w-2 h-2 bg-gray-400 rounded-full opacity-60"></div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : moment.mediaType?.startsWith('image') ? (
+            <img
+              src={moment.mediaUrl}
+              alt={moment.songName}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+              <div className="text-gray-500">
+                <span className="text-2xl">🎵</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="p-4">
+        {/* Rarity Badge */}
+        <div className={`inline-block px-2 py-1 rounded-full text-xs font-bold text-white mb-2 ${rarityColor}`}>
+          {moment.rarityTier || 'basic'}
+        </div>
+
+        {/* Performance Info */}
+        <div className="mb-2">
+          <div className="font-medium text-gray-900 text-sm truncate">
+            {moment.venueName}
+          </div>
+          <div className="text-xs text-gray-500 flex items-center gap-2">
+            <span>{moment.venueCity}</span>
+            <span>•</span>
+            <span>{formatShortDate(moment.performanceDate)}</span>
+          </div>
+        </div>
+
+        {/* Uploader */}
+        <div className="text-xs text-gray-600 flex items-center gap-1">
+          <span>by</span>
+          <span className="font-medium">{moment.user?.displayName || 'Unknown'}</span>
+        </div>
+
+        {/* Description preview */}
+        {moment.momentDescription && (
+          <div className="text-xs text-gray-500 mt-2 line-clamp-2">
+            {moment.momentDescription}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+SongMomentCard.displayName = 'SongMomentCard';
 
 export default SongDetail;
