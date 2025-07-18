@@ -286,6 +286,29 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   // Mobile detection
   const isMobile = window.innerWidth <= 768;
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    // Store original body overflow
+    const originalOverflow = document.body.style.overflow;
+    const originalPosition = document.body.style.position;
+    
+    // Prevent body scroll and fix position
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = '0';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.position = originalPosition;
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+    };
+  }, []);
+
   return (
     <>
       <div className={`modal-overlay ${isMobile ? 'mobile' : ''}`} onClick={onClose}>
@@ -645,6 +668,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             justify-content: center;
             padding: 1rem;
             overflow-y: auto;
+            backdrop-filter: blur(2px);
           }
 
           .trading-card-modal {

@@ -274,11 +274,11 @@ const OtherContentSection = memo(({
         <div className="flex items-center justify-between gap-4">
           {/* Left side: Title + moment count */}
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-semibold text-purple-800">
+            <h3 className="text-base font-medium text-gray-600">
               📀 Other Performance Content
             </h3>
             {hasUploadedMoments && (
-              <span className="px-2 py-1 text-xs bg-purple-200 text-purple-800 rounded-full">
+              <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
                 {totalOtherMoments} moment{totalOtherMoments !== 1 ? 's' : ''}
               </span>
             )}
@@ -290,7 +290,7 @@ const OtherContentSection = memo(({
             {user && (
               <button
                 onClick={() => onUploadOtherContent('other')}
-                className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-medium rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 text-sm"
+                className="group flex items-center gap-2 px-3 py-1.5 bg-gray-500 text-white font-normal rounded-md hover:bg-gray-600 transition-all duration-200 text-sm"
               >
                 <span className="text-sm">📀</span>
                 <span>Upload</span>
@@ -301,9 +301,9 @@ const OtherContentSection = memo(({
             {hasUploadedMoments && (
               <button
                 onClick={() => setShowOtherContent(!showOtherContent)}
-                className="p-2 rounded-lg hover:bg-purple-100/50 transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
-                <span className="text-purple-600 text-lg">
+                <span className="text-gray-400 text-lg">
                   {showOtherContent ? '▼' : '▶'}
                 </span>
               </button>
