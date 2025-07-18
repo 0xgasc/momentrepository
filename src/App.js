@@ -50,8 +50,9 @@ const MainApp = memo(() => {
   
   const { user, logout, loading } = useAuth();
   
-  // Temporary debugging
+  // Temporary debugging 
   console.log('🔍 App.js - Auth state:', { user, loading, hasUser: !!user });
+  console.log('🔍 User email:', user?.email);
 
 
   // Navigation handlers
