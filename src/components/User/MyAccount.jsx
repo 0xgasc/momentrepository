@@ -3,6 +3,7 @@ import React, { useState, useEffect, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 
 const MyAccount = memo(({ onClose }) => {
+  // eslint-disable-next-line no-unused-vars
   const { user, token } = useAuth();
   const [profile, setProfile] = useState(null);
   const [myMoments, setMyMoments] = useState([]);
@@ -11,7 +12,7 @@ const MyAccount = memo(({ onClose }) => {
 
   useEffect(() => {
     fetchAccountData();
-  }, []);
+  }, [fetchAccountData]);
 
   const fetchAccountData = async () => {
     try {

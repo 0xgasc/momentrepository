@@ -7,6 +7,7 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
   const [step, setStep] = useState('form');
   const [file, setFile] = useState(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');

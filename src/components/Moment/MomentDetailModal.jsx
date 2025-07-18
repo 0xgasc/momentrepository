@@ -39,6 +39,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   // States
   const [nftStatus, setNftStatus] = useState(null);
   const [fetchingNftStatus, setFetchingNftStatus] = useState(true);
+  // eslint-disable-next-line no-unused-vars
   const [showRarityBreakdown, setShowRarityBreakdown] = useState(false);
   const [showRarityInfo, setShowRarityInfo] = useState(false);
   const [showRaritySection, setShowRaritySection] = useState(false);
@@ -46,7 +47,9 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [showFileDetails, setShowFileDetails] = useState(false);
   const [showEmptyFields, setShowEmptyFields] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [imageLoaded, setImageLoaded] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [mediaError, setMediaError] = useState(false);
   const [showNftPanel, setShowNftPanel] = useState(false);

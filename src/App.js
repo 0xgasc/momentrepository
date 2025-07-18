@@ -1,4 +1,4 @@
-import React, { useState, memo, Suspense, lazy } from 'react';
+import React, { useState, memo } from 'react';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
 import { Menu, X } from 'lucide-react';

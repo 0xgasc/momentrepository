@@ -16,7 +16,7 @@ const AdminPanel = memo(({ onClose }) => {
 
   useEffect(() => {
     fetchAdminData();
-  }, []);
+  }, [fetchAdminData]);
 
   const fetchAdminData = async () => {
     try {
@@ -75,7 +75,7 @@ const AdminPanel = memo(({ onClose }) => {
       });
       
       if (response.ok) {
-        const result = await response.json();
+        await response.json();
         
         // Update users list
         setUsers(users.map(user => 

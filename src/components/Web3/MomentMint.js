@@ -1,7 +1,7 @@
 /* global BigInt */
 import React, { useState, useEffect } from 'react';
 import { useAccount, useConnect, useWaitForTransactionReceipt, useWriteContract, useReadContract } from 'wagmi';
-import { Plus, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import UMOMomentsERC1155Contract from '../../contracts/UMOMomentsERC1155.json';
 import UMOMomentsERC1155V2Contract from '../../contracts/UMOMomentsERC1155V2.json';
@@ -50,7 +50,9 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
   const { 
     writeContract, 
     data: writeContractData, 
+    // eslint-disable-next-line no-unused-vars
     isPending: writeContractPending,
+    // eslint-disable-next-line no-unused-vars
     isSuccess: writeContractSuccess,
     error: writeContractError 
   } = useWriteContract();
@@ -155,7 +157,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         }
       }
     }
-  }, [isConfirmed, writeContractData, currentStep, isCreatingNFT, isMinting, pendingMintRecord]);
+  }, [isConfirmed, writeContractData, currentStep, isCreatingNFT, isMinting, pendingMintRecord, address, lastMintQuantity, onRefresh, recordMintInDatabaseWithData]);
 
   // Handle transaction errors
   useEffect(() => {

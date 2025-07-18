@@ -1,5 +1,5 @@
 // Platform Settings Context - Global settings management
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 const PlatformSettingsContext = createContext();
 
@@ -22,7 +22,7 @@ export const PlatformSettingsProvider = ({ children }) => {
       ? 'http://localhost:5050'  
       : 'https://your-backend-url.com');
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -51,7 +51,7 @@ export const PlatformSettingsProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_BASE_URL]);
 
   useEffect(() => {
     fetchSettings();
