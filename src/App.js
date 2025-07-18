@@ -49,6 +49,9 @@ const MainApp = memo(() => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   
   const { user, logout, loading } = useAuth();
+  
+  // Temporary debugging
+  console.log('🔍 App.js - Auth state:', { user, loading, hasUser: !!user });
 
 
   // Navigation handlers
