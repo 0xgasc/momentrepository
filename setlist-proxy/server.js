@@ -7,6 +7,8 @@ require('dotenv').config();
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const User = require('./models/User');
 const Moment = require('./models/Moment');
+const PlatformSettings = require('./models/PlatformSettings');
+const emailService = require('./services/emailService');
 const { UMOCache } = require('./utils/umoCache');
 const { ethers } = require('ethers');
 const { extractVideoThumbnail } = require('./utils/videoThumbnailExtractor');
@@ -84,6 +86,39 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
+
+// ✅ NEW: Role-based access control middleware
+const requireRole = (requiredRole) => {
+  return async (req, res, next) => {
+    try {
+      const user = await User.findById(req.user.id);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      // Update last active timestamp
+      user.lastActive = new Date();
+      await user.save();
+      
+      // Check role permissions
+      if (requiredRole === 'admin' && !user.isAdmin()) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+      if (requiredRole === 'mod' && !user.isModOrAdmin()) {
+        return res.status(403).json({ error: 'Moderator access required' });
+      }
+      
+      req.authenticatedUser = user; // Attach full user object
+      next();
+    } catch (error) {
+      console.error('❌ Role check error:', error);
+      res.status(500).json({ error: 'Authorization check failed' });
+    }
+  };
+};
+
+const requireAdmin = requireRole('admin');
+const requireMod = requireRole('mod');
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
@@ -1385,10 +1420,22 @@ app.post('/register', async (req, res) => {
   const { email, password, displayName } = req.body;
   try {
     let user = await User.findOne({ email });
+    let isNewUser = false;
     if (!user) {
       user = new User({ email, displayName });
       await user.setPassword(password);
       await user.save();
+      isNewUser = true;
+    }
+
+    // 📧 Send notification to admins about new user registration
+    if (isNewUser) {
+      try {
+        const adminEmails = await emailService.getAdminEmails();
+        await emailService.sendNewUserRegistered(user, adminEmails);
+      } catch (emailError) {
+        console.error('📧 Email notification error:', emailError);
+      }
     }
 
     const token = generateToken(user);
@@ -1413,6 +1460,432 @@ app.post('/login', async (req, res) => {
   } catch (err) {
     console.error('❌ Login error:', err);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// =============================================================================
+// ROLE MANAGEMENT & ADMIN ENDPOINTS
+// =============================================================================
+
+// Bootstrap admin (run once to set up solo@solo.solo as admin)
+app.post('/bootstrap-admin', async (req, res) => {
+  try {
+    const { adminSecret } = req.body;
+    
+    // Simple protection - require a secret
+    if (adminSecret !== 'UMO-ADMIN-SETUP-2024') {
+      return res.status(403).json({ error: 'Invalid admin secret' });
+    }
+    
+    // Set solo@solo.solo as admin
+    const adminEmail = 'solo@solo.solo';
+    const adminUser = await User.findOne({ email: adminEmail });
+    
+    if (!adminUser) {
+      return res.status(404).json({ error: 'Admin user not found. Please register first.' });
+    }
+    
+    // Always ensure admin role is set
+    if (adminUser.role !== 'admin') {
+      adminUser.role = 'admin';
+      adminUser.roleAssignedAt = new Date();
+      await adminUser.save();
+    }
+    
+    // Always run these updates to fix any missing data
+    // Set all existing users to 'user' role if they don't have one
+    const usersUpdated = await User.updateMany(
+      { role: { $exists: false } },
+      { $set: { role: 'user', lastActive: new Date() } }
+    );
+    
+    // Grandfather all existing moments as approved
+    const momentsUpdated = await Moment.updateMany(
+      { $or: [
+        { approvalStatus: { $exists: false } },
+        { approvalStatus: null }
+      ]},
+      { 
+        $set: { 
+          approvalStatus: 'approved',
+          reviewedBy: adminUser._id,
+          reviewedAt: new Date()
+        }
+      }
+    );
+    
+    console.log('🎉 Admin bootstrap complete!');
+    console.log(`📊 Updated ${usersUpdated.modifiedCount} users and ${momentsUpdated.modifiedCount} moments`);
+    
+    res.json({ 
+      success: true, 
+      message: momentsUpdated.modifiedCount > 0 ? 'Bootstrap updates applied' : 'System already up to date',
+      admin: adminUser.email,
+      usersUpdated: usersUpdated.modifiedCount,
+      momentsUpdated: momentsUpdated.modifiedCount,
+      note: 'All existing content approved, new uploads require moderation'
+    });
+    
+  } catch (error) {
+    console.error('❌ Admin bootstrap error:', error);
+    res.status(500).json({ error: 'Bootstrap failed' });
+  }
+});
+
+// Get current user's profile with role info
+app.get('/profile', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-passwordHash');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Update last active
+    user.lastActive = new Date();
+    await user.save();
+    
+    res.json({
+      user: {
+        id: user._id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        createdAt: user.createdAt,
+        lastActive: user.lastActive,
+        roleAssignedAt: user.roleAssignedAt
+      }
+    });
+  } catch (error) {
+    console.error('❌ Profile fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
+// Admin: Get all users with roles
+app.get('/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const users = await User.find({})
+      .select('-passwordHash')
+      .populate('assignedBy', 'email displayName')
+      .sort({ createdAt: -1 });
+      
+    res.json({ users });
+  } catch (error) {
+    console.error('❌ Admin users fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Admin: Assign role to user
+app.put('/admin/users/:userId/role', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { role } = req.body;
+    
+    if (!['user', 'mod', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const oldRole = user.role;
+    user.role = role;
+    user.assignedBy = req.user.id;
+    user.roleAssignedAt = new Date();
+    await user.save();
+    
+    console.log(`👑 Admin ${req.user.email} changed ${user.email} from ${oldRole} to ${role}`);
+    
+    // 📧 Send role assignment notification to user
+    try {
+      const assignedByUser = await User.findById(req.user.id);
+      await emailService.sendRoleAssigned(user, role, assignedByUser);
+    } catch (emailError) {
+      console.error('📧 Email notification error:', emailError);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `User role updated from ${oldRole} to ${role}`,
+      user: {
+        id: user._id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        roleAssignedAt: user.roleAssignedAt
+      }
+    });
+  } catch (error) {
+    console.error('❌ Role assignment error:', error);
+    res.status(500).json({ error: 'Failed to assign role' });
+  }
+});
+
+// Admin: Get platform settings
+app.get('/admin/settings', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const settings = await PlatformSettings.getCurrentSettings();
+    res.json({ 
+      success: true, 
+      settings: settings.toObject({ virtuals: true }) 
+    });
+  } catch (error) {
+    console.error('❌ Platform settings fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch platform settings' });
+  }
+});
+
+// Admin: Update platform settings
+app.put('/admin/settings', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const updates = req.body;
+    const allowedSettings = [
+      'web3Enabled', 'maintenanceMode', 'uploadsEnabled', 
+      'autoApprovalEnabled', 'maxFileSize', 'platformName', 
+      'platformDescription', 'adminEmail'
+    ];
+    
+    const settings = await PlatformSettings.getCurrentSettings();
+    let updatedFields = [];
+    
+    // Update only allowed fields
+    Object.keys(updates).forEach(key => {
+      if (allowedSettings.includes(key) && updates[key] !== undefined) {
+        const oldValue = settings[key];
+        settings[key] = updates[key];
+        settings.updatedBy = req.user.id;
+        updatedFields.push({ field: key, oldValue, newValue: updates[key] });
+      }
+    });
+    
+    await settings.save();
+    
+    console.log(`⚙️ Admin ${req.user.email} updated platform settings:`, 
+      updatedFields.map(f => `${f.field}: ${f.oldValue} → ${f.newValue}`).join(', ')
+    );
+    
+    res.json({ 
+      success: true, 
+      message: `Updated ${updatedFields.length} platform settings`,
+      settings: settings.toObject({ virtuals: true }),
+      updatedFields
+    });
+  } catch (error) {
+    console.error('❌ Platform settings update error:', error);
+    res.status(500).json({ error: 'Failed to update platform settings' });
+  }
+});
+
+// Public: Get platform settings (limited fields for frontend)
+app.get('/platform/settings', async (req, res) => {
+  try {
+    const settings = await PlatformSettings.getCurrentSettings();
+    
+    // Only expose public settings
+    const publicSettings = {
+      web3Enabled: settings.web3Enabled,
+      maintenanceMode: settings.maintenanceMode,
+      uploadsEnabled: settings.uploadsEnabled,
+      platformName: settings.platformName,
+      platformDescription: settings.platformDescription,
+      maxFileSize: settings.maxFileSize
+    };
+    
+    res.json({ success: true, settings: publicSettings });
+  } catch (error) {
+    console.error('❌ Public platform settings fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch platform settings' });
+  }
+});
+
+// =============================================================================
+// CONTENT MODERATION ENDPOINTS
+// =============================================================================
+
+// Mod/Admin: Get pending moments for review
+app.get('/moderation/pending', authenticateToken, requireMod, async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+    
+    const pendingMoments = await Moment.find({ approvalStatus: 'pending' })
+      .populate('user', 'email displayName')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+      
+    const totalPending = await Moment.countDocuments({ approvalStatus: 'pending' });
+    
+    res.json({
+      moments: pendingMoments,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalPending,
+        hasMore: skip + pendingMoments.length < totalPending
+      }
+    });
+  } catch (error) {
+    console.error('❌ Pending moments fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch pending moments' });
+  }
+});
+
+// Mod/Admin: Approve moment
+app.put('/moderation/moments/:momentId/approve', authenticateToken, requireMod, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const moment = await Moment.findById(momentId);
+    
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+    
+    moment.approvalStatus = 'approved';
+    moment.reviewedBy = req.user.id;
+    moment.reviewedAt = new Date();
+    await moment.save();
+    
+    console.log(`✅ Mod ${req.authenticatedUser.email} approved moment ${momentId}`);
+    
+    // 📧 Send approval email to user
+    try {
+      const momentWithUser = await Moment.findById(momentId).populate('user');
+      await emailService.sendMomentApproved(momentWithUser, momentWithUser.user);
+    } catch (emailError) {
+      console.error('📧 Email notification error:', emailError);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Moment approved',
+      moment: {
+        id: moment._id,
+        approvalStatus: moment.approvalStatus,
+        reviewedAt: moment.reviewedAt
+      }
+    });
+  } catch (error) {
+    console.error('❌ Moment approval error:', error);
+    res.status(500).json({ error: 'Failed to approve moment' });
+  }
+});
+
+// Mod/Admin: Reject and delete moment
+app.delete('/moderation/moments/:momentId/reject', authenticateToken, requireMod, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { reason } = req.body;
+    
+    const moment = await Moment.findById(momentId);
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+    
+    // 📧 Send rejection email to user before deletion
+    try {
+      const momentWithUser = await Moment.findById(momentId).populate('user');
+      await emailService.sendMomentRejected(momentWithUser, momentWithUser.user, reason);
+    } catch (emailError) {
+      console.error('📧 Email notification error:', emailError);
+    }
+    
+    // Delete the moment entirely (as per requirements)
+    await Moment.findByIdAndDelete(momentId);
+    
+    console.log(`❌ Mod ${req.authenticatedUser.email} rejected and deleted moment ${momentId}: ${reason}`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Moment rejected and deleted',
+      reason: reason || 'No reason provided'
+    });
+  } catch (error) {
+    console.error('❌ Moment rejection error:', error);
+    res.status(500).json({ error: 'Failed to reject moment' });
+  }
+});
+
+// Mod/Admin: Send moment back for review with suggested changes
+app.put('/moderation/moments/:momentId/send-back', authenticateToken, requireMod, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { moderatorNote, ...suggestedMetadata } = req.body;
+    
+    const moment = await Moment.findById(momentId);
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+    
+    // Apply moderator's changes directly to the moment and mark as needs revision
+    const updateFields = {
+      approvalStatus: 'needs_revision',
+      rejectionReason: moderatorNote || 'Your moment has been updated by a moderator. Please review the changes and resubmit if you agree.',
+      reviewedBy: req.authenticatedUser._id,
+      reviewedAt: new Date(),
+      userApprovedChanges: false
+    };
+    
+    // Apply all metadata changes directly to the moment
+    Object.keys(suggestedMetadata).forEach(key => {
+      if (suggestedMetadata[key] !== undefined) {
+        updateFields[key] = suggestedMetadata[key];
+      }
+    });
+    
+    const updatedMoment = await Moment.findByIdAndUpdate(
+      momentId,
+      updateFields,
+      { new: true }
+    );
+    
+    console.log(`📤 Mod ${req.authenticatedUser.email} applied changes and sent moment ${momentId} back for review`);
+    
+    // 📧 Send needs revision email to user
+    try {
+      const momentWithUser = await Moment.findById(momentId).populate('user');
+      await emailService.sendMomentNeedsRevision(momentWithUser, momentWithUser.user, moderatorNote, suggestedMetadata);
+    } catch (emailError) {
+      console.error('📧 Email notification error:', emailError);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Changes applied and moment sent back for review',
+      moment: {
+        id: updatedMoment._id,
+        status: updatedMoment.approvalStatus,
+        moderatorNote: moderatorNote,
+        appliedChanges: suggestedMetadata
+      }
+    });
+  } catch (error) {
+    console.error('❌ Send back for review error:', error);
+    res.status(500).json({ error: 'Failed to send back for review' });
+  }
+});
+
+// User: Get my moments with approval status
+app.get('/moments/my-status', authenticateToken, async (req, res) => {
+  try {
+    const { status = 'all' } = req.query;
+    
+    let query = { user: req.user.id };
+    if (status !== 'all') {
+      query.approvalStatus = status;
+    }
+    
+    const moments = await Moment.find(query)
+      .sort({ createdAt: -1 })
+      .populate('reviewedBy', 'email displayName');
+      
+    res.json({ moments });
+  } catch (error) {
+    console.error('❌ User moments status fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch moment status' });
   }
 });
 
@@ -1515,6 +1988,144 @@ app.post('/upload-file', authenticateToken, (req, res, next) => {
 // MOMENT ENDPOINTS
 // =============================================================================
 
+// Update moment description (for pending moments only)
+app.put('/moments/:momentId/description', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { momentDescription } = req.body;
+    const userId = req.user.id;
+    
+    // Find the moment and verify ownership
+    const moment = await Moment.findOne({ _id: momentId, user: userId });
+    
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found or not owned by user' });
+    }
+    
+    // Only allow editing pending or needs_revision moments
+    if (moment.approvalStatus !== 'pending' && moment.approvalStatus !== 'needs_revision') {
+      return res.status(403).json({ error: 'Can only edit pending or needs revision moments' });
+    }
+    
+    // Update the description
+    moment.momentDescription = momentDescription;
+    await moment.save();
+    
+    console.log(`✏️ User ${userId} updated description for moment ${momentId}`);
+    res.json({ success: true, message: 'Description updated' });
+    
+  } catch (error) {
+    console.error('❌ Update moment description error:', error);
+    res.status(500).json({ error: 'Failed to update description' });
+  }
+});
+
+// Update moment metadata (for pending moments only)
+app.put('/moments/:momentId/metadata', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const metadata = req.body;
+    const userId = req.user.id;
+    
+    // Find the moment and verify ownership
+    const moment = await Moment.findOne({ _id: momentId, user: userId });
+    
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found or not owned by user' });
+    }
+    
+    // Only allow editing pending or needs_revision moments
+    if (moment.approvalStatus !== 'pending' && moment.approvalStatus !== 'needs_revision') {
+      return res.status(403).json({ error: 'Can only edit pending or needs revision moments' });
+    }
+    
+    // Update allowed metadata fields
+    const allowedFields = [
+      'momentDescription', 'personalNote', 'emotionalTags', 'specialOccasion',
+      'audioQuality', 'videoQuality', 'instruments', 'guestAppearances',
+      'crowdReaction', 'uniqueElements'
+    ];
+    
+    allowedFields.forEach(field => {
+      if (metadata[field] !== undefined) {
+        // Convert arrays back to comma-separated strings for array-like fields
+        if (['emotionalTags', 'instruments', 'guestAppearances', 'uniqueElements'].includes(field) && Array.isArray(metadata[field])) {
+          moment[field] = metadata[field].join(', ');
+        } else {
+          moment[field] = metadata[field];
+        }
+      }
+    });
+    
+    // If moment was needs_revision, change it back to pending for re-review
+    const wasNeedsRevision = moment.approvalStatus === 'needs_revision';
+    const previousFeedback = moment.rejectionReason;
+    
+    if (wasNeedsRevision) {
+      moment.approvalStatus = 'pending';
+      moment.rejectionReason = null; // Clear the moderator feedback
+      moment.reviewedBy = null;
+      moment.reviewedAt = null;
+      moment.userApprovedChanges = false;
+    }
+    
+    await moment.save();
+    
+    // 📧 Send email notifications for resubmission
+    if (wasNeedsRevision) {
+      try {
+        const momentWithUser = await Moment.findById(momentId).populate('user');
+        
+        // Notify user of resubmission
+        await emailService.sendMomentResubmitted(momentWithUser, momentWithUser.user);
+        
+        // Notify moderators of resubmission
+        const moderatorEmails = await emailService.getModeratorEmails();
+        await emailService.sendMomentResubmittedForMod(momentWithUser, momentWithUser.user, moderatorEmails, previousFeedback);
+      } catch (emailError) {
+        console.error('📧 Email notification error:', emailError);
+      }
+    }
+    
+    console.log(`✏️ User ${userId} updated metadata for moment ${momentId}`);
+    res.json({ success: true, message: 'Metadata updated' });
+    
+  } catch (error) {
+    console.error('❌ Update moment metadata error:', error);
+    res.status(500).json({ error: 'Failed to update metadata' });
+  }
+});
+
+// Delete moment (withdraw submission)
+app.delete('/moments/:momentId', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const userId = req.user.id;
+    
+    // Find the moment and verify ownership
+    const moment = await Moment.findOne({ _id: momentId, user: userId });
+    
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found or not owned by user' });
+    }
+    
+    // Only allow deleting pending or rejected moments
+    if (moment.approvalStatus === 'approved') {
+      return res.status(403).json({ error: 'Cannot delete approved moments' });
+    }
+    
+    // Delete the moment
+    await Moment.findByIdAndDelete(momentId);
+    
+    console.log(`🗑️ User ${userId} withdrew moment ${momentId} (${moment.approvalStatus})`);
+    res.json({ success: true, message: 'Moment deleted successfully' });
+    
+  } catch (error) {
+    console.error('❌ Delete moment error:', error);
+    res.status(500).json({ error: 'Failed to delete moment' });
+  }
+});
+
 app.post('/upload-moment', authenticateToken, async (req, res) => {
   const { 
     performanceId, 
@@ -1608,6 +2219,14 @@ const rarityData = await calculateRarityScore(moment, umoCache);
       console.log(`🎭 Non-song content processed:`, rarityData.scoreBreakdown.nonSongContent);
     }
     
+    // 📧 Send notification to moderators about new moment for review
+    try {
+      const moderatorEmails = await emailService.getModeratorEmails();
+      await emailService.sendNewMomentForReview(moment, moment.user, moderatorEmails);
+    } catch (emailError) {
+      console.error('📧 Email notification error:', emailError);
+    }
+    
     res.json({ 
       success: true, 
       moment,
@@ -1636,7 +2255,8 @@ app.get('/moments/my', authenticateToken, async (req, res) => {
 
 app.get('/moments', async (req, res) => {
   try {
-    const moments = await Moment.find({})
+    // Only show approved moments to the public
+    const moments = await Moment.find({ approvalStatus: 'approved' })
       .sort({ createdAt: -1 })
       .limit(100)
       .populate('user', 'displayName');
@@ -1685,7 +2305,10 @@ app.get('/moments/performance/:performanceId', async (req, res) => {
   try {
     const { performanceId } = req.params;
     
-    const moments = await Moment.find({ performanceId })
+    const moments = await Moment.find({ 
+      performanceId,
+      approvalStatus: 'approved'
+    })
       .sort({ songPosition: 1, createdAt: -1 })
       .populate('user', 'displayName');
     
@@ -1753,7 +2376,8 @@ app.get('/moments/song/:songName', async (req, res) => {
     console.log(`🎵 Fetching moments for song: "${decodedSongName}"`);
     
     const moments = await Moment.find({ 
-      songName: decodedSongName 
+      songName: decodedSongName,
+      approvalStatus: 'approved'
     })
     .sort({ createdAt: -1 })
     .populate('user', 'displayName');

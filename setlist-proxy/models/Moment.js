@@ -27,7 +27,7 @@ const momentSchema = new mongoose.Schema({
   // ✅ CRITICAL FIX: Added contentType field
   contentType: { 
     type: String, 
-    enum: ['song', 'intro', 'jam', 'crowd', 'other'], 
+    enum: ['song', 'intro', 'outro', 'jam', 'crowd', 'other'], 
     default: 'song' 
   },
   
@@ -81,6 +81,22 @@ const momentSchema = new mongoose.Schema({
   }],
   nftCardUrl: { type: String }, // Generated NFT card image URL
   
+  // ✅ NEW: Moderation system
+  approvalStatus: { 
+    type: String, 
+    enum: ['pending', 'approved', 'rejected', 'needs_revision'], 
+    default: 'pending' 
+  },
+  reviewedBy: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User',
+    default: null 
+  },
+  reviewedAt: { type: Date, default: null },
+  rejectionReason: { type: String, default: null },
+  moderatorChanges: { type: String, default: null }, // If mod suggests changes
+  userApprovedChanges: { type: Boolean, default: false }, // User approves mod changes
+  
   // Metadata
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
@@ -112,6 +128,12 @@ momentSchema.index({ nftContractAddress: 1 }); // Find moments by contract
 momentSchema.index({ nftMintEndTime: 1 }); // Find active minting windows
 momentSchema.index({ nftMintedCount: -1 }); // Sort by popularity
 momentSchema.index({ nftSplitsContract: 1 }); // Find by splits contract
+
+// ✅ NEW INDEXES for moderation system
+momentSchema.index({ approvalStatus: 1 }); // Find by approval status
+momentSchema.index({ reviewedBy: 1 }); // Find by reviewer
+momentSchema.index({ approvalStatus: 1, createdAt: -1 }); // Pending moments sorted by date
+momentSchema.index({ user: 1, approvalStatus: 1 }); // User's moments by status
 
 // Virtual for getting full venue name
 momentSchema.virtual('fullVenueName').get(function() {
@@ -177,7 +199,8 @@ momentSchema.virtual('mintingTimeRemaining').get(function() {
 momentSchema.virtual('contentTypeDisplay').get(function() {
   const typeInfo = {
     song: { emoji: '🎵', label: 'Song Performance' },
-    intro: { emoji: '🎭', label: 'Intro/Outro' },
+    intro: { emoji: '🎭', label: 'Intro' },
+    outro: { emoji: '🎬', label: 'Outro' },
     jam: { emoji: '🎸', label: 'Jam/Improv' },
     crowd: { emoji: '👥', label: 'Crowd Moment' },
     other: { emoji: '🎪', label: 'Other Content' }
