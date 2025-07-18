@@ -80,7 +80,7 @@
     "tailwindcss": "^4.1.10",
     "ts-node": "^10.9.2",
     "typechain": "^8.3.2",
-    "typescript": "^4.9.5",
+    "typescript": "^5.8.3",
     "bundlesize": "^0.18.1",
     "lighthouse": "^11.7.0",
     "@lhci/cli": "^0.13.0",
