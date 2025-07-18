@@ -169,35 +169,50 @@ const PerformanceHeader = memo(({
   onToggleMomentsFilter
 }) => (
   <>
-    {/* Header with Search */}
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+    {/* Header with Search and Controls - All on one line */}
+    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
       <div>
         <h3 className="text-xl font-bold">Latest Performances</h3>
       </div>
       
-      <div className="relative w-full sm:w-96">
-        <input
-          type="text"
-          value={citySearch}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search by city, venue, song name, or year..."
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 search-input"
-          style={{ minHeight: '48px', fontSize: '16px' }} // Prevents zoom on iOS
-        />
-        <div className="absolute right-3 top-2 flex items-center gap-1">
-          {searching && (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-          )}
-          {citySearch && (
-            <button
-              onClick={onClearSearch}
-              className="text-gray-400 hover:text-gray-600 ml-1 mobile-touch-target"
-              style={{ minWidth: '32px', minHeight: '32px', padding: '6px', fontSize: '18px' }}
-            >
-              ×
-            </button>
-          )}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
+        {/* Search input */}
+        <div className="relative w-full sm:w-80">
+          <input
+            type="text"
+            value={citySearch}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search by city, venue, song name, or year..."
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 search-input"
+            style={{ minHeight: '48px', fontSize: '16px' }} // Prevents zoom on iOS
+          />
+          <div className="absolute right-3 top-2 flex items-center gap-1">
+            {searching && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            )}
+            {citySearch && (
+              <button
+                onClick={onClearSearch}
+                className="text-gray-400 hover:text-gray-600 ml-1 mobile-touch-target"
+                style={{ minWidth: '32px', minHeight: '32px', padding: '6px', fontSize: '18px' }}
+              >
+                ×
+              </button>
+            )}
+          </div>
         </div>
+        
+        {/* Moments filter toggle - moved here */}
+        <label className="flex items-center cursor-pointer mobile-touch-target whitespace-nowrap" style={{ minHeight: '48px', padding: '8px' }}>
+          <input
+            type="checkbox"
+            checked={showOnlyWithMoments}
+            onChange={(e) => onToggleMomentsFilter(e.target.checked)}
+            className="mr-2"
+            style={{ minWidth: '20px', minHeight: '20px' }}
+          />
+          <span className="text-sm text-gray-700">With moments only</span>
+        </label>
       </div>
     </div>
 
@@ -225,19 +240,6 @@ const PerformanceHeader = memo(({
       </div>
     )}
 
-    {/* Moments filter toggle */}
-    <div className="mb-4 flex items-center justify-end">
-      <label className="flex items-center cursor-pointer mobile-touch-target" style={{ minHeight: '44px', padding: '8px' }}>
-        <input
-          type="checkbox"
-          checked={showOnlyWithMoments}
-          onChange={(e) => onToggleMomentsFilter(e.target.checked)}
-          className="mr-3"
-          style={{ minWidth: '20px', minHeight: '20px' }}
-        />
-        <span className="text-sm text-gray-700">With moments only</span>
-      </label>
-    </div>
   </>
 ));
 
