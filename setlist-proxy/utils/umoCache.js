@@ -159,11 +159,18 @@ class UMOCache {
           
           console.log(`📄 Fetching page ${page}...`);
           
+          const apiKey = process.env.SETLIST_FM_API_KEY;
+          console.log(`🔑 API Key status: ${apiKey ? 'Found' : 'MISSING!'} (length: ${apiKey?.length || 0})`);
+          
+          if (!apiKey) {
+            throw new Error('SETLIST_FM_API_KEY environment variable is not set');
+          }
+          
           // DIRECT API CALL - not through proxy
           const response = await fetch(`https://api.setlist.fm/rest/1.0/artist/e2305342-0bde-4a2c-aed0-4b88694834de/setlists?p=${page}`, {
             headers: { 
               Accept: 'application/json',
-              'x-api-key': process.env.SETLIST_FM_API_KEY,
+              'x-api-key': apiKey,
               'User-Agent': 'UMORepository/1.0'
             },
             signal: this.createTimeoutSignal(20000)

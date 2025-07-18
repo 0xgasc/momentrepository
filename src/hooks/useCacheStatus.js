@@ -8,6 +8,7 @@ export const useCacheStatus = (apiBaseUrl) => {
   const [cacheStatus, setCacheStatus] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshStatus, setRefreshStatus] = useState(null);
 
   // Load cache status
   const loadCacheStatus = useCallback(async () => {
@@ -19,21 +20,43 @@ export const useCacheStatus = (apiBaseUrl) => {
     }
   }, [apiBaseUrl]);
 
+  // Check refresh status
+  const checkRefreshStatus = useCallback(async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/cache/refresh/status`);
+      if (response.ok) {
+        const data = await response.json();
+        setRefreshStatus(data.refreshStatus);
+        setCacheStatus(data.cacheStats);
+      }
+    } catch (err) {
+      console.error('Error checking refresh status:', err);
+    }
+  }, [apiBaseUrl]);
+
   // Handle cache refresh
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await refreshCache(apiBaseUrl);
-      setTimeout(async () => {
-        const status = await getCacheStatus(apiBaseUrl);
-        setCacheStatus(status);
-        setRefreshing(false);
-      }, 2000);
+      
+      // Poll for status updates
+      const pollStatus = async () => {
+        await checkRefreshStatus();
+        if (refreshStatus?.inProgress) {
+          setTimeout(pollStatus, 2000); // Check every 2 seconds
+        } else {
+          setRefreshing(false);
+        }
+      };
+      
+      setTimeout(pollStatus, 1000); // Start polling after 1 second
+      
     } catch (err) {
       console.error('Refresh failed:', err);
       setRefreshing(false);
     }
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, refreshStatus, checkRefreshStatus]);
 
   // Toggle details visibility
   const toggleDetails = useCallback(() => {
@@ -52,9 +75,11 @@ export const useCacheStatus = (apiBaseUrl) => {
     cacheStatus,
     showDetails,
     refreshing,
+    refreshStatus,
     shouldShow,
     handleRefresh,
     toggleDetails,
-    loadCacheStatus
+    loadCacheStatus,
+    checkRefreshStatus
   };
 };

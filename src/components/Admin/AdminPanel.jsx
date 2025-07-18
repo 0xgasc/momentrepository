@@ -732,7 +732,7 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
 
 // Platform Settings Tab
 const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
-  const { cacheStatus, showDetails, refreshing, handleRefresh, toggleDetails } = useCacheStatus(API_BASE_URL);
+  const { cacheStatus, showDetails, refreshing, refreshStatus, handleRefresh, toggleDetails, checkRefreshStatus } = useCacheStatus(API_BASE_URL);
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [localSettings, setLocalSettings] = useState(platformSettings);

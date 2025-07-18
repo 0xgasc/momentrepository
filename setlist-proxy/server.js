@@ -20,6 +20,15 @@ const PORT = process.env.PORT || 5050;
 // Initialize UMO cache
 const umoCache = new UMOCache();
 
+// Cache refresh status tracking
+let cacheRefreshStatus = {
+  inProgress: false,
+  startTime: null,
+  progress: null,
+  error: null,
+  lastCompleted: null
+};
+
 // Global metadata storage (in production, use database)
 global.metadataStorage = global.metadataStorage || {};
 
@@ -1301,29 +1310,84 @@ app.get('/cache/status', async (req, res) => {
 
 app.post('/cache/refresh', async (req, res) => {
   try {
+    if (cacheRefreshStatus.inProgress) {
+      return res.json({ 
+        message: 'Cache refresh already in progress',
+        status: 'in_progress',
+        startTime: cacheRefreshStatus.startTime,
+        progress: cacheRefreshStatus.progress
+      });
+    }
+
     console.log('🔄 Manual cache refresh requested...');
     
     const currentStats = await umoCache.getStats();
     const estimatedCalls = currentStats.apiCallsUsed || 200;
     
+    // Update status
+    cacheRefreshStatus = {
+      inProgress: true,
+      startTime: new Date(),
+      progress: { stage: 'starting', completed: 0, total: estimatedCalls },
+      error: null,
+      lastCompleted: null
+    };
+    
     res.json({ 
       message: 'Cache refresh started in background',
       estimatedApiCalls: estimatedCalls,
-      status: 'started'
+      status: 'started',
+      startTime: cacheRefreshStatus.startTime
     });
     
     const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN 
       ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
       : `http://localhost:${PORT}`;
+      
     umoCache.buildFreshCache(API_BASE_URL, (progress) => {
       console.log(`📊 Cache refresh progress:`, progress);
-    }).catch(err => {
+      cacheRefreshStatus.progress = progress;
+    })
+    .then(() => {
+      console.log('✅ Cache refresh completed successfully');
+      cacheRefreshStatus = {
+        inProgress: false,
+        startTime: null,
+        progress: null,
+        error: null,
+        lastCompleted: new Date()
+      };
+    })
+    .catch(err => {
       console.error('❌ Background cache refresh failed:', err);
+      cacheRefreshStatus = {
+        inProgress: false,
+        startTime: null,
+        progress: null,
+        error: err.message,
+        lastCompleted: null
+      };
     });
     
   } catch (err) {
     console.error('❌ Cache refresh error:', err);
+    cacheRefreshStatus.error = err.message;
+    cacheRefreshStatus.inProgress = false;
     res.status(500).json({ error: 'Failed to start cache refresh' });
+  }
+});
+
+// Get cache refresh status
+app.get('/cache/refresh/status', async (req, res) => {
+  try {
+    const currentStats = await umoCache.getStats();
+    res.json({
+      refreshStatus: cacheRefreshStatus,
+      cacheStats: currentStats
+    });
+  } catch (err) {
+    console.error('❌ Error getting cache status:', err);
+    res.status(500).json({ error: 'Failed to get cache status' });
   }
 });
 
