@@ -29,8 +29,14 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:mobile": "GENERATE_SOURCEMAP=false INLINE_RUNTIME_CHUNK=false react-scripts build",
+    "build:analyze": "npm run build && npx bundlesize",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "deploy:vercel": "npm run build:mobile && vercel --prod",
+    "deploy:netlify": "npm run build:mobile && netlify deploy --prod --dir=build",
+    "lighthouse": "lhci autorun",
+    "serve": "serve -s build -l 3000"
   },
   "eslintConfig": {
     "extends": [
@@ -74,6 +80,22 @@
     "tailwindcss": "^4.1.10",
     "ts-node": "^10.9.2",
     "typechain": "^8.3.2",
-    "typescript": "^5.8.3"
-  }
+    "typescript": "^4.9.5",
+    "bundlesize": "^0.18.1",
+    "lighthouse": "^11.7.0",
+    "@lhci/cli": "^0.13.0",
+    "serve": "^14.2.1"
+  },
+  "bundlesize": [
+    {
+      "path": "./build/static/js/*.js",
+      "maxSize": "500 kB",
+      "compression": "gzip"
+    },
+    {
+      "path": "./build/static/css/*.css",
+      "maxSize": "50 kB",
+      "compression": "gzip"
+    }
+  ]
 }
