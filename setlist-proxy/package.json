@@ -19,6 +19,7 @@
     "@irys/upload-ethereum": "^0.0.16",
     "arweave": "^1.15.7",
     "axios": "^1.9.0",
+    "bcrypt": "^6.0.0",
     "canvas": "^3.1.2",
     "cors": "^2.8.5",
     "cross-fetch": "^4.1.0",

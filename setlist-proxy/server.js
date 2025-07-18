@@ -357,6 +357,28 @@ module.exports = {
 };
 
 // =============================================================================
+// HEALTH CHECK ROUTES
+// =============================================================================
+
+// Health check for Railway and other deployment platforms
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'healthy', 
+    service: 'UMO Archive Backend',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy', 
+    service: 'UMO Archive Backend',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0'
+  });
+});
+
 // NFT TOKEN ID MANAGEMENT
 // =============================================================================
 
