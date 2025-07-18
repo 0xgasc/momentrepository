@@ -76,7 +76,8 @@
   "build": {
     "env": {
       "GENERATE_SOURCEMAP": "false",
-      "INLINE_RUNTIME_CHUNK": "false"
+      "INLINE_RUNTIME_CHUNK": "false",
+      "CI": "false"
     }
   }
 }
