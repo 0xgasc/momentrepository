@@ -40,8 +40,9 @@ export const useCacheStatus = (apiBaseUrl) => {
     setShowDetails(prev => !prev);
   }, []);
 
-  // Check if should show cache status
-  const shouldShow = cacheStatus && (cacheStatus.needsRefresh || !cacheStatus.hasCache);
+  // Check if should show cache status - now returns false by default
+  // Cache status will only be shown in Admin Panel
+  const shouldShow = false;
 
   useEffect(() => {
     loadCacheStatus();

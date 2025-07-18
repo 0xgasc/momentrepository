@@ -1,6 +1,7 @@
 // src/components/Admin/AdminPanel.jsx
 import React, { useState, useEffect, memo, useCallback } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
+import { useCacheStatus } from '../../hooks';
 
 // Constants
 const REFRESH_DELAY_MS = 1500;
@@ -731,6 +732,7 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
 
 // Platform Settings Tab
 const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
+  const { cacheStatus, showDetails, refreshing, handleRefresh, toggleDetails } = useCacheStatus(API_BASE_URL);
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [localSettings, setLocalSettings] = useState(platformSettings);
@@ -868,6 +870,73 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
           </div>
         </div>
       </div>
+      
+      {/* Cache Status */}
+      {cacheStatus && (
+        <div className="bg-amber-50 rounded-lg p-6 border border-amber-200">
+          <h4 className="text-lg font-semibold text-amber-900 mb-4 flex items-center gap-2">
+            📊 Cache Status
+          </h4>
+          
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">
+                  {!cacheStatus.hasCache ? 'Building UMO Database...' : 'Cache Status'}
+                </p>
+                <p className="text-xs text-gray-600 mt-1">
+                  {!cacheStatus.hasCache 
+                    ? 'First-time setup: Loading all UMO performance data'
+                    : `Last updated: ${cacheStatus.lastUpdated ? new Date(cacheStatus.lastUpdated).toLocaleDateString() : 'Unknown'}`
+                  }
+                </p>
+                {cacheStatus.needsRefresh && (
+                  <p className="text-xs text-amber-700 mt-1 font-medium">
+                    ⚠️ Cache refresh recommended - new data available
+                  </p>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleDetails}
+                  className="text-amber-700 hover:text-amber-900 text-sm font-medium"
+                >
+                  {showDetails ? 'Hide' : 'Details'}
+                </button>
+                {cacheStatus.hasCache && (
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="px-3 py-1.5 bg-amber-600 text-white rounded text-sm hover:bg-amber-700 disabled:opacity-50 transition-colors"
+                  >
+                    {refreshing ? 'Refreshing...' : 'Refresh Cache'}
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {showDetails && cacheStatus.stats && (
+              <div className="mt-3 pt-3 border-t border-amber-200 text-sm text-gray-700">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <span className="font-medium">Performances:</span> {cacheStatus.stats.totalPerformances || 0}
+                  </div>
+                  <div>
+                    <span className="font-medium">Songs:</span> {cacheStatus.stats.totalSongs || 0}
+                  </div>
+                  <div>
+                    <span className="font-medium">API Calls:</span> {cacheStatus.stats.apiCallsUsed || 0}
+                  </div>
+                  <div>
+                    <span className="font-medium">Date Range:</span> {cacheStatus.stats.dateRange?.earliest || '?'} - {cacheStatus.stats.dateRange?.latest || '?'}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       
       {/* Web3/NFT Settings */}
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">

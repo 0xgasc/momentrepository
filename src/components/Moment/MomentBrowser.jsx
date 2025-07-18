@@ -116,7 +116,10 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
                 moment={moment}
                 onSongSelect={onSongSelect}
                 onPerformanceSelect={onPerformanceSelect}
-                onMomentSelect={setSelectedMoment}
+                onMomentSelect={(moment) => {
+                  setSelectedMoment(moment);
+                  window.scrollTo(0, 0);
+                }}
                 isWeb3Enabled={isWeb3Enabled}
               />
             ))}
@@ -166,7 +169,11 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
       {selectedMoment && (
         <MomentDetailModal 
           moment={selectedMoment}
-          onClose={() => setSelectedMoment(null)}
+          onClose={() => {
+            setSelectedMoment(null);
+            // Ensure scroll position is reset
+            window.scrollTo(0, 0);
+          }}
         />
       )}
       </div>
