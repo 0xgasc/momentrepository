@@ -203,7 +203,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             type="video"
             src={moment.mediaUrl}
             className="media-element w-full"
-            style={{ maxHeight: '400px', width: '100%', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
+            style={{ maxHeight: '500px', width: '100%', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
             controls={true}
             autoPlay={true}
             muted={false}
@@ -652,17 +652,25 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             border-radius: 16px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
             border: 2px solid #e2e8f0;
-            max-width: 500px;
-            width: 100%;
-            max-height: 85vh;
+            max-width: 900px;
+            width: 90%;
+            max-height: 90vh;
             overflow-y: auto;
             position: relative;
             margin: auto;
           }
 
+          @media (max-width: 1024px) {
+            .trading-card-modal {
+              max-width: 700px;
+              width: 85%;
+            }
+          }
+          
           @media (max-width: 640px) {
             .trading-card-modal {
               max-width: 95vw;
+              width: 95%;
               max-height: 95vh;
               margin: 0.5rem;
             }
@@ -1032,7 +1040,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             background: #f8f9fa;
             border-bottom: 1px solid #e2e8f0;
             position: relative;
-            max-height: 450px;
+            max-height: 550px;
             overflow: hidden;
           }
 
