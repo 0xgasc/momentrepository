@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// API Base URL - same logic as your current App.js
-const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  ? 'http://localhost:5050'  
-  : `http://${window.location.hostname}:5050`;
+// API Base URL - Use environment variable or fallback to your deployed backend
+const API_BASE_URL = process.env.REACT_APP_API_URL || 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5050'  
+    : 'https://your-backend-url.com');
 
   
 // ADD THIS TEMPORARY DEBUG:
@@ -23,12 +24,14 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const storedToken = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
-    if (token && userData) {
+    if (storedToken && userData) {
+      setToken(storedToken);
       setUser(JSON.parse(userData));
     }
     setLoading(false);
@@ -50,6 +53,7 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
+      setToken(data.token);
       setUser(data.user);
       return data;
     } catch (error) {
@@ -73,6 +77,7 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
+      setToken(data.token);
       setUser(data.user);
       return data;
     } catch (error) {
@@ -83,11 +88,12 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    setToken(null);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
