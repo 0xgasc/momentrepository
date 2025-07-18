@@ -203,9 +203,10 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             type="video"
             src={moment.mediaUrl}
             className="media-element w-full"
-            style={{ maxHeight: '300px', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
+            style={{ maxHeight: '400px', width: '100%', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
             controls={true}
             autoPlay={true}
+            muted={false}
             preload="metadata"
             playsInline={true}
             onLoad={() => { setVideoLoaded(true); setMediaError(false); }}
@@ -643,6 +644,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             align-items: center;
             justify-content: center;
             padding: 1rem;
+            overflow-y: auto;
           }
 
           .trading-card-modal {
@@ -652,9 +654,10 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             border: 2px solid #e2e8f0;
             max-width: 500px;
             width: 100%;
-            max-height: 90vh;
+            max-height: 85vh;
             overflow-y: auto;
             position: relative;
+            margin: auto;
           }
 
           @media (max-width: 640px) {
@@ -1029,10 +1032,20 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             background: #f8f9fa;
             border-bottom: 1px solid #e2e8f0;
             position: relative;
+            max-height: 450px;
+            overflow: hidden;
           }
 
           .media-container {
             position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          
+          .media-container video {
+            max-width: 100%;
+            height: auto;
           }
 
           .metadata-panel {
