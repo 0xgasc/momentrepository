@@ -1,0 +1,157 @@
+[build]
+  publish = "build"
+  command = "npm run build"
+
+[build.environment]
+  REACT_APP_ENVIRONMENT = "production"
+  GENERATE_SOURCEMAP = "false"
+  INLINE_RUNTIME_CHUNK = "false"
+
+# Redirect rules for SPA
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# API proxying (if needed)
+[[redirects]]
+  from = "/api/*"
+  to = "https://your-backend-url/api/:splat"
+  status = 200
+  force = true
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+
+# Cache static assets
+[[headers]]
+  for = "/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache JS and CSS files
+[[headers]]
+  for = "*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache images
+[[headers]]
+  for = "*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.jpg"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.jpeg"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.gif"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.svg"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.ico"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache fonts
+[[headers]]
+  for = "*.woff"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.woff2"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Service Worker - no cache
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Manifest
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+    Content-Type = "application/manifest+json"
+
+# HTML files - no cache for SPA updates
+[[headers]]
+  for = "*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Mobile optimization with compression
+[build.processing]
+  skip_processing = false
+
+[build.processing.css]
+  bundle = true
+  minify = true
+
+[build.processing.js]
+  bundle = true
+  minify = true
+
+[build.processing.html]
+  pretty_urls = true
+
+[build.processing.images]
+  compress = true
+
+# Plugin for performance optimization
+[[plugins]]
+  package = "@netlify/plugin-lighthouse"
+  
+  [plugins.inputs.thresholds]
+    performance = 0.8
+    accessibility = 0.9
+    best-practices = 0.9
+    seo = 0.9
+
+# PWA plugin
+[[plugins]]
+  package = "netlify-plugin-pwa"
+
+# Prerender for better SEO and performance
+[[plugins]]
+  package = "@netlify/plugin-sitemap"
+
+# Environment variables for different contexts
+[context.production.environment]
+  REACT_APP_ENVIRONMENT = "production"
+  GENERATE_SOURCEMAP = "false"
+
+[context.deploy-preview.environment]
+  REACT_APP_ENVIRONMENT = "preview"
+
+[context.branch-deploy.environment]
+  REACT_APP_ENVIRONMENT = "development"

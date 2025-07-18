@@ -220,6 +220,80 @@ The platform automatically distinguishes between:
 - **Rich Metadata** - Comprehensive provenance and rarity data
 - **Blockchain Proof** - Immutable ownership and authenticity
 
+### Content Moderation System
+A comprehensive 3-tier user role system ensures quality content:
+
+**🎭 User Roles:**
+- **👤 User** - Can upload moments, edit metadata, view their submissions
+- **🛡️ Moderator** - Can approve/reject content, edit metadata, send back for revision
+- **👑 Administrator** - Full system access, can assign roles, manage all users
+
+**📋 Moderation Workflow:**
+1. **User uploads** moment → Status: `pending`
+2. **Moderator reviews** content in Admin Panel
+3. **Three possible outcomes:**
+   - **✅ Approve** → Status: `approved` (goes live)
+   - **❌ Reject** → Moment deleted with reason
+   - **📝 Send back** → Status: `needs_revision` (with applied changes)
+4. **User sees changes** and can edit further → Status: `pending` (re-review)
+
+**🎛️ Admin Panel Features:**
+- **Users Tab** - View all users, assign roles, track activity
+- **Moderation Tab** - Review pending content with media previews
+- **Metadata Editing** - Moderators can edit all 10 metadata fields
+- **Expandable Details** - View full moment information before approval
+
+**📱 My Account Panel:**
+- **Profile Tab** - User information and role display
+- **My Uploads** - All moments with status indicators
+- **Pending** - Moments awaiting review
+- **Needs Revision** - Moments sent back by moderators with feedback
+- **Approved** - Live moments on the platform
+
+### Email Notification System (Skeleton)
+Comprehensive email notifications for all user-moderator interactions:
+
+**📧 Email Templates Available:**
+
+**User Notifications:**
+- **✅ Moment Approved** - Congratulatory email with moment details and live link
+- **❌ Moment Rejected** - Explanation with rejection reason and next steps
+- **📝 Needs Revision** - Applied changes by moderator with feedback
+- **🔄 Resubmitted** - Confirmation when user resubmits after revision
+- **🎖️ Role Assigned** - Welcome email when promoted to moderator/admin
+
+**Moderator Notifications:**
+- **🛡️ New Review** - Alert when new moment needs moderation
+- **🔄 Resubmission** - Notification when user resubmits revised content
+
+**Admin Notifications:**
+- **👤 New User** - Alert when new user registers on platform
+
+**⚙️ Implementation Status:**
+- **✅ Email Service Skeleton** - Complete template system in `services/emailService.js`
+- **✅ Backend Integration** - All endpoints send appropriate emails
+- **✅ Database Queries** - Dynamic recipient lists (mods/admins)
+- **⏳ Email Provider** - Ready for SendGrid/AWS SES/Mailgun integration
+
+**🔧 Setup Required:**
+```javascript
+// In services/emailService.js - Replace _sendEmail function
+const sgMail = require('@sendgrid/mail');
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+async _sendEmail(to, subject, body) {
+  const msg = { to, from: process.env.FROM_EMAIL, subject, text: body };
+  return sgMail.send(msg);
+}
+```
+
+**📋 Environment Variables Needed:**
+```env
+SENDGRID_API_KEY=your_sendgrid_api_key
+FROM_EMAIL=noreply@umo-archive.com
+FRONTEND_URL=https://umo-archive.com
+```
+
 ## 📡 API Endpoints
 
 ### Authentication
@@ -244,6 +318,19 @@ The platform automatically distinguishes between:
 ### File Upload
 - `POST /upload-file` - Upload media file to Arweave (authenticated, 6GB limit)
 
+### Content Moderation
+- `GET /moderation/pending` - Get pending moments for review (mods/admins)
+- `PUT /moderation/moments/:momentId/approve` - Approve moment (mods/admins)
+- `DELETE /moderation/moments/:momentId/reject` - Reject and delete moment (mods/admins)
+- `PUT /moderation/moments/:momentId/send-back` - Send back with changes (mods/admins)
+- `GET /moments/my-status` - Get user's moments with approval status (authenticated)
+- `PUT /moments/:momentId/metadata` - Update moment metadata (authenticated)
+
+### User Management
+- `GET /admin/users` - Get all users (admin only)
+- `PUT /admin/users/:userId/role` - Assign user role (admin only)
+- `GET /profile` - Get user profile (authenticated)
+
 ### NFT Operations
 - `GET /get-next-token-id` - Get next available token ID
 - `POST /upload-metadata` - Store NFT metadata
@@ -264,6 +351,10 @@ The platform automatically distinguishes between:
   email: String (required, unique),
   displayName: String,
   passwordHash: String,
+  role: enum ['user', 'mod', 'admin'] (default: 'user'),
+  assignedBy: ObjectId (ref: 'User'),
+  roleAssignedAt: Date,
+  lastActive: Date,
   createdAt: Date,
   updatedAt: Date
 }
@@ -279,7 +370,7 @@ The platform automatically distinguishes between:
   venueCity: String,
   venueCountry: String,
   songName: String,
-  contentType: enum ['song', 'intro', 'jam', 'crowd', 'other'],
+  contentType: enum ['song', 'intro', 'outro', 'jam', 'crowd', 'other'],
   mediaUrl: String (Arweave/IPFS),
   mediaType: String,
   fileSize: Number,
@@ -296,6 +387,14 @@ The platform automatically distinguishes between:
   instruments: String,
   crowdReaction: String,
   uniqueElements: String,
+  
+  // Content Moderation
+  approvalStatus: enum ['pending', 'approved', 'rejected', 'needs_revision'] (default: 'pending'),
+  reviewedBy: ObjectId (ref: 'User'),
+  reviewedAt: Date,
+  rejectionReason: String,
+  moderatorChanges: String (JSON),
+  userApprovedChanges: Boolean,
   
   // NFT Data
   nftMinted: Boolean,
@@ -393,7 +492,11 @@ npx hardhat verify --network sepolia CONTRACT_ADDRESS
 - [x] 3-factor rarity system
 - [x] ERC1155 NFT minting
 
-### Phase 2: Enhanced Features 🚧
+### Phase 2: Enhanced Features 🚧  
+- [x] Content moderation system (Admin/Mod/User roles)
+- [x] Email notification skeleton (ready for provider setup)
+- [x] My Account panel with submission tracking
+- [x] Admin panel for user/content management
 - [ ] Mobile app (React Native)
 - [ ] Advanced search filters
 - [ ] User profiles and following
@@ -442,35 +545,45 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🐛 Current Issues & Next Session TODOs
 
-### ✅ **COMPLETED: NFT System 100% Functional**
+### ✅ **COMPLETED: Content Moderation & Email System**
 
-**🎉 MAJOR SESSION ACCOMPLISHMENTS:**
+**🎉 LATEST SESSION ACCOMPLISHMENTS:**
 
-**1. Fixed Complete NFT Minting Pipeline**:
-- ✅ Wagmi v2 integration with proper `writeContractData` usage
-- ✅ MetaMask confirmation flow works perfectly
-- ✅ Database mint counts sync in real-time
-- ✅ UI updates without page reloads
+**1. Complete User Role System**:
+- ✅ 3-tier roles: User → Moderator → Administrator  
+- ✅ Role assignment functionality (admin only)
+- ✅ Proper authentication middleware for each role
+- ✅ Database schema with role tracking and timestamps
 
-**2. Fixed NFT Card Generation**:
-- ✅ Preview system now connects to creation system
-- ✅ No more "purple circles" on OpenSea - proper random seed generation
-- ✅ Clear UX: Users see if using preview or random design
-- ✅ Button text shows: "Create NFT (Use Preview)" vs "Create NFT (Random Card)"
+**2. Content Moderation Workflow**:
+- ✅ Admin Panel with Users and Moderation tabs
+- ✅ Pending content review with media previews
+- ✅ Approve/Reject/Send-back-for-revision workflow
+- ✅ Metadata editing by moderators (all 10 fields)
+- ✅ Collaborative revision process (mod edits → user reviews → resubmit)
 
-**3. Enhanced User Experience**:
-- ✅ OpenSea links for all minted NFTs (`https://testnets.opensea.io/assets/base_sepolia/{contract}/{tokenId}`)
-- ✅ Manual fix buttons for mint count discrepancies
-- ✅ Debug info showing `(DB: X, History: Y)` 
-- ✅ Proper error handling and recovery
+**3. My Account Panel**:
+- ✅ Profile tab with role display and user info
+- ✅ Upload tracking with status indicators
+- ✅ Separate tabs: All Uploads, Pending, Needs Revision, Approved
+- ✅ Edit/withdraw functionality for pending submissions
+- ✅ Visual feedback for different approval statuses
 
-**4. Database & Backend Fixes**:
-- ✅ Fixed `/record-mint` endpoint validation (`nftTokenId` check)
-- ✅ Added manual `/fix-mint-count` endpoint for historical data
-- ✅ Comprehensive mint history tracking
+**4. Email Notification Skeleton**:
+- ✅ Complete email service with 8 notification types
+- ✅ Template system for all user-moderator interactions
+- ✅ Backend integration at all relevant endpoints
+- ✅ Dynamic recipient queries (mods/admins from database)
+- ✅ Ready for email provider setup (SendGrid/AWS SES/Mailgun)
 
-**🎯 SYSTEM STATUS: FULLY OPERATIONAL**
-All NFT functionality working end-to-end with proper blockchain integration, database sync, and user experience.
+**5. Enhanced Database Schema**:
+- ✅ Added `approvalStatus` enum: pending/approved/rejected/needs_revision
+- ✅ Added moderation fields: reviewedBy, reviewedAt, rejectionReason
+- ✅ Added user role fields: role, assignedBy, roleAssignedAt
+- ✅ Added "outro" to contentType enum for better content classification
+
+**🎯 MODERATION SYSTEM STATUS: FULLY OPERATIONAL**
+Complete content moderation pipeline with user roles, admin panel, email notifications, and collaborative revision workflow.
 
 ### 🚀 **Next Development Focus: Dynamic NFT Pricing**
 

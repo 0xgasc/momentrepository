@@ -1,0 +1,39 @@
+{
+  "network": {
+    "name": "Base Sepolia",
+    "rpc": "https://sepolia.base.org",
+    "chainId": 84532
+  },
+  "contract": {
+    "name": "UMOMomentsERC1155V2",
+    "baseURI": "https://devnet.irys.xyz/",
+    "defaultWallets": {
+      "umo": "0x2e8D1eAd7Ba51e04c2A8ec40a8A3eD49CC4E1ceF",
+      "platform": "0x742d35cc6634c0532925a3b8d76c7de9f45f6c96"
+    }
+  },
+  "timestamp": "2025-07-16T00:48:16.775Z",
+  "deployer": "Configured",
+  "instructions": {
+    "remix": [
+      "1. Go to https://remix.ethereum.org",
+      "2. Create new file: UMOMomentsERC1155V2.sol",
+      "3. Paste the contract code",
+      "4. Install dependencies in File Explorer:",
+      "   - @openzeppelin/contracts",
+      "5. Compile with Solidity 0.8.0+",
+      "6. Switch to Deploy tab",
+      "7. Select \"Injected Web3\" environment",
+      "8. Connect MetaMask to Base Sepolia",
+      "9. Enter constructor parameter: \"https://devnet.irys.xyz/\"",
+      "10. Click Deploy"
+    ],
+    "postDeployment": [
+      "1. Copy the deployed contract address",
+      "2. Update src/contracts/UMOMomentsERC1155.json",
+      "3. Update setlist-proxy/server.js to use new contract",
+      "4. Test with a small NFT creation",
+      "5. Verify revenue splitting works"
+    ]
+  }
+}

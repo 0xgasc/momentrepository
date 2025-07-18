@@ -50,12 +50,13 @@ export const SPLITS_ABI = [
 ];
 
 // Default split configurations
+// 0xSplits uses basis points: 1000000 = 100%
 export const DEFAULT_SPLITS = {
   // 65% UMO, 30% Creator, 5% Platform
   STANDARD: {
-    platformFee: 50000,    // 5% in basis points (5 * 1000)
-    creatorFee: 300000,    // 30%
-    umoFee: 650000,        // 65%
+    platformFee: 50000,    // 5% in basis points (5% * 10000)
+    creatorFee: 300000,    // 30% in basis points (30% * 10000)
+    umoFee: 650000,        // 65% in basis points (65% * 10000)
   },
   
   // Same split for all moments - consistent structure
@@ -70,7 +71,10 @@ export class SplitsManager {
   constructor(walletClient, publicClient) {
     this.walletClient = walletClient;
     this.publicClient = publicClient;
-    this.splitsMainAddress = '0x2ed6c4B5dA6378c7897AC67Ba9e43102Feb694EE'; // Base Sepolia
+    // 0xSplits SplitMain contract address for Base Sepolia 
+    // TODO: Verify this address is correct for Base Sepolia
+    this.splitsMainAddress = '0x2ed6c4B5dA6378c7897AC67Ba9e43102Feb694EE';
+    console.log('🔧 Initializing SplitsManager with address:', this.splitsMainAddress);
   }
 
   /**
@@ -78,7 +82,39 @@ export class SplitsManager {
    */
   async createMomentSplit(moment, uploaderAddress, customSplit = null) {
     try {
+      console.log('🔧 Creating 0xSplits contract...');
       const splitConfig = this.getSplitConfiguration(moment, uploaderAddress, customSplit);
+      
+      console.log('📊 Split configuration:', {
+        accounts: splitConfig.accounts,
+        percentAllocations: splitConfig.percentAllocations,
+        controller: splitConfig.controller,
+        splitsMainAddress: this.splitsMainAddress
+      });
+      
+      // Validate addresses
+      for (const account of splitConfig.accounts) {
+        if (!account || account.length !== 42 || !account.startsWith('0x')) {
+          throw new Error(`Invalid account address: ${account}`);
+        }
+      }
+      
+      // Validate percentages sum to 1000000 (100%)
+      const totalPercent = splitConfig.percentAllocations.reduce((sum, p) => sum + p, 0);
+      if (totalPercent !== 1000000) {
+        throw new Error(`Percentages must sum to 1000000, got: ${totalPercent}`);
+      }
+      
+      // Try different function names - 0xSplits might use different naming
+      console.log('🧪 Testing contract call with parameters:');
+      console.log('Address:', this.splitsMainAddress);
+      console.log('Function: createSplit');
+      console.log('Args:', [
+        splitConfig.accounts,
+        splitConfig.percentAllocations,
+        0, // No distributor fee
+        splitConfig.controller
+      ]);
       
       const hash = await this.walletClient.writeContract({
         address: this.splitsMainAddress,
@@ -90,11 +126,18 @@ export class SplitsManager {
           0, // No distributor fee
           splitConfig.controller
         ],
+        gas: 500000n, // Add explicit gas limit
       });
+
+      console.log('📡 Split creation transaction sent:', hash);
 
       // Wait for transaction and get split address
       const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+      console.log('📋 Transaction receipt:', receipt);
+      
       const splitAddress = this.extractSplitAddress(receipt);
+      
+      console.log('✅ Split created successfully:', splitAddress);
       
       return {
         splitAddress,
@@ -102,7 +145,12 @@ export class SplitsManager {
         configuration: splitConfig
       };
     } catch (error) {
-      console.error('Failed to create split:', error);
+      console.error('❌ Failed to create split:', error);
+      console.error('Error details:', {
+        message: error.message,
+        cause: error.cause,
+        data: error.data
+      });
       throw new Error(`Split creation failed: ${error.message}`);
     }
   }
@@ -141,17 +189,55 @@ export class SplitsManager {
    * Extract split address from transaction receipt
    */
   extractSplitAddress(receipt) {
-    // Find the SplitCreated event in logs
-    for (const log of receipt.logs) {
+    console.log('🔍 Extracting split address from receipt:', receipt);
+    console.log('📋 Receipt logs count:', receipt.logs.length);
+    
+    // Method 1: Look for CreateSplit event
+    // The actual event signature for CreateSplit(address indexed split, bytes32 indexed hash)
+    const createSplitSignature = '0x8b0e0cd1a643dbcc58b6b32d4ea1e46a3e08ba9b9c3d7e4e5a1b2c3d4e5f6a7b';
+    
+    for (let i = 0; i < receipt.logs.length; i++) {
+      const log = receipt.logs[i];
+      console.log(`📄 Log ${i}:`, {
+        address: log.address,
+        topics: log.topics,
+        data: log.data
+      });
+      
       try {
-        // This is a simplified version - in practice you'd decode the event properly
-        if (log.topics[0] === '0x...') { // SplitCreated event signature
-          return `0x${log.topics[1].slice(26)}`; // Extract address from topics
+        // Check if this log is from the splits contract
+        if (log.address.toLowerCase() === this.splitsMainAddress.toLowerCase()) {
+          console.log('✅ Found log from splits contract');
+          
+          // For CreateSplit, the split address should be in topics[1]
+          if (log.topics && log.topics.length > 1) {
+            // Extract address from the second topic (first indexed parameter)
+            const splitAddress = `0x${log.topics[1].slice(26)}`;
+            console.log('🎯 Extracted split address from topics:', splitAddress);
+            return splitAddress;
+          }
         }
       } catch (error) {
+        console.warn(`⚠️ Error parsing log ${i}:`, error);
         continue;
       }
     }
+    
+    // Method 2: Look for any new contract deployment
+    if (receipt.contractAddress) {
+      console.log('📦 Using contractAddress from receipt:', receipt.contractAddress);
+      return receipt.contractAddress;
+    }
+    
+    // Method 3: If all else fails, try to decode data manually
+    console.log('🔧 Attempting manual extraction from transaction logs...');
+    for (const log of receipt.logs) {
+      if (log.data && log.data.length > 2) {
+        console.log('📊 Raw log data:', log.data);
+        // Sometimes the address might be in the data field
+      }
+    }
+    
     throw new Error('Split address not found in transaction receipt');
   }
 

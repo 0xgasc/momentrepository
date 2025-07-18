@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "UMO Archive",
+  "name": "UMO - The Best Band in the World Archive",
+  "description": "Explore UMO's entire performance history, search by city or venue, and upload your own moments from concerts",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,16 +11,32 @@
     {
       "src": "logo192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any maskable"
     },
     {
       "src": "logo512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "orientation": "portrait",
+  "theme_color": "#2563eb",
+  "background_color": "#f9fafb",
+  "categories": ["music", "entertainment"],
+  "lang": "en",
+  "scope": "/",
+  "display_override": ["window-controls-overlay"],
+  "screenshots": [
+    {
+      "src": "logo512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "UMO Archive - Browse performances and upload moments"
+    }
+  ]
 }

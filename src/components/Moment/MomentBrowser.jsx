@@ -1,15 +1,21 @@
 // src/components/Moment/MomentBrowser.jsx
 import React, { memo, useState, useEffect } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
+import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
 import { createTimeoutSignal, formatShortDate } from '../../utils';
 import { Play, Calendar, MapPin, User, Zap, Clock, ExternalLink } from 'lucide-react';
 import MomentDetailModal from './MomentDetailModal';
+import PullToRefresh from '../UI/PullToRefresh';
 
 const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
+  const { isWeb3Enabled } = usePlatformSettings();
   const [moments, setMoments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedMoment, setSelectedMoment] = useState(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  
+  const MOMENTS_PER_PAGE = 6;
 
   useEffect(() => {
     const fetchMoments = async () => {
@@ -51,25 +57,105 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
     return <ErrorState error={error} />;
   }
 
+  // Calculate pagination
+  const totalPages = Math.ceil(moments.length / MOMENTS_PER_PAGE);
+  const startIndex = currentPage * MOMENTS_PER_PAGE;
+  const endIndex = startIndex + MOMENTS_PER_PAGE;
+  const currentMoments = moments.slice(startIndex, endIndex);
+
+  // Handle pull-to-refresh
+  const handleRefresh = async () => {
+    // Add a small delay to show the refresh animation
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Reload moments by triggering useEffect
+    setCurrentPage(0);
+    setMoments([]);
+  };
+  
+  const goToNextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+  
+  const goToPrevPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   return (
-    <div className="mb-8">
+    <PullToRefresh 
+      onRefresh={handleRefresh}
+      pullText="Pull down to refresh moments"
+      releaseText="Release to refresh moments"
+      refreshingText="Loading latest moments..."
+    >
+      <div className="mb-8">
       {/* Header */}
-      <MomentHeader totalMoments={moments.length} />
+      <MomentHeader 
+        totalMoments={moments.length} 
+        currentPage={currentPage}
+        totalPages={totalPages}
+        momentsPerPage={MOMENTS_PER_PAGE}
+        startIndex={startIndex}
+        endIndex={Math.min(endIndex, moments.length)}
+        isWeb3Enabled={isWeb3Enabled}
+      />
 
       {/* Moments Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {moments.map((moment) => (
-          <MomentCard
-            key={moment._id}
-            moment={moment}
-            onSongSelect={onSongSelect}
-            onPerformanceSelect={onPerformanceSelect}
-            onMomentSelect={setSelectedMoment}
-          />
-        ))}
-      </div>
-
-      {moments.length === 0 && (
+      {currentMoments.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {currentMoments.map((moment) => (
+              <MomentCard
+                key={moment._id}
+                moment={moment}
+                onSongSelect={onSongSelect}
+                onPerformanceSelect={onPerformanceSelect}
+                onMomentSelect={setSelectedMoment}
+                isWeb3Enabled={isWeb3Enabled}
+              />
+            ))}
+          </div>
+          
+          {/* Pagination Controls */}
+          <div className="flex items-center justify-center gap-4 mt-8">
+            <button
+              onClick={goToPrevPage}
+              disabled={currentPage === 0}
+              className={`px-4 py-2 rounded-lg font-medium transition-all mobile-touch-target ${
+                currentPage === 0
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
+              }`}
+              style={{ minHeight: '44px', minWidth: '100px' }}
+            >
+              ← Previous
+            </button>
+            
+            <div className="text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg" style={{ minHeight: '44px', display: 'flex', alignItems: 'center' }}>
+              Page {currentPage + 1} of {totalPages}
+            </div>
+            
+            <button
+              onClick={goToNextPage}
+              disabled={currentPage >= totalPages - 1}
+              className={`px-4 py-2 rounded-lg font-medium transition-all mobile-touch-target ${
+                currentPage >= totalPages - 1
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
+              }`}
+              style={{ minHeight: '44px', minWidth: '100px' }}
+            >
+              Next →
+            </button>
+          </div>
+        </>
+      ) : (
         <div className="text-center py-12">
           <div className="text-gray-500 text-lg mb-2">No moments found</div>
           <div className="text-gray-400 text-sm">Be the first to upload a moment!</div>
@@ -83,7 +169,8 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
           onClose={() => setSelectedMoment(null)}
         />
       )}
-    </div>
+      </div>
+    </PullToRefresh>
   );
 });
 
@@ -114,7 +201,7 @@ const ErrorState = memo(({ error }) => (
 ErrorState.displayName = 'ErrorState';
 
 // Header Component
-const MomentHeader = memo(({ totalMoments }) => (
+const MomentHeader = memo(({ totalMoments, currentPage, totalPages, startIndex, endIndex, isWeb3Enabled }) => (
   <div className="mb-6">
     <div className="flex items-center justify-between mb-4">
       <div>
@@ -123,22 +210,34 @@ const MomentHeader = memo(({ totalMoments }) => (
           Recent Moments
         </h2>
         <p className="text-gray-600 mt-1">
-          Latest uploads from UMO fans around the world
+          {totalPages > 1 ? (
+            <>Showing {startIndex + 1}-{endIndex} of {totalMoments} moments (6 at a time for performance)</>
+          ) : (
+            <>Latest uploads from UMO fans around the world</>
+          )}
         </p>
       </div>
       <div className="text-right">
         <div className="text-2xl font-bold text-blue-600">{totalMoments}</div>
         <div className="text-sm text-gray-500">total moments</div>
-        <div className="flex items-center justify-end mt-2 text-xs text-gray-400 space-x-3">
-          <div className="flex items-center">
-            <div className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1 animate-pulse"></div>
-            <span>minting now</span>
+        {totalPages > 1 && (
+          <div className="text-xs text-gray-500 mt-1">
+            Page {currentPage + 1} of {totalPages}
           </div>
-          <div className="flex items-center">
-            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-1"></div>
-            <span>tokenized</span>
+        )}
+        {/* Only show NFT legend if Web3 is enabled */}
+        {isWeb3Enabled() && (
+          <div className="flex items-center justify-end mt-2 text-xs text-gray-400 space-x-3">
+            <div className="flex items-center">
+              <div className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+              <span>minting now</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-1"></div>
+              <span>tokenized</span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   </div>
@@ -147,23 +246,11 @@ const MomentHeader = memo(({ totalMoments }) => (
 MomentHeader.displayName = 'MomentHeader';
 
 // Individual Moment Card Component
-const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSelect }) => {
-  const rarityColors = {
-    legendary: 'bg-gradient-to-r from-yellow-400 to-yellow-600',
-    mythic: 'bg-gradient-to-r from-purple-400 to-pink-600',
-    epic: 'bg-gradient-to-r from-purple-500 to-purple-700',
-    rare: 'bg-gradient-to-r from-blue-400 to-blue-600',
-    uncommon: 'bg-gradient-to-r from-green-400 to-green-600',
-    common: 'bg-gradient-to-r from-gray-400 to-gray-600',
-    basic: 'bg-gradient-to-r from-gray-300 to-gray-500'
-  };
-
-  const rarityColor = rarityColors[moment.rarityTier] || rarityColors.basic;
-
+const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSelect, isWeb3Enabled }) => {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200">
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200 moment-card" style={{ minHeight: '300px' }}>
       {/* Media Preview - Clickable */}
-      {(moment.mediaUrl || moment.nftCardUrl) && (
+      {moment.mediaUrl && (
         <div 
           className="relative aspect-video bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
           onClick={() => onMomentSelect(moment)}
@@ -194,7 +281,7 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
                 Your browser does not support the video tag.
               </video>
               {/* NFT Edition Badge - subtle bottom left */}
-              {moment.hasNFTEdition && moment.nftCardUrl && (
+              {isWeb3Enabled() && moment.hasNFTEdition && moment.nftCardUrl && (
                 <div className="absolute bottom-2 left-2 flex items-center">
                   {moment.isMintingActive ? (
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -204,22 +291,6 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
                 </div>
               )}
             </div>
-          ) : moment.hasNFTEdition && moment.nftCardUrl ? (
-            <div className="relative w-full h-full">
-              <img
-                src={moment.nftCardUrl}
-                alt={`${moment.songName} NFT Card`}
-                className="w-full h-full object-cover"
-              />
-              {/* NFT Edition Badge - subtle bottom left */}
-              <div className="absolute bottom-2 left-2 flex items-center">
-                {moment.isMintingActive ? (
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                ) : (
-                  <div className="w-2 h-2 bg-gray-400 rounded-full opacity-60"></div>
-                )}
-              </div>
-            </div>
           ) : moment.mediaType?.startsWith('image') ? (
             <img
               src={moment.mediaUrl}
@@ -227,10 +298,8 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-              <div className="text-gray-500">
-                <Zap className="text-gray-400" size={32} />
-              </div>
+            <div className="w-full h-full flex items-center justify-center">
+              <Play className="text-gray-400" size={48} />
             </div>
           )}
           
@@ -260,7 +329,8 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
             venues: moment.venueName ? [moment.venueName] : [],
             cities: moment.venueCity ? [moment.venueCity] : []
           })}
-          className="text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors text-left mb-2 block"
+          className="text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors text-left mb-2 block mobile-touch-target"
+          style={{ minHeight: '44px', width: '100%', textAlign: 'left', padding: '8px 0' }}
         >
           {moment.songName || 'Unknown Song'}
         </button>
@@ -274,7 +344,8 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
               country: moment.venueCountry,
               date: moment.performanceDate
             })}
-            className="flex items-center text-sm text-gray-600 hover:text-blue-600 transition-colors mb-2"
+            className="flex items-center text-sm text-gray-600 hover:text-blue-600 transition-colors mb-2 mobile-touch-target"
+            style={{ minHeight: '44px', width: '100%', justifyContent: 'flex-start', padding: '8px 0' }}
           >
             <MapPin size={14} className="mr-1" />
             {moment.venueName}

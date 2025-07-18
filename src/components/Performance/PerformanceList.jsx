@@ -3,6 +3,7 @@ import React, { useEffect, memo, useMemo } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { usePerformances, useMoments } from '../../hooks';
 import { formatShortDate } from '../../utils';
+import PullToRefresh from '../UI/PullToRefresh';
 
 const PerformanceList = memo(({ onPerformanceSelect }) => {
   const {
@@ -59,8 +60,24 @@ const PerformanceList = memo(({ onPerformanceSelect }) => {
     return <ErrorState error={error} onRetry={loadInitialPerformances} />;
   }
 
+  // Handle pull-to-refresh
+  const handleRefresh = async () => {
+    // Add a small delay to show the refresh animation
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Clear search and reload initial performances
+    clearSearch();
+    return loadInitialPerformances();
+  };
+
   return (
-    <div className="mb-8">
+    <PullToRefresh 
+      onRefresh={handleRefresh}
+      pullText="Pull down to refresh performances"
+      releaseText="Release to refresh performances"
+      refreshingText="Loading latest performances..."
+    >
+      <div className="mb-8">
       {/* Header with Search */}
       <PerformanceHeader 
         citySearch={citySearch}
@@ -100,7 +117,8 @@ const PerformanceList = memo(({ onPerformanceSelect }) => {
           searchQuery={citySearch}
         />
       )}
-    </div>
+      </div>
+    </PullToRefresh>
   );
 });
 
@@ -162,8 +180,9 @@ const PerformanceHeader = memo(({
           type="text"
           value={citySearch}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search by city, venue, song name, or year (e.g., 'melbourne', 'hunnybee', '2024')..."
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder="Search by city, venue, song name, or year..."
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 search-input"
+          style={{ minHeight: '48px', fontSize: '16px' }} // Prevents zoom on iOS
         />
         <div className="absolute right-3 top-2 flex items-center gap-1">
           {searching && (
@@ -172,7 +191,8 @@ const PerformanceHeader = memo(({
           {citySearch && (
             <button
               onClick={onClearSearch}
-              className="text-gray-400 hover:text-gray-600 ml-1"
+              className="text-gray-400 hover:text-gray-600 ml-1 mobile-touch-target"
+              style={{ minWidth: '32px', minHeight: '32px', padding: '6px', fontSize: '18px' }}
             >
               ×
             </button>
@@ -207,12 +227,13 @@ const PerformanceHeader = memo(({
 
     {/* Moments filter toggle */}
     <div className="mb-4 flex items-center justify-end">
-      <label className="flex items-center cursor-pointer">
+      <label className="flex items-center cursor-pointer mobile-touch-target" style={{ minHeight: '44px', padding: '8px' }}>
         <input
           type="checkbox"
           checked={showOnlyWithMoments}
           onChange={(e) => onToggleMomentsFilter(e.target.checked)}
-          className="mr-2"
+          className="mr-3"
+          style={{ minWidth: '20px', minHeight: '20px' }}
         />
         <span className="text-sm text-gray-700">With moments only</span>
       </label>
@@ -243,8 +264,10 @@ const PerformanceCard = memo(({ setlist, momentCount, onSelect }) => {
   return (
     <button
       onClick={onSelect}
+      className="performance-card mobile-touch-target"
       style={{
         padding: '1rem',
+        minHeight: '80px', // Mobile-friendly touch target
         backgroundColor: 'rgba(26, 26, 26, 0.95)',
         borderRadius: '12px',
         border: '1px solid rgba(64, 64, 64, 0.3)',
@@ -252,7 +275,11 @@ const PerformanceCard = memo(({ setlist, momentCount, onSelect }) => {
         width: '100%',
         boxShadow: '0 4px 6px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(184, 134, 11, 0.03)',
         transition: 'all 0.3s ease',
-        cursor: 'pointer'
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        justifyContent: 'center'
       }}
       onMouseEnter={(e) => {
         e.target.style.transform = 'translateY(-2px)';
@@ -349,7 +376,8 @@ const LoadMoreButton = memo(({ loading, onClick, isSearchMode, searchQuery }) =>
     <button
       onClick={onClick}
       disabled={loading}
-      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mobile-touch-target"
+      style={{ minHeight: '48px', minWidth: '200px' }}
     >
       {loading ? (
         <div className="flex items-center">

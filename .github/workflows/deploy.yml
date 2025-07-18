@@ -1,0 +1,168 @@
+name: Deploy UMO Archive
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run tests
+      run: npm test -- --coverage --watchAll=false
+      
+    - name: Build for production
+      run: npm run build:mobile
+      env:
+        GENERATE_SOURCEMAP: false
+        INLINE_RUNTIME_CHUNK: false
+        
+    - name: Analyze bundle size
+      run: npm run build:analyze
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-${{ matrix.node-version }}
+        path: build/
+        retention-days: 7
+
+  lighthouse-ci:
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-20.x
+        path: build/
+        
+    - name: Run Lighthouse CI
+      run: npm run lighthouse
+      env:
+        LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+  deploy-vercel:
+    needs: [test-and-build, lighthouse-ci]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Install Vercel CLI
+      run: npm i -g vercel@latest
+      
+    - name: Pull Vercel Environment Information
+      run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      
+    - name: Build Project Artifacts
+      run: npm run build:mobile
+      env:
+        GENERATE_SOURCEMAP: false
+        
+    - name: Deploy Project Artifacts to Vercel
+      run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+  deploy-netlify:
+    needs: [test-and-build, lighthouse-ci]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build for production
+      run: npm run build:mobile
+      env:
+        GENERATE_SOURCEMAP: false
+        
+    - name: Deploy to Netlify
+      uses: netlify/actions/deploy@master
+      with:
+        publish-dir: ./build
+        production-branch: main
+        production-deploy: true
+      env:
+        NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+  mobile-performance-audit:
+    needs: deploy-vercel
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Mobile Performance Audit
+      uses: treosh/lighthouse-ci-action@v10
+      with:
+        urls: |
+          https://your-app.vercel.app
+        configPath: ./lighthouserc.js
+        uploadArtifacts: true
+        temporaryPublicStorage: true
+        runs: 3
+        
+    - name: Comment PR with Lighthouse results
+      uses: treosh/lighthouse-ci-action@v10
+      if: github.event_name == 'pull_request'
+      with:
+        urls: |
+          https://your-app.vercel.app
+        uploadArtifacts: true
+        temporaryPublicStorage: true

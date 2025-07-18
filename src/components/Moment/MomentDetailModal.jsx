@@ -1,11 +1,14 @@
 // src/components/Moment/MomentDetailModal.jsx - OPTIMIZED & FIXED
 import React, { useState, useEffect, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
+import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
 import { formatFileSize } from '../../utils';
-import MomentMint from '../Web3/MomentMint';
+import LazyMomentMint from '../Web3/LazyMomentMint';
+import LazyMedia from '../UI/LazyMedia';
 
 const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   const { user } = useAuth();
+  const { isWeb3Enabled } = usePlatformSettings();
   const [moment, setMoment] = useState(initialMoment);
   
   // Update moment state when initialMoment prop changes
@@ -50,7 +53,16 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   
   useEffect(() => {
     const fetchNftStatus = async () => {
-      if (!moment?._id) return;
+      if (!moment?._id || !isWeb3Enabled()) {
+        // If Web3 is disabled, set default NFT status and skip API call
+        setNftStatus({
+          hasNFTEdition: false,
+          isMintingActive: false,
+          nftData: null
+        });
+        setFetchingNftStatus(false);
+        return;
+      }
       
       try {
         setFetchingNftStatus(true);
@@ -81,7 +93,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
     };
 
     fetchNftStatus();
-  }, [moment._id, moment.nftContractAddress, moment.nftTokenId]);
+  }, [moment._id, moment.nftContractAddress, moment.nftTokenId, isWeb3Enabled]);
 
   const hasNFTEdition = nftStatus?.hasNFTEdition || false;
 
@@ -184,29 +196,28 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
     if (isVideo) {
       return (
         <div className="media-container relative">
-          {!videoLoaded && !mediaError && (
-            <div className="media-loading">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              <p className="text-sm text-gray-500">Loading video...</p>
-            </div>
-          )}
-          <video
+          <LazyMedia
+            type="video"
             src={moment.mediaUrl}
-            controls
-            autoPlay
+            className="media-element w-full"
+            style={{ maxHeight: '300px', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
+            controls={true}
+            autoPlay={true}
             preload="metadata"
-            className={`media-element ${videoLoaded ? 'loaded' : 'loading'}`}
-            onLoadedData={() => { setVideoLoaded(true); setMediaError(false); }}
+            playsInline={true}
+            onLoad={() => { setVideoLoaded(true); setMediaError(false); }}
             onError={() => { setMediaError(true); setVideoLoaded(false); }}
-            style={{ width: '100%', maxHeight: '300px', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
-            playsInline
-            controlsList="nodownload nofullscreen"
-            disablePictureInPicture
-          >
-            Your browser does not support the video tag.
-          </video>
+            placeholder={
+              <div className="media-loading flex items-center justify-center" style={{ height: '300px' }}>
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-500">Loading video...</p>
+                </div>
+              </div>
+            }
+          />
           {mediaError && (
-            <div className="media-error">
+            <div className="media-error mt-2 text-center">
               <p className="text-sm text-red-600 mb-2">Unable to load video preview</p>
               <button onClick={handleDownload} className="text-blue-600 hover:text-blue-800 underline text-sm">
                 Click here to download and view externally
@@ -220,22 +231,25 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
     if (isImage) {
       return (
         <div className="media-container relative">
-          {!imageLoaded && !mediaError && (
-            <div className="media-loading">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              <p className="text-sm text-gray-500">Loading image...</p>
-            </div>
-          )}
-          <img
+          <LazyMedia
+            type="image"
             src={moment.mediaUrl}
             alt={moment.fileName || 'Moment media'}
-            className={`media-element ${imageLoaded ? 'loaded' : 'loading'}`}
+            className="media-element w-full"
+            style={{ maxHeight: '300px', objectFit: 'contain', borderRadius: '8px' }}
             onLoad={() => { setImageLoaded(true); setMediaError(false); }}
             onError={() => { setMediaError(true); setImageLoaded(false); }}
-            style={{ width: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '8px' }}
+            placeholder={
+              <div className="media-loading flex items-center justify-center" style={{ height: '300px' }}>
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-500">Loading image...</p>
+                </div>
+              </div>
+            }
           />
           {mediaError && (
-            <div className="media-error">
+            <div className="media-error mt-2 text-center">
               <p className="text-sm text-red-600 mb-2">Unable to load image preview</p>
               <button onClick={handleDownload} className="text-blue-600 hover:text-blue-800 underline text-sm">
                 Click here to download and view externally
@@ -265,10 +279,13 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   const rarityInfo = getRarityInfo();
   const rarityBreakdown = getRarityBreakdown();
 
+  // Mobile detection
+  const isMobile = window.innerWidth <= 768;
+
   return (
     <>
-      <div className="modal-overlay" onClick={onClose}>
-        <div className={`trading-card-modal ${showNftPanel ? 'with-side-panel' : ''}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`modal-overlay ${isMobile ? 'mobile' : ''}`} onClick={onClose}>
+        <div className={`trading-card-modal ${showNftPanel ? 'with-side-panel' : ''} ${isMobile ? 'mobile-modal' : ''}`} onClick={(e) => e.stopPropagation()}>
           {/* Header */}
           <div className="card-header" style={{ background: `linear-gradient(135deg, ${rarityInfo.color} 0%, #1d4ed8 100%)` }}>
             <div className="card-title-section">
@@ -283,8 +300,8 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             </div>
             
             <div className="card-controls">
-              {/* NFT Panel Toggle Button */}
-              {(hasNFTEdition || isOwner) && (
+              {/* NFT Panel Toggle Button - Only show if Web3 is enabled */}
+              {isWeb3Enabled() && (hasNFTEdition || isOwner) && (
                 <button 
                   onClick={() => setShowNftPanel(!showNftPanel)}
                   className={`nft-toggle-button ${showNftPanel ? 'active' : ''}`}
@@ -477,8 +494,8 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
 
             </div> {/* End main-content */}
 
-            {/* NFT Side Panel */}
-            {showNftPanel && (
+            {/* NFT Side Panel - Only show if Web3 is enabled */}
+            {isWeb3Enabled() && showNftPanel && (
               <div className="nft-side-panel">
                 <div className="nft-panel-header">
                   <h3>Controls</h3>
@@ -491,7 +508,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
                 </div>
                 <div className="nft-panel-content">
                   {!fetchingNftStatus && (
-                    <MomentMint 
+                    <LazyMomentMint 
                       moment={moment} 
                       user={user} 
                       isOwner={isOwner}
@@ -771,6 +788,111 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           .close-button:hover {
             background: rgba(255, 255, 255, 0.3);
             transform: scale(1.05);
+          }
+
+          .nft-toggle-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(4px);
+          }
+
+          .nft-toggle-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-1px);
+          }
+
+          .nft-toggle-button.active {
+            background: rgba(255, 255, 255, 0.4);
+            border-color: rgba(255, 255, 255, 0.6);
+          }
+
+          .modal-content-container {
+            display: flex;
+            min-height: 0;
+            flex: 1;
+          }
+
+          .trading-card-modal.with-side-panel {
+            max-width: 900px;
+          }
+
+          .main-content {
+            flex: 1;
+            min-width: 0;
+          }
+
+          .nft-side-panel {
+            width: 360px;
+            background: #f8f9fa;
+            border-left: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(90vh - 120px);
+            overflow-y: auto;
+          }
+
+          .nft-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: white;
+          }
+
+          .nft-panel-header h3 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1f2937;
+          }
+
+          .panel-close-button {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            color: #6b7280;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+          }
+
+          .panel-close-button:hover {
+            background: #e5e7eb;
+            color: #374151;
+          }
+
+          .nft-panel-content {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+          }
+
+          @media (max-width: 768px) {
+            .trading-card-modal.with-side-panel {
+              max-width: 95vw;
+              flex-direction: column;
+            }
+
+            .nft-side-panel {
+              width: 100%;
+              max-height: 50vh;
+              border-left: none;
+              border-top: 1px solid #e2e8f0;
+            }
           }
 
           .rarity-section {
@@ -1147,6 +1269,160 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
 
           .rarity-criterion li {
             margin-bottom: 0.25rem;
+          }
+
+          /* Mobile-specific styles */
+          .modal-overlay.mobile {
+            padding: 0;
+            align-items: flex-end;
+          }
+
+          .trading-card-modal.mobile-modal {
+            width: 100%;
+            max-width: 100%;
+            max-height: 95vh;
+            margin: 0;
+            border-radius: 16px 16px 0 0;
+            transform: translateY(0);
+            animation: slideUpMobile 0.3s ease-out;
+          }
+
+          @keyframes slideUpMobile {
+            from {
+              transform: translateY(100%);
+            }
+            to {
+              transform: translateY(0);
+            }
+          }
+
+          @media (max-width: 768px) {
+            .card-header {
+              padding: 1rem;
+              position: sticky;
+              top: 0;
+              z-index: 10;
+            }
+            
+            .card-title {
+              font-size: 1.1rem;
+              line-height: 1.3;
+            }
+            
+            .card-subtitle {
+              font-size: 0.8rem;
+              line-height: 1.2;
+            }
+            
+            .card-controls {
+              gap: 0.5rem;
+            }
+            
+            .close-button {
+              min-width: 44px;
+              min-height: 44px;
+              padding: 8px;
+              font-size: 18px;
+            }
+            
+            .nft-toggle-button {
+              min-height: 44px;
+              padding: 8px 12px;
+              font-size: 0.8rem;
+            }
+            
+            .card-media {
+              padding: 1rem;
+            }
+            
+            .media-element {
+              max-height: 250px;
+            }
+            
+            .metadata-panel {
+              padding: 1rem;
+            }
+            
+            .metadata-toggles {
+              flex-direction: column;
+              gap: 0.5rem;
+              align-items: stretch;
+            }
+            
+            .toggle-button {
+              min-height: 44px;
+              padding: 12px;
+              font-size: 0.9rem;
+              text-align: left;
+            }
+            
+            .metadata-grid {
+              grid-template-columns: 1fr;
+              gap: 1rem;
+            }
+            
+            .metadata-item {
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 0.25rem;
+            }
+            
+            .card-footer {
+              padding: 1rem;
+              position: sticky;
+              bottom: 0;
+              background: white;
+              border-top: 1px solid #e2e8f0;
+            }
+            
+            .uploader-info {
+              flex-direction: column;
+              align-items: stretch;
+              gap: 0.75rem;
+            }
+            
+            .action-buttons {
+              flex-direction: column;
+              gap: 0.5rem;
+            }
+            
+            .action-buttons button {
+              min-height: 44px;
+              font-size: 0.9rem;
+            }
+
+            /* Mobile NFT Panel */
+            .nft-panel {
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              width: 100%;
+              height: 100%;
+              border-radius: 0;
+              transform: translateX(0);
+              border-left: none;
+              border-top: 1px solid #e2e8f0;
+            }
+
+            .nft-panel-header {
+              padding: 1rem;
+              min-height: 60px;
+            }
+
+            .nft-panel-close {
+              min-width: 44px;
+              min-height: 44px;
+            }
+          }
+
+          /* Touch targets for mobile */
+          @media (max-width: 768px) {
+            button, .clickable {
+              min-height: 44px;
+              min-width: 44px;
+            }
           }
         `}</style>
       </div>

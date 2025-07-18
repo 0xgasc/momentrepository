@@ -478,28 +478,7 @@ const SongPerformancesList = memo(({
       });
     });
 
-    return (
-      <div className="space-y-6">
-        <div className="text-center text-gray-600 text-sm mb-4">
-          Showing {allMoments.length} moment{allMoments.length !== 1 ? 's' : ''} with video previews
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {allMoments.map((moment) => (
-            <SongMomentCard
-              key={moment._id}
-              moment={moment}
-              onMomentSelect={onSelectMoment}
-            />
-          ))}
-        </div>
-        {allMoments.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-gray-500 text-lg mb-2">No moments found</div>
-            <div className="text-gray-400 text-sm">Upload the first moment for this song!</div>
-          </div>
-        )}
-      </div>
-    );
+    return <SongMomentsView moments={allMoments} onMomentSelect={onSelectMoment} />;
   }
 
   // Default performance list view
@@ -725,5 +704,102 @@ const SongMomentCard = memo(({ moment, onMomentSelect }) => {
 });
 
 SongMomentCard.displayName = 'SongMomentCard';
+
+// ✅ NEW: Paginated moments view for Song Performance History
+const SongMomentsView = memo(({ moments, onMomentSelect }) => {
+  const [currentPage, setCurrentPage] = useState(0);
+  const MOMENTS_PER_PAGE = 6;
+  
+  // Calculate pagination
+  const totalPages = Math.ceil(moments.length / MOMENTS_PER_PAGE);
+  const startIndex = currentPage * MOMENTS_PER_PAGE;
+  const endIndex = startIndex + MOMENTS_PER_PAGE;
+  const currentMoments = moments.slice(startIndex, endIndex);
+  
+  const goToNextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+  
+  const goToPrevPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Reset to first page when moments change
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [moments.length]);
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center text-gray-600 text-sm mb-4">
+        {totalPages > 1 ? (
+          <>Showing {startIndex + 1}-{Math.min(endIndex, moments.length)} of {moments.length} moments (6 at a time for performance)</>
+        ) : (
+          <>Showing {moments.length} moment{moments.length !== 1 ? 's' : ''} with video previews</>
+        )}
+      </div>
+      
+      {currentMoments.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {currentMoments.map((moment) => (
+              <SongMomentCard
+                key={moment._id}
+                moment={moment}
+                onMomentSelect={onMomentSelect}
+              />
+            ))}
+          </div>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-4 mt-8">
+              <button
+                onClick={goToPrevPage}
+                disabled={currentPage === 0}
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  currentPage === 0
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
+                }`}
+              >
+                ← Previous
+              </button>
+              
+              <div className="text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg">
+                Page {currentPage + 1} of {totalPages}
+              </div>
+              
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage >= totalPages - 1}
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  currentPage >= totalPages - 1
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
+                }`}
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-center py-12">
+          <div className="text-gray-500 text-lg mb-2">No moments found</div>
+          <div className="text-gray-400 text-sm">Upload the first moment for this song!</div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+SongMomentsView.displayName = 'SongMomentsView';
 
 export default SongDetail;

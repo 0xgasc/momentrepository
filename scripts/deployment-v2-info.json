@@ -1,0 +1,16 @@
+{
+  "network": "Base Sepolia",
+  "chainId": 84532,
+  "contractAddress": "0xFb7B8578f6312B4C581A1Aa1EC25834E3842cAB7",
+  "deployer": "0x23de198F1520ad386565fc98AEE6abb3Ae5052BE",
+  "timestamp": "2025-07-16T01:39:32.783Z",
+  "txHash": "0x5763f9a838626b42851c33d4fe4c12433039e751b2ed282e3c69046abe714770",
+  "baseURI": "https://devnet.irys.xyz/",
+  "features": [
+    "Built-in revenue splits (65% UMO, 30% Creator, 5% Platform)",
+    "Unlimited minting per NFT",
+    "Editable wallet addresses",
+    "Emergency admin functions",
+    "ReentrancyGuard protection"
+  ]
+}
