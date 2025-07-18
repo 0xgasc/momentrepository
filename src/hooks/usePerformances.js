@@ -254,7 +254,7 @@ export const usePerformances = (apiBaseUrl) => {
   // Load initial data on mount
   useEffect(() => {
     loadInitialPerformances();
-  }, []); // Only run once on mount
+  }, [loadInitialPerformances]); // Only run once on mount
 
   // Handle moments filter toggle
   useEffect(() => {

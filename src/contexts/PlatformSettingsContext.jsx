@@ -55,7 +55,7 @@ export const PlatformSettingsProvider = ({ children }) => {
 
   useEffect(() => {
     fetchSettings();
-  }, []);
+  }, [fetchSettings]);
 
   // Helper function to check if Web3 features should be shown
   const isWeb3Enabled = () => {
