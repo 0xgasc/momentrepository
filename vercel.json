@@ -101,10 +101,5 @@
       "GENERATE_SOURCEMAP": "false",
       "INLINE_RUNTIME_CHUNK": "false"
     }
-  },
-  "functions": {
-    "app.js": {
-      "includeFiles": "build/**"
-    }
   }
 }
