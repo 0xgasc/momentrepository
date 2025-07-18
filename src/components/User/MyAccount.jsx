@@ -1,5 +1,5 @@
 // src/components/User/MyAccount.jsx
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, memo, useCallback } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 
 const MyAccount = memo(({ onClose }) => {
@@ -10,11 +10,7 @@ const MyAccount = memo(({ onClose }) => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('profile');
 
-  useEffect(() => {
-    fetchAccountData();
-  }, [fetchAccountData]);
-
-  const fetchAccountData = async () => {
+  const fetchAccountData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -43,7 +39,11 @@ const MyAccount = memo(({ onClose }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchAccountData();
+  }, [fetchAccountData]);
 
   const getRoleDisplay = (role) => {
     const roleInfo = {

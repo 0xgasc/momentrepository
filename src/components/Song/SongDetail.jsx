@@ -151,7 +151,7 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
       default:
         return [['All Performances', filteredPerformances]];
     }
-  }, [songData.performances, viewMode, showOnlyWithMoments, moments, getPerformanceSongMoments]);
+  }, [songData.performances, viewMode, showOnlyWithMoments, getPerformanceSongMoments]);
 
   if (loading) {
     return (

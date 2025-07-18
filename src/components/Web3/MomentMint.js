@@ -1,5 +1,5 @@
 /* global BigInt */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAccount, useConnect, useWaitForTransactionReceipt, useWriteContract, useReadContract } from 'wagmi';
 import { Zap } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
@@ -559,7 +559,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
   };
 
   // Record mint in database with specific data
-  const recordMintInDatabaseWithData = async (mintData) => {
+  const recordMintInDatabaseWithData = useCallback(async (mintData) => {
     try {
       console.log('📝 Recording mint in database with data:', {
         momentId: moment._id,
@@ -612,7 +612,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
       refetchBalance();
       if (onRefresh) onRefresh();
     }
-  };
+  }, [moment._id, moment.nftMintedCount, refetchBalance, onRefresh]);
 
   // Record mint in database for tracking
   // eslint-disable-next-line no-unused-vars

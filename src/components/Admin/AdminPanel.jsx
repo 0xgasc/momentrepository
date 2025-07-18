@@ -1,5 +1,5 @@
 // src/components/Admin/AdminPanel.jsx
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, memo, useCallback } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 
 // Constants
@@ -14,11 +14,7 @@ const AdminPanel = memo(({ onClose }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchAdminData();
-  }, [fetchAdminData]);
-
-  const fetchAdminData = async () => {
+  const fetchAdminData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -61,7 +57,11 @@ const AdminPanel = memo(({ onClose }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    fetchAdminData();
+  }, [fetchAdminData]);
 
   const assignRole = async (userId, newRole) => {
     try {
