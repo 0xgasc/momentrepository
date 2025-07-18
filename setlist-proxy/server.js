@@ -15,7 +15,7 @@ const { extractVideoThumbnail } = require('./utils/videoThumbnailExtractor');
 const { generateNFTCard } = require('./utils/nftCardGenerator');
 
 const app = express();
-const PORT = 5050;
+const PORT = process.env.PORT || 5050;
 
 // Initialize UMO cache
 const umoCache = new UMOCache();

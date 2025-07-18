@@ -32,7 +32,7 @@ COPY setlist-proxy/ .
 ENV MONGO_URI="mongodb+srv://umo-backend:XwQTAhFpsEo5Hqvs@cluster0.ezddywd.mongodb.net/umo-archive?retryWrites=true&w=majority&appName=Cluster0"
 
 # Expose port
-EXPOSE 5050
+EXPOSE $PORT
 
 # Start the server
 CMD ["npm", "start"]
