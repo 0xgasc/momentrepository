@@ -1312,7 +1312,9 @@ app.post('/cache/refresh', async (req, res) => {
       status: 'started'
     });
     
-    const API_BASE_URL = `http://localhost:${PORT}`;
+    const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN 
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : `http://localhost:${PORT}`;
     umoCache.buildFreshCache(API_BASE_URL, (progress) => {
       console.log(`📊 Cache refresh progress:`, progress);
     }).catch(err => {
@@ -2578,7 +2580,9 @@ const initializeCache = async () => {
       console.log('🔄 Cache needs refresh, building...');
       
       if (umoCache.cache) {
-        const API_BASE_URL = `http://localhost:${PORT}`;
+        const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN 
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : `http://localhost:${PORT}`;
         const hasNewShows = await umoCache.checkForNewShows(API_BASE_URL, umoCache.cache.stats.totalPerformances);
         if (!hasNewShows) {
           console.log('✅ No new shows detected, using existing cache');
@@ -2586,7 +2590,9 @@ const initializeCache = async () => {
         }
       }
       
-      const API_BASE_URL = `http://localhost:${PORT}`;
+      const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN 
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : `http://localhost:${PORT}`;
       await umoCache.buildFreshCache(API_BASE_URL);
     } else {
       console.log('✅ Using existing cache');
@@ -2609,7 +2615,9 @@ const scheduleDailyRefresh = () => {
   setTimeout(async () => {
     console.log('🕐 Daily cache refresh triggered');
     try {
-      const API_BASE_URL = `http://localhost:${PORT}`;
+      const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN 
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : `http://localhost:${PORT}`;
       const hasNewShows = await umoCache.checkForNewShows(API_BASE_URL, umoCache.cache?.stats?.totalPerformances || 0);
       if (hasNewShows) {
         console.log('📅 New shows detected, refreshing cache...');
