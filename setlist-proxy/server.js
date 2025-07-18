@@ -121,9 +121,23 @@ const requireAdmin = requireRole('admin');
 const requireMod = requireRole('mod');
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+console.log('🔍 Environment check:');
+console.log('- NODE_ENV:', process.env.NODE_ENV);
+console.log('- MONGO_URI exists:', !!process.env.MONGO_URI);
+console.log('- MONGODB_URI exists:', !!process.env.MONGODB_URI);
+console.log('- Available env vars:', Object.keys(process.env).filter(key => key.includes('MONGO')));
+
+const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+console.log('📍 Using MongoDB URI:', mongoUri ? '✅ Found' : '❌ Missing');
+
+if (mongoUri) {
+  mongoose.connect(mongoUri)
+    .then(() => console.log('✅ Connected to MongoDB'))
+    .catch(err => console.error('❌ MongoDB connection error:', err));
+} else {
+  console.error('❌ No MongoDB URI found in environment variables');
+  console.log('🔧 Server will continue without database (some features may not work)');
+}
 
 // Token ID Counter Schema for ERC1155
 const tokenIdCounterSchema = new mongoose.Schema({
