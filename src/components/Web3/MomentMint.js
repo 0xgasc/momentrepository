@@ -88,7 +88,64 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
     enabled: !!(isConnected && address && hasNFTEdition && moment.nftTokenId)
   });
 
+  // Record mint in database with specific data
+  const recordMintInDatabaseWithData = useCallback(async (mintData) => {
+    try {
+      console.log('📝 Recording mint in database with data:', {
+        momentId: moment._id,
+        quantity: mintData.quantity,
+        minterAddress: mintData.minterAddress,
+        txHash: mintData.txHash,
+        currentMintCount: moment.nftMintedCount
+      });
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/record-mint`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          quantity: mintData.quantity,
+          minterAddress: mintData.minterAddress,
+          txHash: mintData.txHash
+        })
+      });
+
+      const result = await response.json();
+      console.log('📝 Record mint response:', response.status, result);
+      console.log('📝 Response details:', {
+        success: result.success,
+        totalMinted: result.totalMinted,
+        isDuplicate: result.isDuplicate,
+        error: result.error
+      });
+
+      if (response.ok) {
+        console.log('✅ Mint recorded in database:', result);
+        // Refetch balance and refresh data
+        refetchBalance();
+        if (onRefresh) {
+          console.log('🔄 Calling onRefresh callback');
+          onRefresh();
+        }
+      } else {
+        console.error('❌ Failed to record mint in database:', result);
+        // Still refresh to show updated balance
+        refetchBalance();
+        if (onRefresh) onRefresh();
+      }
+    } catch (error) {
+      console.error('❌ Error recording mint:', error);
+      // Still refresh to show updated balance
+      refetchBalance();
+      if (onRefresh) onRefresh();
+    }
+  }, [moment._id, moment.nftMintedCount, refetchBalance, onRefresh]);
+
   // Handle transaction confirmation
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isConfirmed && writeContractData && currentStep !== 'success') {
       console.log('✅ Transaction confirmed:', writeContractData);
@@ -157,7 +214,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         }
       }
     }
-  }, [isConfirmed, writeContractData, currentStep, isCreatingNFT, isMinting, pendingMintRecord, address, lastMintQuantity, onRefresh, recordMintInDatabaseWithData]);
+  }, [isConfirmed, writeContractData, currentStep, isCreatingNFT, isMinting, pendingMintRecord, address, lastMintQuantity, onRefresh]);
 
   // Handle transaction errors
   useEffect(() => {
@@ -557,62 +614,6 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
       setIsCreatingNFT(false); // Reset on error too
     }
   };
-
-  // Record mint in database with specific data
-  const recordMintInDatabaseWithData = useCallback(async (mintData) => {
-    try {
-      console.log('📝 Recording mint in database with data:', {
-        momentId: moment._id,
-        quantity: mintData.quantity,
-        minterAddress: mintData.minterAddress,
-        txHash: mintData.txHash,
-        currentMintCount: moment.nftMintedCount
-      });
-
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/record-mint`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          quantity: mintData.quantity,
-          minterAddress: mintData.minterAddress,
-          txHash: mintData.txHash
-        })
-      });
-
-      const result = await response.json();
-      console.log('📝 Record mint response:', response.status, result);
-      console.log('📝 Response details:', {
-        success: result.success,
-        totalMinted: result.totalMinted,
-        isDuplicate: result.isDuplicate,
-        error: result.error
-      });
-
-      if (response.ok) {
-        console.log('✅ Mint recorded in database:', result);
-        // Refetch balance and refresh data
-        refetchBalance();
-        if (onRefresh) {
-          console.log('🔄 Calling onRefresh callback');
-          onRefresh();
-        }
-      } else {
-        console.error('❌ Failed to record mint in database:', result);
-        // Still refresh to show updated balance
-        refetchBalance();
-        if (onRefresh) onRefresh();
-      }
-    } catch (error) {
-      console.error('❌ Error recording mint:', error);
-      // Still refresh to show updated balance
-      refetchBalance();
-      if (onRefresh) onRefresh();
-    }
-  }, [moment._id, moment.nftMintedCount, refetchBalance, onRefresh]);
 
   // Record mint in database for tracking
   // eslint-disable-next-line no-unused-vars
