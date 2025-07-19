@@ -1,5 +1,6 @@
 // LazyMedia component for efficient image and video loading
 import React, { useState, useRef, useEffect, memo } from 'react';
+import { Play } from 'lucide-react';
 
 const LazyMedia = memo(({ 
   src, 
@@ -16,12 +17,15 @@ const LazyMedia = memo(({
   preload = 'metadata',
   adaptiveQuality = true,
   mobileOptimized = true,
+  hoverToPlay = false,
   ...props 
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isError, setIsError] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [networkQuality, setNetworkQuality] = useState('high');
+  const [isHovering, setIsHovering] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const mediaRef = useRef(null);
 
   // Detect mobile device
@@ -108,6 +112,32 @@ const LazyMedia = memo(({
     if (onError) onError();
   };
 
+  // Handle hover-to-play functionality
+  const handleMouseEnter = () => {
+    if (hoverToPlay && type === 'video' && mediaRef.current) {
+      setIsHovering(true);
+      mediaRef.current.play().catch(() => {
+        console.log('Hover play prevented, user interaction required');
+      });
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverToPlay && type === 'video' && mediaRef.current) {
+      setIsHovering(false);
+      mediaRef.current.pause();
+      mediaRef.current.currentTime = 0; // Reset to beginning
+    }
+  };
+
+  const handlePlay = () => {
+    setIsPlaying(true);
+  };
+
+  const handlePause = () => {
+    setIsPlaying(false);
+  };
+
   const renderPlaceholder = () => {
     if (placeholder) {
       return placeholder;
@@ -150,7 +180,11 @@ const LazyMedia = memo(({
       const videoAttrs = getVideoAttributes();
       
       return (
-        <div className="relative">
+        <div 
+          className="relative"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
           {!isLoaded && !isError && renderPlaceholder()}
           <video
             ref={mediaRef}
@@ -169,6 +203,8 @@ const LazyMedia = memo(({
             }}
             onLoadedData={handleLoad}
             onError={handleError}
+            onPlay={handlePlay}
+            onPause={handlePause}
             onLoadStart={() => {
               // Adaptive quality: reduce autoplay on slow networks
               if (networkQuality === 'low' && autoPlay) {
@@ -177,21 +213,21 @@ const LazyMedia = memo(({
             }}
             onCanPlay={() => {
               // Video is ready to play
-              if (isMobile && autoPlay && muted) {
-                // Ensure autoplay works on mobile
+              if (isMobile && autoPlay && muted && !hoverToPlay) {
+                // Ensure autoplay works on mobile (only if not hover-to-play)
                 mediaRef.current?.play().catch(() => {
                   console.log('Autoplay prevented, user interaction required');
                 });
               }
             }}
-            autoPlay={autoPlay && networkQuality !== 'low'}
+            autoPlay={autoPlay && networkQuality !== 'low' && !hoverToPlay}
             muted={muted}
-            controls={controls}
+            controls={controls && !hoverToPlay}
             preload={videoAttrs.preload}
             playsInline={videoAttrs.playsInline}
-            webkit-playsinline={videoAttrs.webkit_playsinline}
-            x5-video-player-type={videoAttrs['x5-video-player-type']}
-            x5-video-player-fullscreen={videoAttrs['x5-video-player-fullscreen']}
+            webkitPlaysinline={videoAttrs.webkit_playsinline}
+            x5VideoPlayerType={videoAttrs['x5-video-player-type']}
+            x5VideoPlayerFullscreen={videoAttrs['x5-video-player-fullscreen']}
             controlsList={videoAttrs.controlsList}
             disablePictureInPicture={videoAttrs.disablePictureInPicture}
             crossOrigin={videoAttrs.crossOrigin}
@@ -200,6 +236,14 @@ const LazyMedia = memo(({
             Your browser does not support the video tag.
           </video>
           
+          {/* Hover overlay for hover-to-play */}
+          {hoverToPlay && !isPlaying && !isHovering && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 transition-opacity">
+              <div className="bg-white bg-opacity-90 rounded-full p-3">
+                <Play className="w-6 h-6 text-gray-800" />
+              </div>
+            </div>
+          )}
         </div>
       );
     }

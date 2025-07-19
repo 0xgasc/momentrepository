@@ -235,55 +235,38 @@ const Header = memo(({
           </button>
         </div>
 
-        {/* How to Guide - Mobile */}
+        {/* How to Guide - Mobile - Simplified */}
         {showHowToGuide && (
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200 text-sm text-gray-700">
-            <div className="mb-3 p-2 bg-blue-100 rounded border-l-4 border-blue-500">
-              <p className="text-blue-800 font-medium text-xs">
-                Explore UMO's entire performance history, search by city or venue, and upload your own moments from concerts.
-              </p>
-            </div>
+          <div className="mb-4 umo-card p-3">
+            <h3 className="umo-heading umo-heading--sm mb-2">How to Use UMO Archive</h3>
+            <p className="umo-text-secondary text-xs mb-3">
+              Explore UMO's performance history and upload your concert moments.
+            </p>
             
-            <h4 className="font-semibold text-blue-900 mb-2 text-sm">How to Use UMO Archive</h4>
-            
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-start gap-2">
-                <span className="flex-shrink-0 w-5 h-5 bg-blue-600 text-white rounded-full text-xs flex items-center justify-center font-medium">1</span>
-                <div className="text-xs">
-                  <strong>Browse & Explore</strong>
-                  <p className="text-gray-600 mt-0.5">Use the tabs to browse Moments, Shows, and Songs. Search by city, venue, or song name.</p>
+                <div className="flex-shrink-0 w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-xs font-bold text-blue-600">1</div>
+                <div>
+                  <div className="umo-text-primary text-xs font-medium">Browse & Explore</div>
+                  <div className="umo-text-secondary text-xs">Use tabs to browse Moments, Shows, Songs</div>
                 </div>
               </div>
               
               <div className="flex items-start gap-2">
-                <span className="flex-shrink-0 w-5 h-5 bg-blue-600 text-white rounded-full text-xs flex items-center justify-center font-medium">2</span>
-                <div className="text-xs">
-                  <strong>Upload Your Moments</strong>
-                  <p className="text-gray-600 mt-0.5">Login → My Account → Upload New Moment. Add details like song name, venue, and date.</p>
+                <div className="flex-shrink-0 w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-xs font-bold text-blue-600">2</div>
+                <div>
+                  <div className="umo-text-primary text-xs font-medium">Upload Moments</div>
+                  <div className="umo-text-secondary text-xs">Login → My Account → Upload New Moment</div>
                 </div>
               </div>
               
               <div className="flex items-start gap-2">
-                <span className="flex-shrink-0 w-5 h-5 bg-blue-600 text-white rounded-full text-xs flex items-center justify-center font-medium">3</span>
-                <div className="text-xs">
-                  <strong>Wait for Approval</strong>
-                  <p className="text-gray-600 mt-0.5">Uploads go through moderation. Check "My Account" for status updates.</p>
+                <div className="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center text-xs font-bold text-green-600">✓</div>
+                <div>
+                  <div className="umo-text-primary text-xs font-medium">Approval & Sharing</div>
+                  <div className="umo-text-secondary text-xs">Check My Account for status updates</div>
                 </div>
               </div>
-              
-              <div className="flex items-start gap-2">
-                <span className="flex-shrink-0 w-5 h-5 bg-green-600 text-white rounded-full text-xs flex items-center justify-center font-medium">✓</span>
-                <div className="text-xs">
-                  <strong>Enjoy & Share</strong>
-                  <p className="text-gray-600 mt-0.5">Once approved, your moment appears in the public archive!</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-3 pt-2 border-t border-blue-200">
-              <p className="text-xs text-gray-500">
-                💡 <strong>Pro tip:</strong> Higher quality files and complete metadata help create a richer archive!
-              </p>
             </div>
           </div>
         )}
@@ -431,53 +414,52 @@ const Header = memo(({
             </div>
             
             {showHowToGuide && (
-              <div className="mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200 text-sm text-gray-700">
-                <div className="mb-4 p-3 bg-blue-100 rounded-lg border-l-4 border-blue-500">
-                  <p className="text-blue-800 font-medium">
-                    Explore UMO's entire performance history, search by city or venue, and upload your own moments from concerts.
-                  </p>
-                </div>
+              <div className="mt-3 umo-card p-4">
+                <h3 className="umo-heading umo-heading--md mb-3">How to Use UMO Archive</h3>
+                <p className="umo-text-secondary text-sm mb-4">
+                  Explore UMO's complete performance history and upload your own concert moments.
+                </p>
                 
-                <h4 className="font-semibold text-blue-900 mb-3">How to Use UMO Archive</h4>
-                
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full text-xs flex items-center justify-center font-medium">1</span>
+                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-sm font-bold text-blue-600">1</div>
                     <div>
-                      <strong>Browse & Explore</strong>
-                      <p className="text-gray-600 mt-1">Use the tabs above to browse <strong>Moments</strong> (fan uploads), <strong>Shows</strong> (complete setlists), and <strong>Songs</strong> (performance history). Search by city, venue, or song name.</p>
+                      <div className="umo-text-primary font-medium mb-1 text-sm">Browse & Explore</div>
+                      <div className="umo-text-secondary text-xs">
+                        Use tabs to browse Moments, Shows, Songs. Search by city, venue, or song name.
+                      </div>
                     </div>
                   </div>
                   
                   <div className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full text-xs flex items-center justify-center font-medium">2</span>
+                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-sm font-bold text-blue-600">2</div>
                     <div>
-                      <strong>Upload Your Moments</strong>
-                      <p className="text-gray-600 mt-1">Logged-in users can upload videos, photos, or audio from UMO concerts. Click "Login to Upload" → "My Account" → "Upload New Moment". Add details like song name, venue, and date.</p>
+                      <div className="umo-text-primary font-medium mb-1 text-sm">Upload Your Moments</div>
+                      <div className="umo-text-secondary text-xs">
+                        Login → My Account → Upload New Moment. Add details like song, venue, and date.
+                      </div>
                     </div>
                   </div>
                   
                   <div className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full text-xs flex items-center justify-center font-medium">3</span>
+                    <div className="flex-shrink-0 w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center text-sm font-bold text-orange-600">⏳</div>
                     <div>
-                      <strong>Wait for Approval</strong>
-                      <p className="text-gray-600 mt-1">Uploaded moments go through moderation to ensure quality and accuracy. You'll see status updates in "My Account" - blue dot means pending approval, red means needs revision.</p>
+                      <div className="umo-text-primary font-medium mb-1 text-sm">Wait for Approval</div>
+                      <div className="umo-text-secondary text-xs">
+                        Uploads go through moderation. Check My Account for status updates.
+                      </div>
                     </div>
                   </div>
                   
                   <div className="flex items-start gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full text-xs flex items-center justify-center font-medium">✓</span>
+                    <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-sm font-bold text-green-600">✓</div>
                     <div>
-                      <strong>Enjoy & Share</strong>
-                      <p className="text-gray-600 mt-1">Once approved, your moment appears in the public archive! Other fans can discover, download, and enjoy your contribution to UMO history.</p>
+                      <div className="umo-text-primary font-medium mb-1 text-sm">Enjoy & Share</div>
+                      <div className="umo-text-secondary text-xs">
+                        Approved moments appear in the public archive for all fans to discover.
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="mt-4 pt-3 border-t border-blue-200">
-                  <p className="text-xs text-gray-500">
-                    💡 <strong>Pro tip:</strong> Higher quality files (larger sizes) and complete metadata (description, mood, etc.) help create a richer archive for all fans!
-                  </p>
                 </div>
               </div>
             )}

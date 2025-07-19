@@ -6,6 +6,7 @@ import { useMoments, useNotifications } from '../../hooks';
 import { formatDate } from '../../utils';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import UploadModal from '../Moment/UploadModal';
+import LazyMedia from '../UI/LazyMedia';
 
 // ✅ Function to determine if a song name is actually a song
 const isActualSong = (songName) => {
@@ -809,17 +810,27 @@ const EventMomentCard = memo(({ moment, onSelect }) => {
       {moment.mediaUrl && (
         <div className="relative aspect-video bg-gray-100 hover:opacity-90 transition-opacity">
           {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
-            <video
+            <LazyMedia
               src={moment.mediaUrl}
-              className="w-full h-full object-cover pointer-events-none"
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
-            >
-              Your browser does not support the video tag.
-            </video>
+              type="video"
+              alt={moment.songName}
+              className="w-full h-full object-cover"
+              autoPlay={false}
+              muted={true}
+              controls={false}
+              preload="none"
+              adaptiveQuality={true}
+              mobileOptimized={true}
+              hoverToPlay={true}
+              style={{ backgroundColor: '#000' }}
+              placeholder={
+                <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <Play className="w-6 h-6 text-white/70" />
+                  </div>
+                </div>
+              }
+            />
           ) : moment.mediaType?.startsWith('image') ? (
             <img
               src={moment.mediaUrl}

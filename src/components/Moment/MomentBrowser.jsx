@@ -6,6 +6,7 @@ import { createTimeoutSignal, formatShortDate } from '../../utils';
 import { Play, Calendar, MapPin, User, Zap, Clock, ExternalLink } from 'lucide-react';
 import MomentDetailModal from './MomentDetailModal';
 import PullToRefresh from '../UI/PullToRefresh';
+import LazyMedia from '../UI/LazyMedia';
 
 const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
   const { isWeb3Enabled } = usePlatformSettings();
@@ -131,27 +132,27 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
               <button
                 onClick={goToPrevPage}
                 disabled={currentPage === 0}
-                className={`px-4 py-2 rounded-lg font-medium transition-all mobile-touch-target ${
+                className={`umo-btn px-4 py-2 transition-all mobile-touch-target ${
                   currentPage === 0
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'umo-btn--secondary hover:umo-btn--primary'
                 }`}
                 style={{ minHeight: '44px', minWidth: '100px' }}
               >
                 ← Previous
               </button>
               
-              <div className="text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg" style={{ minHeight: '44px', display: 'flex', alignItems: 'center' }}>
+              <div className="text-sm umo-text-secondary umo-glass px-4 py-2" style={{ minHeight: '44px', display: 'flex', alignItems: 'center', borderRadius: '4px' }}>
                 Page {currentPage + 1} of {totalPages}
               </div>
               
               <button
                 onClick={goToNextPage}
                 disabled={currentPage >= totalPages - 1}
-                className={`px-4 py-2 rounded-lg font-medium transition-all mobile-touch-target ${
+                className={`umo-btn px-4 py-2 transition-all mobile-touch-target ${
                   currentPage >= totalPages - 1
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'umo-btn--secondary hover:umo-btn--primary'
                 }`}
                 style={{ minHeight: '44px', minWidth: '100px' }}
               >
@@ -263,14 +264,26 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
           {/* Show auto-playing video for all video moments */}
           {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
             <div className="relative w-full h-full">
-              <video
+              <LazyMedia
                 src={moment.mediaUrl}
-                className="w-full h-full object-cover pointer-events-none"
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="metadata"
+                type="video"
+                alt={moment.songName}
+                className="w-full h-full object-cover"
+                autoPlay={false}
+                muted={true}
+                controls={false}
+                preload="none"
+                adaptiveQuality={true}
+                mobileOptimized={true}
+                hoverToPlay={true}
+                style={{ backgroundColor: '#000' }}
+                placeholder={
+                  <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                      <Play className="w-6 h-6 text-white/70" />
+                    </div>
+                  </div>
+                }
                 onError={(e) => {
                   console.log('Video error for', moment.songName, ':', {
                     error: e.target.error,
@@ -280,12 +293,7 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
                     mediaType: moment.mediaType
                   });
                 }}
-                // Removed noisy loading logs
-                // onLoadStart={() => console.log('Video loading started for', moment.songName)}
-                // onCanPlay={() => console.log('Video can play for', moment.songName)}
-              >
-                Your browser does not support the video tag.
-              </video>
+              />
               {/* NFT Edition Badge - subtle bottom left */}
               {isWeb3Enabled() && moment.hasNFTEdition && moment.nftCardUrl && (
                 <div className="absolute bottom-2 left-2 flex items-center">
@@ -309,14 +317,6 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
             </div>
           )}
           
-          {/* Play button overlay for clarity - only show for non-video content */}
-          {!(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) && (
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black bg-opacity-20">
-              <div className="bg-white bg-opacity-90 rounded-full p-3">
-                <Play className="text-gray-800" size={24} />
-              </div>
-            </div>
-          )}
           
         </div>
       )}

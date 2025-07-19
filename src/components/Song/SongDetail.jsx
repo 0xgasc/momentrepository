@@ -5,6 +5,8 @@ import { useMoments, useNotifications } from '../../hooks';
 import { formatDate, formatShortDate } from '../../utils';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import UploadModal from '../Moment/UploadModal';
+import LazyMedia from '../UI/LazyMedia';
+import { Play } from 'lucide-react';
 
 const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
   const [selectedMoment, setSelectedMoment] = useState(null);
@@ -666,17 +668,27 @@ const SongMomentCard = memo(({ moment, onMomentSelect }) => {
           {/* Show auto-playing video for all video moments */}
           {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
             <div className="relative w-full h-full">
-              <video
+              <LazyMedia
                 src={moment.mediaUrl}
-                className="w-full h-full object-cover pointer-events-none"
-                autoPlay
-                muted
-                loop
-                playsInline
-                preload="metadata"
-              >
-                Your browser does not support the video tag.
-              </video>
+                type="video"
+                alt={moment.songName}
+                className="w-full h-full object-cover"
+                autoPlay={false}
+                muted={true}
+                controls={false}
+                preload="none"
+                adaptiveQuality={true}
+                mobileOptimized={true}
+                hoverToPlay={true}
+                style={{ backgroundColor: '#000' }}
+                placeholder={
+                  <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                      <Play className="w-6 h-6 text-white/70" />
+                    </div>
+                  </div>
+                }
+              />
               {/* NFT Edition Badge - subtle bottom left */}
               {moment.hasNFTEdition && (
                 <div className="absolute bottom-2 left-2 flex items-center">

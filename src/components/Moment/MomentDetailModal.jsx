@@ -47,6 +47,17 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   const [showBasicInfo, setShowBasicInfo] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showFileDetails, setShowFileDetails] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   const [showEmptyFields, setShowEmptyFields] = useState(false);
   const [showContentDetails, setShowContentDetails] = useState(false);
   // eslint-disable-next-line no-unused-vars
@@ -207,9 +218,9 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             className="media-element w-full"
             style={{ maxHeight: '500px', width: '100%', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
             controls={true}
-            autoPlay={true}
-            muted={false}
-            preload="metadata"
+            autoPlay={false}
+            muted={true}
+            preload="none"
             playsInline={true}
             onLoad={() => { setVideoLoaded(true); setMediaError(false); }}
             onError={() => { setMediaError(true); setVideoLoaded(false); }}
@@ -285,8 +296,6 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   const rarityInfo = getRarityInfo();
   const rarityBreakdown = getRarityBreakdown();
 
-  // Mobile detection
-  const isMobile = window.innerWidth <= 768;
 
   // Prevent body scroll when modal is open - ENHANCED for consistency
   useEffect(() => {
@@ -392,9 +401,11 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
                   <button onClick={() => setShowDetails(!showDetails)} className="toggle-button">
                     Details {showDetails ? '▼' : '▶'}
                   </button>
-                  <button onClick={() => setShowFileDetails(!showFileDetails)} className="toggle-button">
-                    File Details {showFileDetails ? '▼' : '▶'}
-                  </button>
+                  {!isMobile && (
+                    <button onClick={() => setShowFileDetails(!showFileDetails)} className="toggle-button">
+                      File Details {showFileDetails ? '▼' : '▶'}
+                    </button>
+                  )}
                   <button onClick={() => setShowEmptyFields(!showEmptyFields)} className="toggle-button">
                     Empty Fields {showEmptyFields ? '▼' : '▶'}
                   </button>
@@ -511,8 +522,8 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
                 </div>
               )}
 
-              {/* File Details */}
-              {showFileDetails && (
+              {/* File Details - Hidden on mobile */}
+              {showFileDetails && !isMobile && (
                 <div className="metadata-group">
                   <h4>File Information</h4>
                   <div className="metadata-grid">
@@ -765,8 +776,15 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             .trading-card-modal {
               max-width: 95vw;
               width: 95%;
-              max-height: 95vh;
-              margin: 0.5rem;
+              max-height: 90vh;
+              margin: 1rem 0.5rem;
+              overflow-y: auto;
+              -webkit-overflow-scrolling: touch;
+            }
+            .modal-overlay {
+              padding: 2rem 0;
+              align-items: flex-start;
+              justify-content: center;
             }
           }
 
@@ -1426,14 +1444,14 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           .trading-card-modal.mobile-modal {
             width: 95%;
             max-width: 95%;
-            max-height: 95vh;
-            margin: auto;
-            border-radius: 16px;
+            max-height: 85vh;
+            margin: 2rem auto;
+            border-radius: 12px;
             transform: none;
-            /* Remove mobile slide animation to fix positioning issues */
             animation: none;
-            /* Ensure consistent positioning */
             position: relative;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
             top: auto;
             left: auto;
             right: auto;
