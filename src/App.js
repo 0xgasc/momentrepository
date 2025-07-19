@@ -211,10 +211,18 @@ const Header = memo(({
       <div className="block sm:hidden">
         <div className="flex items-center justify-between mb-4 p-3 bg-white/90 backdrop-blur-sm" style={{ borderRadius: '4px', marginBottom: '1rem' }}>
           {/* Logo/Title */}
-          <button onClick={() => { onHomeClick(); closeMobileMenu(); }} className="flex-1 text-left">
-            <h1 className="umo-heading umo-heading--md text-blue-600">
-              UMO Archive
+          <button 
+            onClick={() => {
+              onToggleHowToGuide();
+              // Don't navigate home or close menu when clicking for info
+            }} 
+            className="flex-1 text-left flex items-center gap-2"
+            title="Click for site info and how to use"
+          >
+            <h1 className="umo-heading umo-heading--sm text-blue-600">
+              UMO - the best band in the world
             </h1>
+            {showHowToGuide ? <ChevronUp size={14} className="text-blue-600" /> : <ChevronDown size={14} className="text-blue-600" />}
           </button>
           
           {/* Hamburger Menu Button */}
@@ -226,6 +234,59 @@ const Header = memo(({
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
+
+        {/* How to Guide - Mobile */}
+        {showHowToGuide && (
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200 text-sm text-gray-700">
+            <div className="mb-3 p-2 bg-blue-100 rounded border-l-4 border-blue-500">
+              <p className="text-blue-800 font-medium text-xs">
+                Explore UMO's entire performance history, search by city or venue, and upload your own moments from concerts.
+              </p>
+            </div>
+            
+            <h4 className="font-semibold text-blue-900 mb-2 text-sm">How to Use UMO Archive</h4>
+            
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <span className="flex-shrink-0 w-5 h-5 bg-blue-600 text-white rounded-full text-xs flex items-center justify-center font-medium">1</span>
+                <div className="text-xs">
+                  <strong>Browse & Explore</strong>
+                  <p className="text-gray-600 mt-0.5">Use the tabs to browse Moments, Shows, and Songs. Search by city, venue, or song name.</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-2">
+                <span className="flex-shrink-0 w-5 h-5 bg-blue-600 text-white rounded-full text-xs flex items-center justify-center font-medium">2</span>
+                <div className="text-xs">
+                  <strong>Upload Your Moments</strong>
+                  <p className="text-gray-600 mt-0.5">Login → My Account → Upload New Moment. Add details like song name, venue, and date.</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-2">
+                <span className="flex-shrink-0 w-5 h-5 bg-blue-600 text-white rounded-full text-xs flex items-center justify-center font-medium">3</span>
+                <div className="text-xs">
+                  <strong>Wait for Approval</strong>
+                  <p className="text-gray-600 mt-0.5">Uploads go through moderation. Check "My Account" for status updates.</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-2">
+                <span className="flex-shrink-0 w-5 h-5 bg-green-600 text-white rounded-full text-xs flex items-center justify-center font-medium">✓</span>
+                <div className="text-xs">
+                  <strong>Enjoy & Share</strong>
+                  <p className="text-gray-600 mt-0.5">Once approved, your moment appears in the public archive!</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-3 pt-2 border-t border-blue-200">
+              <p className="text-xs text-gray-500">
+                💡 <strong>Pro tip:</strong> Higher quality files and complete metadata help create a richer archive!
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Mobile Menu Overlay */}
         {mobileMenuOpen && (
