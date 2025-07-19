@@ -1,9 +1,9 @@
 // src/components/Moment/UploadModal.jsx - SIMPLIFIED with removed fields
 import React, { useState, memo, useEffect } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
-import { styles } from '../../styles';
+// Removed styles import - now using UMO design system
 
-const UploadModal = memo(({ uploadingMoment, onClose }) => {
+const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) => {
   const [step, setStep] = useState('form');
   const [file, setFile] = useState(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState(null);
@@ -283,11 +283,8 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
       setUploadStage('Complete!');
       setStep('success');
 
-      // Auto-close modal after success
-      setTimeout(() => {
-        console.log('✅ Upload completed successfully');
-        onClose();
-      }, 2000);
+      // Don't auto-close - let user read the success message
+      // They can close manually with the button
 
     } catch (err) {
       console.error('❌ Upload error:', err);
@@ -300,8 +297,8 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
   };
 
   return (
-    <div style={styles.modal.overlay} onClick={() => step === 'form' && onClose()}>
-      <div style={{...styles.modal.content, maxWidth: '600px', maxHeight: '90vh', overflow: 'auto'}} onClick={(e) => e.stopPropagation()}>
+    <div className="umo-modal-overlay" onClick={() => step === 'form' && onClose()}>
+      <div className="umo-modal max-w-2xl w-full max-h-90vh overflow-auto" onClick={(e) => e.stopPropagation()}>
         {step === 'form' && (
           <SimplifiedUploadForm 
             formData={formData}
@@ -330,6 +327,13 @@ const UploadModal = memo(({ uploadingMoment, onClose }) => {
           <UploadSuccess 
             isSongUpload={isSongUpload} 
             contentType={formData.contentType}
+            onClose={() => {
+              // Refresh notifications when closing after upload
+              if (refreshNotifications) {
+                refreshNotifications();
+              }
+              onClose();
+            }}
           />
         )}
       </div>
@@ -459,41 +463,41 @@ const SimplifiedUploadForm = memo(({
   };
 
   return (
-    <div>
+    <div className="p-6">
       {/* ✅ SMART: Different titles based on upload type */}
-      <h2 style={styles.modal.title}>
-        {isSongUpload ? '🎵 Upload Song Moment' : '📀 Upload Other Content'}
+      <h2 className="umo-heading umo-heading--xl mb-6">
+        {isSongUpload ? 'Upload Song Moment' : 'Upload Other Content'}
       </h2>
       
       {/* ✅ SMART: Upload Context */}
-      <div className={`p-3 rounded-lg mb-4 ${currentTypeInfo.bgColor}`}>
-        <p className={`text-sm ${currentTypeInfo.textColor}`}>
+      <div className="bg-gray-800 border border-gray-600 p-4 mb-6" style={{ borderRadius: '4px' }}>
+        <p className="text-sm umo-text-primary">
           {isSongUpload ? (
-            <>📍 <strong>Song Upload:</strong> Adding moment for "{uploadingMoment.songName}"</>
+            <><strong>Song Upload:</strong> Adding moment for "{uploadingMoment.songName}"</>
           ) : (
-            <>📍 <strong>Other Content:</strong> Adding non-setlist content to this performance</>
+            <><strong>Other Content:</strong> Adding non-setlist content to this performance</>
           )}
         </p>
       </div>
 
-      {error && <div style={styles.message.error}>{error}</div>}
+      {error && <div className="umo-card p-4 mb-4 bg-red-900/20 border-red-500/30"><p className="umo-text-primary">{error}</p></div>}
 
 
       {/* ✅ SMART: Basic Information */}
-      <div style={styles.section.container}>
-        <h3 style={styles.section.title}>
+      <div className="umo-card p-6 mb-6">
+        <h3 className="umo-heading umo-heading--md mb-4">
           Basic Information
         </h3>
         
-        <div style={styles.section.grid}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label style={styles.label}>{currentTypeInfo.nameLabel}</label>
+            <label className="block text-sm font-medium umo-text-primary mb-2">{currentTypeInfo.nameLabel}</label>
             {isSongUpload ? (
               <input
                 type="text"
                 value={formData.songName}
                 onChange={(e) => onInputChange('songName', e.target.value)}
-                style={{...styles.input, backgroundColor: '#f9fafb', cursor: 'not-allowed'}}
+                className="umo-input opacity-60 cursor-not-allowed"
                 placeholder={currentTypeInfo.namePlaceholder}
                 readOnly
               />
@@ -516,7 +520,7 @@ const SimplifiedUploadForm = memo(({
                     onInputChange('songName', '');
                   }
                 }}
-                style={styles.input}
+                className="umo-select"
               >
                 <option value="">Select content type...</option>
                 <option value="intro">Intro</option>
@@ -530,11 +534,11 @@ const SimplifiedUploadForm = memo(({
           </div>
           
           <div>
-            <label style={styles.label}>Performance Date</label>
+            <label className="block text-sm font-medium umo-text-primary mb-2">Performance Date</label>
             <input
               type="text"
               value={formData.performanceDate}
-              style={{...styles.input, backgroundColor: '#f9fafb', cursor: 'not-allowed'}}
+              className="umo-input opacity-60 cursor-not-allowed"
               readOnly
             />
           </div>
@@ -542,35 +546,35 @@ const SimplifiedUploadForm = memo(({
 
         {/* Custom title field for "Other Content" */}
         {isOtherContentUpload && formData.contentType === 'other' && (
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={styles.label}>Custom Title</label>
+          <div className="mb-4">
+            <label className="block text-sm font-medium umo-text-primary mb-2">Custom Title</label>
             <input
               type="text"
               value={formData.songName}
               onChange={(e) => onInputChange('songName', e.target.value)}
-              style={styles.input}
+              className="umo-input"
               placeholder="Enter custom title for this content..."
             />
           </div>
         )}
 
-        <div style={styles.section.grid}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label style={styles.label}>Venue</label>
+            <label className="block text-sm font-medium umo-text-primary mb-2">Venue</label>
             <input
               type="text"
               value={formData.venueName}
-              style={{...styles.input, backgroundColor: '#f9fafb', cursor: 'not-allowed'}}
+              className="umo-input opacity-60 cursor-not-allowed"
               readOnly
             />
           </div>
           
           <div>
-            <label style={styles.label}>City</label>
+            <label className="block text-sm font-medium umo-text-primary mb-2">City</label>
             <input
               type="text"
               value={formData.venueCity}
-              style={{...styles.input, backgroundColor: '#f9fafb', cursor: 'not-allowed'}}
+              className="umo-input opacity-60 cursor-not-allowed"
               readOnly
             />
           </div>
@@ -578,12 +582,12 @@ const SimplifiedUploadForm = memo(({
 
         {/* ✅ SIMPLIFIED: Only show set for songs, removed song position */}
         {isSongUpload && (
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={styles.label}>Set Name</label>
+          <div className="mb-4">
+            <label className="block text-sm font-medium umo-text-primary mb-2">Set Name</label>
             <select
               value={formData.setName}
               onChange={(e) => onInputChange('setName', e.target.value)}
-              style={styles.input}
+              className="umo-select"
             >
               <option value="Main Set">Main Set</option>
               <option value="Encore">Encore</option>
@@ -593,27 +597,27 @@ const SimplifiedUploadForm = memo(({
       </div>
 
       {/* ✅ SIMPLIFIED: Description Section (6 fields total) */}
-      <div style={styles.section.container}>
+      <div className="umo-card p-6 mb-6">
         <h3 
-          style={{...styles.section.title, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'}}
+          className="umo-heading umo-heading--md mb-4 cursor-pointer flex items-center gap-2"
           onClick={() => setShowDetails(!showDetails)}
         >
           Description & Details 
-          <span style={{fontSize: '12px', opacity: 0.7}}>
+          <span className="text-xs umo-text-muted">
             (Optional) {showDetails ? '▼' : '▶'}
           </span>
         </h3>
         
         {showDetails && (
         <div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={styles.label}>
+        <div className="mb-4">
+          <label className="block text-sm font-medium umo-text-primary mb-2">
             {isSongUpload ? 'What happens in this moment?' : `Describe this ${currentTypeInfo.label.toLowerCase()}`}
           </label>
           <textarea
             value={formData.momentDescription}
             onChange={(e) => onInputChange('momentDescription', e.target.value)}
-            style={styles.textarea}
+            className="umo-input umo-textarea"
             placeholder={
               isSongUpload 
                 ? 'Describe what happens during this song performance'
@@ -623,34 +627,21 @@ const SimplifiedUploadForm = memo(({
         </div>
 
         {/* Emotional Tags */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={styles.label}>
+        <div className="mb-4">
+          <label className="block text-sm font-medium umo-text-primary mb-2">
             Mood/Energy (Select Multiple)
           </label>
-          <div style={{
-            border: '1px solid #d1d5db',
-            borderRadius: '6px',
-            padding: '8px',
-            minHeight: '50px',
-            backgroundColor: 'white',
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '6px'
-          }}>
+          <div className="bg-gray-800 border border-gray-600 p-3 min-h-16 flex flex-wrap gap-2" style={{ borderRadius: '4px' }}>
             {getEmotionalOptions().map(option => (
               <button
                 key={option}
                 type="button"
                 onClick={() => onArrayToggle('emotionalTags', option)}
-                style={{
-                  padding: '4px 8px',
-                  borderRadius: '12px',
-                  border: '1px solid #d1d5db',
-                  backgroundColor: formData.emotionalTags.includes(option) ? '#3b82f6' : '#f9fafb',
-                  color: formData.emotionalTags.includes(option) ? 'white' : '#374151',
-                  fontSize: '12px',
-                  cursor: 'pointer'
-                }}
+                className={`px-2 py-1 text-xs rounded-full border transition-colors cursor-pointer ${
+                  formData.emotionalTags.includes(option) 
+                    ? 'bg-blue-600 text-white border-blue-600' 
+                    : 'umo-btn--ghost'
+                }`}
               >
                 {option}
               </button>
@@ -659,15 +650,15 @@ const SimplifiedUploadForm = memo(({
         </div>
 
         {/* Grid layout for remaining 4 fields */}
-        <div style={styles.section.grid}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label style={styles.label}>
+            <label className="block text-sm font-medium umo-text-primary mb-2">
               Special Occasion
             </label>
             <select
               value={formData.specialOccasion}
               onChange={(e) => onInputChange('specialOccasion', e.target.value)}
-              style={styles.input}
+              className="umo-select"
             >
               <option value="">None</option>
               <option value="Birthday show">Birthday show</option>
@@ -684,13 +675,13 @@ const SimplifiedUploadForm = memo(({
           </div>
           
           <div>
-            <label style={styles.label}>
+            <label className="block text-sm font-medium umo-text-primary mb-2">
               Unique Elements
             </label>
             <select
               value={formData.uniqueElements}
               onChange={(e) => onInputChange('uniqueElements', e.target.value)}
-              style={styles.input}
+              className="umo-select"
             >
               {getUniqueElementOptions().map(option => (
                 <option key={option} value={option}>
@@ -703,34 +694,21 @@ const SimplifiedUploadForm = memo(({
 
         {/* Instruments - Only for songs, jams, and improv */}
         {(isSongUpload || formData.contentType === 'jam' || formData.contentType === 'improv') && (
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={styles.label}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium umo-text-primary mb-2">
               Featured Instruments/Elements
             </label>
-            <div style={{
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              padding: '8px',
-              minHeight: '50px',
-              backgroundColor: 'white',
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '6px'
-            }}>
+            <div className="bg-gray-800 border border-gray-600 p-3 min-h-16 flex flex-wrap gap-2" style={{ borderRadius: '4px' }}>
               {['Guitar solo', 'Bass solo', 'Drum solo', 'Keyboard/synth', 'Saxophone', 'Trumpet', 'Harmonica', 'Violin', 'Extended jam', 'Backup vocals'].map(option => (
                 <button
                   key={option}
                   type="button"
                   onClick={() => onArrayToggle('instruments', option)}
-                  style={{
-                    padding: '4px 8px',
-                    borderRadius: '12px',
-                    border: '1px solid #d1d5db',
-                    backgroundColor: formData.instruments.includes(option) ? '#10b981' : '#f9fafb',
-                    color: formData.instruments.includes(option) ? 'white' : '#374151',
-                    fontSize: '12px',
-                    cursor: 'pointer'
-                  }}
+                  className={`px-2 py-1 text-xs rounded-full border transition-colors cursor-pointer ${
+                    formData.instruments.includes(option) 
+                      ? 'bg-green-600 text-white border-green-600' 
+                      : 'umo-btn--ghost'
+                  }`}
                 >
                   {option}
                 </button>
@@ -740,14 +718,14 @@ const SimplifiedUploadForm = memo(({
         )}
 
         {/* Crowd Reaction - Always shown */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={styles.label}>
+        <div className="mb-4">
+          <label className="block text-sm font-medium umo-text-primary mb-2">
             Crowd Reaction
           </label>
           <select
             value={formData.crowdReaction}
             onChange={(e) => onInputChange('crowdReaction', e.target.value)}
-            style={styles.input}
+            className="umo-select"
           >
             <option value="">Select reaction...</option>
             <option value="Explosive energy">Explosive energy</option>
@@ -768,56 +746,47 @@ const SimplifiedUploadForm = memo(({
       </div>
 
       {/* ✅ SMART: File Upload */}
-      <div style={styles.section.container}>
-        <h3 style={styles.section.title}>
+      <div className="umo-card p-6 mb-6">
+        <h3 className="umo-heading umo-heading--md mb-4">
           Media File
         </h3>
         
-        
-        <div style={styles.fileUpload.container}>
+        <div className="bg-gray-800 border-2 border-dashed border-gray-500 p-8 text-center hover:border-gray-400 transition-colors" style={{ borderRadius: '4px' }}>
           <input
             type="file"
             id="file-upload"
-            style={{ display: 'none' }}
+            className="hidden"
             accept="video/*,audio/*,image/*"
             onChange={onFileSelect}
           />
-          <label htmlFor="file-upload" style={{ cursor: 'pointer' }}>
+          <label htmlFor="file-upload" className="cursor-pointer block">
             {!file ? (
               <div>
-                <p style={styles.fileUpload.text}>Click here to select media file</p>
-                <p style={styles.fileUpload.subtext}>Video, Audio, or Image files up to 6GB</p>
+                <p className="umo-text-primary text-lg mb-2">Click here to select media file</p>
+                <p className="umo-text-secondary text-sm">Video, Audio, or Image files up to 6GB</p>
               </div>
             ) : (
               <div>
-                <p style={{ fontWeight: 'bold', marginBottom: '0.5rem', color: '#F5F5DC' }}>{file.name}</p>
-                <p style={{ color: '#B8860B' }}>{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                <p className="font-bold mb-2 umo-text-primary">{file.name}</p>
+                <p className="text-yellow-600">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                 
                 {/* Media Preview */}
                 {filePreviewUrl && (
-                  <div style={{ marginTop: '1rem' }}>
+                  <div className="mt-4">
                     {file.type.startsWith('video/') ? (
                       <video 
                         src={filePreviewUrl} 
                         controls 
-                        style={{ 
-                          width: '100%', 
-                          maxHeight: '200px', 
-                          backgroundColor: '#000',
-                          borderRadius: '8px'
-                        }}
+                        className="w-full max-h-48 bg-black rounded"
+                        style={{ borderRadius: '4px' }}
                         preload="metadata"
                       />
                     ) : file.type.startsWith('image/') ? (
                       <img 
                         src={filePreviewUrl} 
                         alt="Preview" 
-                        style={{ 
-                          width: '100%', 
-                          maxHeight: '200px', 
-                          objectFit: 'contain',
-                          borderRadius: '8px'
-                        }}
+                        className="w-full max-h-48 object-contain rounded"
+                        style={{ borderRadius: '4px' }}
                       />
                     ) : null}
                   </div>
@@ -829,8 +798,8 @@ const SimplifiedUploadForm = memo(({
       </div>
 
       {/* Actions */}
-      <div style={styles.footerActions.container}>
-        <button onClick={onClose} style={styles.button.secondary}>Cancel</button>
+      <div className="flex justify-between items-center pt-6 border-t border-gray-600">
+        <button onClick={onClose} className="umo-btn umo-btn--secondary">Cancel</button>
         
         <button
           onClick={onUpload}
@@ -838,14 +807,16 @@ const SimplifiedUploadForm = memo(({
                    (isSongUpload && !formData.songName) || 
                    (!isSongUpload && !formData.contentType) ||
                    (!isSongUpload && formData.contentType === 'other' && !formData.songName)}
-          style={(!file || !formData.venueName || !formData.venueCity || 
-                 (isSongUpload && !formData.songName) || 
-                 (!isSongUpload && !formData.contentType) ||
-                 (!isSongUpload && formData.contentType === 'other' && !formData.songName)) 
-            ? styles.button.disabled 
-            : styles.button.primary}
+          className={`umo-btn ${
+            (!file || !formData.venueName || !formData.venueCity || 
+             (isSongUpload && !formData.songName) || 
+             (!isSongUpload && !formData.contentType) ||
+             (!isSongUpload && formData.contentType === 'other' && !formData.songName)) 
+            ? 'opacity-50 cursor-not-allowed'
+            : 'umo-btn--primary'
+          }`}
         >
-          🚀 Upload {isSongUpload ? 'Song Moment' : currentTypeInfo.label}
+          Upload {isSongUpload ? 'Song Moment' : currentTypeInfo.label}
         </button>
       </div>
     </div>
@@ -855,48 +826,26 @@ const SimplifiedUploadForm = memo(({
 SimplifiedUploadForm.displayName = 'SimplifiedUploadForm';
 
 const UploadProgress = memo(({ uploadProgress, uploadStage }) => (
-  <div style={{ textAlign: 'center', padding: '2rem' }}>
-    <h2 style={styles.modal.title}>🚀 Creating Your UMO Moment</h2>
+  <div className="text-center p-8">
+    <h2 className="umo-heading umo-heading--xl mb-6">Creating Your UMO Moment</h2>
     
-    <div style={{
-      backgroundColor: '#f3f4f6',
-      borderRadius: '8px',
-      height: '8px',
-      marginBottom: '1rem',
-      overflow: 'hidden'
-    }}>
+    <div className="bg-gray-600 rounded h-2 mb-4 overflow-hidden" style={{ borderRadius: '4px' }}>
       <div
-        style={{
-          backgroundColor: '#3b82f6',
-          height: '100%',
-          width: `${uploadProgress}%`,
-          transition: 'width 0.3s ease'
-        }}
+        className="bg-blue-600 h-full transition-all duration-300 ease-out"
+        style={{ width: `${uploadProgress}%` }}
       />
     </div>
     
-    <p style={{ color: '#6b7280', fontSize: '1rem', marginBottom: '0.5rem' }}>
+    <p className="umo-text-primary text-lg mb-2">
       {Math.round(uploadProgress)}% Complete
     </p>
-    <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
+    <p className="umo-text-secondary text-sm mb-6">
       {uploadStage}
     </p>
     
-    <div style={{
-      marginTop: '1rem',
-      padding: '1rem',
-      backgroundColor: '#1A1A1A',
-      borderRadius: '8px',
-      border: '1px solid #4A0E0E'
-    }}>
-      <p style={{ 
-        fontSize: '0.75rem', 
-        textAlign: 'center', 
-        margin: 0,
-        color: '#F5F5DC',
-        lineHeight: '1.4'
-      }}>
-        <strong style={{ color: '#B8860B' }}>⚠️ Please wait - do not close this window</strong><br/>
+    <div className="umo-card p-4">
+      <p className="text-xs text-center m-0 umo-text-primary leading-relaxed">
+        <strong className="text-yellow-600">⚠️ Please wait - do not close this window</strong><br/>
         Your file is being secured by millions of computers worldwide through decentralized storage. This ensures permanent, censorship-resistant preservation of your moment.
       </p>
     </div>
@@ -906,7 +855,7 @@ const UploadProgress = memo(({ uploadProgress, uploadStage }) => (
 UploadProgress.displayName = 'UploadProgress';
 
 // ✅ UPDATED: Success message for simplified system
-const UploadSuccess = memo(({ isSongUpload, contentType }) => {
+const UploadSuccess = memo(({ isSongUpload, contentType, onClose }) => {
   const getContentTypeLabel = () => {
     const types = {
       song: 'song moment',
@@ -919,24 +868,39 @@ const UploadSuccess = memo(({ isSongUpload, contentType }) => {
   };
 
   return (
-    <div style={{ textAlign: 'center', padding: '2rem' }}>
-      <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
-      <h2 style={{ ...styles.modal.title, color: '#059669' }}>
-        {isSongUpload ? 'Song Moment Created!' : 'Other Content Created!'}
+    <div className="text-center p-8">
+      <div className="text-6xl mb-6 text-green-600">✓</div>
+      <h2 className="umo-heading umo-heading--xl mb-6 text-green-600">
+        {isSongUpload ? 'Moment Uploaded Successfully!' : 'Content Uploaded Successfully!'}
       </h2>
-      <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
-        Your {getContentTypeLabel()} has been uploaded with simple 3-factor rarity scoring.
-      </p>
-      <div style={{
-        padding: '12px',
-        backgroundColor: '#1A1A1A',
-        border: '1px solid #4A0E0E',
-        borderRadius: '8px',
-        fontSize: '14px',
-        color: '#F5F5DC'
-      }}>
-        <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#B8860B' }}>⚡ Simple Scoring Applied</div>
-        <div>File size + content rarity + metadata completeness = your rarity score</div>
+      
+      <div className="bg-gray-800 border-2 border-gray-600 p-6 mb-6" style={{ borderRadius: '4px' }}>
+        <h3 className="umo-heading umo-heading--md mb-4 text-blue-400">Awaiting Approval</h3>
+        <p className="umo-text-primary mb-4 leading-relaxed text-left">
+          Your {getContentTypeLabel()} has been safely uploaded to the UMO Archive and is now 
+          waiting for review by our moderation team.
+        </p>
+        
+        <div className="bg-gray-700 border border-gray-500 p-4 mb-6" style={{ borderRadius: '4px' }}>
+          <p className="umo-text-secondary text-sm leading-relaxed text-left">
+            <strong className="umo-text-primary">What happens next:</strong><br/><br/>
+            • Our moderators will review your upload for quality and accuracy<br/>
+            • This process typically takes 1-3 days<br/>
+            • You'll be notified in "My Account" when it's approved (look for the blue dot!)<br/>
+            • Once approved, your moment will be visible to all UMO fans!
+          </p>
+        </div>
+        
+        <p className="text-sm umo-text-muted mb-6">
+          Thank you for contributing to the UMO Archive community!
+        </p>
+        
+        <button 
+          onClick={onClose}
+          className="umo-btn umo-btn--primary px-6 py-3"
+        >
+          Close & Check My Account
+        </button>
       </div>
     </div>
   );

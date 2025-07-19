@@ -734,10 +734,9 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           }
 
           .trading-card-modal {
-            background-color: rgba(255, 255, 255, 0.02) !important;
-            background-image: none !important;
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
+            background: none !important;
+            backdrop-filter: blur(30px) brightness(1.1);
+            -webkit-backdrop-filter: blur(30px) brightness(1.1);
             border-radius: 16px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
             border: 2px solid rgba(220, 38, 127, 0.8);

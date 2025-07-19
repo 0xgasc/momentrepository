@@ -47,19 +47,19 @@ const MyAccount = memo(({ onClose }) => {
 
   const getRoleDisplay = (role) => {
     const roleInfo = {
-      admin: { emoji: '👑', label: 'Administrator', color: 'text-purple-600' },
-      mod: { emoji: '🛡️', label: 'Moderator', color: 'text-blue-600' },
-      user: { emoji: '👤', label: 'User', color: 'text-gray-600' }
+      admin: { label: 'Administrator', color: 'text-purple-600' },
+      mod: { label: 'Moderator', color: 'text-blue-600' },
+      user: { label: 'User', color: 'text-gray-600' }
     };
     return roleInfo[role] || roleInfo.user;
   };
 
   const getStatusDisplay = (status) => {
     const statusInfo = {
-      pending: { emoji: '⏳', label: 'Pending Review', color: 'text-yellow-600 bg-yellow-50' },
-      approved: { emoji: '✅', label: 'Approved', color: 'text-green-600 bg-green-50' },
-      rejected: { emoji: '❌', label: 'Rejected', color: 'text-red-600 bg-red-50' },
-      needs_revision: { emoji: '📝', label: 'Needs Revision', color: 'text-orange-600 bg-orange-50' }
+      pending: { label: 'Pending Review', color: 'text-yellow-600 bg-yellow-50' },
+      approved: { label: 'Approved', color: 'text-green-600 bg-green-50' },
+      rejected: { label: 'Rejected', color: 'text-red-600 bg-red-50' },
+      needs_revision: { label: 'Needs Revision', color: 'text-orange-600 bg-orange-50' }
     };
     return statusInfo[status] || statusInfo.pending;
   };
@@ -101,7 +101,6 @@ const MyAccount = memo(({ onClose }) => {
         {/* Header */}
         <div className="bg-gray-50 px-6 py-4 border-b flex items-center justify-between" style={{ backgroundColor: '#f9fafb' }}>
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{roleDisplay.emoji}</span>
             <div>
               <h2 className="text-xl font-bold text-gray-900">My Account</h2>
               <p className="text-sm text-gray-600">{profile?.email}</p>
@@ -118,11 +117,11 @@ const MyAccount = memo(({ onClose }) => {
         {/* Tabs */}
         <div className="flex border-b">
           {[
-            { key: 'profile', label: '👤 Profile', count: null },
-            { key: 'uploads', label: '📤 My Uploads', count: myMoments.length },
-            { key: 'pending', label: '⏳ Pending', count: groupedMoments.pending?.length || 0 },
-            { key: 'needs_revision', label: '📝 Needs Revision', count: groupedMoments.needs_revision?.length || 0 },
-            { key: 'approved', label: '✅ Approved', count: groupedMoments.approved?.length || 0 }
+            { key: 'profile', label: 'Profile', count: null },
+            { key: 'uploads', label: 'My Uploads', count: myMoments.length },
+            { key: 'pending', label: 'Pending', count: groupedMoments.pending?.length || 0 },
+            { key: 'needs_revision', label: 'Needs Revision', count: groupedMoments.needs_revision?.length || 0 },
+            { key: 'approved', label: 'Approved', count: groupedMoments.approved?.length || 0 }
           ].map(tab => (
             <button
               key={tab.key}
@@ -202,7 +201,6 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
           <div className={`flex items-center gap-2 ${roleDisplay.color}`}>
-            <span>{roleDisplay.emoji}</span>
             <span className="font-medium">{roleDisplay.label}</span>
           </div>
         </div>
@@ -524,7 +522,7 @@ const UploadsTab = memo(({ moments, getStatusDisplay, formatDate }) => {
                   
                   <div className="flex flex-col items-end gap-2">
                     <div className={`px-2 py-1 rounded-full text-xs font-medium ${statusDisplay.color}`}>
-                      {statusDisplay.emoji} {statusDisplay.label}
+                      {statusDisplay.label}
                     </div>
                     
                     {/* Action buttons for pending moments */}
@@ -650,13 +648,12 @@ const StatusTab = memo(({ moments, status, getStatusDisplay, formatDate }) => {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold flex items-center gap-2">
-        <span>{statusDisplay.emoji}</span>
         {statusDisplay.label} Uploads ({moments.length})
       </h3>
       
       {moments.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
-          <div className="text-4xl mb-2">{statusDisplay.emoji}</div>
+          <div className="text-lg font-semibold mb-2">{statusDisplay.label}</div>
           <div>No {status} uploads</div>
         </div>
       ) : (

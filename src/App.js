@@ -2,6 +2,7 @@ import React, { useState, memo } from 'react';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
 import { Menu, X, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import './styles/umo-theme.css';
 
 // Import the extracted components
 import CacheStatusDisplay from './components/Cache/CacheStatusDisplay';
@@ -121,8 +122,8 @@ const MainApp = memo(() => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="p-4 max-w-7xl mx-auto">
+    <div className="umo-container">
+      <div className="umo-container-fluid">
         {/* Header with Navigation */}
         <Header 
           user={user}
@@ -208,10 +209,10 @@ const Header = memo(({
     <div className="mb-6">
       {/* Mobile Header */}
       <div className="block sm:hidden">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 p-3 bg-white/90 backdrop-blur-sm" style={{ borderRadius: '4px', marginBottom: '1rem' }}>
           {/* Logo/Title */}
           <button onClick={() => { onHomeClick(); closeMobileMenu(); }} className="flex-1 text-left">
-            <h1 className="text-lg font-bold text-blue-600 leading-tight">
+            <h1 className="umo-heading umo-heading--md text-blue-600">
               UMO Archive
             </h1>
           </button>
@@ -230,16 +231,16 @@ const Header = memo(({
         {mobileMenuOpen && (
           <div className="fixed inset-0 z-50 bg-black bg-opacity-50" onClick={closeMobileMenu}>
             <div 
-              className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out"
+              className="fixed top-0 right-0 h-full w-80 umo-glass shadow-lg transform transition-transform duration-300 ease-in-out"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-4">
                 {/* Close button */}
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-lg font-bold text-gray-900">Menu</h2>
+                  <h2 className="text-lg font-bold umo-text-primary">Menu</h2>
                   <button
                     onClick={closeMobileMenu}
-                    className="p-2 text-gray-600 hover:text-gray-900"
+                    className="umo-btn umo-btn--secondary p-2"
                     style={{ minHeight: '44px', minWidth: '44px' }}
                   >
                     <X size={24} />
@@ -250,58 +251,55 @@ const Header = memo(({
                 <div className="space-y-4 mb-6">
                   <button
                     onClick={() => { onBrowseModeChange('moments'); closeMobileMenu(); }}
-                    className={`w-full text-left p-4 rounded-lg transition-colors ${
+                    className={`umo-btn w-full text-left ${
                       browseMode === 'moments' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-50 text-gray-900 hover:bg-gray-100'
+                        ? 'umo-btn--primary' 
+                        : 'umo-btn--secondary'
                     }`}
                     style={{ minHeight: '44px' }}
                   >
-                    <span className="mr-2">⚡</span>
                     Browse Moments
                   </button>
                   
                   <button
                     onClick={() => { onBrowseModeChange('performances'); closeMobileMenu(); }}
-                    className={`w-full text-left p-4 rounded-lg transition-colors ${
+                    className={`umo-btn w-full text-left ${
                       browseMode === 'performances' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-50 text-gray-900 hover:bg-gray-100'
+                        ? 'umo-btn--primary' 
+                        : 'umo-btn--secondary'
                     }`}
                     style={{ minHeight: '44px' }}
                   >
-                    <span className="mr-2">🎸</span>
                     Browse Shows
                   </button>
                   
                   <button
                     onClick={() => { onBrowseModeChange('songs'); closeMobileMenu(); }}
-                    className={`w-full text-left p-4 rounded-lg transition-colors ${
+                    className={`umo-btn w-full text-left ${
                       browseMode === 'songs' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-50 text-gray-900 hover:bg-gray-100'
+                        ? 'umo-btn--primary' 
+                        : 'umo-btn--secondary'
                     }`}
                     style={{ minHeight: '44px' }}
                   >
-                    <span className="mr-2">🎵</span>
                     Browse Songs
                   </button>
                 </div>
 
                 {/* Account Actions */}
-                <div className="border-t pt-4 space-y-3">
+                <div className="border-t border-gray-600 pt-4 space-y-3">
                   {user ? (
                     <>
-                      <div className="text-sm text-gray-600 mb-3">
-                        Logged in as: <span className="font-medium">{user.displayName}</span>
+                      <div className="text-sm umo-text-secondary mb-3">
+                        Logged in as: <span className="font-medium umo-text-primary">{user.displayName}</span>
                       </div>
                       
                       <button
                         onClick={() => { onMyAccountClick(); closeMobileMenu(); }}
-                        className="w-full text-left p-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors relative"
+                        className="umo-btn umo-btn--secondary w-full text-left relative"
                         style={{ minHeight: '44px' }}
                       >
-                        👤 My Account
+                        My Account
                         {badgeInfo.show && !badgeInfo.isModOrAdmin && (
                           <div 
                             className={`absolute top-2 right-2 w-3 h-3 ${badgeInfo.color === 'blue' ? 'bg-blue-500' : 'bg-red-500'} rounded-full border border-white`}
@@ -317,10 +315,10 @@ const Header = memo(({
 {(user.role === 'admin' || user.role === 'mod' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') && (
                         <button
                           onClick={() => { onAdminPanelClick(); closeMobileMenu(); }}
-                          className="w-full text-left p-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors relative"
+                          className="umo-btn umo-btn--primary w-full text-left relative"
                           style={{ minHeight: '44px' }}
                         >
-                          {(user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') ? 'Admin Panel' : '🛡️ Moderation Panel'}
+                          {(user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') ? 'Admin Panel' : 'Moderation Panel'}
                           {badgeInfo.show && badgeInfo.isModOrAdmin && (
                             <div 
                               className={`absolute top-2 right-2 w-3 h-3 ${badgeInfo.color === 'red' ? 'bg-red-500' : 'bg-red-500'} rounded-full border border-white`}
@@ -337,7 +335,7 @@ const Header = memo(({
                   ) : (
                     <button
                       onClick={() => { onLoginClick(); closeMobileMenu(); }}
-                      className="w-full text-left p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      className="umo-btn umo-btn--primary w-full text-left"
                       style={{ minHeight: '44px' }}
                     >
                       Login to Upload
@@ -352,22 +350,22 @@ const Header = memo(({
 
       {/* Desktop Header */}
       <div className="hidden sm:block">
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-4 p-4 bg-white/90 backdrop-blur-sm" style={{ borderRadius: '4px', marginBottom: '1.5rem' }}>
           {/* Title Section */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <button onClick={onHomeClick}>
-                <h1 className="text-lg sm:text-xl font-bold text-blue-600 hover:text-blue-800 transition-colors leading-tight">
+              <button 
+                onClick={() => {
+                  onToggleHowToGuide();
+                  // Don't navigate home when clicking for info
+                }}
+                className="flex items-center gap-2"
+                title="Click for site info and how to use"
+              >
+                <h1 className="umo-heading umo-heading--lg text-blue-600 hover:text-blue-800 transition-colors">
                   UMO - the best band in the world
                 </h1>
-              </button>
-              <button
-                onClick={onToggleHowToGuide}
-                className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm transition-colors"
-                title="How to use this site"
-              >
-                <Info size={16} />
-                {showHowToGuide ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {showHowToGuide ? <ChevronUp size={16} className="text-blue-600" /> : <ChevronDown size={16} className="text-blue-600" />}
               </button>
             </div>
             
@@ -379,7 +377,7 @@ const Header = memo(({
                   </p>
                 </div>
                 
-                <h4 className="font-semibold text-blue-900 mb-3">📱 How to Use UMO Archive</h4>
+                <h4 className="font-semibold text-blue-900 mb-3">How to Use UMO Archive</h4>
                 
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
@@ -434,10 +432,10 @@ const Header = memo(({
                 <div className="flex gap-1">
                   <button
                     onClick={onMyAccountClick}
-                    className="px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 transition-colors whitespace-nowrap relative"
+                    className="umo-btn umo-btn--secondary text-xs whitespace-nowrap relative"
                     style={{ minHeight: '32px' }}
                   >
-                    👤 My Account
+                    My Account
                     {badgeInfo.show && !badgeInfo.isModOrAdmin && (
                       <div 
                         className={`absolute -top-1 -right-1 w-3 h-3 ${badgeInfo.color === 'blue' ? 'bg-blue-500' : 'bg-red-500'} rounded-full border border-white`}
@@ -452,10 +450,10 @@ const Header = memo(({
 {(user.role === 'admin' || user.role === 'mod' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') && (
                     <button
                       onClick={onAdminPanelClick}
-                      className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 transition-colors whitespace-nowrap relative"
+                      className="umo-btn umo-btn--primary text-xs whitespace-nowrap relative"
                       style={{ minHeight: '32px' }}
                     >
-                      {(user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') ? 'Admin' : '🛡️ Mod'}
+                      {(user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') ? 'Admin' : 'Mod'}
                       {badgeInfo.show && badgeInfo.isModOrAdmin && (
                         <div 
                           className={`absolute -top-1 -right-1 w-3 h-3 ${badgeInfo.color === 'red' ? 'bg-red-500' : 'bg-red-500'} rounded-full border border-white`}
@@ -475,7 +473,7 @@ const Header = memo(({
                 <div className="text-xs text-gray-500 mb-1">Browse read-only</div>
                 <button
                   onClick={onLoginClick}
-                  className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors whitespace-nowrap"
+                  className="umo-btn umo-btn--primary text-sm whitespace-nowrap"
                   style={{ minHeight: '36px' }}
                 >
                   Login to Upload
@@ -488,41 +486,38 @@ const Header = memo(({
         {/* Desktop Navigation Tabs (only on home view) */}
         {currentView === 'home' && (
           <div className="flex justify-center">
-            <div className="bg-white rounded-xl border border-gray-200 p-1 inline-flex shadow-sm w-full max-w-lg">
+            <div className="umo-glass p-1 inline-flex w-full max-w-lg" style={{ borderRadius: '2px' }}>
               <button
                 onClick={() => onBrowseModeChange('moments')}
-                className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                className={`umo-btn flex-1 ${
                   browseMode === 'moments' 
-                    ? 'bg-blue-600 text-white shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'umo-btn--primary' 
+                    : 'umo-btn--ghost'
                 }`}
                 style={{ minHeight: '44px' }}
               >
-                <span className="mr-1">⚡</span>
                 Moments
               </button>
               <button
                 onClick={() => onBrowseModeChange('performances')}
-                className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                className={`umo-btn flex-1 ${
                   browseMode === 'performances' 
-                    ? 'bg-blue-600 text-white shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'umo-btn--primary' 
+                    : 'umo-btn--ghost'
                 }`}
                 style={{ minHeight: '44px' }}
               >
-                <span className="mr-1">🎸</span>
                 Shows
               </button>
               <button
                 onClick={() => onBrowseModeChange('songs')}
-                className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                className={`umo-btn flex-1 ${
                   browseMode === 'songs' 
-                    ? 'bg-blue-600 text-white shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'umo-btn--primary' 
+                    : 'umo-btn--ghost'
                 }`}
                 style={{ minHeight: '44px' }}
               >
-                <span className="mr-1">🎵</span>
                 Songs
               </button>
             </div>

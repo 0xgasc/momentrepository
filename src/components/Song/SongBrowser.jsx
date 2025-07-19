@@ -82,18 +82,18 @@ SongBrowser.displayName = 'SongBrowser';
 const LoadingState = memo(({ momentProgress }) => (
   <div className="mb-8">
     <div className="text-center py-8">
-      <div className="inline-flex flex-col items-center text-gray-500">
+      <div className="inline-flex flex-col items-center umo-text-secondary">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mb-3"></div>
-        <div className="text-lg font-medium mb-2">
+        <div className="text-lg font-medium mb-2 umo-text-primary">
           {momentProgress.total > 0 ? 'Loading moment counts...' : 'Loading song database...'}
         </div>
         {momentProgress.total > 0 && (
           <div className="text-sm">
             {momentProgress.current} of {momentProgress.total} songs processed
-            <div className="w-64 bg-gray-200 rounded-full h-2 mt-2">
+            <div className="w-64 bg-gray-600 h-2 mt-2" style={{ borderRadius: '4px' }}>
               <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                style={{ width: `${(momentProgress.current / momentProgress.total) * 100}%` }}
+                className="bg-blue-600 h-2 transition-all duration-300" 
+                style={{ width: `${(momentProgress.current / momentProgress.total) * 100}%`, borderRadius: '4px' }}
               ></div>
             </div>
           </div>
@@ -107,8 +107,8 @@ LoadingState.displayName = 'LoadingState';
 
 const ErrorState = memo(({ error }) => (
   <div className="mb-8">
-    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-      ⚠️ {error}
+    <div className="umo-card p-4">
+      <p className="umo-text-primary">⚠️ {error}</p>
     </div>
   </div>
 ));
@@ -129,37 +129,44 @@ const SongHeader = memo(({
   onToggleSortDirection,
   onToggleShowOnlyWithMoments
 }) => (
-  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-    <div>
+  <div className="mb-6">
+    {/* Title */}
+    <div className="mb-4">
+      <h3 className="umo-heading umo-heading--lg">Song Database</h3>
     </div>
     
-    <div className="flex items-center gap-3">
-      {/* Filter Toggle */}
-      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={showOnlyWithMoments}
-          onChange={(e) => onToggleShowOnlyWithMoments(e.target.checked)}
-          className="rounded border-gray-300"
-        />
-        Songs with moments only
-      </label>
+    {/* Controls - Better Spacing */}
+    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+      {/* Left side - Filter Toggle */}
+      <div className="flex items-center">
+        <label className="flex items-center gap-2 text-sm umo-text-primary cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showOnlyWithMoments}
+            onChange={(e) => onToggleShowOnlyWithMoments(e.target.checked)}
+            className="border-gray-400"
+            style={{ minWidth: '20px', minHeight: '20px' }}
+          />
+          Songs with moments only
+        </label>
+      </div>
 
-      {/* Search Bar */}
-      <div className="relative w-80">
+      {/* Center - Search Bar */}
+      <div className="relative w-full max-w-md">
         <input
           type="text"
           value={searchQuery}
           onChange={onSearchChange}
           placeholder="Search songs, venues, or cities..."
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="umo-input w-full px-4 py-2 text-sm"
         />
         <div className="absolute right-3 top-2 flex items-center gap-1">
           {searchQuery && (
             <button
               onClick={onClearSearch}
-              className="text-gray-400 hover:text-gray-600"
+              className="umo-text-muted hover:umo-text-primary"
               title="Clear search"
+              style={{ minWidth: '32px', minHeight: '32px', padding: '6px', fontSize: '18px' }}
             >
               ×
             </button>
@@ -167,28 +174,30 @@ const SongHeader = memo(({
         </div>
       </div>
 
-      {/* Sort Controls */}
-      <span className="text-sm font-medium text-gray-700">Sort:</span>
-      <select
-        value={sortBy}
-        onChange={(e) => onSortChange(e.target.value)}
-        className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <option value="alphabetical">Alphabetical</option>
-        <option value="mostPerformed">Most Performed</option>
-        <option value="mostMoments">Most Moments</option>
-        <option value="lastPerformed">Last Performed</option>
-        <option value="firstPerformed">First Performed</option>
-        <option value="mostVenues">Most Venues</option>
-      </select>
-      
-      <button
-        onClick={onToggleSortDirection}
-        className="px-3 py-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-        title={`Sort ${sortDirection === 'asc' ? 'Descending' : 'Ascending'}`}
-      >
-        {sortDirection === 'asc' ? '↑' : '↓'}
-      </button>
+      {/* Right side - Sort Controls */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium umo-text-primary">Sort:</span>
+        <select
+          value={sortBy}
+          onChange={(e) => onSortChange(e.target.value)}
+          className="umo-select px-3 py-2 text-sm"
+        >
+          <option value="alphabetical">Alphabetical</option>
+          <option value="mostPerformed">Most Performed</option>
+          <option value="mostMoments">Most Moments</option>
+          <option value="lastPerformed">Last Performed</option>
+          <option value="firstPerformed">First Performed</option>
+          <option value="mostVenues">Most Venues</option>
+        </select>
+        
+        <button
+          onClick={onToggleSortDirection}
+          className="umo-btn umo-btn--secondary px-3 py-2 text-sm"
+          title={`Sort ${sortDirection === 'asc' ? 'Descending' : 'Ascending'}`}
+        >
+          {sortDirection === 'asc' ? '↑' : '↓'}
+        </button>
+      </div>
     </div>
   </div>
 ));
@@ -198,14 +207,14 @@ SongHeader.displayName = 'SongHeader';
 const SearchResultsInfo = memo(({ searchQuery, resultCount, sortBy, onClearSearch }) => (
   <div className="mb-4 text-sm">
     {resultCount === 0 ? (
-      <div className="text-red-600">
+      <div className="umo-text-primary">
         No songs found matching "{searchQuery}"
       </div>
     ) : (
-      <div className="text-blue-600">
+      <div className="umo-text-primary">
         Found {resultCount} song{resultCount !== 1 ? 's' : ''} matching "{searchQuery}"
         {sortBy !== 'alphabetical' && (
-          <span className="text-gray-500"> (sorted by {sortBy.replace(/([A-Z])/g, ' $1').toLowerCase()})</span>
+          <span className="umo-text-muted"> (sorted by {sortBy.replace(/([A-Z])/g, ' $1').toLowerCase()})</span>
         )}
       </div>
     )}

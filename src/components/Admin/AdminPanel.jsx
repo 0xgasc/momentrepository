@@ -143,9 +143,9 @@ const AdminPanel = memo(({ onClose }) => {
 
   const getRoleDisplay = (role) => {
     const roleInfo = {
-      admin: { emoji: '👑', label: 'Administrator', color: 'text-purple-600' },
-      mod: { emoji: '🛡️', label: 'Moderator', color: 'text-blue-600' },
-      user: { emoji: '👤', label: 'User', color: 'text-gray-600' }
+      admin: { label: 'Administrator', color: 'text-purple-600' },
+      mod: { label: 'Moderator', color: 'text-blue-600' },
+      user: { label: 'User', color: 'text-gray-600' }
     };
     return roleInfo[role] || roleInfo.user;
   };
@@ -222,9 +222,9 @@ const AdminPanel = memo(({ onClose }) => {
         {/* Tabs */}
         <div className="flex border-b">
           {[
-            ...(isAdmin ? [{ key: 'users', label: '👥 Users', count: users.length }] : []),
-            { key: 'moderation', label: '🛡️ Pending Review', count: pendingMoments.length },
-            ...(isAdmin ? [{ key: 'settings', label: '⚙️ Settings', count: null }] : [])
+            ...(isAdmin ? [{ key: 'users', label: 'Users', count: users.length }] : []),
+            { key: 'moderation', label: 'Pending Review', count: pendingMoments.length },
+            ...(isAdmin ? [{ key: 'settings', label: 'Settings', count: null }] : [])
           ].map(tab => (
             <button
               key={tab.key}
@@ -297,7 +297,6 @@ const UsersTab = memo(({ users, assignRole, getRoleDisplay, formatDate }) => {
           return (
             <div key={role} className="bg-gray-50 rounded-lg p-4">
               <div className="flex items-center gap-2">
-                <span className="text-xl">{roleDisplay.emoji}</span>
                 <div>
                   <div className="font-medium">{count}</div>
                   <div className={`text-sm ${roleDisplay.color}`}>{roleDisplay.label}s</div>
@@ -318,7 +317,6 @@ const UsersTab = memo(({ users, assignRole, getRoleDisplay, formatDate }) => {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="text-lg">{roleDisplay.emoji}</span>
                     <div>
                       <h4 className="font-medium text-gray-900">{user.displayName || user.email}</h4>
                       <p className="text-sm text-gray-600">{user.email}</p>
@@ -345,9 +343,9 @@ const UsersTab = memo(({ users, assignRole, getRoleDisplay, formatDate }) => {
                     }}
                     className="text-sm border border-gray-300 rounded px-2 py-1"
                   >
-                    <option value="user">👤 User</option>
-                    <option value="mod">🛡️ Moderator</option>
-                    <option value="admin">👑 Administrator</option>
+                    <option value="user">User</option>
+                    <option value="mod">Moderator</option>
+                    <option value="admin">Administrator</option>
                   </select>
                   
                   {selectedUser === user._id && newRole !== user.role && (
@@ -868,7 +866,7 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
             <div className="text-xs">{!localSettings?.maintenanceMode ? 'Live' : 'Maintenance'}</div>
           </div>
           <div className={`p-3 rounded-lg ${!localSettings?.autoApprovalEnabled ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}`}>
-            <div className="text-2xl">{!localSettings?.autoApprovalEnabled ? '🛡️' : '⚡'}</div>
+            <div className="text-lg font-semibold">{!localSettings?.autoApprovalEnabled ? 'Manual Review' : 'Auto Approval'}</div>
             <div className="text-sm font-medium">Moderation</div>
             <div className="text-xs">{!localSettings?.autoApprovalEnabled ? 'Manual' : 'Auto'}</div>
           </div>

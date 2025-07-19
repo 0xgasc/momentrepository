@@ -1,7 +1,7 @@
 // src/components/Song/SongDetail.jsx - UPDATED with non-song content separation
 import React, { useState, useEffect, useMemo, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
-import { useMoments } from '../../hooks';
+import { useMoments, useNotifications } from '../../hooks';
 import { formatDate, formatShortDate } from '../../utils';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import UploadModal from '../Moment/UploadModal';
@@ -15,6 +15,7 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
   const [showNonSongMoments, setShowNonSongMoments] = useState(false); // ✅ NEW: Toggle for non-song moments
   const [showOnlyWithMoments, setShowOnlyWithMoments] = useState(false); // ✅ NEW: Toggle to show only performances with moments
   const { user } = useAuth();
+  const { refreshNotifications } = useNotifications(API_BASE_URL);
   
   const { moments, loadingMomentDetails: loading, loadMomentDetails } = useMoments(API_BASE_URL);
 
@@ -191,6 +192,58 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
       )}
 
       {/* Controls */}
+      {/* Video Preview Section - Hidden if no moments */}
+      {songMoments.length > 0 && (
+        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-4 mb-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">🎬 Song Moments ({songMoments.length})</h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {songMoments.slice(0, 4).map((moment) => (
+              <div 
+                key={moment._id}
+                className="bg-white/70 rounded-lg border border-gray-200/50 overflow-hidden hover:shadow-lg transition-shadow duration-200 cursor-pointer aspect-video"
+                onClick={() => setSelectedMoment(moment)}
+              >
+                {moment.mediaUrl && (
+                  <div className="relative w-full h-full">
+                    {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
+                      <video
+                        src={moment.mediaUrl}
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : (
+                      <img
+                        src={moment.mediaUrl}
+                        alt={moment.songName}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center">
+                        <svg className="w-4 h-4 text-gray-800" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M8 5v10l8-5-8-5z"/>
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {songMoments.length > 4 && (
+            <div className="text-center mt-3">
+              <span className="text-xs text-gray-500">+{songMoments.length - 4} more moments</span>
+            </div>
+          )}
+        </div>
+      )}
+
       <SongDetailControls 
         viewMode={viewMode}
         setViewMode={setViewMode}
@@ -219,6 +272,7 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
         <UploadModal
           uploadingMoment={uploadingMoment}
           onClose={() => setUploadingMoment(null)}
+          refreshNotifications={refreshNotifications}
         />
       )}
 
@@ -244,34 +298,47 @@ const SongDetailHeader = memo(({ songData, songMoments, nonSongMoments, onBack }
       ← Back to song search
     </button>
     
-    <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-      <div className="flex items-end gap-4 mb-4">
-        <h2 className="text-2xl sm:text-3xl font-bold">{songData.songName}</h2>
-        <div className="text-xs text-gray-500 pb-1">
-          First performed: <strong>{formatDate(songData.firstPerformed)}</strong>
+    {/* Sleek Song Header */}
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 mb-6 shadow-sm">
+      <div className="mb-6">
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">{songData.songName}</h2>
+        <div className="text-sm text-gray-600">
+          <span className="inline-flex items-center gap-1">
+            <span>First performed:</span>
+            <span className="font-medium text-blue-600">{formatDate(songData.firstPerformed)}</span>
+          </span>
           {songData.firstPerformed !== songData.lastPerformed && (
-            <> • Last performed: <strong>{formatDate(songData.lastPerformed)}</strong></>
+            <>
+              <span className="mx-2 text-gray-400">•</span>
+              <span className="inline-flex items-center gap-1">
+                <span>Last performed:</span>
+                <span className="font-medium text-blue-600">{formatDate(songData.lastPerformed)}</span>
+              </span>
+            </>
           )}
         </div>
       </div>
       
-      {/* Song Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-        <div className="bg-blue-50 rounded-lg p-3">
+      {/* Sleek Stats Row */}
+      <div className="flex items-center justify-between text-center bg-gray-50/80 rounded-xl p-4">
+        <div className="flex-1">
           <div className="text-2xl font-bold text-blue-600">{songData.totalPerformances}</div>
-          <div className="text-sm text-gray-600">Performances</div>
+          <div className="text-xs text-gray-600">Performances</div>
         </div>
-        <div className="bg-green-50 rounded-lg p-3">
+        <div className="w-px h-8 bg-gray-300 mx-4"></div>
+        <div className="flex-1">
           <div className="text-2xl font-bold text-green-600">{songData.venues.length}</div>
-          <div className="text-sm text-gray-600">Venues</div>
+          <div className="text-xs text-gray-600">Venues</div>
         </div>
-        <div className="bg-purple-50 rounded-lg p-3">
+        <div className="w-px h-8 bg-gray-300 mx-4"></div>
+        <div className="flex-1">
           <div className="text-2xl font-bold text-purple-600">{songData.cities.length}</div>
-          <div className="text-sm text-gray-600">Cities</div>
+          <div className="text-xs text-gray-600">Cities</div>
         </div>
-        <div className="bg-orange-50 rounded-lg p-3">
+        <div className="w-px h-8 bg-gray-300 mx-4"></div>
+        <div className="flex-1">
           <div className="text-2xl font-bold text-orange-600">{songMoments.length}</div>
-          <div className="text-sm text-gray-600">Song Moments</div>
+          <div className="text-xs text-gray-600">Song Moments</div>
         </div>
       </div>
       
@@ -344,12 +411,12 @@ const NonSongMomentsSection = memo(({
                   <div className="flex flex-wrap gap-2">
                     {moments.map((moment) => {
                       const rarityColors = {
-                        legendary: { bg: 'from-yellow-400 to-orange-400', text: 'text-yellow-900' },
-                        epic: { bg: 'from-purple-400 to-pink-400', text: 'text-purple-900' },
-                        rare: { bg: 'from-red-400 to-pink-400', text: 'text-red-900' },
-                        uncommon: { bg: 'from-blue-400 to-cyan-400', text: 'text-blue-900' },
-                        common: { bg: 'from-gray-300 to-gray-400', text: 'text-gray-700' }
-                      }[moment.rarityTier || 'common'] || { bg: 'from-gray-300 to-gray-400', text: 'text-gray-700' };
+                        legendary: { border: 'border-yellow-300', text: 'text-yellow-700', bg: 'bg-yellow-50/80' },
+                        epic: { border: 'border-purple-300', text: 'text-purple-700', bg: 'bg-purple-50/80' },
+                        rare: { border: 'border-red-300', text: 'text-red-700', bg: 'bg-red-50/80' },
+                        uncommon: { border: 'border-blue-300', text: 'text-blue-700', bg: 'bg-blue-50/80' },
+                        common: { border: 'border-gray-300', text: 'text-gray-700', bg: 'bg-gray-50/80' }
+                      }[moment.rarityTier || 'common'] || { border: 'border-gray-300', text: 'text-gray-700', bg: 'bg-gray-50/80' };
 
                       return (
                         <button
@@ -357,9 +424,9 @@ const NonSongMomentsSection = memo(({
                           onClick={() => onSelectMoment(moment)}
                           className={`
                             px-3 py-2 rounded-lg border-2 text-xs font-medium transition-all duration-200
-                            bg-gradient-to-r ${rarityColors.bg} ${rarityColors.text}
-                            hover:scale-105 hover:shadow-md transform
-                            flex items-center gap-2 max-w-[250px]
+                            ${rarityColors.border} ${rarityColors.text} ${rarityColors.bg}
+                            hover:scale-105 hover:shadow-lg transform backdrop-blur-sm
+                            flex items-center gap-2 max-w-[250px] hover:bg-white/90
                           `}
                         >
                           <div className="flex flex-col items-start text-left">
@@ -393,23 +460,22 @@ const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShow
       <div className="flex items-center gap-4">
         <h3 className="text-xl font-bold text-gray-900">🎵 Song Performance History</h3>
         
-        {/* View Mode Toggle - moved inline with title */}
-        <div className="flex items-center gap-2">
+        {/* View Mode Toggle - simplified and mobile-friendly */}
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-gray-700">View:</span>
-          <div className="bg-white rounded-lg border border-gray-200 p-1 inline-flex">
+          <div className="bg-white rounded-lg border border-gray-200 p-1 inline-flex flex-wrap gap-1">
             {[
-              ...(showOnlyWithMoments ? [{ key: 'moments', label: '🎬 Moments' }] : []),
-              { key: 'chronological', label: '📅 Chronological' },
-              { key: 'byVenue', label: '🏟️ By Venue' },
-              { key: 'byYear', label: '📆 By Year' }
+              { key: 'chronological', label: 'Chronological' },
+              { key: 'byVenue', label: 'By Venue' },
+              { key: 'byYear', label: 'By Year' }
             ].map(({ key, label }) => (
               <button
                 key={key}
                 onClick={() => setViewMode(key)}
-                className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
                   viewMode === key 
                     ? 'bg-blue-600 text-white' 
-                    : 'text-gray-600 hover:text-gray-900'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
                 {label}
@@ -422,31 +488,17 @@ const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShow
       <div className="h-px flex-1 bg-gray-200 ml-4"></div>
     </div>
 
-    <div className="flex items-center gap-6">
-      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={showPositions}
-          onChange={(e) => setShowPositions(e.target.checked)}
-          className="rounded border-gray-300"
-        />
-        Show song positions in setlist
-      </label>
-      
+    {/* Mobile-friendly controls - removed showPositions */}
+    <div className="flex items-center justify-end gap-4">
       <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
         <input
           type="checkbox"
           checked={showOnlyWithMoments}
-          onChange={(e) => {
-            setShowOnlyWithMoments(e.target.checked);
-            // If turning off the toggle while in moments view, switch to chronological
-            if (!e.target.checked && viewMode === 'moments') {
-              setViewMode('chronological');
-            }
-          }}
+          onChange={(e) => setShowOnlyWithMoments(e.target.checked)}
           className="rounded border-gray-300"
         />
-        Show only performances with moments
+        <span className="hidden sm:inline">Show only performances with moments</span>
+        <span className="sm:hidden">With moments</span>
       </label>
     </div>
 
@@ -468,26 +520,13 @@ const SongPerformancesList = memo(({
   expandedPerformances,
   togglePerformanceExpanded
 }) => {
-  // For moments view, collect all moments from all performances
-  if (viewMode === 'moments') {
-    const allMoments = [];
-    groupedPerformances.forEach(([groupName, performances]) => {
-      performances.forEach(performance => {
-        const performanceMoments = getPerformanceSongMoments(performance.id);
-        allMoments.push(...performanceMoments);
-      });
-    });
-
-    return <SongMomentsView moments={allMoments} onMomentSelect={onSelectMoment} />;
-  }
-
-  // Default performance list view
+  // Performance list view
   return (
     <div className="space-y-6">
       {groupedPerformances.map(([groupName, performances]) => (
-      <div key={groupName} className="border border-gray-200 rounded-lg bg-white shadow-sm">
+      <div key={groupName} className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 shadow-sm mb-4">
         {viewMode !== 'chronological' && (
-          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+          <div className="px-4 py-3 border-b border-gray-200/50 bg-gray-50/60 rounded-t-xl">
             <h4 className="font-semibold text-gray-900">
               {groupName} <span className="text-sm text-gray-500">({performances.length} performance{performances.length !== 1 ? 's' : ''})</span>
             </h4>
@@ -501,26 +540,26 @@ const SongPerformancesList = memo(({
               const isExpanded = expandedPerformances.has(performance.id);
               
               return (
-                <div key={`${performance.id}-${index}`} className="border-b border-gray-100 pb-3 last:border-b-0">
+                <div key={`${performance.id}-${index}`} className="py-3 border-b border-gray-100 last:border-b-0">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <button 
-                        onClick={() => onPerformanceClick(performance)}
-                        className="text-left hover:bg-blue-50 rounded-lg p-2 -m-2 transition-colors group w-full"
-                      >
+                      <div className="p-2">
                         <div className="flex items-center gap-3 mb-2 flex-wrap">
-                          <h5 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+                          <h5 className="font-medium text-gray-900">
                             {performance.venue}
                           </h5>
                           <span className="text-sm text-gray-500">
                             {performance.city}{performance.country ? `, ${performance.country}` : ''}
                           </span>
-                          <span className="text-sm font-medium text-blue-600 group-hover:text-blue-800">
+                          <span className="text-sm font-medium text-blue-600">
                             {formatShortDate(performance.date)}
                           </span>
-                          <span className="text-xs text-gray-400 group-hover:text-blue-500">
+                          <button
+                            onClick={() => onPerformanceClick(performance)}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium underline decoration-dotted underline-offset-2 cursor-pointer hover:decoration-solid transition-all"
+                          >
                             Click to view full setlist →
-                          </span>
+                          </button>
                         </div>
                         
                         <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
@@ -533,10 +572,7 @@ const SongPerformancesList = memo(({
                           
                           {performanceMoments.length > 0 && (
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                togglePerformanceExpanded(performance.id);
-                              }}
+                              onClick={() => togglePerformanceExpanded(performance.id)}
                               className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors cursor-pointer flex items-center gap-1"
                             >
                               <span>{performanceMoments.length} moment{performanceMoments.length !== 1 ? 's' : ''}</span>
@@ -546,7 +582,7 @@ const SongPerformancesList = memo(({
                             </button>
                           )}
                         </div>
-                      </button>
+                      </div>
                     </div>
                     
                     {user && (
@@ -564,22 +600,23 @@ const SongPerformancesList = memo(({
                       <div className="flex flex-wrap gap-2">
                         {performanceMoments.map((moment) => {
                           const rarityColors = {
-                            legendary: { bg: 'from-yellow-400 to-orange-400', text: 'text-yellow-900' },
-                            epic: { bg: 'from-purple-400 to-pink-400', text: 'text-purple-900' },
-                            rare: { bg: 'from-red-400 to-pink-400', text: 'text-red-900' },
-                            uncommon: { bg: 'from-blue-400 to-cyan-400', text: 'text-blue-900' },
-                            common: { bg: 'from-gray-300 to-gray-400', text: 'text-gray-700' }
-                          }[moment.rarityTier || 'common'] || { bg: 'from-gray-300 to-gray-400', text: 'text-gray-700' };
+                            legendary: { border: 'border-yellow-300', text: 'text-yellow-700', bg: 'bg-yellow-50/80' },
+                            epic: { border: 'border-purple-300', text: 'text-purple-700', bg: 'bg-purple-50/80' },
+                            rare: { border: 'border-red-300', text: 'text-red-700', bg: 'bg-red-50/80' },
+                            uncommon: { border: 'border-blue-300', text: 'text-blue-700', bg: 'bg-blue-50/80' },
+                            common: { border: 'border-gray-300', text: 'text-gray-700', bg: 'bg-gray-50/80' }
+                          }[moment.rarityTier || 'common'] || { border: 'border-gray-300', text: 'text-gray-700', bg: 'bg-gray-50/80' };
 
                           return (
                             <button
                               key={moment._id}
                               onClick={() => onSelectMoment(moment)}
                               className={`
-                                px-2 py-1 rounded-md border font-medium transition-all duration-200
-                                bg-gradient-to-r ${rarityColors.bg} ${rarityColors.text}
-                                hover:scale-105 hover:shadow-md transform
+                                px-2 py-1 rounded-md border-2 font-medium transition-all duration-200
+                                ${rarityColors.border} ${rarityColors.text} ${rarityColors.bg}
+                                hover:scale-105 hover:shadow-lg transform backdrop-blur-sm
                                 text-xs min-w-[60px] h-7 flex items-center justify-center
+                                hover:bg-white/90
                               `}
                             >
                               <div className="truncate">

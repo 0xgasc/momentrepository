@@ -1,0 +1,486 @@
+/* UMO Archive - Design System Inspired by UMO's Aesthetic */
+
+/* Import Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Color Palette - Dark, Gritty, Natural */
+  --umo-void-black: #0a0a0a;
+  --umo-shadow-gray: #1a1a1a;
+  --umo-steel-gray: #2a2a2a;
+  --umo-smoke-gray: #3a3a3a;
+  --umo-ash-gray: #4a4a4a;
+  --umo-stone-gray: #5a5a5a;
+  --umo-slate-gray: #6a6a6a;
+  --umo-fog-gray: #8a8a8a;
+  --umo-bone-white: #f5f5dc;
+  --umo-paper-white: #fafafa;
+  
+  /* Accent Colors - Muted, Natural */
+  --umo-electric-blue: #2563eb;
+  --umo-deep-blue: #1e40af;
+  --umo-crimson-red: #dc2626;
+  --umo-blood-red: #991b1b;
+  --umo-forest-green: #059669;
+  --umo-dark-green: #047857;
+  --umo-amber-yellow: #d97706;
+  --umo-gold-yellow: #b45309;
+  
+  /* Typography - VSCode Inspired */
+  --umo-font-primary: 'Segoe UI', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+  --umo-font-heading: 'Segoe UI', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+  --umo-font-mono: 'Fira Code', 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  
+  /* Spacing */
+  --umo-space-xs: 0.25rem;
+  --umo-space-sm: 0.5rem;
+  --umo-space-md: 1rem;
+  --umo-space-lg: 1.5rem;
+  --umo-space-xl: 2rem;
+  --umo-space-2xl: 3rem;
+  
+  /* Shadows - Subtle, Natural */
+  --umo-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --umo-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --umo-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  --umo-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6);
+  
+  /* Borders - Sharp, Clean */
+  --umo-border-width: 1px;
+  --umo-border-radius: 4px; /* Subtle rounding - not too sharp, not too round */
+  --umo-border-color: var(--umo-steel-gray);
+}
+
+/* Base Styles */
+.umo-container {
+  background: linear-gradient(135deg, var(--umo-shadow-gray) 0%, var(--umo-void-black) 100%);
+  color: var(--umo-bone-white);
+  font-family: var(--umo-font-primary);
+  min-height: 100vh;
+}
+
+/* Apply UMO font globally */
+body, html {
+  font-family: var(--umo-font-primary) !important;
+}
+
+.umo-container *,
+.umo-container-fluid * {
+  font-family: var(--umo-font-primary) !important;
+}
+
+/* Button System - UMO Inspired */
+.umo-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--umo-space-sm) var(--umo-space-md);
+  font-family: var(--umo-font-primary);
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.25;
+  text-decoration: none;
+  border: var(--umo-border-width) solid transparent;
+  border-radius: var(--umo-border-radius);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  user-select: none;
+  
+  /* Subtle texture */
+  background-image: 
+    linear-gradient(45deg, transparent 25%, rgba(255,255,255,0.02) 25%),
+    linear-gradient(-45deg, transparent 25%, rgba(255,255,255,0.02) 25%);
+  background-size: 4px 4px;
+}
+
+.umo-btn:focus {
+  outline: 2px solid var(--umo-electric-blue);
+  outline-offset: 2px;
+}
+
+.umo-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Primary Button - Electric Blue */
+.umo-btn--primary {
+  background: linear-gradient(135deg, var(--umo-electric-blue) 0%, var(--umo-deep-blue) 100%);
+  color: var(--umo-bone-white);
+  border-color: var(--umo-deep-blue);
+  box-shadow: var(--umo-shadow-sm);
+}
+
+.umo-btn--primary:hover {
+  background: linear-gradient(135deg, var(--umo-deep-blue) 0%, #1e3a8a 100%);
+  box-shadow: var(--umo-shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Secondary Button - Steel Gray */
+.umo-btn--secondary {
+  background: linear-gradient(135deg, var(--umo-steel-gray) 0%, var(--umo-shadow-gray) 100%);
+  color: var(--umo-bone-white);
+  border-color: var(--umo-smoke-gray);
+  box-shadow: var(--umo-shadow-sm);
+}
+
+.umo-btn--secondary:hover {
+  background: linear-gradient(135deg, var(--umo-smoke-gray) 0%, var(--umo-steel-gray) 100%);
+  box-shadow: var(--umo-shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Danger Button - Crimson */
+.umo-btn--danger {
+  background: linear-gradient(135deg, var(--umo-crimson-red) 0%, var(--umo-blood-red) 100%);
+  color: var(--umo-bone-white);
+  border-color: var(--umo-blood-red);
+  box-shadow: var(--umo-shadow-sm);
+}
+
+.umo-btn--danger:hover {
+  background: linear-gradient(135deg, var(--umo-blood-red) 0%, #7f1d1d 100%);
+  box-shadow: var(--umo-shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Ghost Button - Transparent */
+.umo-btn--ghost {
+  background: transparent;
+  color: var(--umo-bone-white);
+  border-color: var(--umo-steel-gray);
+}
+
+.umo-btn--ghost:hover {
+  background: var(--umo-shadow-gray);
+  border-color: var(--umo-smoke-gray);
+}
+
+/* Card System */
+.umo-card {
+  background: linear-gradient(135deg, var(--umo-shadow-gray) 0%, var(--umo-void-black) 100%);
+  border: var(--umo-border-width) solid var(--umo-steel-gray);
+  border-radius: var(--umo-border-radius);
+  box-shadow: var(--umo-shadow-md);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Subtle texture */
+  background-image: 
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+.umo-card:hover {
+  border-color: var(--umo-smoke-gray);
+  box-shadow: var(--umo-shadow-lg);
+  transform: translateY(-2px);
+}
+
+.umo-card--interactive {
+  cursor: pointer;
+}
+
+.umo-card--interactive:hover {
+  border-color: var(--umo-electric-blue);
+}
+
+/* Modal System */
+.umo-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--umo-space-md);
+}
+
+.umo-modal {
+  background: linear-gradient(135deg, var(--umo-shadow-gray) 0%, var(--umo-void-black) 100%);
+  border: var(--umo-border-width) solid var(--umo-steel-gray);
+  border-radius: var(--umo-border-radius);
+  box-shadow: var(--umo-shadow-xl);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+  
+  /* Subtle texture */
+  background-image: 
+    linear-gradient(45deg, transparent 49%, rgba(255,255,255,0.02) 50%, transparent 51%);
+  background-size: 8px 8px;
+}
+
+/* Form Elements */
+.umo-input {
+  width: 100%;
+  padding: var(--umo-space-sm) var(--umo-space-md);
+  background: var(--umo-void-black);
+  border: var(--umo-border-width) solid var(--umo-steel-gray);
+  border-radius: var(--umo-border-radius);
+  color: var(--umo-bone-white);
+  font-family: var(--umo-font-primary);
+  font-size: 0.875rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.umo-input:focus {
+  outline: none;
+  border-color: var(--umo-electric-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.umo-input::placeholder {
+  color: var(--umo-slate-gray);
+}
+
+.umo-textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.umo-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+}
+
+/* Typography */
+.umo-text-primary {
+  color: var(--umo-bone-white);
+}
+
+.umo-text-secondary {
+  color: var(--umo-fog-gray);
+}
+
+.umo-text-muted {
+  color: var(--umo-slate-gray);
+}
+
+.umo-heading {
+  font-family: var(--umo-font-heading);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--umo-bone-white);
+  letter-spacing: -0.02em;
+}
+
+.umo-heading--xl {
+  font-size: 2rem;
+}
+
+.umo-heading--lg {
+  font-size: 1.5rem;
+}
+
+.umo-heading--md {
+  font-size: 1.25rem;
+}
+
+.umo-heading--sm {
+  font-size: 1rem;
+}
+
+/* Layout */
+.umo-container-fluid {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 var(--umo-space-md);
+}
+
+.umo-grid {
+  display: grid;
+  gap: var(--umo-space-md);
+}
+
+.umo-grid--cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.umo-grid--cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.umo-grid--cols-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .umo-grid--cols-2,
+  .umo-grid--cols-3,
+  .umo-grid--cols-4 {
+    grid-template-columns: 1fr;
+  }
+  
+  .umo-modal {
+    margin: var(--umo-space-sm);
+    max-width: calc(100vw - 2rem);
+  }
+}
+
+/* Navigation */
+.umo-nav {
+  background: linear-gradient(135deg, var(--umo-shadow-gray) 0%, var(--umo-void-black) 100%);
+  border-bottom: var(--umo-border-width) solid var(--umo-steel-gray);
+  backdrop-filter: blur(8px);
+}
+
+.umo-nav-link {
+  padding: var(--umo-space-sm) var(--umo-space-md);
+  color: var(--umo-fog-gray);
+  text-decoration: none;
+  border-radius: var(--umo-border-radius);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.umo-nav-link:hover {
+  color: var(--umo-bone-white);
+  background: var(--umo-steel-gray);
+}
+
+.umo-nav-link--active {
+  color: var(--umo-bone-white);
+  background: var(--umo-electric-blue);
+}
+
+/* Status Indicators */
+.umo-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--umo-space-xs) var(--umo-space-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: var(--umo-border-radius);
+  border: var(--umo-border-width) solid transparent;
+}
+
+.umo-badge--success {
+  background: var(--umo-forest-green);
+  color: var(--umo-bone-white);
+}
+
+.umo-badge--warning {
+  background: var(--umo-amber-yellow);
+  color: var(--umo-void-black);
+}
+
+.umo-badge--error {
+  background: var(--umo-crimson-red);
+  color: var(--umo-bone-white);
+}
+
+.umo-badge--info {
+  background: var(--umo-electric-blue);
+  color: var(--umo-bone-white);
+}
+
+/* Utilities */
+.umo-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Animations */
+@keyframes umo-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.umo-animate-fade-in {
+  animation: umo-fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glass Effect - Subtle */
+.umo-glass {
+  background: rgba(26, 26, 26, 0.8);
+  backdrop-filter: blur(12px);
+  border: var(--umo-border-width) solid rgba(74, 74, 74, 0.3);
+  border-radius: var(--umo-border-radius);
+}
+
+/* Override any existing rounded styles */
+.umo-btn,
+.umo-card,
+.umo-modal,
+.umo-input,
+.umo-select,
+.umo-textarea,
+.umo-badge,
+.umo-glass {
+  border-radius: var(--umo-border-radius) !important;
+}
+
+/* Apply subtle rounding to UMO components only */
+.umo-btn,
+.umo-card,
+.umo-modal,
+.umo-input,
+.umo-select,
+.umo-textarea,
+.umo-badge {
+  border-radius: var(--umo-border-radius) !important;
+}
+
+/* Override excessive rounding from other CSS */
+.rounded-lg, .rounded-xl, .rounded-2xl {
+  border-radius: var(--umo-border-radius) !important;
+}
+
+.rounded-full {
+  border-radius: 50% !important; /* Keep circular elements circular */
+}
+
+/* Loading States */
+.umo-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.umo-loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+  animation: umo-shimmer 2s infinite;
+}
+
+@keyframes umo-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

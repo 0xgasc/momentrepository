@@ -127,9 +127,9 @@ PerformanceList.displayName = 'PerformanceList';
 // Sub-components for better organization
 const LoadingState = memo(() => (
   <div className="mb-8">
-    <h3 className="text-xl font-bold mb-4">Latest Performances</h3>
+    <h3 className="umo-heading umo-heading--lg mb-4">Latest Performances</h3>
     <div className="text-center py-8">
-      <div className="inline-flex items-center text-gray-500">
+      <div className="inline-flex items-center umo-text-secondary">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
         Loading performances...
       </div>
@@ -141,12 +141,12 @@ LoadingState.displayName = 'LoadingState';
 
 const ErrorState = memo(({ error, onRetry }) => (
   <div className="mb-8">
-    <h3 className="text-xl font-bold mb-4">Latest Performances</h3>
-    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-      <p className="mb-2">⚠️ {error}</p>
+    <h3 className="umo-heading umo-heading--lg mb-4">Latest Performances</h3>
+    <div className="umo-card p-4">
+      <p className="mb-2 umo-text-primary">⚠️ {error}</p>
       <button
         onClick={onRetry}
-        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+        className="umo-btn umo-btn--danger text-sm"
       >
         Retry
       </button>
@@ -169,31 +169,33 @@ const PerformanceHeader = memo(({
   onToggleMomentsFilter
 }) => (
   <>
-    {/* Header with Search and Controls - All on one line */}
-    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-      <div>
-        <h3 className="text-xl font-bold">Latest Performances</h3>
+    {/* Header - Centered Layout */}
+    <div className="mb-6">
+      {/* Title on the left */}
+      <div className="mb-4">
+        <h3 className="umo-heading umo-heading--lg">Latest Performances</h3>
       </div>
       
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
+      {/* Centered Search and Filter Controls */}
+      <div className="flex flex-col lg:flex-row justify-center items-center gap-4">
         {/* Search input */}
-        <div className="relative w-full sm:w-80">
+        <div className="relative w-full max-w-md">
           <input
             type="text"
             value={citySearch}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search by city, venue, song name, or year..."
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 search-input"
+            className="umo-input w-full px-4 py-3 text-sm"
             style={{ minHeight: '48px', fontSize: '16px' }} // Prevents zoom on iOS
           />
-          <div className="absolute right-3 top-2 flex items-center gap-1">
+          <div className="absolute right-3 top-3 flex items-center gap-1">
             {searching && (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
             )}
             {citySearch && (
               <button
                 onClick={onClearSearch}
-                className="text-gray-400 hover:text-gray-600 ml-1 mobile-touch-target"
+                className="umo-text-muted hover:umo-text-primary ml-1"
                 style={{ minWidth: '32px', minHeight: '32px', padding: '6px', fontSize: '18px' }}
               >
                 ×
@@ -202,8 +204,8 @@ const PerformanceHeader = memo(({
           </div>
         </div>
         
-        {/* Moments filter toggle - moved here */}
-        <label className="flex items-center cursor-pointer mobile-touch-target whitespace-nowrap" style={{ minHeight: '48px', padding: '8px' }}>
+        {/* Moments filter toggle - centered */}
+        <label className="flex items-center cursor-pointer whitespace-nowrap umo-text-primary" style={{ minHeight: '48px', padding: '8px' }}>
           <input
             type="checkbox"
             checked={showOnlyWithMoments}

@@ -1,7 +1,8 @@
 // src/components/Performance/PerformanceDetail.jsx - UPDATED with banner upload button
 import React, { useState, useEffect, memo } from 'react';
+import { ChevronDown, ChevronUp, Upload, Play, Calendar, MapPin, User, Clock } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
-import { useMoments } from '../../hooks';
+import { useMoments, useNotifications } from '../../hooks';
 import { formatDate } from '../../utils';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import UploadModal from '../Moment/UploadModal';
@@ -45,11 +46,14 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
   const [uploadingMoment, setUploadingMoment] = useState(null);
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [expandedSongs, setExpandedSongs] = useState(new Set());
+  const [showMomentsPane, setShowMomentsPane] = useState(true);
+  const [showSetlist, setShowSetlist] = useState(true);
   const [showOtherContent, setShowOtherContent] = useState(false);
   const [fullPerformance, setFullPerformance] = useState(performance);
   const [loading, setLoading] = useState(false);
 
   const { user } = useAuth();
+  const { refreshNotifications } = useNotifications(API_BASE_URL);
   
   const { moments, loadingMomentDetails, loadMomentDetails } = useMoments(API_BASE_URL);
 
@@ -201,18 +205,15 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
         onBack={onBack}
       />
 
-      {/* ✅ UPDATED: Other Content Section - ALWAYS SHOW with upload button in banner */}
-      <OtherContentSection
-        user={user}
-        groupedContent={groupedOtherContent}
-        otherContent={otherContent}
-        showOtherContent={showOtherContent}
-        setShowOtherContent={setShowOtherContent}
+      {/* NEW: Collapsible Moments Pane */}
+      <EventMomentsPane
+        moments={[...songMoments, ...otherContent]}
+        showMomentsPane={showMomentsPane}
+        setShowMomentsPane={setShowMomentsPane}
         onSelectMoment={setSelectedMoment}
-        onUploadOtherContent={handleUploadOtherContent}
       />
 
-      {/* ✅ Main Setlist (ONLY actual songs) - REMOVED filtered content notification */}
+      {/* ✅ Main Setlist (ONLY actual songs) - EXPANDABLE */}
       <MainSetlistDisplay 
         performance={fullPerformance}
         user={user}
@@ -221,6 +222,19 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
         onSelectMoment={setSelectedMoment}
         expandedSongs={expandedSongs}
         toggleSongMoments={toggleSongMoments}
+        showSetlist={showSetlist}
+        setShowSetlist={setShowSetlist}
+      />
+
+      {/* ✅ UPDATED: Other Content Section - EXPANDABLE, collapsed by default */}
+      <OtherContentSection
+        user={user}
+        groupedContent={groupedOtherContent}
+        otherContent={otherContent}
+        showOtherContent={showOtherContent}
+        setShowOtherContent={setShowOtherContent}
+        onSelectMoment={setSelectedMoment}
+        onUploadOtherContent={handleUploadOtherContent}
       />
 
       {/* Modals */}
@@ -232,6 +246,7 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
             // Refresh moments data after upload
             loadMomentDetails(`performance/${performance.id}`, `performance ${performance.id}`);
           }}
+          refreshNotifications={refreshNotifications}
         />
       )}
 
@@ -281,12 +296,12 @@ const PerformanceHeader = memo(({ performance, songMoments, otherContent, onBack
 
 PerformanceHeader.displayName = 'PerformanceHeader';
 
-// ✅ UPDATED: Other Content Section - ALWAYS SHOW with upload button in banner
+// ✅ UPDATED: Other Content Section - Expandable, collapsed by default
 const OtherContentSection = memo(({ 
   user,
   groupedContent, 
   otherContent,
-  showOtherContent, 
+  showOtherContent,
   setShowOtherContent,
   onSelectMoment,
   onUploadOtherContent
@@ -305,62 +320,55 @@ const OtherContentSection = memo(({
   };
 
   return (
-    <div className="mb-6 border border-purple-200 rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 shadow-sm">
-      {/* ✅ UPDATED: Banner with upload button + expand arrow */}
-      <div className="p-4">
-        <div className="flex items-center justify-between gap-4">
-          {/* Left side: Title + moment count */}
-          <div className="flex items-center gap-3">
-            <h3 className="text-base font-medium text-gray-600">
-              📀 Other Performance Content
-            </h3>
+    <div className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm">
+      {/* Header - Only title and expand/collapse button */}
+      <button
+        onClick={() => setShowOtherContent(!showOtherContent)}
+        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold text-gray-800">
+            📀 Other Performance Content
             {hasUploadedMoments && (
-              <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
-                {totalOtherMoments} moment{totalOtherMoments !== 1 ? 's' : ''}
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                ({totalOtherMoments})
               </span>
             )}
-          </div>
-
-          {/* Right side: Upload button + expand arrow */}
-          <div className="flex items-center gap-3">
-            {/* Upload button */}
-            {user && (
-              <button
-                onClick={() => onUploadOtherContent('other')}
-                className="group flex items-center gap-2 px-3 py-1.5 bg-gray-500 text-white font-normal rounded-md hover:bg-gray-600 transition-all duration-200 text-sm"
-              >
-                <span className="text-sm">📀</span>
-                <span>Upload</span>
-              </button>
-            )}
-
-            {/* Expand arrow - only show if there are uploaded moments */}
-            {hasUploadedMoments && (
-              <button
-                onClick={() => setShowOtherContent(!showOtherContent)}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <span className="text-gray-400 text-lg">
-                  {showOtherContent ? '▼' : '▶'}
-                </span>
-              </button>
-            )}
-          </div>
+          </h3>
         </div>
+        {showOtherContent ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+      </button>
 
-        {/* Help text when no moments uploaded yet */}
-        {!hasUploadedMoments && (
-          <p className="text-sm text-purple-700 mt-2">
-            Upload intro, outro, soundcheck, crowd reactions, and other non-song content from this performance
-          </p>
-        )}
-      </div>
+      {/* Collapsible Content */}
+      {showOtherContent && (
+        <div className="border-t border-gray-200 p-4">
+          {/* Upload section with description */}
+          <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+            <div className="flex items-center justify-between gap-4 mb-2">
+              <p className="text-sm text-purple-700">
+                Upload intro, outro, soundcheck, crowd reactions, and other non-song content from this performance.
+                {hasUploadedMoments && (
+                  <span className="font-medium"> ({totalOtherMoments} uploaded)</span>
+                )}
+              </p>
+              
+              {/* Upload button */}
+              {user && (
+                <button
+                  onClick={() => onUploadOtherContent('other')}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white font-normal rounded-md hover:bg-purple-700 transition-all duration-200 text-sm whitespace-nowrap"
+                >
+                  <span className="text-sm">📀</span>
+                  <span>Upload</span>
+                </button>
+              )}
+            </div>
+          </div>
 
-      {/* ✅ Expanded content - only show if there are moments AND user expanded */}
-      {hasUploadedMoments && showOtherContent && (
-        <div className="px-4 pb-4 border-t border-purple-200/50">
-          <div className="space-y-4 mt-4">
-            {Object.entries(groupedContent).map(([contentType, moments]) => {
+          {/* Show uploaded content if it exists */}
+          {hasUploadedMoments && (
+            <div className="space-y-4">
+              {Object.entries(groupedContent).map(([contentType, moments]) => {
               const typeInfo = getContentTypeInfo(contentType);
               
               return (
@@ -406,8 +414,9 @@ const OtherContentSection = memo(({
                   </div>
                 </div>
               );
-            })}
-          </div>
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -416,7 +425,7 @@ const OtherContentSection = memo(({
 
 OtherContentSection.displayName = 'OtherContentSection';
 
-// ✅ Main setlist display with filtering
+// ✅ Main setlist display with filtering and collapsible
 const MainSetlistDisplay = memo(({ 
   performance, 
   user, 
@@ -424,38 +433,107 @@ const MainSetlistDisplay = memo(({
   onUploadSongMoment, 
   onSelectMoment,
   expandedSongs,
-  toggleSongMoments
+  toggleSongMoments,
+  showSetlist,
+  setShowSetlist
 }) => {
   if (!performance.sets?.set) {
     return (
-      <div className="text-center py-8 text-gray-500">
-        No setlist available for this performance
+      <div className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm">
+        <button
+          onClick={() => setShowSetlist(!showSetlist)}
+          className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold text-gray-800">🎵 Setlist</h3>
+          </div>
+          {showSetlist ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        </button>
+        {showSetlist && (
+          <div className="border-t border-gray-200 p-4">
+            <div className="text-center py-8 text-gray-500">
+              <div className="text-4xl mb-3">🎵</div>
+              <p className="text-lg font-medium mb-2">No setlist available for this performance</p>
+              <p className="text-sm mb-4">Help improve the archive by adding the setlist!</p>
+              <a
+                href="https://setlist.fm"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              >
+                Go to setlist.fm to update the setlist!
+                <span>↗</span>
+              </a>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
+  // Count total songs in setlist
+  const totalSongs = performance.sets.set.reduce((total, set) => {
+    return total + (set.song?.filter(song => song.name)?.length || 0);
+  }, 0);
+
+  // Count actual songs (filtered)
+  const totalActualSongs = performance.sets.set.reduce((total, set) => {
+    const actualSongs = set.song?.filter(song => isActualSong(song.name)) || [];
+    return total + actualSongs.length;
+  }, 0);
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3 mb-4">
-        <h3 className="text-xl font-bold text-gray-900">🎵 Setlist</h3>
-        <div className="h-px flex-1 bg-gray-200"></div>
-        <div className="text-sm text-gray-500">
-          Songs from setlist.fm
+    <div className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm">
+      {/* Header */}
+      <button
+        onClick={() => setShowSetlist(!showSetlist)}
+        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold text-gray-800">
+            🎵 Setlist {totalActualSongs > 0 ? `(${totalActualSongs} songs)` : ''}
+          </h3>
+          <span className="text-sm text-gray-500">from setlist.fm</span>
         </div>
-      </div>
-      
-      {performance.sets.set.map((set, index) => (
-        <SetCard 
-          key={index}
-          set={set}
-          user={user}
-          getSongMoments={getSongMoments}
-          onUploadSongMoment={onUploadSongMoment}
-          onSelectMoment={onSelectMoment}
-          expandedSongs={expandedSongs}
-          toggleSongMoments={toggleSongMoments}
-        />
-      ))}
+        {showSetlist ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+      </button>
+
+      {/* Collapsible Content */}
+      {showSetlist && (
+        <div className="border-t border-gray-200 p-4">
+          {totalActualSongs === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <div className="text-4xl mb-3">🎵</div>
+              <p className="text-lg font-medium mb-2">No songs found in setlist</p>
+              <p className="text-sm mb-4">Help improve the archive by adding the setlist!</p>
+              <a
+                href="https://setlist.fm"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              >
+                Go to setlist.fm to update the setlist!
+                <span>↗</span>
+              </a>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {performance.sets.set.map((set, index) => (
+                <SetCard 
+                  key={index}
+                  set={set}
+                  user={user}
+                  getSongMoments={getSongMoments}
+                  onUploadSongMoment={onUploadSongMoment}
+                  onSelectMoment={onSelectMoment}
+                  expandedSongs={expandedSongs}
+                  toggleSongMoments={toggleSongMoments}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 });
@@ -486,9 +564,18 @@ const SetCard = memo(({
       {/* Show actual songs only */}
       {actualSongs.length === 0 ? (
         <div className="text-center py-6 text-gray-500">
-          <p className="text-lg">🎵</p>
-          <p>No actual songs in this set</p>
-          <p className="text-xs mt-1">(All items filtered as non-song content)</p>
+          <div className="text-3xl mb-2">🎵</div>
+          <p className="font-medium mb-1">No songs found in this set</p>
+          <p className="text-xs mb-3">(All items filtered as non-song content)</p>
+          <a
+            href="https://setlist.fm"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors"
+          >
+            Update on setlist.fm
+            <span>↗</span>
+          </a>
         </div>
       ) : (
         <div className="space-y-3">
@@ -518,7 +605,7 @@ const SetCard = memo(({
 
 SetCard.displayName = 'SetCard';
 
-// ✅ SongItem without positions/counters
+// ✅ SongItem with inline upload buttons
 const SongItem = memo(({ 
   song, 
   songIndex, 
@@ -535,6 +622,18 @@ const SongItem = memo(({
         <div className="flex items-center gap-3 flex-1">
           <span className="font-medium text-gray-900">{song.name}</span>
           
+          {/* Inline upload button right next to song title */}
+          {user && (
+            <button
+              onClick={onUploadSongMoment}
+              className="ml-2 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-1"
+              title="Upload moment for this song"
+            >
+              <span>📹</span>
+              <span>Upload</span>
+            </button>
+          )}
+          
           {songMoments.length > 0 && (
             <button
               onClick={toggleExpanded}
@@ -547,15 +646,6 @@ const SongItem = memo(({
             </button>
           )}
         </div>
-
-        {user && (
-          <button
-            onClick={onUploadSongMoment}
-            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-          >
-            Upload Moment
-          </button>
-        )}
       </div>
     </div>
 
@@ -584,7 +674,7 @@ const SongItem = memo(({
                 `}
               >
                 <div className="truncate">
-                  {moment.user?.displayName || 'Unknown'}
+                  by {moment.user?.displayName || 'Unknown'}
                 </div>
               </button>
             );
@@ -596,5 +686,179 @@ const SongItem = memo(({
 ));
 
 SongItem.displayName = 'SongItem';
+
+// NEW: Event Moments Pane Component with Pagination
+const EventMomentsPane = memo(({ moments, showMomentsPane, setShowMomentsPane, onSelectMoment }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const momentsPerPage = 4;
+  const momentsCount = moments.length;
+  const totalPages = Math.ceil(momentsCount / momentsPerPage);
+  
+  // Get current page moments
+  const startIndex = (currentPage - 1) * momentsPerPage;
+  const currentMoments = moments.slice(startIndex, startIndex + momentsPerPage);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  // Reset to page 1 when moments change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [moments.length]);
+
+  // Auto-hide pane when no moments
+  if (momentsCount === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm">
+      {/* Header */}
+      <button
+        onClick={() => setShowMomentsPane(!showMomentsPane)}
+        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <Play className="text-blue-600" size={20} />
+          <h3 className="text-lg font-semibold text-gray-800">
+            Event Moments ({momentsCount})
+          </h3>
+        </div>
+        {showMomentsPane ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+      </button>
+
+      {/* Collapsible Content */}
+      {showMomentsPane && (
+        <div className="border-t border-gray-200 p-4">
+          {momentsCount > 0 ? (
+            <>
+              {/* Moments Grid - 4 columns for smaller cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                {currentMoments.map((moment) => (
+                  <EventMomentCard
+                    key={moment._id}
+                    moment={moment}
+                    onSelect={() => onSelectMoment(moment)}
+                  />
+                ))}
+              </div>
+              
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                  <button
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 text-sm bg-gray-100 text-gray-600 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ← Previous
+                  </button>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      ({momentsCount} total moments)
+                    </span>
+                  </div>
+                  
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 text-sm bg-gray-100 text-gray-600 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <Play size={48} className="mx-auto mb-3 text-gray-300" />
+              <p className="text-lg mb-2">No moments yet for this event</p>
+              <p className="text-sm">Be the first to upload a moment from this show!</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+EventMomentsPane.displayName = 'EventMomentsPane';
+
+// NEW: Event Moment Card Component - Smaller, no uploader/timestamp
+const EventMomentCard = memo(({ moment, onSelect }) => {
+  return (
+    <div 
+      className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+      onClick={onSelect}
+      style={{ minHeight: '180px' }}
+    >
+      {/* Media Preview */}
+      {moment.mediaUrl && (
+        <div className="relative aspect-video bg-gray-100 hover:opacity-90 transition-opacity">
+          {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
+            <video
+              src={moment.mediaUrl}
+              className="w-full h-full object-cover pointer-events-none"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+            >
+              Your browser does not support the video tag.
+            </video>
+          ) : moment.mediaType?.startsWith('image') ? (
+            <img
+              src={moment.mediaUrl}
+              alt={moment.songName}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Play className="text-gray-400" size={32} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Content - Simplified */}
+      <div className="p-2">
+        {/* Song Name */}
+        <div className="text-xs font-semibold text-gray-800 mb-1 truncate">
+          {moment.songName || 'Unknown Song'}
+        </div>
+
+        {/* Content Type (if not song) */}
+        {moment.contentType && moment.contentType !== 'song' && (
+          <div className="text-xs text-blue-600 font-medium capitalize">
+            {moment.contentType}
+          </div>
+        )}
+
+        {/* Description (if exists) - Only show first line */}
+        {moment.momentDescription && !moment.momentDescription.toLowerCase().includes('test') && (
+          <p className="text-xs text-gray-600 truncate">
+            {moment.momentDescription}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+});
+
+EventMomentCard.displayName = 'EventMomentCard';
 
 export default PerformanceDetail;
