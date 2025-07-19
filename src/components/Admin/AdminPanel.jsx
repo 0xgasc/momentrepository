@@ -7,8 +7,10 @@ import { useCacheStatus } from '../../hooks';
 const REFRESH_DELAY_MS = 1500;
 
 const AdminPanel = memo(({ onClose }) => {
-  const { token } = useAuth();
-  const [activeTab, setActiveTab] = useState('users');
+  const { token, user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.email === 'solo@solo.solo' || user?.email === 'solo2@solo.solo';
+  const isMod = user?.role === 'mod';
+  const [activeTab, setActiveTab] = useState(isAdmin ? 'users' : 'moderation');
   const [users, setUsers] = useState([]);
   const [pendingMoments, setPendingMoments] = useState([]);
   const [platformSettings, setPlatformSettings] = useState(null);
@@ -20,17 +22,19 @@ const AdminPanel = memo(({ onClose }) => {
       setLoading(true);
       setError('');
       
-      // Fetch users
-      const usersResponse = await fetch(`${API_BASE_URL}/admin/users`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (usersResponse.ok) {
-        const usersData = await usersResponse.json();
-        setUsers(usersData.users);
-      } else if (usersResponse.status === 403) {
-        setError('Access denied: Admin privileges required');
-        return;
+      // Fetch users (only for admins)
+      if (isAdmin) {
+        const usersResponse = await fetch(`${API_BASE_URL}/admin/users`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          setUsers(usersData.users);
+        } else if (usersResponse.status === 403) {
+          setError('Access denied: Admin privileges required');
+          return;
+        }
       }
       
       // Fetch pending moments
@@ -58,7 +62,7 @@ const AdminPanel = memo(({ onClose }) => {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, isAdmin]);
 
   useEffect(() => {
     fetchAdminData();
@@ -187,9 +191,9 @@ const AdminPanel = memo(({ onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-gray-300">
+      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-gray-300" style={{ backgroundColor: 'white' }}>
         {/* Header */}
-        <div className="bg-gray-100 px-6 py-4 border-b border-gray-300 flex items-center justify-between">
+        <div className="bg-gray-100 px-6 py-4 border-b border-gray-300 flex items-center justify-between" style={{ backgroundColor: '#e5e7eb' }}>
           <div>
             <h2 className="text-xl font-bold text-gray-900">Admin Panel</h2>
             <p className="text-sm text-gray-600">User management & content moderation</p>
@@ -218,9 +222,9 @@ const AdminPanel = memo(({ onClose }) => {
         {/* Tabs */}
         <div className="flex border-b">
           {[
-            { key: 'users', label: '👥 Users', count: users.length },
+            ...(isAdmin ? [{ key: 'users', label: '👥 Users', count: users.length }] : []),
             { key: 'moderation', label: '🛡️ Pending Review', count: pendingMoments.length },
-            { key: 'settings', label: '⚙️ Settings', count: null }
+            ...(isAdmin ? [{ key: 'settings', label: '⚙️ Settings', count: null }] : [])
           ].map(tab => (
             <button
               key={tab.key}
@@ -243,7 +247,7 @@ const AdminPanel = memo(({ onClose }) => {
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[70vh] bg-white">
-          {activeTab === 'users' && (
+{activeTab === 'users' && isAdmin && (
             <UsersTab 
               users={users} 
               assignRole={assignRole}
@@ -261,7 +265,7 @@ const AdminPanel = memo(({ onClose }) => {
             />
           )}
           
-          {activeTab === 'settings' && (
+          {activeTab === 'settings' && isAdmin && (
             <SettingsTab 
               platformSettings={platformSettings}
               setPlatformSettings={setPlatformSettings}

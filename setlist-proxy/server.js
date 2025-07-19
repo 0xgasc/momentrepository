@@ -109,11 +109,16 @@ const requireRole = (requiredRole) => {
       user.lastActive = new Date();
       await user.save();
       
-      // Check role permissions
-      if (requiredRole === 'admin' && !user.isAdmin()) {
+      // Check role permissions (include hardcoded admin emails)
+      const isHardcodedAdmin = user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo';
+      console.log(`🔒 Role check: ${user.email}, role: ${user.role}, required: ${requiredRole}, isHardcodedAdmin: ${isHardcodedAdmin}`);
+      
+      if (requiredRole === 'admin' && !user.isAdmin() && !isHardcodedAdmin) {
+        console.log(`❌ Admin access denied for ${user.email}`);
         return res.status(403).json({ error: 'Admin access required' });
       }
-      if (requiredRole === 'mod' && !user.isModOrAdmin()) {
+      if (requiredRole === 'mod' && !user.isModOrAdmin() && !isHardcodedAdmin) {
+        console.log(`❌ Mod access denied for ${user.email}`);
         return res.status(403).json({ error: 'Moderator access required' });
       }
       
@@ -1726,8 +1731,8 @@ app.put('/admin/users/:userId/role', authenticateToken, requireAdmin, async (req
   }
 });
 
-// Admin: Get platform settings
-app.get('/admin/settings', authenticateToken, requireAdmin, async (req, res) => {
+// Admin/Mod: Get platform settings (mods can access for cache refresh)
+app.get('/admin/settings', authenticateToken, requireMod, async (req, res) => {
   try {
     const settings = await PlatformSettings.getCurrentSettings();
     res.json({ 
@@ -1800,6 +1805,24 @@ app.get('/platform/settings', async (req, res) => {
   } catch (error) {
     console.error('❌ Public platform settings fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch platform settings' });
+  }
+});
+
+// DEBUG: Check user auth status
+app.get('/debug/user', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    res.json({
+      userId: req.user.id,
+      userExists: !!user,
+      userEmail: user?.email,
+      userRole: user?.role,
+      isHardcodedAdmin: user?.email === 'solo@solo.solo' || user?.email === 'solo2@solo.solo',
+      isAdmin: user?.isAdmin?.(),
+      isModOrAdmin: user?.isModOrAdmin?.()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -2375,6 +2398,56 @@ app.get('/moments', async (req, res) => {
 
     console.error('❌ Fetch all moments error:', err);
     res.status(500).json({ error: 'Failed to fetch moments' });
+  }
+});
+
+// Notifications API - Get notification counts for badges
+app.get('/notifications/counts', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    const userEmail = req.user.email;
+    const isModOrAdmin = userRole === 'admin' || userRole === 'mod' || userEmail === 'solo@solo.solo' || userEmail === 'solo2@solo.solo';
+    
+    let notifications = {
+      pendingApproval: 0,  // Blue dot for users
+      needsRevision: 0,    // Red dot for users  
+      pendingReview: 0     // Red dot for admins/mods
+    };
+
+    if (isModOrAdmin) {
+      // For admins/mods: count all moments pending review from any user
+      const pendingCount = await Moment.countDocuments({ 
+        approvalStatus: 'pending' 
+      });
+      notifications.pendingReview = pendingCount;
+    } else {
+      // For regular users: count their own moments by status
+      const userPendingCount = await Moment.countDocuments({ 
+        user: userId, 
+        approvalStatus: 'pending' 
+      });
+      
+      const userRevisionCount = await Moment.countDocuments({ 
+        user: userId, 
+        approvalStatus: 'needs_revision' 
+      });
+      
+      notifications.pendingApproval = userPendingCount;
+      notifications.needsRevision = userRevisionCount;
+      
+      console.log('📊 User notifications:', {
+        userId,
+        userEmail: req.user.email,
+        pendingApproval: userPendingCount,
+        needsRevision: userRevisionCount
+      });
+    }
+
+    res.json(notifications);
+  } catch (err) {
+    console.error('❌ Get notifications error:', err);
+    res.status(500).json({ error: 'Failed to get notifications' });
   }
 });
 

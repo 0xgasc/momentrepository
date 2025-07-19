@@ -264,7 +264,7 @@ export const searchUMOPerformances = async (cityQuery, apiBaseUrl, page = 1, lim
 };
 
 // Function to get comprehensive song database from cache
-export const fetchUMOSongDatabase = async (apiBaseUrl, sortBy = 'alphabetical') => {
+export const fetchUMOSongDatabase = async (apiBaseUrl, sortBy = 'mostPerformed') => {
   try {
     console.log(`🎵 Fetching UMO song database from cache...`);
     

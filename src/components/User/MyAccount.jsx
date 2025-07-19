@@ -4,7 +4,7 @@ import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 
 const MyAccount = memo(({ onClose }) => {
   // eslint-disable-next-line no-unused-vars
-  const { user, token } = useAuth();
+  const { user, token, logout } = useAuth();
   const [profile, setProfile] = useState(null);
   const [myMoments, setMyMoments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -146,7 +146,7 @@ const MyAccount = memo(({ onClose }) => {
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[70vh] bg-white" style={{ backgroundColor: 'white' }}>
           {activeTab === 'profile' && (
-            <ProfileTab profile={profile} roleDisplay={roleDisplay} />
+            <ProfileTab profile={profile} roleDisplay={roleDisplay} logout={logout} onClose={onClose} />
           )}
           
           {activeTab === 'uploads' && (
@@ -186,7 +186,7 @@ const MyAccount = memo(({ onClose }) => {
 });
 
 // Profile tab component
-const ProfileTab = memo(({ profile, roleDisplay }) => (
+const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => (
   <div className="space-y-6">
     <div className="bg-gray-50 rounded-lg p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
       <h3 className="text-lg font-semibold mb-4 text-gray-900" style={{ color: '#111827' }}>Account Information</h3>
@@ -240,6 +240,19 @@ const ProfileTab = memo(({ profile, roleDisplay }) => (
             </div>
           </div>
         )}
+      </div>
+      
+      {/* Logout Button */}
+      <div className="mt-6 pt-6 border-t">
+        <button
+          onClick={() => {
+            logout();
+            onClose();
+          }}
+          className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+        >
+          Logout
+        </button>
       </div>
     </div>
   </div>

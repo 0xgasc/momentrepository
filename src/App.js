@@ -1,7 +1,7 @@
 import React, { useState, memo } from 'react';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Info, ChevronDown, ChevronUp } from 'lucide-react';
 
 // Import the extracted components
 import CacheStatusDisplay from './components/Cache/CacheStatusDisplay';
@@ -14,6 +14,8 @@ import LoginModal from './components/Auth/LoginModal';
 import CreditsFooter from './components/UI/CreditsFooter';
 import MyAccount from './components/User/MyAccount';
 import AdminPanel from './components/Admin/AdminPanel';
+import { useNotifications } from './hooks';
+import { API_BASE_URL } from './components/Auth/AuthProvider';
 
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -41,18 +43,24 @@ const queryClient = new QueryClient();
 const MainApp = memo(() => {
   // View state management
   const [currentView, setCurrentView] = useState('home');
-  const [browseMode, setBrowseMode] = useState('performances');
+  const [browseMode, setBrowseMode] = useState('moments');
   const [selectedSong, setSelectedSong] = useState(null);
   const [selectedPerformance, setSelectedPerformance] = useState(null);
   const [showLogin, setShowLogin] = useState(false);
   const [showMyAccount, setShowMyAccount] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showHowToGuide, setShowHowToGuide] = useState(false);
   
   const { user, logout, loading } = useAuth();
+  
+  // Notifications hook
+  const { getBadgeInfo, refreshNotifications } = useNotifications(API_BASE_URL);
   
   // Temporary debugging 
   console.log('🔍 App.js - Auth state:', { user, loading, hasUser: !!user });
   console.log('🔍 User email:', user?.email);
+  console.log('🔍 User role:', user?.role);
+  console.log('🔍 Admin button should show:', (user?.role === 'admin' || user?.role === 'mod' || user?.email === 'solo@solo.solo'));
 
 
   // Navigation handlers
@@ -120,12 +128,21 @@ const MainApp = memo(() => {
           user={user}
           logout={logout}
           onLoginClick={() => setShowLogin(true)}
-          onMyAccountClick={() => setShowMyAccount(true)}
-          onAdminPanelClick={() => setShowAdminPanel(true)}
+          onMyAccountClick={() => {
+            setShowMyAccount(true);
+            refreshNotifications(); // Refresh when opening My Account
+          }}
+          onAdminPanelClick={() => {
+            setShowAdminPanel(true);
+            refreshNotifications(); // Refresh when opening Admin Panel
+          }}
           currentView={currentView}
           browseMode={browseMode}
           onBrowseModeChange={switchBrowseMode}
           onHomeClick={handleBackToHome}
+          badgeInfo={getBadgeInfo()}
+          showHowToGuide={showHowToGuide}
+          onToggleHowToGuide={() => setShowHowToGuide(!showHowToGuide)}
         />
 
 
@@ -149,11 +166,17 @@ const MainApp = memo(() => {
       
       {/* Account Panels */}
       {showMyAccount && (
-        <MyAccount onClose={() => setShowMyAccount(false)} />
+        <MyAccount onClose={() => {
+          setShowMyAccount(false);
+          refreshNotifications(); // Refresh when closing My Account
+        }} />
       )}
       
       {showAdminPanel && (
-        <AdminPanel onClose={() => setShowAdminPanel(false)} />
+        <AdminPanel onClose={() => {
+          setShowAdminPanel(false);
+          refreshNotifications(); // Refresh when closing Admin Panel
+        }} />
       )}
     </div>
   );
@@ -171,7 +194,10 @@ const Header = memo(({
   currentView, 
   browseMode, 
   onBrowseModeChange, 
-  onHomeClick 
+  onHomeClick,
+  badgeInfo,
+  showHowToGuide,
+  onToggleHowToGuide
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -223,6 +249,19 @@ const Header = memo(({
                 {/* Navigation Items */}
                 <div className="space-y-4 mb-6">
                   <button
+                    onClick={() => { onBrowseModeChange('moments'); closeMobileMenu(); }}
+                    className={`w-full text-left p-4 rounded-lg transition-colors ${
+                      browseMode === 'moments' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-50 text-gray-900 hover:bg-gray-100'
+                    }`}
+                    style={{ minHeight: '44px' }}
+                  >
+                    <span className="mr-2">⚡</span>
+                    Browse Moments
+                  </button>
+                  
+                  <button
                     onClick={() => { onBrowseModeChange('performances'); closeMobileMenu(); }}
                     className={`w-full text-left p-4 rounded-lg transition-colors ${
                       browseMode === 'performances' 
@@ -247,19 +286,6 @@ const Header = memo(({
                     <span className="mr-2">🎵</span>
                     Browse Songs
                   </button>
-                  
-                  <button
-                    onClick={() => { onBrowseModeChange('moments'); closeMobileMenu(); }}
-                    className={`w-full text-left p-4 rounded-lg transition-colors ${
-                      browseMode === 'moments' 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-50 text-gray-900 hover:bg-gray-100'
-                    }`}
-                    style={{ minHeight: '44px' }}
-                  >
-                    <span className="mr-2">⚡</span>
-                    Browse Moments
-                  </button>
                 </div>
 
                 {/* Account Actions */}
@@ -272,29 +298,41 @@ const Header = memo(({
                       
                       <button
                         onClick={() => { onMyAccountClick(); closeMobileMenu(); }}
-                        className="w-full text-left p-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                        className="w-full text-left p-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors relative"
                         style={{ minHeight: '44px' }}
                       >
                         👤 My Account
+                        {badgeInfo.show && !badgeInfo.isModOrAdmin && (
+                          <div 
+                            className={`absolute top-2 right-2 w-3 h-3 ${badgeInfo.color === 'blue' ? 'bg-blue-500' : 'bg-red-500'} rounded-full border border-white`}
+                            style={{ 
+                              minWidth: '12px', 
+                              minHeight: '12px',
+                              zIndex: 10
+                            }}
+                          />
+                        )}
                       </button>
                       
-                      {user.email === 'solo@solo.solo' && (
+{(user.role === 'admin' || user.role === 'mod' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') && (
                         <button
                           onClick={() => { onAdminPanelClick(); closeMobileMenu(); }}
-                          className="w-full text-left p-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                          className="w-full text-left p-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors relative"
                           style={{ minHeight: '44px' }}
                         >
-                          👑 Admin Panel
+                          {(user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') ? 'Admin Panel' : '🛡️ Moderation Panel'}
+                          {badgeInfo.show && badgeInfo.isModOrAdmin && (
+                            <div 
+                              className={`absolute top-2 right-2 w-3 h-3 ${badgeInfo.color === 'red' ? 'bg-red-500' : 'bg-red-500'} rounded-full border border-white`}
+                              style={{ 
+                                minWidth: '12px', 
+                                minHeight: '12px',
+                                zIndex: 10
+                              }}
+                            />
+                          )}
                         </button>
                       )}
-                      
-                      <button
-                        onClick={() => { logout(); closeMobileMenu(); }}
-                        className="w-full text-left p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                        style={{ minHeight: '44px' }}
-                      >
-                        Logout
-                      </button>
                     </>
                   ) : (
                     <button
@@ -317,47 +355,119 @@ const Header = memo(({
         <div className="flex items-start justify-between mb-4">
           {/* Title Section */}
           <div className="flex-1 min-w-0">
-            <button onClick={onHomeClick} className="block mb-2">
-              <h1 className="text-lg sm:text-xl font-bold text-blue-600 hover:text-blue-800 transition-colors leading-tight">
-                UMO - the best band in the world
-              </h1>
-            </button>
-            <p className="text-sm text-gray-600 leading-relaxed pr-4">
-              Explore UMO's entire performance history, search by city or venue, and upload your own moments from concerts.
-            </p>
+            <div className="flex items-center gap-2 mb-2">
+              <button onClick={onHomeClick}>
+                <h1 className="text-lg sm:text-xl font-bold text-blue-600 hover:text-blue-800 transition-colors leading-tight">
+                  UMO - the best band in the world
+                </h1>
+              </button>
+              <button
+                onClick={onToggleHowToGuide}
+                className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm transition-colors"
+                title="How to use this site"
+              >
+                <Info size={16} />
+                {showHowToGuide ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+            </div>
+            
+            {showHowToGuide && (
+              <div className="mt-3 p-4 bg-blue-50 rounded-lg border border-blue-200 text-sm text-gray-700">
+                <div className="mb-4 p-3 bg-blue-100 rounded-lg border-l-4 border-blue-500">
+                  <p className="text-blue-800 font-medium">
+                    Explore UMO's entire performance history, search by city or venue, and upload your own moments from concerts.
+                  </p>
+                </div>
+                
+                <h4 className="font-semibold text-blue-900 mb-3">📱 How to Use UMO Archive</h4>
+                
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full text-xs flex items-center justify-center font-medium">1</span>
+                    <div>
+                      <strong>Browse & Explore</strong>
+                      <p className="text-gray-600 mt-1">Use the tabs above to browse <strong>Moments</strong> (fan uploads), <strong>Shows</strong> (complete setlists), and <strong>Songs</strong> (performance history). Search by city, venue, or song name.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full text-xs flex items-center justify-center font-medium">2</span>
+                    <div>
+                      <strong>Upload Your Moments</strong>
+                      <p className="text-gray-600 mt-1">Logged-in users can upload videos, photos, or audio from UMO concerts. Click "Login to Upload" → "My Account" → "Upload New Moment". Add details like song name, venue, and date.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full text-xs flex items-center justify-center font-medium">3</span>
+                    <div>
+                      <strong>Wait for Approval</strong>
+                      <p className="text-gray-600 mt-1">Uploaded moments go through moderation to ensure quality and accuracy. You'll see status updates in "My Account" - blue dot means pending approval, red means needs revision.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full text-xs flex items-center justify-center font-medium">✓</span>
+                    <div>
+                      <strong>Enjoy & Share</strong>
+                      <p className="text-gray-600 mt-1">Once approved, your moment appears in the public archive! Other fans can discover, download, and enjoy your contribution to UMO history.</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4 pt-3 border-t border-blue-200">
+                  <p className="text-xs text-gray-500">
+                    💡 <strong>Pro tip:</strong> Higher quality files (larger sizes) and complete metadata (description, mood, etc.) help create a richer archive for all fans!
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Account Controls - Top Right */}
           <div className="flex-shrink-0 ml-2">
             {user ? (
               <div className="text-right space-y-2">
-                <div className="text-xs text-gray-600 truncate max-w-32">
+                <div className="text-xs text-gray-600 truncate max-w-32 mb-1">
                   {user.displayName}
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex gap-1">
                   <button
                     onClick={onMyAccountClick}
-                    className="px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 transition-colors whitespace-nowrap"
-                    style={{ minHeight: '36px' }}
+                    className="px-2 py-1 bg-gray-600 text-white rounded text-xs hover:bg-gray-700 transition-colors whitespace-nowrap relative"
+                    style={{ minHeight: '32px' }}
                   >
                     👤 My Account
+                    {badgeInfo.show && !badgeInfo.isModOrAdmin && (
+                      <div 
+                        className={`absolute -top-1 -right-1 w-3 h-3 ${badgeInfo.color === 'blue' ? 'bg-blue-500' : 'bg-red-500'} rounded-full border border-white`}
+                        style={{ 
+                          minWidth: '12px', 
+                          minHeight: '12px',
+                          zIndex: 10
+                        }}
+                      />
+                    )}
                   </button>
-                  {user.email === 'solo@solo.solo' && (
+{(user.role === 'admin' || user.role === 'mod' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') && (
                     <button
                       onClick={onAdminPanelClick}
-                      className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 transition-colors whitespace-nowrap"
-                      style={{ minHeight: '36px' }}
+                      className="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700 transition-colors whitespace-nowrap relative"
+                      style={{ minHeight: '32px' }}
                     >
-                      👑 Admin Panel
+                      {(user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') ? 'Admin' : '🛡️ Mod'}
+                      {badgeInfo.show && badgeInfo.isModOrAdmin && (
+                        <div 
+                          className={`absolute -top-1 -right-1 w-3 h-3 ${badgeInfo.color === 'red' ? 'bg-red-500' : 'bg-red-500'} rounded-full border border-white`}
+                          style={{ 
+                            minWidth: '12px', 
+                            minHeight: '12px',
+                            zIndex: 10
+                          }}
+                        />
+                      )}
                     </button>
                   )}
-                  <button
-                    onClick={logout}
-                    className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition-colors whitespace-nowrap"
-                    style={{ minHeight: '36px' }}
-                  >
-                    Logout
-                  </button>
                 </div>
               </div>
             ) : (
@@ -379,6 +489,18 @@ const Header = memo(({
         {currentView === 'home' && (
           <div className="flex justify-center">
             <div className="bg-white rounded-xl border border-gray-200 p-1 inline-flex shadow-sm w-full max-w-lg">
+              <button
+                onClick={() => onBrowseModeChange('moments')}
+                className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  browseMode === 'moments' 
+                    ? 'bg-blue-600 text-white shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+                style={{ minHeight: '44px' }}
+              >
+                <span className="mr-1">⚡</span>
+                Moments
+              </button>
               <button
                 onClick={() => onBrowseModeChange('performances')}
                 className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
@@ -402,18 +524,6 @@ const Header = memo(({
               >
                 <span className="mr-1">🎵</span>
                 Songs
-              </button>
-              <button
-                onClick={() => onBrowseModeChange('moments')}
-                className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  browseMode === 'moments' 
-                    ? 'bg-blue-600 text-white shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-                style={{ minHeight: '44px' }}
-              >
-                <span className="mr-1">⚡</span>
-                Moments
               </button>
             </div>
           </div>

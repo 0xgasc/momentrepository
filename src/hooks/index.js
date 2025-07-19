@@ -7,3 +7,4 @@ export { usePerformances } from './usePerformances';
 export { useCacheStatus } from './useCacheStatus';
 export { useSongDatabase } from './useSongDatabase';
 export { useModal } from './useModal';
+export { useNotifications } from './useNotifications';

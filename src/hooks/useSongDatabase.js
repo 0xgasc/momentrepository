@@ -8,8 +8,11 @@ export const useSongDatabase = (apiBaseUrl) => {
   const [songs, setSongs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [sortBy, setSortBy] = useState('alphabetical');
-  const [sortDirection, setSortDirection] = useState('asc');
+  const [sortBy, setSortBy] = useState('mostPerformed');
+  const [sortDirection, setSortDirection] = useState('desc');
+  
+  // Debug logging (only once)
+  console.log('🔍 useSongDatabase - Initial sortBy:', 'mostPerformed', 'sortDirection:', 'desc');
   const [momentProgress, setMomentProgress] = useState({ current: 0, total: 0 });
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlyWithMoments, setShowOnlyWithMoments] = useState(false);
@@ -30,7 +33,7 @@ export const useSongDatabase = (apiBaseUrl) => {
       try {
         setLoading(true);
         console.log('🎵 Loading comprehensive song database from cache...');
-        const songDatabase = await fetchUMOSongDatabase(apiBaseUrl, 'alphabetical');
+        const songDatabase = await fetchUMOSongDatabase(apiBaseUrl, 'mostPerformed');
         
         // Initialize songs with zero moments
         const songsWithMoments = songDatabase.map(song => ({ ...song, totalMoments: 0 }));
@@ -51,7 +54,10 @@ export const useSongDatabase = (apiBaseUrl) => {
               // ✅ UPDATED: Filter to only count actual song moments
               const songMoments = filterSongMoments(allMoments);
               
-              console.log(`📊 "${song.songName}": ${allMoments.length} total moments, ${songMoments.length} song moments`);
+              // Only log songs with moments to reduce noise
+              if (songMoments.length > 0) {
+                console.log(`📊 "${song.songName}": ${songMoments.length} song moments`);
+              }
               
               return { ...song, totalMoments: songMoments.length };
             } catch (err) {
@@ -146,7 +152,7 @@ export const useSongDatabase = (apiBaseUrl) => {
           break;
       }
       
-      return sortDirection === 'desc' ? -comparison : comparison;
+      return sortDirection === 'asc' ? -comparison : comparison;
     });
     
     return sorted;

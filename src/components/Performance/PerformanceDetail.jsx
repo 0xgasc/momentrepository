@@ -46,14 +46,51 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [expandedSongs, setExpandedSongs] = useState(new Set());
   const [showOtherContent, setShowOtherContent] = useState(false);
+  const [fullPerformance, setFullPerformance] = useState(performance);
+  const [loading, setLoading] = useState(false);
 
   const { user } = useAuth();
   
-  const { moments, loadingMomentDetails: loading, loadMomentDetails } = useMoments(API_BASE_URL);
+  const { moments, loadingMomentDetails, loadMomentDetails } = useMoments(API_BASE_URL);
+
+  // Check if we need to fetch full performance data (e.g., when coming from a moment)
+  useEffect(() => {
+    const needsFullData = !performance.sets?.set || performance.sets.set.length === 0;
+    const isFromMoment = performance.id?.startsWith('moment-');
+    
+    if (needsFullData && isFromMoment) {
+      const fetchFullPerformance = async () => {
+        setLoading(true);
+        try {
+          // Search for performance by venue and date in the cache
+          const response = await fetch(`${API_BASE_URL}/cached/performances?search=${encodeURIComponent(performance.venue.name)}`);
+          if (response.ok) {
+            const data = await response.json();
+            
+            // Find matching performance by venue and date
+            const matchingPerf = data.performances?.find(p => 
+              p.venue?.name === performance.venue.name &&
+              p.eventDate === performance.eventDate
+            );
+            
+            if (matchingPerf) {
+              setFullPerformance(matchingPerf);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch full performance data:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      fetchFullPerformance();
+    }
+  }, [performance]);
 
   useEffect(() => {
-    loadMomentDetails(`performance/${performance.id}`, `performance ${performance.id}`);
-  }, [performance.id, loadMomentDetails]);
+    loadMomentDetails(`performance/${fullPerformance.id}`, `performance ${fullPerformance.id}`);
+  }, [fullPerformance.id, loadMomentDetails]);
   
   // ✅ Upload for specific song (always contentType: 'song')
   const handleUploadSongMoment = (song, setInfo, songIndex) => {
@@ -139,7 +176,7 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
     setExpandedSongs(newExpanded);
   };
 
-  if (loading) {
+  if (loading || loadingMomentDetails) {
     return (
       <div className="text-center py-8">
         <div className="inline-flex items-center text-gray-500">
@@ -158,7 +195,7 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
     <div>
       {/* Header */}
       <PerformanceHeader 
-        performance={performance}
+        performance={fullPerformance}
         songMoments={songMoments}
         otherContent={otherContent}
         onBack={onBack}
@@ -177,7 +214,7 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
 
       {/* ✅ Main Setlist (ONLY actual songs) - REMOVED filtered content notification */}
       <MainSetlistDisplay 
-        performance={performance}
+        performance={fullPerformance}
         user={user}
         getSongMoments={getSongMoments}
         onUploadSongMoment={handleUploadSongMoment}

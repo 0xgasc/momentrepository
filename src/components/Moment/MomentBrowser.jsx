@@ -88,96 +88,96 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
   };
 
   return (
-    <PullToRefresh 
-      onRefresh={handleRefresh}
-      pullText="Pull down to refresh moments"
-      releaseText="Release to refresh moments"
-      refreshingText="Loading latest moments..."
-    >
-      <div className="mb-8">
-      {/* Header */}
-      <MomentHeader 
-        totalMoments={moments.length} 
-        currentPage={currentPage}
-        totalPages={totalPages}
-        momentsPerPage={MOMENTS_PER_PAGE}
-        startIndex={startIndex}
-        endIndex={Math.min(endIndex, moments.length)}
-        isWeb3Enabled={isWeb3Enabled}
-      />
+    <>
+      <PullToRefresh 
+        onRefresh={handleRefresh}
+        pullText="Pull down to refresh moments"
+        releaseText="Release to refresh moments"
+        refreshingText="Loading latest moments..."
+      >
+        <div className="mb-8">
+        {/* Header */}
+        <MomentHeader 
+          totalMoments={moments.length} 
+          currentPage={currentPage}
+          totalPages={totalPages}
+          momentsPerPage={MOMENTS_PER_PAGE}
+          startIndex={startIndex}
+          endIndex={Math.min(endIndex, moments.length)}
+          isWeb3Enabled={isWeb3Enabled}
+        />
 
-      {/* Moments Grid */}
-      {currentMoments.length > 0 ? (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {currentMoments.map((moment) => (
-              <MomentCard
-                key={moment._id}
-                moment={moment}
-                onSongSelect={onSongSelect}
-                onPerformanceSelect={onPerformanceSelect}
-                onMomentSelect={(moment) => {
-                  setSelectedMoment(moment);
-                  window.scrollTo(0, 0);
-                }}
-                isWeb3Enabled={isWeb3Enabled}
-              />
-            ))}
-          </div>
-          
-          {/* Pagination Controls */}
-          <div className="flex items-center justify-center gap-4 mt-8">
-            <button
-              onClick={goToPrevPage}
-              disabled={currentPage === 0}
-              className={`px-4 py-2 rounded-lg font-medium transition-all mobile-touch-target ${
-                currentPage === 0
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
-              }`}
-              style={{ minHeight: '44px', minWidth: '100px' }}
-            >
-              ← Previous
-            </button>
-            
-            <div className="text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg" style={{ minHeight: '44px', display: 'flex', alignItems: 'center' }}>
-              Page {currentPage + 1} of {totalPages}
+        {/* Moments Grid */}
+        {currentMoments.length > 0 ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              {currentMoments.map((moment) => (
+                <MomentCard
+                  key={moment._id}
+                  moment={moment}
+                  onSongSelect={onSongSelect}
+                  onPerformanceSelect={onPerformanceSelect}
+                  onMomentSelect={(moment) => {
+                    setSelectedMoment(moment);
+                    window.scrollTo(0, 0);
+                  }}
+                  isWeb3Enabled={isWeb3Enabled}
+                />
+              ))}
             </div>
             
-            <button
-              onClick={goToNextPage}
-              disabled={currentPage >= totalPages - 1}
-              className={`px-4 py-2 rounded-lg font-medium transition-all mobile-touch-target ${
-                currentPage >= totalPages - 1
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
-              }`}
-              style={{ minHeight: '44px', minWidth: '100px' }}
-            >
-              Next →
-            </button>
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-center gap-4 mt-8">
+              <button
+                onClick={goToPrevPage}
+                disabled={currentPage === 0}
+                className={`px-4 py-2 rounded-lg font-medium transition-all mobile-touch-target ${
+                  currentPage === 0
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
+                }`}
+                style={{ minHeight: '44px', minWidth: '100px' }}
+              >
+                ← Previous
+              </button>
+              
+              <div className="text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg" style={{ minHeight: '44px', display: 'flex', alignItems: 'center' }}>
+                Page {currentPage + 1} of {totalPages}
+              </div>
+              
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage >= totalPages - 1}
+                className={`px-4 py-2 rounded-lg font-medium transition-all mobile-touch-target ${
+                  currentPage >= totalPages - 1
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
+                }`}
+                style={{ minHeight: '44px', minWidth: '100px' }}
+              >
+                Next →
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-gray-500 text-lg mb-2">No moments found</div>
+            <div className="text-gray-400 text-sm">Be the first to upload a moment!</div>
           </div>
-        </>
-      ) : (
-        <div className="text-center py-12">
-          <div className="text-gray-500 text-lg mb-2">No moments found</div>
-          <div className="text-gray-400 text-sm">Be the first to upload a moment!</div>
+        )}
         </div>
-      )}
+      </PullToRefresh>
 
-      {/* Moment Detail Modal */}
+      {/* Moment Detail Modal - MOVED OUTSIDE PullToRefresh */}
       {selectedMoment && (
         <MomentDetailModal 
           moment={selectedMoment}
           onClose={() => {
             setSelectedMoment(null);
-            // Ensure scroll position is reset
-            window.scrollTo(0, 0);
           }}
         />
       )}
-      </div>
-    </PullToRefresh>
+    </>
   );
 });
 
@@ -225,10 +225,8 @@ const MomentHeader = memo(({ totalMoments, currentPage, totalPages, startIndex, 
         </p>
       </div>
       <div className="text-right">
-        <div className="text-2xl font-bold text-blue-600">{totalMoments}</div>
-        <div className="text-sm text-gray-500">total moments</div>
         {totalPages > 1 && (
-          <div className="text-xs text-gray-500 mt-1">
+          <div className="text-sm text-gray-500">
             Page {currentPage + 1} of {totalPages}
           </div>
         )}
@@ -282,8 +280,9 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
                     mediaType: moment.mediaType
                   });
                 }}
-                onLoadStart={() => console.log('Video loading started for', moment.songName)}
-                onCanPlay={() => console.log('Video can play for', moment.songName)}
+                // Removed noisy loading logs
+                // onLoadStart={() => console.log('Video loading started for', moment.songName)}
+                // onCanPlay={() => console.log('Video can play for', moment.songName)}
               >
                 Your browser does not support the video tag.
               </video>
@@ -324,83 +323,69 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
 
       {/* Content */}
       <div className="p-4">
-        {/* Song Name - Clickable */}
-        <button
-          onClick={() => onSongSelect && onSongSelect({ 
-            songName: moment.songName,
-            totalPerformances: 1,
-            performances: [],
-            totalMoments: 1,
-            firstPerformed: moment.performanceDate,
-            lastPerformed: moment.performanceDate,
-            venues: moment.venueName ? [moment.venueName] : [],
-            cities: moment.venueCity ? [moment.venueCity] : []
-          })}
-          className="text-lg font-semibold text-gray-800 hover:text-blue-600 transition-colors text-left mb-2 block mobile-touch-target"
-          style={{ minHeight: '44px', width: '100%', textAlign: 'left', padding: '8px 0' }}
+        {/* Song Name - Click opens modal */}
+        <div
+          onClick={() => onMomentSelect(moment)}
+          className="text-lg font-semibold text-gray-800 cursor-pointer hover:text-blue-600 transition-colors mb-2"
         >
           {moment.songName || 'Unknown Song'}
-        </button>
+        </div>
 
-        {/* Performance Details - Clickable */}
+        {/* Performance Details - Click opens modal */}
         {moment.venueName && (
-          <button
-            onClick={() => onPerformanceSelect && onPerformanceSelect({
-              venue: moment.venueName,
-              city: moment.venueCity,
-              country: moment.venueCountry,
-              date: moment.performanceDate
-            })}
-            className="flex items-center text-sm text-gray-600 hover:text-blue-600 transition-colors mb-2 mobile-touch-target"
-            style={{ minHeight: '44px', width: '100%', justifyContent: 'flex-start', padding: '8px 0' }}
+          <div
+            onClick={() => onMomentSelect(moment)}
+            className="flex items-center text-sm text-gray-600 cursor-pointer hover:text-blue-600 transition-colors mb-2"
           >
             <MapPin size={14} className="mr-1" />
             {moment.venueName}
             {moment.venueCity && `, ${moment.venueCity}`}
-          </button>
+          </div>
         )}
 
         {/* Date */}
         {moment.performanceDate && (
-          <div className="flex items-center text-sm text-gray-500 mb-2">
+          <div className="flex items-center text-sm text-gray-500 mb-3">
             <Calendar size={14} className="mr-1" />
             {formatShortDate(moment.performanceDate)}
           </div>
         )}
 
-        {/* Uploader */}
-        {moment.user?.displayName && (
-          <div className="flex items-center text-sm text-gray-500 mb-3">
-            <User size={14} className="mr-1" />
-            by {moment.user.displayName}
-          </div>
-        )}
-
-        {/* Description */}
-        {moment.momentDescription && (
+        {/* Description - Only show if it's not a test string */}
+        {moment.momentDescription && !moment.momentDescription.toLowerCase().includes('test') && (
           <p className="text-sm text-gray-600 mb-3 line-clamp-2">
             {moment.momentDescription}
           </p>
         )}
 
-        {/* Footer */}
-        <div className="flex items-center justify-between text-xs text-gray-400">
+        {/* Footer - Upload info in one line */}
+        <div className="flex items-center justify-between text-xs text-gray-400 pt-2 border-t">
           <div className="flex items-center">
             <Clock size={12} className="mr-1" />
-            {formatShortDate(moment.createdAt)}
+            {(() => {
+              const uploadDate = new Date(moment.createdAt);
+              const now = new Date();
+              const diffInDays = Math.floor((now - uploadDate) / (1000 * 60 * 60 * 24));
+              
+              if (diffInDays === 0) return 'Today';
+              if (diffInDays === 1) return 'Yesterday';
+              if (diffInDays < 7) return `${diffInDays} days ago`;
+              if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+              
+              return uploadDate.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                year: uploadDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+              });
+            })()}
+            {moment.user?.displayName && (
+              <>
+                <span className="mx-1">•</span>
+                <User size={12} className="mr-1" />
+                {moment.user.displayName}
+              </>
+            )}
           </div>
-          
-          {moment.mediaUrl && (
-            <a
-              href={moment.mediaUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center hover:text-blue-600 transition-colors"
-            >
-              <ExternalLink size={12} className="mr-1" />
-              View Media
-            </a>
-          )}
         </div>
       </div>
     </div>

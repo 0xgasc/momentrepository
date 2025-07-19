@@ -1,5 +1,6 @@
 // src/components/Moment/MomentDetailModal.jsx - OPTIMIZED & FIXED
 import React, { useState, useEffect, memo } from 'react';
+import { X, Download, Calendar, MapPin, User, FileText, Zap, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
 import { formatFileSize } from '../../utils';
@@ -47,6 +48,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [showFileDetails, setShowFileDetails] = useState(false);
   const [showEmptyFields, setShowEmptyFields] = useState(false);
+  const [showContentDetails, setShowContentDetails] = useState(false);
   // eslint-disable-next-line no-unused-vars
   const [imageLoaded, setImageLoaded] = useState(false);
   // eslint-disable-next-line no-unused-vars
@@ -286,26 +288,43 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   // Mobile detection
   const isMobile = window.innerWidth <= 768;
 
-  // Prevent body scroll when modal is open
+  // Prevent body scroll when modal is open - ENHANCED for consistency
   useEffect(() => {
-    // Store original body overflow
+    // Store original body overflow and position
     const originalOverflow = document.body.style.overflow;
     const originalPosition = document.body.style.position;
+    const originalTop = document.body.style.top;
+    const originalLeft = document.body.style.left;
+    const originalRight = document.body.style.right;
+    const originalWidth = document.body.style.width;
+    const originalHeight = document.body.style.height;
     
-    // Prevent body scroll and fix position
+    // Force consistent positioning regardless of context
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
     document.body.style.top = '0';
     document.body.style.left = '0';
     document.body.style.right = '0';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    
+    // Also ensure the documentElement doesn't interfere
+    const originalDocumentOverflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    
+    // Force scroll to top to ensure consistent starting position
+    window.scrollTo(0, 0);
     
     // Cleanup on unmount
     return () => {
       document.body.style.overflow = originalOverflow;
       document.body.style.position = originalPosition;
-      document.body.style.top = '';
-      document.body.style.left = '';
-      document.body.style.right = '';
+      document.body.style.top = originalTop;
+      document.body.style.left = originalLeft;
+      document.body.style.right = originalRight;
+      document.body.style.width = originalWidth;
+      document.body.style.height = originalHeight;
+      document.documentElement.style.overflow = originalDocumentOverflow;
     };
   }, []);
 
@@ -352,26 +371,34 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           {/* ✅ OPTIMIZED: Metadata Panel */}
           <div className="metadata-panel">
             <div className="metadata-header">
-              <h3>Content Details</h3>
-              
-              <div className="metadata-toggles">
-                <button onClick={() => setShowRaritySection(!showRaritySection)} className="toggle-button">
-                  {rarityInfo.name} {rarityInfo.emoji} {showRaritySection ? '▼' : '▶'}
-                </button>
-                <button onClick={() => setShowBasicInfo(!showBasicInfo)} className="toggle-button">
-                  Basic Info {showBasicInfo ? '▼' : '▶'}
-                </button>
-                <button onClick={() => setShowDetails(!showDetails)} className="toggle-button">
-                  Details {showDetails ? '▼' : '▶'}
-                </button>
-                <button onClick={() => setShowFileDetails(!showFileDetails)} className="toggle-button">
-                  File Details {showFileDetails ? '▼' : '▶'}
-                </button>
-                <button onClick={() => setShowEmptyFields(!showEmptyFields)} className="toggle-button">
-                  Empty Fields {showEmptyFields ? '▼' : '▶'}
-                </button>
-              </div>
+              <button 
+                onClick={() => setShowContentDetails(!showContentDetails)} 
+                className="content-details-toggle"
+              >
+                <h3>Content Details</h3>
+                {showContentDetails ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </button>
             </div>
+
+            {showContentDetails && (
+              <div className="metadata-content-wrapper">
+                <div className="metadata-toggles">
+                  <button onClick={() => setShowRaritySection(!showRaritySection)} className="toggle-button">
+                    {rarityInfo.name} {rarityInfo.emoji} {showRaritySection ? '▼' : '▶'}
+                  </button>
+                  <button onClick={() => setShowBasicInfo(!showBasicInfo)} className="toggle-button">
+                    Basic Info {showBasicInfo ? '▼' : '▶'}
+                  </button>
+                  <button onClick={() => setShowDetails(!showDetails)} className="toggle-button">
+                    Details {showDetails ? '▼' : '▶'}
+                  </button>
+                  <button onClick={() => setShowFileDetails(!showFileDetails)} className="toggle-button">
+                    File Details {showFileDetails ? '▼' : '▶'}
+                  </button>
+                  <button onClick={() => setShowEmptyFields(!showEmptyFields)} className="toggle-button">
+                    Empty Fields {showEmptyFields ? '▼' : '▶'}
+                  </button>
+                </div>
 
             <div className="metadata-content">
               {/* Rarity Section */}
@@ -505,6 +532,8 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
                 </div>
               )}
             </div>
+              </div>
+            )}
           </div>
 
           {/* NFT Section - UNTOUCHED */}
@@ -512,7 +541,34 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           {/* Footer */}
           <div className="card-footer">
             <div className="uploader-info">
-              <span className="uploader-text">Captured by {moment.user?.displayName || 'Anonymous'}</span>
+              <div className="flex items-center gap-2">
+                <User size={12} />
+                <span className="uploader-text">
+                  Added by {moment.user?.displayName || 'Anonymous'}
+                </span>
+                <span className="text-gray-400">•</span>
+                <div className="flex items-center gap-1">
+                  <Clock size={12} />
+                  <span className="timestamp-text">
+                    {(() => {
+                      const uploadDate = new Date(moment.createdAt);
+                      const now = new Date();
+                      const diffInDays = Math.floor((now - uploadDate) / (1000 * 60 * 60 * 24));
+                      
+                      if (diffInDays === 0) return 'Today';
+                      if (diffInDays === 1) return 'Yesterday';
+                      if (diffInDays < 7) return `${diffInDays} days ago`;
+                      if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
+                      
+                      return uploadDate.toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: uploadDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+                      });
+                    })()}
+                  </span>
+                </div>
+              </div>
             </div>
             <div className="download-section">
               <button onClick={handleDownload} className="download-link">Click here to download</button>
@@ -661,27 +717,42 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: rgba(0, 0, 0, 0.8);
+            background-color: rgba(0, 0, 0, 0.4);
             z-index: 99999;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 1rem;
             overflow-y: auto;
-            backdrop-filter: blur(2px);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            /* Force consistent positioning */
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            transform: none;
           }
 
           .trading-card-modal {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            background-color: rgba(255, 255, 255, 0.02) !important;
+            background-image: none !important;
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
             border-radius: 16px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-            border: 2px solid #e2e8f0;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(220, 38, 127, 0.8);
             max-width: 900px;
             width: 90%;
             max-height: 90vh;
             overflow-y: auto;
             position: relative;
             margin: auto;
+            /* Force consistent positioning regardless of context */
+            transform: none;
+            top: auto;
+            left: auto;
+            right: auto;
+            bottom: auto;
           }
 
           @media (max-width: 1024px) {
@@ -797,7 +868,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             margin: 0.5rem 0;
             font-weight: 500;
             padding: 0.5rem;
-            background: #f9fafb;
+            background: rgba(249, 250, 251, 0.8);
             border-radius: 6px;
             border-left: 3px solid #3b82f6;
           }
@@ -856,6 +927,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             display: flex;
             min-height: 0;
             flex: 1;
+            background: transparent;
           }
 
           .trading-card-modal.with-side-panel {
@@ -865,12 +937,13 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           .main-content {
             flex: 1;
             min-width: 0;
+            background: transparent;
           }
 
           .nft-side-panel {
             width: 360px;
-            background: #f8f9fa;
-            border-left: 1px solid #e2e8f0;
+            background: rgba(248, 250, 252, 0.8);
+            border-left: 1px solid rgba(226, 232, 240, 0.5);
             display: flex;
             flex-direction: column;
             max-height: calc(90vh - 120px);
@@ -883,7 +956,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             align-items: center;
             padding: 1rem;
             border-bottom: 1px solid #e2e8f0;
-            background: white;
+            background: transparent;
           }
 
           .nft-panel-header h3 {
@@ -894,8 +967,8 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           }
 
           .panel-close-button {
-            background: #f3f4f6;
-            border: 1px solid #d1d5db;
+            background: rgba(243, 244, 246, 0.8);
+            border: 1px solid rgba(209, 213, 219, 0.5);
             color: #6b7280;
             width: 28px;
             height: 28px;
@@ -935,8 +1008,8 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
 
           .rarity-section {
             padding: 1rem 1.5rem;
-            background: linear-gradient(90deg, #f8f9fa 0%, #ffffff 100%);
-            border-bottom: 1px solid #e2e8f0;
+            background: transparent;
+            border-bottom: none;
           }
 
           .rarity-header {
@@ -1061,8 +1134,8 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
 
           .card-media {
             padding: 1rem;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e2e8f0;
+            background: transparent;
+            border-bottom: none;
             position: relative;
             max-height: 550px;
             overflow: hidden;
@@ -1082,24 +1155,43 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
 
           .metadata-panel {
             padding: 1.5rem;
-            background: #ffffff;
-            border-bottom: 1px solid #e2e8f0;
+            background: transparent;
+            border-bottom: none;
           }
 
           .metadata-header {
+            margin-bottom: 1rem;
+          }
+
+          .content-details-toggle {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-            gap: 0.5rem;
+            width: 100%;
+            background: transparent;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(248, 250, 252, 0.8);
+            border: 1px solid rgba(226, 232, 240, 0.5);
           }
 
-          .metadata-header h3 {
+          .content-details-toggle:hover {
+            background: rgba(241, 245, 249, 0.9);
+            border-color: rgba(209, 213, 219, 0.7);
+          }
+
+          .content-details-toggle h3 {
             font-size: 1.1rem;
             font-weight: 600;
             color: #1f2937;
             margin: 0;
+          }
+
+          .metadata-content-wrapper {
+            padding-top: 1rem;
           }
 
           .metadata-toggles {
@@ -1158,15 +1250,15 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             line-height: 1.5;
             margin: 0 0 0.5rem 0;
             padding: 0.5rem;
-            background: #f9fafb;
+            background: rgba(249, 250, 251, 0.8);
             border-radius: 6px;
             border-left: 3px solid #e5e7eb;
           }
 
           .card-footer {
-            border-top: 1px solid #e2e8f0;
+            border-top: 1px solid rgba(226, 232, 240, 0.5);
             padding: 1rem 1.5rem;
-            background: #f8f9fa;
+            background: rgba(248, 250, 252, 0.8);
             border-radius: 0 0 14px 14px;
             display: flex;
             justify-content: space-between;
@@ -1180,6 +1272,11 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           }
 
           .uploader-text {
+            color: #6b7280;
+            font-size: 0.8rem;
+          }
+
+          .timestamp-text {
             color: #6b7280;
             font-size: 0.8rem;
           }
@@ -1319,20 +1416,29 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             margin-bottom: 0.25rem;
           }
 
-          /* Mobile-specific styles */
+          /* Mobile-specific styles - ENHANCED for consistency */
           .modal-overlay.mobile {
             padding: 0;
-            align-items: flex-end;
+            align-items: center;
+            justify-content: center;
+            /* Override for mobile to center instead of bottom */
           }
 
           .trading-card-modal.mobile-modal {
-            width: 100%;
-            max-width: 100%;
+            width: 95%;
+            max-width: 95%;
             max-height: 95vh;
-            margin: 0;
-            border-radius: 16px 16px 0 0;
-            transform: translateY(0);
-            animation: slideUpMobile 0.3s ease-out;
+            margin: auto;
+            border-radius: 16px;
+            transform: none;
+            /* Remove mobile slide animation to fix positioning issues */
+            animation: none;
+            /* Ensure consistent positioning */
+            position: relative;
+            top: auto;
+            left: auto;
+            right: auto;
+            bottom: auto;
           }
 
           @keyframes slideUpMobile {
@@ -1419,7 +1525,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
               padding: 1rem;
               position: sticky;
               bottom: 0;
-              background: white;
+              background: transparent;
               border-top: 1px solid #e2e8f0;
             }
             

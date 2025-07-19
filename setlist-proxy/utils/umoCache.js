@@ -524,4 +524,4 @@ class UMOCache {
   }
 }
 
-module.exports = { UMOCache };
+module.exports = { UMOCache }
