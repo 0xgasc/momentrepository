@@ -96,7 +96,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'X-Requested-With', 'Accept'],
+  allowedHeaders: '*', // Allow all headers
   exposedHeaders: ['Content-Length', 'Content-Type']
 }));
 
