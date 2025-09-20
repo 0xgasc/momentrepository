@@ -17,10 +17,10 @@ export const PlatformSettingsProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   // API Base URL - Use environment variable or fallback to your deployed backend
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 
+  const API_BASE_URL = process.env.REACT_APP_API_URL ||
     (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:5050'  
-      : 'https://your-backend-url.com');
+      ? 'http://localhost:5050'
+      : 'https://momentrepository-production.up.railway.app');
 
   const fetchSettings = useCallback(async () => {
     try {

@@ -5,6 +5,11 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 require('dotenv').config();
 const { createProxyMiddleware } = require('http-proxy-middleware');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+const compression = require('compression');
+const mongoSanitize = require('express-mongo-sanitize');
+const { body, validationResult } = require('express-validator');
 const User = require('./models/User');
 const Moment = require('./models/Moment');
 const PlatformSettings = require('./models/PlatformSettings');
@@ -32,12 +37,66 @@ let cacheRefreshStatus = {
 // Global metadata storage (in production, use database)
 global.metadataStorage = global.metadataStorage || {};
 
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https:", "wss:"],
+      fontSrc: ["'self'", "https:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'", "https:"],
+      frameSrc: ["'self'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false
+}));
+
+app.use(compression());
+app.use(mongoSanitize());
+
+// Rate limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many authentication attempts' },
+});
+
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // 3 uploads per hour
+  message: { error: 'Upload limit exceeded, try again later' },
+});
+
+app.use('/api/', generalLimiter);
+
 // CORS setup
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:3000', 'https://umoarchive.vercel.app', 'https://www.umoarchive.com', 'https://momentrepository-production.up.railway.app'];
+
 app.use(cors({
-  origin: '*',
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['*']
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json({ limit: '6gb' }));
@@ -54,19 +113,39 @@ const upload = multer({
     files: 1,
     parts: 1000
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: async (req, file, cb) => {
     console.log(`📁 Multer received file:`, {
       originalname: file.originalname,
       mimetype: file.mimetype,
       size: file.size || 'size not available yet'
     });
-    
+
+    // Check file size
     const maxSize = 6 * 1024 * 1024 * 1024; // 6GB
     if (file.size && file.size > maxSize) {
       console.error(`❌ File too large: ${(file.size / 1024 / 1024 / 1024).toFixed(2)}GB exceeds 6GB limit`);
       return cb(new Error('File exceeds 6GB limit'), false);
     }
-    
+
+    // Check allowed file types
+    const allowedMimes = [
+      'video/mp4', 'video/quicktime', 'video/avi', 'video/webm',
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+      'audio/mpeg', 'audio/wav', 'audio/ogg'
+    ];
+
+    if (!allowedMimes.includes(file.mimetype)) {
+      console.error(`❌ Invalid file type: ${file.mimetype}`);
+      return cb(new Error(`File type ${file.mimetype} not allowed`), false);
+    }
+
+    // Check server memory usage
+    const memUsage = process.memoryUsage();
+    if (memUsage.heapUsed > 4 * 1024 * 1024 * 1024) { // 4GB heap limit
+      console.error(`❌ Server memory usage too high: ${(memUsage.heapUsed / 1024 / 1024 / 1024).toFixed(2)}GB`);
+      return cb(new Error('Server busy, please try again later'), false);
+    }
+
     cb(null, true);
   }
 });
@@ -94,6 +173,29 @@ const authenticateToken = (req, res, next) => {
     req.user = user;
     next();
   });
+};
+
+// Validation middleware
+const handleValidationErrors = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: errors.array()
+    });
+  }
+  next();
+};
+
+// MongoDB ObjectId validation
+const validateObjectId = (paramName) => {
+  return (req, res, next) => {
+    const id = req.params[paramName];
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: `Invalid ${paramName}` });
+    }
+    next();
+  };
 };
 
 // ✅ NEW: Role-based access control middleware
@@ -1139,9 +1241,9 @@ app.post('/moments/:momentId/record-mint', authenticateToken, async (req, res) =
     }
 
     const updatedMoment = await Moment.findOneAndUpdate(
-      { 
-        _id: momentId,
-        'nftMintHistory.txHash': { $ne: txHash }
+      {
+        _id: mongoose.Types.ObjectId(momentId),
+        'nftMintHistory.txHash': { $ne: String(txHash) }
       },
       {
         $inc: { nftMintedCount: quantity },
@@ -1523,7 +1625,12 @@ app.get('/cached/songs', async (req, res) => {
 // AUTH ENDPOINTS
 // =============================================================================
 
-app.post('/register', async (req, res) => {
+app.post('/register', authLimiter, [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  body('displayName').isLength({ min: 2, max: 50 }).trim().withMessage('Display name must be 2-50 characters'),
+  handleValidationErrors
+], async (req, res) => {
   const { email, password, displayName } = req.body;
   try {
     let user = await User.findOne({ email });
@@ -1553,7 +1660,11 @@ app.post('/register', async (req, res) => {
   }
 });
 
-app.post('/login', async (req, res) => {
+app.post('/login', authLimiter, [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+  body('password').notEmpty().withMessage('Password required'),
+  handleValidationErrors
+], async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await User.findOne({ email });
@@ -2018,7 +2129,7 @@ app.get('/moments/my-status', authenticateToken, async (req, res) => {
 // FILE UPLOAD ENDPOINTS
 // =============================================================================
 
-app.post('/upload-file', authenticateToken, (req, res, next) => {
+app.post('/upload-file', uploadLimiter, authenticateToken, (req, res, next) => {
   req.setTimeout(30 * 60 * 1000); // 30 minutes
   res.setTimeout(30 * 60 * 1000);
   next();
