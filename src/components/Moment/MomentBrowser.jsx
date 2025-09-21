@@ -132,27 +132,27 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
               <button
                 onClick={goToPrevPage}
                 disabled={currentPage === 0}
-                className={`umo-btn px-4 py-2 transition-all mobile-touch-target ${
+                className={`px-4 py-2 rounded-lg font-medium transition-all mobile-touch-target ${
                   currentPage === 0
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'umo-btn--secondary hover:umo-btn--primary'
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
                 }`}
                 style={{ minHeight: '44px', minWidth: '100px' }}
               >
                 ← Previous
               </button>
-              
-              <div className="text-sm umo-text-secondary umo-glass px-4 py-2" style={{ minHeight: '44px', display: 'flex', alignItems: 'center', borderRadius: '4px' }}>
+
+              <div className="text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg" style={{ minHeight: '44px', display: 'flex', alignItems: 'center' }}>
                 Page {currentPage + 1} of {totalPages}
               </div>
-              
+
               <button
                 onClick={goToNextPage}
                 disabled={currentPage >= totalPages - 1}
-                className={`umo-btn px-4 py-2 transition-all mobile-touch-target ${
+                className={`px-4 py-2 rounded-lg font-medium transition-all mobile-touch-target ${
                   currentPage >= totalPages - 1
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'umo-btn--secondary hover:umo-btn--primary'
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
                 }`}
                 style={{ minHeight: '44px', minWidth: '100px' }}
               >
