@@ -6,7 +6,6 @@ import { createTimeoutSignal, formatShortDate } from '../../utils';
 import { Play, Calendar, MapPin, User, Zap, Clock, ExternalLink } from 'lucide-react';
 import MomentDetailModal from './MomentDetailModal';
 import PullToRefresh from '../UI/PullToRefresh';
-import LazyMedia from '../UI/LazyMedia';
 
 const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
   const { isWeb3Enabled } = usePlatformSettings();
@@ -264,26 +263,14 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
           {/* Show auto-playing video for all video moments */}
           {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
             <div className="relative w-full h-full">
-              <LazyMedia
+              <video
                 src={moment.mediaUrl}
-                type="video"
-                alt={moment.songName}
-                className="w-full h-full object-cover"
-                autoPlay={false}
-                muted={true}
-                controls={false}
-                preload="none"
-                adaptiveQuality={true}
-                mobileOptimized={true}
-                hoverToPlay={true}
-                style={{ backgroundColor: '#000' }}
-                placeholder={
-                  <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                      <Play className="w-6 h-6 text-white/70" />
-                    </div>
-                  </div>
-                }
+                className="w-full h-full object-cover pointer-events-none"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
                 onError={(e) => {
                   console.log('Video error for', moment.songName, ':', {
                     error: e.target.error,
@@ -293,7 +280,9 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
                     mediaType: moment.mediaType
                   });
                 }}
-              />
+              >
+                Your browser does not support the video tag.
+              </video>
               {/* NFT Edition Badge - subtle bottom left */}
               {isWeb3Enabled() && moment.hasNFTEdition && moment.nftCardUrl && (
                 <div className="absolute bottom-2 left-2 flex items-center">
@@ -316,8 +305,16 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
               <Play className="text-gray-400" size={48} />
             </div>
           )}
-          
-          
+
+          {/* Play button overlay for clarity - only show for non-video content */}
+          {!(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) && (
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black bg-opacity-20">
+              <div className="bg-white bg-opacity-90 rounded-full p-3">
+                <Play className="text-gray-800" size={24} />
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 

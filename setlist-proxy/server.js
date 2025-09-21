@@ -158,7 +158,11 @@ const { uploadFileToIrys, validateBuffer } = require('./utils/irysUploader');
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key-for-development';
 
 const generateToken = (user) => {
-  return jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({
+    id: user._id,
+    email: user.email,
+    role: user.role || 'user'
+  }, JWT_SECRET, { expiresIn: '7d' });
 };
 
 const authenticateToken = (req, res, next) => {
