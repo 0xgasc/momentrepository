@@ -1694,9 +1694,17 @@ app.post('/login', authLimiter, [
 app.post('/bootstrap-admin', async (req, res) => {
   try {
     const { adminSecret } = req.body;
-    
-    // Simple protection - require a secret
-    if (adminSecret !== 'UMO-ADMIN-SETUP-2024') {
+
+    // Check if bootstrap is enabled
+    const BOOTSTRAP_ENABLED = process.env.BOOTSTRAP_ENABLED === 'true';
+    if (!BOOTSTRAP_ENABLED) {
+      return res.status(404).json({ error: 'Bootstrap endpoint is disabled' });
+    }
+
+    // Secure protection - require environment variable secret
+    const BOOTSTRAP_SECRET = process.env.ADMIN_BOOTSTRAP_SECRET;
+    if (!BOOTSTRAP_SECRET || adminSecret !== BOOTSTRAP_SECRET) {
+      console.log('❌ Invalid bootstrap secret attempt');
       return res.status(403).json({ error: 'Invalid admin secret' });
     }
     
