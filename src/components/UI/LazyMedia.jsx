@@ -2,12 +2,12 @@
 import React, { useState, useRef, useEffect, memo } from 'react';
 import { Play } from 'lucide-react';
 
-const LazyMedia = memo(({ 
-  src, 
-  type = 'image', 
-  alt = '', 
-  className = '', 
-  style = {}, 
+const LazyMedia = memo(({
+  src,
+  type = 'image',
+  alt = '',
+  className = '',
+  style = {},
   placeholder,
   onLoad,
   onError,
@@ -18,7 +18,7 @@ const LazyMedia = memo(({
   adaptiveQuality = true,
   mobileOptimized = true,
   hoverToPlay = false,
-  ...props 
+  ...props
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -26,7 +26,11 @@ const LazyMedia = memo(({
   const [networkQuality, setNetworkQuality] = useState('high');
   const [isHovering, setIsHovering] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
   const mediaRef = useRef(null);
+
+  const MAX_RETRIES = 2;
 
   // Detect mobile device
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -106,10 +110,39 @@ const LazyMedia = memo(({
     if (onLoad) onLoad();
   };
 
-  const handleError = () => {
-    setIsError(true);
-    setIsLoaded(false);
-    if (onError) onError();
+  const retryLoad = () => {
+    if (retryCount < MAX_RETRIES) {
+      setIsRetrying(true);
+      setIsError(false);
+      setRetryCount(prev => prev + 1);
+
+      setTimeout(() => {
+        setIsRetrying(false);
+        if (mediaRef.current) {
+          if (type === 'video') {
+            mediaRef.current.load();
+          } else {
+            const currentSrc = mediaRef.current.src;
+            mediaRef.current.src = '';
+            mediaRef.current.src = currentSrc;
+          }
+        }
+      }, 1000 * retryCount); // Exponential backoff
+    }
+  };
+
+  const handleError = (event) => {
+    const errorMsg = event.target?.error?.message || 'Network error';
+    console.log(`🚨 Media load error (attempt ${retryCount + 1}):`, errorMsg);
+
+    if (retryCount < MAX_RETRIES && errorMsg.includes('network')) {
+      console.log(`📡 Retrying in ${1000 * (retryCount + 1)}ms...`);
+      retryLoad();
+    } else {
+      setIsError(true);
+      setIsLoaded(false);
+      if (onError) onError(event);
+    }
   };
 
   // Handle hover-to-play functionality
@@ -153,17 +186,36 @@ const LazyMedia = memo(({
         }}
       >
         <div className="text-center">
-          {!isError ? (
+          {!isError && !isRetrying ? (
             <>
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
               <p className="text-sm text-gray-500">Loading {type}...</p>
+            </>
+          ) : isRetrying ? (
+            <>
+              <div className="animate-pulse h-8 w-8 bg-orange-200 rounded-full mx-auto mb-2 flex items-center justify-center">
+                <span className="text-sm">📡</span>
+              </div>
+              <p className="text-sm text-orange-600">Retrying... ({retryCount}/{MAX_RETRIES})</p>
             </>
           ) : (
             <>
               <div className="text-gray-400 text-4xl mb-2">
                 {type === 'video' ? '📹' : '🖼️'}
               </div>
-              <p className="text-sm text-gray-500">Failed to load {type}</p>
+              <p className="text-sm text-gray-500">Network error loading {type}</p>
+              {retryCount >= MAX_RETRIES && (
+                <button
+                  onClick={() => {
+                    setRetryCount(0);
+                    setIsError(false);
+                    retryLoad();
+                  }}
+                  className="mt-2 px-3 py-1 text-xs bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
+                >
+                  Try Again
+                </button>
+              )}
             </>
           )}
         </div>
