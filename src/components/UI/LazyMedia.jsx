@@ -28,6 +28,7 @@ const LazyMedia = memo(({
   const [isPlaying, setIsPlaying] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const mediaRef = useRef(null);
 
   const MAX_RETRIES = 2;
@@ -58,7 +59,7 @@ const LazyMedia = memo(({
     }
   }, []);
 
-  // Get optimized video attributes for mobile
+  // Get optimized video attributes for mobile and modals
   const getVideoAttributes = () => {
     const baseAttrs = {
       playsInline: true,
@@ -67,18 +68,27 @@ const LazyMedia = memo(({
       'x5-video-player-fullscreen': 'true'
     };
 
+    // For autoplay videos (like in modals), optimize loading
+    const optimizedPreload = autoPlay ? 'metadata' : preload;
+
     if (mobileOptimized && isMobile) {
       return {
         ...baseAttrs,
         poster: '', // Remove poster for faster loading
-        preload: networkQuality === 'low' ? 'none' : preload,
+        preload: networkQuality === 'low' ? 'none' : optimizedPreload,
         controlsList: 'nodownload noremoteplayback',
         disablePictureInPicture: true,
-        crossOrigin: 'anonymous'
+        crossOrigin: 'anonymous',
+        // Add buffer optimization for better reliability
+        buffered: true
       };
     }
 
-    return baseAttrs;
+    return {
+      ...baseAttrs,
+      preload: optimizedPreload,
+      crossOrigin: 'anonymous'
+    };
   };
 
   // Intersection Observer for lazy loading
@@ -264,12 +274,24 @@ const LazyMedia = memo(({
               }
             }}
             onCanPlay={() => {
-              // Video is ready to play
-              if (isMobile && autoPlay && muted && !hoverToPlay) {
-                // Ensure autoplay works on mobile (only if not hover-to-play)
-                mediaRef.current?.play().catch(() => {
-                  console.log('Autoplay prevented, user interaction required');
-                });
+              // Video is ready to play - try autoplay
+              if (autoPlay && !hoverToPlay) {
+                const playPromise = mediaRef.current?.play();
+                if (playPromise !== undefined) {
+                  playPromise.catch((error) => {
+                    console.log('🔊 Autoplay with audio blocked, trying muted autoplay:', error.message);
+                    // If autoplay with audio fails, try muted autoplay as fallback
+                    if (!muted) {
+                      mediaRef.current.muted = true;
+                      mediaRef.current.play().catch(() => {
+                        console.log('❌ All autoplay attempts failed, user interaction required');
+                        setAutoplayBlocked(true);
+                      });
+                    } else {
+                      setAutoplayBlocked(true);
+                    }
+                  });
+                }
               }
             }}
             autoPlay={autoPlay && networkQuality !== 'low' && !hoverToPlay}
@@ -293,6 +315,27 @@ const LazyMedia = memo(({
             <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 transition-opacity">
               <div className="bg-white bg-opacity-90 rounded-full p-3">
                 <Play className="w-6 h-6 text-gray-800" />
+              </div>
+            </div>
+          )}
+
+          {/* Autoplay blocked overlay */}
+          {autoplayBlocked && !isPlaying && (
+            <div
+              className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 transition-opacity cursor-pointer"
+              onClick={() => {
+                setAutoplayBlocked(false);
+                mediaRef.current.muted = false; // Unmute for user-initiated play
+                mediaRef.current.play().catch(console.log);
+              }}
+            >
+              <div className="bg-white bg-opacity-95 rounded-full p-4 shadow-lg">
+                <Play className="w-8 h-8 text-gray-800" />
+              </div>
+              <div className="absolute bottom-4 left-4 right-4 text-center">
+                <p className="text-white text-sm bg-black bg-opacity-70 px-3 py-1 rounded">
+                  🔊 Click to play with audio
+                </p>
               </div>
             </div>
           )}

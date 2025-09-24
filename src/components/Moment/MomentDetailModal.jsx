@@ -218,9 +218,9 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             className="media-element w-full"
             style={{ maxHeight: '500px', width: '100%', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
             controls={true}
-            autoPlay={false}
-            muted={true}
-            preload="none"
+            autoPlay={true}
+            muted={false}
+            preload="metadata"
             playsInline={true}
             onLoad={() => { setVideoLoaded(true); setMediaError(false); }}
             onError={() => { setMediaError(true); setVideoLoaded(false); }}
