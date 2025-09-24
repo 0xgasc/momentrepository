@@ -5,6 +5,10 @@ const crypto = require('crypto');
 
 const getIrysUploader = async () => {
   try {
+    if (!process.env.PRIVATE_KEY) {
+      throw new Error('PRIVATE_KEY environment variable not set for Irys uploads');
+    }
+
     const irysUploader = await Uploader(Ethereum)
       .withWallet(process.env.PRIVATE_KEY)
       .withRpc(process.env.SEPOLIA_RPC)

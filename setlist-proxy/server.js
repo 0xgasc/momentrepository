@@ -52,7 +52,16 @@ app.use(helmet({
       frameSrc: ["'self'"],
     },
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true
+  },
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  noSniff: true,
+  frameguard: { action: 'deny' },
+  xssFilter: true
 }));
 
 app.use(compression());
@@ -80,6 +89,31 @@ const uploadLimiter = rateLimit({
 });
 
 app.use('/api/', generalLimiter);
+
+// Security monitoring middleware
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  const originalSend = res.send;
+
+  res.send = function(body) {
+    const duration = Date.now() - startTime;
+    const status = res.statusCode;
+
+    // Log security-relevant events
+    if (status >= 400 || req.path.includes('admin') || req.path.includes('auth')) {
+      console.log(`🔒 Security Log: ${req.method} ${req.path} - Status: ${status} - Duration: ${duration}ms - IP: ${req.ip} - User: ${req.user?.email || 'anonymous'}`);
+    }
+
+    // Log failed auth attempts
+    if (status === 401 || status === 403) {
+      console.log(`🚨 Auth Failure: ${req.method} ${req.path} - IP: ${req.ip} - User-Agent: ${req.get('User-Agent')?.substring(0, 100)}`);
+    }
+
+    return originalSend.call(this, body);
+  };
+
+  next();
+});
 
 // CORS setup
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -154,8 +188,21 @@ const upload = multer({
 // Import file uploaders
 const { uploadFileToIrys, validateBuffer } = require('./utils/irysUploader');
 
-// JWT helpers
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key-for-development';
+// JWT helpers - CRITICAL: No fallback for production security
+const JWT_SECRET = process.env.JWT_SECRET;
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
+
+if (!JWT_SECRET) {
+  console.error('🚨 CRITICAL: JWT_SECRET environment variable not set!');
+  console.error('🚨 Application cannot start without secure JWT secret');
+  process.exit(1);
+}
+
+if (!PRIVATE_KEY) {
+  console.error('🚨 CRITICAL: PRIVATE_KEY environment variable not set!');
+  console.error('🚨 Wallet operations will fail without private key');
+  process.exit(1);
+}
 
 const generateToken = (user) => {
   return jwt.sign({
@@ -216,8 +263,9 @@ const requireRole = (requiredRole) => {
       user.lastActive = new Date();
       await user.save();
       
-      // Check role permissions (include hardcoded admin emails)
-      const isHardcodedAdmin = user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo';
+      // Check role permissions (include configurable admin emails)
+      const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
+      const isHardcodedAdmin = adminEmails.includes(user.email);
       console.log(`🔒 Role check: ${user.email}, role: ${user.role}, required: ${requiredRole}, isHardcodedAdmin: ${isHardcodedAdmin}`);
       
       if (requiredRole === 'admin' && !user.isAdmin() && !isHardcodedAdmin) {
@@ -944,7 +992,7 @@ app.post('/moments/:momentId/create-nft-edition-proxy', authenticateToken, async
     console.log('🔧 Using dev wallet to create NFT edition with V2 contract (built-in revenue splits)...');
     
     const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC);
-    const devWallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+    const devWallet = new ethers.Wallet(PRIVATE_KEY, provider);
     
     const UMOMomentsERC1155V2Contract = require('../src/contracts/UMOMomentsERC1155V2.json');
     const contract = new ethers.Contract(
@@ -1336,7 +1384,7 @@ app.post('/moments/:momentId/mint-nft-proxy', authenticateToken, async (req, res
 
     // Set up blockchain connection
     const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC);
-    const devWallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+    const devWallet = new ethers.Wallet(PRIVATE_KEY, provider);
     
     // Determine which contract to use based on the NFT's contract address
     const UMOMomentsERC1155V2Contract = require('../src/contracts/UMOMomentsERC1155V2.json');
@@ -1708,8 +1756,13 @@ app.post('/bootstrap-admin', async (req, res) => {
       return res.status(403).json({ error: 'Invalid admin secret' });
     }
     
-    // Set solo@solo.solo as admin
-    const adminEmail = 'solo@solo.solo';
+    // Set configurable admin email
+    const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
+    const adminEmail = adminEmails[0]; // Use first admin email
+
+    if (!adminEmail) {
+      return res.status(400).json({ error: 'No admin emails configured in ADMIN_EMAILS environment variable' });
+    }
     const adminUser = await User.findOne({ email: adminEmail });
     
     if (!adminUser) {
@@ -1941,7 +1994,7 @@ app.get('/debug/user', authenticateToken, async (req, res) => {
       userExists: !!user,
       userEmail: user?.email,
       userRole: user?.role,
-      isHardcodedAdmin: user?.email === 'solo@solo.solo' || user?.email === 'solo2@solo.solo',
+      isHardcodedAdmin: adminEmails.includes(user?.email),
       isAdmin: user?.isAdmin?.(),
       isModOrAdmin: user?.isModOrAdmin?.()
     });
@@ -2531,7 +2584,7 @@ app.get('/notifications/counts', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const userRole = req.user.role;
     const userEmail = req.user.email;
-    const isModOrAdmin = userRole === 'admin' || userRole === 'mod' || userEmail === 'solo@solo.solo' || userEmail === 'solo2@solo.solo';
+    const isModOrAdmin = userRole === 'admin' || userRole === 'mod' || adminEmails.includes(userEmail);
     
     let notifications = {
       pendingApproval: 0,  // Blue dot for users
