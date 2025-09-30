@@ -78,13 +78,14 @@ class UMOCache {
         console.log(`📊 setlist.fm total: ${data.total}, cached: ${currentCount}, new shows: ${hasNewShows}`);
         return hasNewShows;
       } else {
-        console.warn(`⚠️ Quick check failed: ${response.status}, assuming no new shows`);
+        console.warn(`⚠️ Quick check failed: ${response.status}, forcing refresh to be safe`);
+        return true; // If check fails, assume there might be new shows and refresh
       }
-      
-      return false;
+
+      return true; // Default to refresh on error
     } catch (err) {
       console.error('❌ Error checking for new shows:', err);
-      return false;
+      return true; // On error, assume there might be new shows and refresh
     }
   }
 

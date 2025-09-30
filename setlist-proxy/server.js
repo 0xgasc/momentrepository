@@ -2752,6 +2752,30 @@ app.get('/moments/song/:songName', async (req, res) => {
   }
 });
 // =============================================================================
+// CACHE REFRESH ENDPOINT
+// =============================================================================
+app.post('/admin/refresh-cache', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    console.log('🔄 Admin triggered cache refresh...');
+
+    const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : `http://localhost:${PORT}`;
+
+    // Force a fresh cache build
+    await umoCache.buildFreshCache(API_BASE_URL);
+
+    res.json({
+      success: true,
+      message: 'Cache refresh started',
+      performanceCount: umoCache.cache?.performances?.length || 0
+    });
+  } catch (error) {
+    console.error('❌ Cache refresh error:', error);
+    res.status(500).json({ error: 'Failed to refresh cache' });
+  }
+});
+
 // RARITY RECALCULATION ENDPOINT
 // =============================================================================
 app.post('/admin/recalculate-rarity', async (req, res) => {
