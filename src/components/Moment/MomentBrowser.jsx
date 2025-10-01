@@ -3,7 +3,7 @@ import React, { memo, useState, useEffect } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
 import { createTimeoutSignal, formatShortDate } from '../../utils';
-import { Play, Calendar, MapPin, User, Zap, Clock, ExternalLink } from 'lucide-react';
+import { Play, Calendar, MapPin, User, Zap, Clock, ExternalLink, HelpCircle, X } from 'lucide-react';
 import MomentDetailModal from './MomentDetailModal';
 import PullToRefresh from '../UI/PullToRefresh';
 
@@ -14,7 +14,8 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
   const [error, setError] = useState(null);
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
-  
+  const [showHelpModal, setShowHelpModal] = useState(false);
+
   const MOMENTS_PER_PAGE = 6;
 
   useEffect(() => {
@@ -97,14 +98,15 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
       >
         <div className="mb-8">
         {/* Header */}
-        <MomentHeader 
-          totalMoments={moments.length} 
+        <MomentHeader
+          totalMoments={moments.length}
           currentPage={currentPage}
           totalPages={totalPages}
           momentsPerPage={MOMENTS_PER_PAGE}
           startIndex={startIndex}
           endIndex={Math.min(endIndex, moments.length)}
           isWeb3Enabled={isWeb3Enabled}
+          onShowHelp={() => setShowHelpModal(true)}
         />
 
         {/* Moments Grid */}
@@ -170,12 +172,91 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
 
       {/* Moment Detail Modal - MOVED OUTSIDE PullToRefresh */}
       {selectedMoment && (
-        <MomentDetailModal 
+        <MomentDetailModal
           moment={selectedMoment}
           onClose={() => {
             setSelectedMoment(null);
           }}
         />
+      )}
+
+      {/* Upload Help Modal */}
+      {showHelpModal && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          onClick={() => setShowHelpModal(false)}
+          style={{ backdropFilter: 'blur(4px)' }}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 relative"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxHeight: '90vh', overflowY: 'auto' }}
+          >
+            <button
+              onClick={() => setShowHelpModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors mobile-touch-target"
+              style={{ minWidth: '44px', minHeight: '44px' }}
+            >
+              <X size={24} />
+            </button>
+
+            <h3 className="text-2xl font-bold text-gray-800 mb-4 pr-8">
+              How to Upload Moments
+            </h3>
+
+            <div className="space-y-4 text-gray-700">
+              <div className="flex items-start">
+                <div className="bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-3 flex-shrink-0">
+                  1
+                </div>
+                <div>
+                  <p className="font-semibold mb-1">Create an Account & Log In</p>
+                  <p className="text-sm text-gray-600">
+                    You need to be logged in with an account to upload moments
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start">
+                <div className="bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-3 flex-shrink-0">
+                  2
+                </div>
+                <div>
+                  <p className="font-semibold mb-1">Navigate to a Show or Song</p>
+                  <p className="text-sm text-gray-600">
+                    Browse to a specific performance or song page that you want to upload a moment for
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start">
+                <div className="bg-blue-100 text-blue-600 rounded-full w-8 h-8 flex items-center justify-center font-bold mr-3 flex-shrink-0">
+                  3
+                </div>
+                <div>
+                  <p className="font-semibold mb-1">Click "Upload Moment"</p>
+                  <p className="text-sm text-gray-600">
+                    You'll see an "Upload Moment" button on the show or song page - click it to start uploading your video or photo
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-800">
+                  <strong>💡 Tip:</strong> Moments can be videos or photos from UMO concerts. Share your favorite performances with fans worldwide!
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowHelpModal(false)}
+              className="mt-6 w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium mobile-touch-target"
+              style={{ minHeight: '44px' }}
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
       )}
     </>
   );
@@ -208,7 +289,7 @@ const ErrorState = memo(({ error }) => (
 ErrorState.displayName = 'ErrorState';
 
 // Header Component
-const MomentHeader = memo(({ totalMoments, currentPage, totalPages, startIndex, endIndex, isWeb3Enabled }) => (
+const MomentHeader = memo(({ totalMoments, currentPage, totalPages, startIndex, endIndex, isWeb3Enabled, onShowHelp }) => (
   <div className="mb-6">
     <div className="flex items-center justify-between mb-4">
       <div>
@@ -216,6 +297,14 @@ const MomentHeader = memo(({ totalMoments, currentPage, totalPages, startIndex, 
           <Zap className="mr-2 text-blue-600" size={24} />
           Recent Moments
         </h2>
+        <button
+          onClick={onShowHelp}
+          className="flex items-center text-sm text-blue-600 hover:text-blue-700 mt-2 transition-colors mobile-touch-target"
+          style={{ minHeight: '44px' }}
+        >
+          <HelpCircle size={16} className="mr-1" />
+          How to upload moments
+        </button>
         <p className="text-gray-600 mt-1">
           {totalPages > 1 ? (
             <>Showing {startIndex + 1}-{endIndex} of {totalMoments} moments (6 at a time for performance)</>
