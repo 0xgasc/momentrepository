@@ -48,9 +48,9 @@ class UMOCache {
     const lastUpdate = new Date(this.cache.lastUpdated);
     const now = new Date();
     const hoursSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60);
-    
-    // Refresh if more than 18 hours old
-    const needsRefresh = hoursSinceUpdate > 18;
+
+    // Refresh if more than 6 hours old (UMO is on tour, need fresh setlists)
+    const needsRefresh = hoursSinceUpdate > 6;
     
     console.log(`🔍 Cache age: ${hoursSinceUpdate.toFixed(1)} hours, needs refresh: ${needsRefresh}`);
     return needsRefresh;
