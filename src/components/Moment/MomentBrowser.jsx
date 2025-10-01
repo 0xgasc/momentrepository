@@ -188,9 +188,16 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
           style={{ backdropFilter: 'blur(4px)' }}
         >
           <div
-            className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 relative"
+            className="rounded-lg shadow-xl max-w-lg w-full p-6 relative"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxHeight: '90vh', overflowY: 'auto' }}
+            style={{
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255, 255, 255, 0.3)'
+            }}
           >
             <button
               onClick={() => setShowHelpModal(false)}
