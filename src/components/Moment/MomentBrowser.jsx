@@ -193,7 +193,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
             style={{
               maxHeight: '90vh',
               overflowY: 'auto',
-              background: 'rgba(255, 255, 255, 0.95)',
+              background: 'rgba(255, 255, 255, 0.98)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
               border: '1px solid rgba(255, 255, 255, 0.3)'
