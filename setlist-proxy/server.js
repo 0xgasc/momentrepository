@@ -215,12 +215,23 @@ const generateToken = (user) => {
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'No token provided' });
+
+  // Helper to send error with explicit CORS headers (for long uploads)
+  const sendAuthError = (status, message) => {
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    return res.status(status).json({ error: message });
+  };
+
+  if (!token) return sendAuthError(401, 'No token provided');
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
       console.log('🔐 Token verification failed:', err.message);
-      return res.status(403).json({ error: 'Invalid or expired token. Please log in again.' });
+      return sendAuthError(403, 'Invalid or expired token. Please log in again.');
     }
     req.user = user;
     next();
@@ -2989,6 +3000,27 @@ app.use(
     logLevel: 'warn',
   })
 );
+
+// Global error handler - ensure CORS headers on all errors
+app.use((err, req, res, next) => {
+  console.error('🚨 Global error handler:', err.message);
+
+  // Ensure CORS headers are set for error responses
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
+  // Handle multer errors
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: 'File too large' });
+  }
+
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal server error'
+  });
+});
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
