@@ -1738,8 +1738,31 @@ app.post('/login', authLimiter, [
     const isValid = await user.validatePassword(password);
     if (!isValid) return res.status(401).json({ error: 'Invalid password' });
 
+    // Auto-fix role for admin users or users with missing/undefined role
+    const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
+    const isConfiguredAdmin = adminEmails.includes(user.email);
+
+    if (isConfiguredAdmin && user.role !== 'admin') {
+      console.log(`🔧 Auto-fixing admin role for ${user.email}`);
+      user.role = 'admin';
+      user.roleAssignedAt = new Date();
+      await user.save();
+    } else if (!user.role) {
+      console.log(`🔧 Auto-fixing missing role for ${user.email}`);
+      user.role = 'user';
+      await user.save();
+    }
+
     const token = generateToken(user);
-    res.json({ token, user: { id: user._id, email: user.email, displayName: user.displayName } });
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role
+      }
+    });
   } catch (err) {
     console.error('❌ Login error:', err);
     res.status(500).json({ error: 'Login failed' });
@@ -1835,11 +1858,27 @@ app.get('/profile', authenticateToken, async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
+
+    // Auto-fix role for admin users or users with missing/undefined role
+    const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
+    const isConfiguredAdmin = adminEmails.includes(user.email);
+    let roleFixed = false;
+
+    if (isConfiguredAdmin && user.role !== 'admin') {
+      console.log(`🔧 Auto-fixing admin role for ${user.email} (profile)`);
+      user.role = 'admin';
+      user.roleAssignedAt = new Date();
+      roleFixed = true;
+    } else if (!user.role) {
+      console.log(`🔧 Auto-fixing missing role for ${user.email} (profile)`);
+      user.role = 'user';
+      roleFixed = true;
+    }
+
     // Update last active
     user.lastActive = new Date();
     await user.save();
-    
+
     res.json({
       user: {
         id: user._id,
@@ -1849,7 +1888,8 @@ app.get('/profile', authenticateToken, async (req, res) => {
         createdAt: user.createdAt,
         lastActive: user.lastActive,
         roleAssignedAt: user.roleAssignedAt
-      }
+      },
+      roleFixed // Let frontend know if token needs refresh
     });
   } catch (error) {
     console.error('❌ Profile fetch error:', error);
