@@ -2041,6 +2041,7 @@ app.get('/platform/settings', async (req, res) => {
 app.get('/debug/user', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
+    const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
     res.json({
       userId: req.user.id,
       userExists: !!user,
@@ -2636,6 +2637,7 @@ app.get('/notifications/counts', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const userRole = req.user.role;
     const userEmail = req.user.email;
+    const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
     const isModOrAdmin = userRole === 'admin' || userRole === 'mod' || adminEmails.includes(userEmail);
     
     let notifications = {
