@@ -212,11 +212,14 @@ if (!PRIVATE_KEY) {
 }
 
 const generateToken = (user) => {
-  return jwt.sign({
+  const token = jwt.sign({
     id: user._id,
     email: user.email,
     role: user.role || 'user'
   }, JWT_SECRET, { expiresIn: '7d' });
+
+  console.log(`🔑 JWT generated for ${user.email} (role: ${user.role || 'user'}) - expires in 7 days`);
+  return token;
 };
 
 const authenticateToken = (req, res, next) => {
@@ -1773,6 +1776,49 @@ app.post('/login', authLimiter, [
   } catch (err) {
     console.error('❌ Login error:', err);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Change password endpoint
+app.post('/change-password', authenticateToken, [
+  body('currentPassword').notEmpty().withMessage('Current password required'),
+  body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters'),
+  handleValidationErrors
+], async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.id;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      console.log(`❌ Change password failed: User ${userId} not found`);
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Verify current password
+    const isValid = await user.validatePassword(currentPassword);
+    if (!isValid) {
+      console.log(`❌ Change password failed: Invalid current password for ${user.email}`);
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Set new password
+    await user.setPassword(newPassword);
+    await user.save();
+
+    console.log(`✅ Password changed successfully for ${user.email}`);
+
+    // Generate new token with updated timestamp
+    const token = generateToken(user);
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully',
+      token // Return new token so user stays logged in
+    });
+  } catch (err) {
+    console.error('❌ Change password error:', err);
+    res.status(500).json({ error: 'Failed to change password' });
   }
 });
 
