@@ -118,7 +118,14 @@ app.use((req, res, next) => {
 // CORS setup
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:3000', 'https://umoarchive.vercel.app', 'https://www.umoarchive.com', 'https://momentrepository-production.up.railway.app'];
+  : [
+      'http://localhost:3000',
+      'https://umoarchive.vercel.app',
+      'https://www.umoarchive.com',
+      'https://momentrepository-production.up.railway.app',
+      'https://umo-live.xyz',
+      'https://www.umo-live.xyz'
+    ];
 
 app.use(cors({
   origin: function (origin, callback) {
