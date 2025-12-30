@@ -2969,23 +2969,32 @@ const initializeCache = async () => {
     const needsRefresh = await umoCache.needsRefresh();
     
     if (needsRefresh || !umoCache.cache) {
-      console.log('🔄 Cache needs refresh, building...');
-      
+      const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+        : `http://localhost:${PORT}`;
+
       if (umoCache.cache) {
-        const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN 
-      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-      : `http://localhost:${PORT}`;
+        // STALE-WHILE-REVALIDATE: Serve existing cache immediately, refresh in background
+        console.log('🔄 Cache stale but usable - refreshing in background...');
+
         const hasNewShows = await umoCache.checkForNewShows(API_BASE_URL, umoCache.cache.stats.totalPerformances);
         if (!hasNewShows) {
           console.log('✅ No new shows detected, using existing cache');
           return;
         }
+
+        // Start background refresh (don't await)
+        console.log('🏗️ Starting background cache refresh...');
+        umoCache.buildFreshCache(API_BASE_URL)
+          .then(() => console.log('✅ Background cache refresh complete'))
+          .catch(err => console.error('❌ Background cache refresh failed:', err));
+
+        console.log('📦 Serving stale cache while refreshing in background');
+      } else {
+        // No cache at all - must wait for initial build
+        console.log('🔄 No cache found, building (this may take a few minutes)...');
+        await umoCache.buildFreshCache(API_BASE_URL);
       }
-      
-      const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN 
-      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-      : `http://localhost:${PORT}`;
-      await umoCache.buildFreshCache(API_BASE_URL);
     } else {
       console.log('✅ Using existing cache');
     }
