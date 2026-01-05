@@ -4,6 +4,7 @@ import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, 
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import UMOEffect from './UMOEffect';
+import WaveformPlayer from './WaveformPlayer';
 
 // ASCII character map - from darkest to brightest
 const ASCII_CHARS = ' .:-=+*#%@';
@@ -33,8 +34,6 @@ const VideoHero = memo(({ onMomentClick }) => {
   const [isAsciiMode, setIsAsciiMode] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
 
   // Theater queue context
@@ -265,8 +264,6 @@ const VideoHero = memo(({ onMomentClick }) => {
   // Reset ASCII when moment changes (fixes back-to-back video issue)
   useEffect(() => {
     setAsciiOutput([]);
-    setProgress(0);
-    setDuration(0);
     setIsVerticalVideo(false);
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
@@ -345,38 +342,6 @@ const VideoHero = memo(({ onMomentClick }) => {
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
-
-  // Handle time update for progress bar
-  const handleTimeUpdate = useCallback(() => {
-    const media = isAudio ? audioRef.current : videoRef.current;
-    if (media) {
-      const current = media.currentTime;
-      const total = media.duration;
-      if (total > 0) {
-        setProgress((current / total) * 100);
-        setDuration(total);
-      }
-    }
-  }, [isAudio]);
-
-  // Handle seeking on progress bar click
-  const handleSeek = useCallback((e) => {
-    const bar = e.currentTarget;
-    const rect = bar.getBoundingClientRect();
-    const pos = (e.clientX - rect.left) / rect.width;
-    const media = isAudio ? audioRef.current : videoRef.current;
-    if (media && media.duration) {
-      media.currentTime = pos * media.duration;
-    }
-  }, [isAudio]);
-
-  // Format time as mm:ss
-  const formatTime = useCallback((seconds) => {
-    if (!seconds || isNaN(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   }, []);
 
   // Handle next
@@ -579,7 +544,6 @@ const VideoHero = memo(({ onMomentClick }) => {
                   .catch(() => setIsPlaying(false));
               }
             }}
-            onTimeUpdate={handleTimeUpdate}
             onEnded={handleNext}
           />
 
@@ -670,7 +634,6 @@ const VideoHero = memo(({ onMomentClick }) => {
               playsInline
               preload="auto"
               onLoadedData={handleVideoLoaded}
-              onTimeUpdate={handleTimeUpdate}
               onEnded={handleNext}
               className={`w-full ${isAsciiMode ? 'opacity-0' : ''}`}
               style={{ maxHeight: isFullscreen ? '100vh' : '500px', objectFit: 'contain', backgroundColor: '#000' }}
@@ -733,28 +696,21 @@ const VideoHero = memo(({ onMomentClick }) => {
         </div>
       )}
 
-      {/* Bottom controls - liquid glass effect */}
-      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent backdrop-blur-md p-3 sm:p-4 z-30 transition-opacity duration-300 ${
+      {/* Bottom controls - more opaque for visibility */}
+      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-3 sm:p-4 z-30 transition-opacity duration-300 ${
         showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}>
-        {/* Progress bar with seeking */}
-        {!isYouTube && duration > 0 && (
+        {/* WaveformPlayer - simple mode for video, full waveform for audio */}
+        {!isYouTube && moment && (
           <div className="mb-2">
-            <div
-              className="w-full h-1.5 bg-white/20 rounded-full cursor-pointer group"
-              onClick={handleSeek}
-            >
-              <div
-                className="h-full bg-white/80 rounded-full transition-all relative group-hover:bg-white"
-                style={{ width: `${progress}%` }}
-              >
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </div>
-            <div className="flex justify-between text-[10px] text-white/60 mt-1 font-mono">
-              <span>{formatTime((progress / 100) * duration)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
+            <WaveformPlayer
+              audioRef={isAudio ? audioRef : null}
+              videoRef={!isAudio ? videoRef : null}
+              moment={moment}
+              isPlaying={isPlaying}
+              isVideo={!isAudio}
+              simple={!isAudio}
+            />
           </div>
         )}
 
