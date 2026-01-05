@@ -246,25 +246,38 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
       {/* Waveform/Progress container */}
       <div
         ref={waveformRef}
-        className={`relative cursor-pointer select-none ${simple ? 'h-3' : 'h-16'}`}
+        className={`relative cursor-pointer select-none ${simple ? 'h-6' : 'h-16'}`}
         onClick={handleSeek}
         onDoubleClick={handleDoubleClick}
         title={user ? "Click to seek, double-click to add comment" : "Click to seek"}
       >
         {simple ? (
-          /* Simple mode: sleek progress bar for video/YouTube */
+          /* Simple mode: mini waveform style for video */
           <>
-            {/* Background track - glassy */}
-            <div className="absolute inset-0 bg-white/20 backdrop-blur-sm rounded-full" />
-            {/* Progress fill - vibrant gradient with glow */}
+            {/* Background - subtle bars pattern */}
+            <div className="absolute inset-0 flex items-end gap-[2px] px-1">
+              {Array.from({ length: 48 }).map((_, i) => {
+                const barProgress = i / 48;
+                const isPlayed = barProgress < progress;
+                // Create wave-like heights
+                const height = 30 + Math.sin(i * 0.5) * 20 + Math.cos(i * 0.3) * 15 + (i % 3) * 10;
+                return (
+                  <div
+                    key={i}
+                    className={`flex-1 rounded-sm transition-all duration-150 ${
+                      isPlayed
+                        ? 'bg-gradient-to-t from-purple-500 via-fuchsia-400 to-cyan-400'
+                        : 'bg-white/15'
+                    }`}
+                    style={{ height: `${Math.min(100, height)}%` }}
+                  />
+                );
+              })}
+            </div>
+            {/* Playhead line */}
             <div
-              className="absolute top-0 bottom-0 left-0 bg-gradient-to-r from-purple-500 via-cyan-400 to-emerald-400 rounded-full shadow-lg shadow-cyan-500/30"
-              style={{ width: `${progress * 100}%` }}
-            />
-            {/* Playhead dot */}
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg shadow-white/50"
-              style={{ left: `calc(${progress * 100}% - 6px)` }}
+              className="absolute top-0 bottom-0 w-0.5 bg-white z-10"
+              style={{ left: `${progress * 100}%` }}
             />
           </>
         ) : (
@@ -298,20 +311,20 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
           </>
         )}
 
-        {/* Comment markers - smaller dots */}
+        {/* Comment markers */}
         {comments.map((comment) => {
           const commentPos = duration > 0 ? (comment.timestamp / duration) * 100 : 0;
 
           return (
             <div
               key={comment._id}
-              className={`absolute transform -translate-x-1/2 z-20 ${simple ? 'top-1/2 -translate-y-1/2' : 'bottom-0'}`}
+              className="absolute bottom-0 transform -translate-x-1/2 z-20"
               style={{ left: `${commentPos}%` }}
               onMouseEnter={() => setHoveredComment(comment)}
               onMouseLeave={() => setHoveredComment(null)}
             >
-              {/* Small dot marker */}
-              <div className={`rounded-full bg-orange-400 cursor-pointer hover:scale-150 transition-transform ${simple ? 'w-2 h-2' : 'w-3 h-3'}`} />
+              {/* Comment dot with pulse animation */}
+              <div className="w-3 h-3 rounded-full bg-orange-400 cursor-pointer hover:scale-125 transition-transform shadow-lg shadow-orange-500/50 animate-pulse" />
             </div>
           );
         })}
@@ -319,7 +332,7 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
         {/* Hovered comment tooltip */}
         {hoveredComment && (
           <div
-            className={`absolute transform -translate-x-1/2 z-30 bg-gray-900/95 rounded-lg px-2 py-1.5 max-w-52 shadow-lg border border-gray-700 ${simple ? 'bottom-5' : 'bottom-6'}`}
+            className="absolute bottom-8 transform -translate-x-1/2 z-30 bg-black/90 backdrop-blur-xl rounded-lg px-3 py-2 max-w-64 shadow-xl border border-white/20"
             style={{ left: `${duration > 0 ? (hoveredComment.timestamp / duration) * 100 : 0}%` }}
           >
             <div className="text-[10px] text-cyan-400 font-medium">
@@ -333,15 +346,15 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
         {/* Comment input popup */}
         {showCommentInput && (
           <div
-            className="absolute bottom-8 transform -translate-x-1/2 z-40 bg-gray-900/95 rounded-lg p-3 shadow-lg border border-cyan-600/50 w-64"
+            className="absolute bottom-10 transform -translate-x-1/2 z-40 bg-black/90 backdrop-blur-xl rounded-xl p-3 shadow-2xl border border-white/20 w-72"
             style={{ left: `${commentInputPos * 100}%` }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs text-cyan-400 font-mono">{formatTime(commentInputPos * duration)}</span>
+              <span className="text-xs text-fuchsia-400 font-mono bg-fuchsia-500/20 px-2 py-0.5 rounded">{formatTime(commentInputPos * duration)}</span>
               <button
                 onClick={handleCancelComment}
-                className="ml-auto text-gray-400 hover:text-white"
+                className="ml-auto text-gray-400 hover:text-white transition-colors"
               >
                 <X size={14} />
               </button>
@@ -352,14 +365,14 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSubmitComment()}
-                placeholder="Add a comment..."
-                className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+                placeholder="Say something..."
+                className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-fuchsia-500/50 focus:bg-white/15 transition-all"
                 autoFocus
               />
               <button
                 onClick={handleSubmitComment}
                 disabled={!commentText.trim() || isSubmitting}
-                className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-600 disabled:cursor-not-allowed rounded p-1.5 transition-colors"
+                className="bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-400 hover:to-fuchsia-400 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed rounded-lg px-3 py-2 transition-all"
               >
                 <Send size={14} className="text-white" />
               </button>
