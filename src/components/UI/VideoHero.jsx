@@ -567,12 +567,12 @@ const VideoHero = memo(({ onMomentClick }) => {
             )}
           </button>
 
-          {/* Song info */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 z-10 pointer-events-none">
-            <h3 className="text-white font-bold text-base sm:text-lg truncate">
+          {/* Song info - glassy */}
+          <div className="absolute bottom-0 left-0 right-0 bg-black/30 backdrop-blur-xl p-4 z-10 pointer-events-none border-t border-white/10">
+            <h3 className="text-white font-bold text-base sm:text-lg truncate drop-shadow-lg">
               {moment.songName}
             </h3>
-            <p className="text-gray-300 text-xs sm:text-sm truncate">
+            <p className="text-gray-300 text-xs sm:text-sm truncate drop-shadow-md">
               {moment.venueName}
               {moment.venueCity && ` - ${moment.venueCity}`}
               {moment.performanceDate && ` (${moment.performanceDate})`}
@@ -596,8 +596,8 @@ const VideoHero = memo(({ onMomentClick }) => {
             allowFullScreen
           />
 
-          {/* Top info banner */}
-          <div className="absolute top-0 left-0 right-0 z-25 bg-gradient-to-b from-black via-black/80 to-transparent pointer-events-none" style={{ height: '80px' }}>
+          {/* Top info banner - glassy */}
+          <div className="absolute top-0 left-0 right-0 z-25 bg-black/30 backdrop-blur-xl pointer-events-none border-b border-white/10">
             {moment && (
               <div className="px-4 py-3">
                 <h3 className="text-white font-bold text-base sm:text-lg truncate drop-shadow-lg">
@@ -696,8 +696,8 @@ const VideoHero = memo(({ onMomentClick }) => {
         </div>
       )}
 
-      {/* Bottom controls - more opaque for visibility */}
-      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-3 sm:p-4 z-30 transition-opacity duration-300 ${
+      {/* Bottom controls - glassy effect */}
+      <div className={`absolute bottom-0 left-0 right-0 bg-black/30 backdrop-blur-xl p-3 sm:p-4 z-30 transition-opacity duration-300 border-t border-white/10 ${
         showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}>
         {/* WaveformPlayer - simple mode for video, full waveform for audio */}

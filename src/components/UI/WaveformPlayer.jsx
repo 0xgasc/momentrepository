@@ -252,14 +252,19 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
         title={user ? "Click to seek, double-click to add comment" : "Click to seek"}
       >
         {simple ? (
-          /* Simple mode: thin progress bar for video/YouTube */
+          /* Simple mode: sleek progress bar for video/YouTube */
           <>
-            {/* Background track */}
-            <div className="absolute inset-0 bg-gray-700/50 rounded-full" />
-            {/* Progress fill */}
+            {/* Background track - glassy */}
+            <div className="absolute inset-0 bg-white/20 backdrop-blur-sm rounded-full" />
+            {/* Progress fill - vibrant gradient with glow */}
             <div
-              className="absolute top-0 bottom-0 left-0 bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full"
+              className="absolute top-0 bottom-0 left-0 bg-gradient-to-r from-purple-500 via-cyan-400 to-emerald-400 rounded-full shadow-lg shadow-cyan-500/30"
               style={{ width: `${progress * 100}%` }}
+            />
+            {/* Playhead dot */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg shadow-white/50"
+              style={{ left: `calc(${progress * 100}% - 6px)` }}
             />
           </>
         ) : (
@@ -276,8 +281,8 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
                     key={i}
                     className={`flex-1 rounded-t-sm transition-colors duration-100 ${
                       isPlayed
-                        ? 'bg-gradient-to-t from-cyan-500 to-cyan-400'
-                        : 'bg-gray-600/50'
+                        ? 'bg-gradient-to-t from-purple-500 via-cyan-400 to-emerald-400'
+                        : 'bg-white/20'
                     }`}
                     style={{ height: `${height * 100}%` }}
                   />
@@ -287,7 +292,7 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
 
             {/* Progress indicator line */}
             <div
-              className="absolute top-0 bottom-0 w-0.5 bg-white/80 pointer-events-none z-10"
+              className="absolute top-0 bottom-0 w-0.5 bg-white pointer-events-none z-10 shadow-lg shadow-white/50"
               style={{ left: `${progress * 100}%` }}
             />
           </>
