@@ -5,10 +5,16 @@ import { API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import UMOEffect from './UMOEffect';
 
+// ASCII character map - from darkest to brightest
+const ASCII_CHARS = ' .:-=+*#%@';
+
 const VideoHero = memo(({ onMomentClick }) => {
   const videoRef = useRef(null);
   const audioRef = useRef(null);
   const iframeRef = useRef(null);
+  const canvasRef = useRef(null);
+  const animationRef = useRef(null);
+  const hideTimerRef = useRef(null);
 
   const [moment, setMoment] = useState(null);
   const [allMoments, setAllMoments] = useState([]);
@@ -22,6 +28,9 @@ const VideoHero = memo(({ onMomentClick }) => {
   const [youtubeKey, setYoutubeKey] = useState(0);
   const [trippyEffect, setTrippyEffect] = useState(false);
   const [effectIntensity, setEffectIntensity] = useState(50);
+  const [asciiOutput, setAsciiOutput] = useState([]);
+  const [isAsciiMode, setIsAsciiMode] = useState(false);
+  const [showControls, setShowControls] = useState(true);
 
   // Theater queue context
   const {
@@ -203,6 +212,90 @@ const VideoHero = memo(({ onMomentClick }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moment?._id]); // Only trigger on moment ID change
 
+  // ASCII character mapping function
+  const getAsciiChar = useCallback((brightness) => {
+    const index = Math.floor((brightness / 255) * (ASCII_CHARS.length - 1));
+    return ASCII_CHARS[index];
+  }, []);
+
+  // Process video frame to ASCII
+  const processFrame = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || video.paused || video.ended || !isAsciiMode) return;
+
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    // Scale based on intensity (higher = more columns/detail)
+    const cols = Math.floor(60 + (effectIntensity * 0.8)); // 60-140 columns
+    const aspectRatio = video.videoHeight / video.videoWidth;
+    const rows = Math.floor(cols * aspectRatio * 0.5); // Half because chars are taller
+
+    canvas.width = cols;
+    canvas.height = rows;
+    ctx.drawImage(video, 0, 0, cols, rows);
+
+    const imageData = ctx.getImageData(0, 0, cols, rows);
+    const pixels = imageData.data;
+
+    const asciiRows = [];
+    for (let y = 0; y < rows; y++) {
+      const row = [];
+      for (let x = 0; x < cols; x++) {
+        const i = (y * cols + x) * 4;
+        const r = pixels[i];
+        const g = pixels[i + 1];
+        const b = pixels[i + 2];
+        const brightness = (r + g + b) / 3;
+        const char = getAsciiChar(brightness);
+        const color = `rgb(${r}, ${g}, ${b})`; // Colored ASCII
+        row.push({ char, color });
+      }
+      asciiRows.push(row);
+    }
+    setAsciiOutput(asciiRows);
+    animationRef.current = requestAnimationFrame(processFrame);
+  }, [getAsciiChar, effectIntensity, isAsciiMode]);
+
+  // Start/stop ASCII processing
+  useEffect(() => {
+    if (isAsciiMode && !isYouTube && !isAudio && videoRef.current) {
+      animationRef.current = requestAnimationFrame(processFrame);
+    }
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [isAsciiMode, isYouTube, isAudio, processFrame]);
+
+  // Auto-hide controls after 3 seconds of no interaction
+  const resetHideTimer = useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    setShowControls(true);
+    hideTimerRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+  }, []);
+
+  // Start hide timer when playing
+  useEffect(() => {
+    if (isPlaying) {
+      resetHideTimer();
+    }
+    return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, [isPlaying, resetHideTimer]);
+
+  // Keep controls visible when paused
+  useEffect(() => {
+    if (!isPlaying) {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      setShowControls(true);
+    }
+  }, [isPlaying]);
+
   // Handle next
   const handleNext = useCallback(() => {
     if (audioRef.current) {
@@ -360,11 +453,21 @@ const VideoHero = memo(({ onMomentClick }) => {
   }
 
   return (
-    <div className="video-hero relative mb-4 sm:mb-6 overflow-hidden rounded-lg bg-black">
-      {/* Minimize button - top right */}
+    <div
+      className="video-hero relative mb-4 sm:mb-6 overflow-hidden rounded-lg bg-black"
+      onMouseMove={resetHideTimer}
+      onMouseEnter={() => setShowControls(true)}
+      onTouchStart={resetHideTimer}
+    >
+      {/* Hidden canvas for ASCII processing */}
+      <canvas ref={canvasRef} className="hidden" />
+
+      {/* Minimize button - top right, fades with controls */}
       <button
         onClick={() => setIsMinimized(true)}
-        className="absolute top-2 right-2 sm:top-3 sm:right-3 z-30 bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full p-2 transition-all"
+        className={`absolute top-2 right-2 sm:top-3 sm:right-3 z-30 bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full p-2 transition-all duration-300 ${
+          showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
         style={{ minWidth: '36px', minHeight: '36px' }}
         title="Minimize"
       >
@@ -477,26 +580,45 @@ const VideoHero = memo(({ onMomentClick }) => {
               preload="auto"
               onLoadedData={handleVideoLoaded}
               onEnded={handleNext}
-              className="w-full"
+              className={`w-full ${isAsciiMode ? 'opacity-0' : ''}`}
               style={{ maxHeight: '350px', objectFit: 'contain', backgroundColor: '#000' }}
             />
           )}
 
+          {/* ASCII Overlay - for uploaded video */}
+          {isAsciiMode && !isYouTube && !isAudio && asciiOutput.length > 0 && (
+            <div
+              className="absolute inset-0 z-20 overflow-hidden bg-black flex items-center justify-center"
+              style={{ fontFamily: 'monospace', lineHeight: '1' }}
+            >
+              <pre className="text-[6px] sm:text-[8px] leading-none whitespace-pre">
+                {asciiOutput.map((row, y) => (
+                  <div key={y} style={{ display: 'flex' }}>
+                    {row.map((cell, x) => (
+                      <span key={x} style={{ color: cell.color }}>
+                        {cell.char}
+                      </span>
+                    ))}
+                  </div>
+                ))}
+              </pre>
+            </div>
+          )}
+
           <div className="relative cursor-pointer" onClick={togglePlayPause}>
-            {!isPlaying && (
+            {!isPlaying && !isAsciiMode && (
               <div className="absolute inset-0 bg-black/50 flex items-center justify-center pointer-events-none z-10">
                 <Play size={64} className="text-white opacity-80" />
               </div>
             )}
           </div>
-
-          {/* UMO Trippy Effect Overlay */}
-          {trippyEffect && <UMOEffect intensity={effectIntensity} className="z-5" />}
         </div>
       )}
 
-      {/* Bottom controls */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-3 sm:p-4 z-30">
+      {/* Bottom controls - fade on hover */}
+      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-3 sm:p-4 z-30 transition-opacity duration-300 ${
+        showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}>
         {/* Song info */}
         {moment && (
           <div className="mb-2">
@@ -520,20 +642,27 @@ const VideoHero = memo(({ onMomentClick }) => {
 
           {/* Main controls */}
           <div className="flex items-center gap-1">
-            {/* Effect toggle */}
+            {/* Effect toggle - ASCII for uploads, trippy for YouTube */}
             <button
-              onClick={(e) => { e.stopPropagation(); setTrippyEffect(!trippyEffect); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isYouTube) {
+                  setTrippyEffect(!trippyEffect);
+                } else {
+                  setIsAsciiMode(!isAsciiMode);
+                }
+              }}
               className={`rounded-full p-2 transition-colors ${
-                trippyEffect ? 'bg-purple-600 hover:bg-purple-500' : 'bg-white/20 hover:bg-white/30'
+                (isYouTube ? trippyEffect : isAsciiMode) ? 'bg-purple-600 hover:bg-purple-500' : 'bg-white/20 hover:bg-white/30'
               }`}
               style={{ minWidth: '36px', minHeight: '36px' }}
-              title="Acid rain"
+              title={isYouTube ? 'Trippy effect' : 'ASCII mode'}
             >
               <Droplet size={16} className="text-white" />
             </button>
 
-            {/* Intensity slider - hidden on mobile */}
-            {trippyEffect && (
+            {/* Intensity slider - hidden on mobile, shown when effect active */}
+            {(isYouTube ? trippyEffect : isAsciiMode) && (
               <div className="hidden sm:flex items-center bg-black/60 rounded-full px-2 py-1">
                 <input
                   type="range"
