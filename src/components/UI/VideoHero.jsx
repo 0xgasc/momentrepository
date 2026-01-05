@@ -15,6 +15,7 @@ const VideoHero = memo(({ onMomentClick }) => {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const hideTimerRef = useRef(null);
+  const containerRef = useRef(null);
 
   const [moment, setMoment] = useState(null);
   const [allMoments, setAllMoments] = useState([]);
@@ -31,6 +32,7 @@ const VideoHero = memo(({ onMomentClick }) => {
   const [asciiOutput, setAsciiOutput] = useState([]);
   const [isAsciiMode, setIsAsciiMode] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Theater queue context
   const {
@@ -296,6 +298,32 @@ const VideoHero = memo(({ onMomentClick }) => {
     }
   }, [isPlaying]);
 
+  // Toggle fullscreen
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+      }).catch(err => {
+        console.log('Fullscreen error:', err);
+      });
+    } else {
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+      });
+    }
+  }, []);
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   // Handle next
   const handleNext = useCallback(() => {
     if (audioRef.current) {
@@ -454,7 +482,8 @@ const VideoHero = memo(({ onMomentClick }) => {
 
   return (
     <div
-      className="video-hero relative mb-4 sm:mb-6 overflow-hidden rounded-lg bg-black"
+      ref={containerRef}
+      className={`video-hero relative mb-4 sm:mb-6 overflow-hidden rounded-lg bg-black ${isFullscreen ? 'fullscreen-mode' : ''}`}
       onMouseMove={resetHideTimer}
       onMouseEnter={() => setShowControls(true)}
       onTouchStart={resetHideTimer}
@@ -522,7 +551,9 @@ const VideoHero = memo(({ onMomentClick }) => {
               {moment.songName}
             </h3>
             <p className="text-gray-300 text-xs sm:text-sm truncate">
-              {moment.venueName} {moment.performanceDate && `• ${moment.performanceDate}`}
+              {moment.venueName}
+              {moment.venueLocation && ` - ${moment.venueLocation}`}
+              {moment.performanceDate && ` (${moment.performanceDate})`}
             </p>
           </div>
 
@@ -551,7 +582,9 @@ const VideoHero = memo(({ onMomentClick }) => {
                   {moment.songName}
                 </h3>
                 <p className="text-gray-300 text-xs sm:text-sm truncate drop-shadow-md">
-                  {moment.venueName} {moment.performanceDate && `• ${moment.performanceDate}`}
+                  {moment.venueName}
+                  {moment.venueLocation && ` - ${moment.venueLocation}`}
+                  {moment.performanceDate && ` (${moment.performanceDate})`}
                 </p>
               </div>
             )}
@@ -581,7 +614,7 @@ const VideoHero = memo(({ onMomentClick }) => {
               onLoadedData={handleVideoLoaded}
               onEnded={handleNext}
               className={`w-full ${isAsciiMode ? 'opacity-0' : ''}`}
-              style={{ maxHeight: '350px', objectFit: 'contain', backgroundColor: '#000' }}
+              style={{ maxHeight: isFullscreen ? '100vh' : '500px', objectFit: 'contain', backgroundColor: '#000' }}
             />
           )}
 
@@ -623,7 +656,11 @@ const VideoHero = memo(({ onMomentClick }) => {
         {moment && (
           <div className="mb-2">
             <h3 className="text-white font-bold text-sm sm:text-base truncate">{moment.songName}</h3>
-            <p className="text-gray-400 text-xs truncate">{moment.venueName}</p>
+            <p className="text-gray-400 text-xs truncate">
+              {moment.venueName}
+              {moment.venueLocation && ` - ${moment.venueLocation}`}
+              {moment.performanceDate && ` (${moment.performanceDate})`}
+            </p>
           </div>
         )}
 
@@ -722,6 +759,17 @@ const VideoHero = memo(({ onMomentClick }) => {
               title="Details"
             >
               <Info size={16} className="text-white" />
+            </button>
+
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
+              className={`rounded-full p-2 transition-colors ${
+                isFullscreen ? 'bg-green-600 hover:bg-green-500' : 'bg-white/20 hover:bg-white/30'
+              }`}
+              style={{ minWidth: '36px', minHeight: '36px' }}
+              title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            >
+              <Maximize2 size={16} className="text-white" />
             </button>
           </div>
         </div>
