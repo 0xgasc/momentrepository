@@ -1,6 +1,6 @@
 // src/components/UI/VideoHero.jsx - Hero player for random video/audio clips
 import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
-import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2, Sparkles } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2, Droplet } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import UMOEffect from './UMOEffect';
@@ -31,7 +31,6 @@ const VideoHero = memo(({ onMomentClick }) => {
     addToQueue,
     isInQueue,
     playNextInQueue,
-    playPrevInQueue,
     currentMoment: queueMoment
   } = useTheaterQueue();
 
@@ -303,57 +302,54 @@ const VideoHero = memo(({ onMomentClick }) => {
   const youtubeId = isYouTube ? (moment?.externalVideoId || getYouTubeId(moment?.mediaUrl)) : null;
   const startTime = moment?.startTime || 0;
   const youtubeUrl = youtubeId
-    ? `https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=${isMuted ? 1 : 0}&loop=1&playlist=${youtubeId}&controls=0&modestbranding=1&rel=0&enablejsapi=1&start=${startTime}`
+    ? `https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&modestbranding=1&rel=0&enablejsapi=1&start=${startTime}`
     : null;
 
-  // Minimized view
+  // Minimized view - mobile optimized
   if (isMinimized) {
     return (
-      <div className="mb-6 bg-gray-900 border border-gray-700 rounded-lg overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3">
+      <div className="mb-4 sm:mb-6 bg-gray-900 border border-gray-700 rounded-lg overflow-hidden">
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3">
           <div className="flex-1 min-w-0 cursor-pointer" onClick={handleInfoClick}>
             {moment && (
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gray-800 rounded flex items-center justify-center">
-                  {isAudio ? <Music size={16} className="text-yellow-400" /> : <Play size={16} className="text-yellow-400" />}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-800 rounded flex items-center justify-center flex-shrink-0">
+                  {isAudio ? <Music size={14} className="text-yellow-400" /> : <Play size={14} className="text-yellow-400" />}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-white font-medium text-sm truncate">
-                    {moment.songName}
-                  </h3>
-                  <p className="text-gray-500 text-xs truncate">
-                    {moment.venueName}
-                  </p>
+                  <h3 className="text-white font-medium text-xs sm:text-sm truncate">{moment.songName}</h3>
+                  <p className="text-gray-500 text-xs truncate">{moment.venueName}</p>
                 </div>
               </div>
             )}
           </div>
 
           {isPlayingFromQueue && (
-            <div className="flex items-center gap-2 px-3 py-1 bg-yellow-900/30 border border-yellow-700/50 rounded mr-3">
-              <ListMusic size={14} className="text-yellow-400" />
-              <span className="text-yellow-400 text-xs font-mono">
-                {currentQueueIndex + 1}/{theaterQueue.length}
-              </span>
+            <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-yellow-900/30 border border-yellow-700/50 rounded mr-2">
+              <ListMusic size={12} className="text-yellow-400" />
+              <span className="text-yellow-400 text-xs font-mono">{currentQueueIndex + 1}/{theaterQueue.length}</span>
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
               className="bg-gray-800 hover:bg-gray-700 rounded-full p-2 transition-colors"
+              style={{ minWidth: '36px', minHeight: '36px' }}
             >
               {isPlaying ? <Pause size={14} className="text-white" /> : <Play size={14} className="text-white" />}
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); handleNext(); }}
               className="bg-gray-800 hover:bg-gray-700 rounded-full p-2 transition-colors"
+              style={{ minWidth: '36px', minHeight: '36px' }}
             >
               <SkipForward size={14} className="text-white" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); setIsMinimized(false); }}
               className="bg-yellow-600/50 hover:bg-yellow-600/70 rounded-full p-2 transition-colors"
+              style={{ minWidth: '36px', minHeight: '36px' }}
             >
               <Maximize2 size={14} className="text-white" />
             </button>
@@ -364,57 +360,25 @@ const VideoHero = memo(({ onMomentClick }) => {
   }
 
   return (
-    <div className="video-hero relative mb-6 overflow-hidden rounded-lg bg-black">
-      {/* Top controls bar */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
-        {/* UMO Effect Toggle */}
-        <button
-          onClick={() => setTrippyEffect(!trippyEffect)}
-          className={`backdrop-blur-sm border rounded-full px-3 py-2 flex items-center gap-2 transition-all hover:scale-105 ${
-            trippyEffect
-              ? 'bg-purple-600/80 border-purple-400/50 hover:bg-purple-500/80'
-              : 'bg-black/60 border-white/20 hover:bg-black/80'
-          }`}
-        >
-          <Sparkles size={14} className={trippyEffect ? 'text-yellow-300' : 'text-white'} />
-          <span className="text-white text-xs font-medium">UMO Effect</span>
-        </button>
-
-        {/* Intensity slider (visible when effect is on) */}
-        {trippyEffect && (
-          <div className="flex items-center gap-2 bg-black/60 backdrop-blur-sm border border-white/20 rounded-full px-3 py-1.5">
-            <input
-              type="range"
-              min="10"
-              max="100"
-              value={effectIntensity}
-              onChange={(e) => setEffectIntensity(Number(e.target.value))}
-              className="w-20 h-1.5 accent-purple-500 cursor-pointer"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <span className="text-white text-xs font-mono w-8">{effectIntensity}%</span>
-          </div>
-        )}
-
-        {/* Minimize button */}
-        <button
-          onClick={() => setIsMinimized(true)}
-          className="bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 flex items-center gap-2 transition-all hover:scale-105"
-        >
-          <Minimize2 size={14} className="text-white" />
-          <span className="text-white text-xs font-medium">Minimize</span>
-        </button>
-      </div>
+    <div className="video-hero relative mb-4 sm:mb-6 overflow-hidden rounded-lg bg-black">
+      {/* Minimize button - top right */}
+      <button
+        onClick={() => setIsMinimized(true)}
+        className="absolute top-2 right-2 sm:top-3 sm:right-3 z-30 bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full p-2 transition-all"
+        style={{ minWidth: '36px', minHeight: '36px' }}
+        title="Minimize"
+      >
+        <Minimize2 size={14} className="text-white" />
+      </button>
 
       {/* Audio Mode */}
       {isAudio && moment ? (
-        <div className="relative w-full" style={{ paddingBottom: '40%', minHeight: '250px' }}>
+        <div className="relative w-full" style={{ paddingBottom: '45%', minHeight: '200px' }}>
           <audio
             key={`audio-${moment._id}`}
             ref={audioRef}
             src={moment.mediaUrl}
             crossOrigin="anonymous"
-            loop
             muted={isMuted}
             preload="auto"
             onLoadedData={() => {
@@ -509,13 +473,12 @@ const VideoHero = memo(({ onMomentClick }) => {
               src={moment.mediaUrl}
               crossOrigin="anonymous"
               muted={isMuted}
-              loop
               playsInline
               preload="auto"
               onLoadedData={handleVideoLoaded}
               onEnded={handleNext}
               className="w-full"
-              style={{ maxHeight: '400px', objectFit: 'contain', backgroundColor: '#000' }}
+              style={{ maxHeight: '350px', objectFit: 'contain', backgroundColor: '#000' }}
             />
           )}
 
@@ -533,80 +496,103 @@ const VideoHero = memo(({ onMomentClick }) => {
       )}
 
       {/* Bottom controls */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 z-30">
-        <div className="flex items-center justify-between">
-          {/* Song info for video mode */}
-          {!isAudio && moment && (
-            <div className="flex-1 min-w-0 mr-4">
-              <h3 className="text-white font-bold text-sm sm:text-base truncate">
-                {moment.songName}
-              </h3>
-              <p className="text-gray-300 text-xs truncate">
-                {moment.venueName}
-              </p>
-            </div>
-          )}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-3 sm:p-4 z-30">
+        {/* Song info */}
+        {moment && (
+          <div className="mb-2">
+            <h3 className="text-white font-bold text-sm sm:text-base truncate">{moment.songName}</h3>
+            <p className="text-gray-400 text-xs truncate">{moment.venueName}</p>
+          </div>
+        )}
 
+        {/* Controls row */}
+        <div className="flex items-center justify-between gap-2">
           {/* Queue indicator */}
           {isPlayingFromQueue && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-900/40 border border-yellow-600/50 rounded-full mr-3">
-              <ListMusic size={14} className="text-yellow-400" />
-              <span className="text-yellow-400 text-xs font-mono font-medium">
-                {currentQueueIndex + 1}/{theaterQueue.length}
-              </span>
+            <div className="flex items-center gap-1 px-2 py-1 bg-yellow-900/40 border border-yellow-600/50 rounded-full">
+              <ListMusic size={12} className="text-yellow-400" />
+              <span className="text-yellow-400 text-xs font-mono">{currentQueueIndex + 1}/{theaterQueue.length}</span>
             </div>
           )}
 
-          {/* Controls */}
-          <div className="flex items-center gap-1 sm:gap-2">
+          {/* Spacer when no queue */}
+          {!isPlayingFromQueue && <div className="flex-1" />}
+
+          {/* Main controls */}
+          <div className="flex items-center gap-1">
+            {/* Effect toggle */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setTrippyEffect(!trippyEffect); }}
+              className={`rounded-full p-2 transition-colors ${
+                trippyEffect ? 'bg-purple-600 hover:bg-purple-500' : 'bg-white/20 hover:bg-white/30'
+              }`}
+              style={{ minWidth: '36px', minHeight: '36px' }}
+              title="Acid rain"
+            >
+              <Droplet size={16} className="text-white" />
+            </button>
+
+            {/* Intensity slider - hidden on mobile */}
+            {trippyEffect && (
+              <div className="hidden sm:flex items-center bg-black/60 rounded-full px-2 py-1">
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  value={effectIntensity}
+                  onChange={(e) => setEffectIntensity(Number(e.target.value))}
+                  className="w-16 h-1 accent-purple-500 cursor-pointer"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            )}
+
             <button
               onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
-              className="bg-white/20 hover:bg-white/30 rounded-full p-2.5 sm:p-2 transition-colors"
-              style={{ minWidth: '40px', minHeight: '40px' }}
+              className="bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
+              style={{ minWidth: '36px', minHeight: '36px' }}
             >
-              {isPlaying ? <Pause size={18} className="text-white" /> : <Play size={18} className="text-white ml-0.5" />}
+              {isPlaying ? <Pause size={16} className="text-white" /> : <Play size={16} className="text-white ml-0.5" />}
             </button>
 
             <button
               onClick={(e) => { e.stopPropagation(); toggleMute(); }}
-              className={`rounded-full p-2.5 sm:p-2 transition-colors ${
-                isMuted ? 'bg-orange-500 hover:bg-orange-400 animate-pulse' : 'bg-white/20 hover:bg-white/30'
+              className={`rounded-full p-2 transition-colors ${
+                isMuted ? 'bg-orange-500 hover:bg-orange-400' : 'bg-white/20 hover:bg-white/30'
               }`}
-              style={{ minWidth: '40px', minHeight: '40px' }}
-              title={isMuted ? 'Click for sound' : 'Mute'}
+              style={{ minWidth: '36px', minHeight: '36px' }}
+              title={isMuted ? 'Unmute' : 'Mute'}
             >
-              {isMuted ? <VolumeX size={18} className="text-white" /> : <Volume2 size={18} className="text-white" />}
+              {isMuted ? <VolumeX size={16} className="text-white" /> : <Volume2 size={16} className="text-white" />}
             </button>
 
             <button
               onClick={(e) => { e.stopPropagation(); handleNext(); }}
-              className="bg-white/20 hover:bg-white/30 rounded-full p-2.5 sm:p-2 transition-colors"
-              style={{ minWidth: '40px', minHeight: '40px' }}
-              title="Next random"
+              className="bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
+              style={{ minWidth: '36px', minHeight: '36px' }}
+              title="Next"
             >
-              <SkipForward size={18} className="text-white" />
+              <SkipForward size={16} className="text-white" />
             </button>
 
             <button
               onClick={(e) => { e.stopPropagation(); handleAddToQueue(); }}
-              className={`rounded-full p-2.5 sm:p-2 transition-colors ${
-                moment && isInQueue(moment._id)
-                  ? 'bg-yellow-600/50 hover:bg-yellow-600/70'
-                  : 'bg-white/20 hover:bg-white/30'
+              className={`rounded-full p-2 transition-colors ${
+                moment && isInQueue(moment._id) ? 'bg-yellow-600/50' : 'bg-white/20 hover:bg-white/30'
               }`}
-              style={{ minWidth: '40px', minHeight: '40px' }}
+              style={{ minWidth: '36px', minHeight: '36px' }}
               title={moment && isInQueue(moment._id) ? 'In queue' : 'Add to queue'}
             >
-              <ListPlus size={18} className="text-white" />
+              <ListPlus size={16} className="text-white" />
             </button>
 
             <button
               onClick={handleInfoClick}
-              className="bg-blue-600/50 hover:bg-blue-600/70 rounded-full p-2.5 sm:p-2 transition-colors"
-              style={{ minWidth: '40px', minHeight: '40px' }}
-              title="View details"
+              className="bg-blue-600/50 hover:bg-blue-600/70 rounded-full p-2 transition-colors"
+              style={{ minWidth: '36px', minHeight: '36px' }}
+              title="Details"
             >
-              <Info size={18} className="text-white" />
+              <Info size={16} className="text-white" />
             </button>
           </div>
         </div>

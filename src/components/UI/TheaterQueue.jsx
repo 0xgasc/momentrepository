@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { ListMusic, Play, X, Trash2, GripVertical, ChevronUp, ChevronDown, Shuffle } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
-import MomentDetailModal from '../Moment/MomentDetailModal';
 
 const TheaterQueue = () => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -225,13 +224,6 @@ const TheaterQueue = () => {
         )}
       </div>
 
-      {/* Modal for currently playing moment */}
-      {isPlayingFromQueue && currentMoment && (
-        <MomentDetailModal
-          moment={currentMoment}
-          onClose={handleCloseModal}
-        />
-      )}
     </>
   );
 };
