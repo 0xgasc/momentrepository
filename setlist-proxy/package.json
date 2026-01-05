@@ -17,6 +17,8 @@
     "@irys/sdk": "^0.2.11",
     "@irys/upload": "^0.0.15",
     "@irys/upload-ethereum": "^0.0.16",
+    "@tus/file-store": "^2.0.0",
+    "@tus/server": "^2.3.0",
     "arweave": "^1.15.7",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",

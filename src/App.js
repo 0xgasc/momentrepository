@@ -15,6 +15,9 @@ import LoginModal from './components/Auth/LoginModal';
 import CreditsFooter from './components/UI/CreditsFooter';
 import MyAccount from './components/User/MyAccount';
 import AdminPanel from './components/Admin/AdminPanel';
+import UMOTube from './components/UMOTube/UMOTube';
+import TheaterQueue from './components/UI/TheaterQueue';
+import { TheaterQueueProvider } from './contexts/TheaterQueueContext';
 import { useNotifications } from './hooks';
 import { API_BASE_URL } from './components/Auth/AuthProvider';
 
@@ -151,7 +154,7 @@ const MainApp = memo(() => {
         <CacheStatusDisplay />
 
         {/* Main Content */}
-        <MainContent 
+        <MainContent
           currentView={currentView}
           browseMode={browseMode}
           selectedSong={selectedSong}
@@ -159,6 +162,7 @@ const MainApp = memo(() => {
           onPerformanceSelect={handlePerformanceSelect}
           onSongSelect={handleSongBrowseSelect}
           onBack={handleBackToHome}
+          user={user}
         />
 
         {/* Credits Footer */}
@@ -179,6 +183,9 @@ const MainApp = memo(() => {
           refreshNotifications(); // Refresh when closing Admin Panel
         }} />
       )}
+
+      {/* Theater Queue (always rendered, shows when items in queue) */}
+      <TheaterQueue />
     </div>
   );
 });
@@ -320,13 +327,25 @@ const Header = memo(({
                   <button
                     onClick={() => { onBrowseModeChange('songs'); closeMobileMenu(); }}
                     className={`umo-btn w-full text-left ${
-                      browseMode === 'songs' 
-                        ? 'umo-btn--primary' 
+                      browseMode === 'songs'
+                        ? 'umo-btn--primary'
                         : 'umo-btn--secondary'
                     }`}
                     style={{ minHeight: '44px' }}
                   >
                     Browse Songs
+                  </button>
+
+                  <button
+                    onClick={() => { onBrowseModeChange('umotube'); closeMobileMenu(); }}
+                    className={`umo-btn w-full text-left ${
+                      browseMode === 'umotube'
+                        ? 'umo-btn--primary'
+                        : 'umo-btn--secondary'
+                    }`}
+                    style={{ minHeight: '44px' }}
+                  >
+                    UMOTube
                   </button>
                 </div>
 
@@ -555,13 +574,24 @@ const Header = memo(({
               <button
                 onClick={() => onBrowseModeChange('songs')}
                 className={`umo-btn flex-1 ${
-                  browseMode === 'songs' 
-                    ? 'umo-btn--primary' 
+                  browseMode === 'songs'
+                    ? 'umo-btn--primary'
                     : 'umo-btn--ghost'
                 }`}
                 style={{ minHeight: '44px' }}
               >
                 Songs
+              </button>
+              <button
+                onClick={() => onBrowseModeChange('umotube')}
+                className={`umo-btn flex-1 ${
+                  browseMode === 'umotube'
+                    ? 'umo-btn--primary'
+                    : 'umo-btn--ghost'
+                }`}
+                style={{ minHeight: '44px' }}
+              >
+                UMOTube
               </button>
             </div>
           </div>
@@ -574,14 +604,15 @@ const Header = memo(({
 Header.displayName = 'Header';
 
 // Main Content Router Component
-const MainContent = memo(({ 
-  currentView, 
-  browseMode, 
-  selectedSong, 
+const MainContent = memo(({
+  currentView,
+  browseMode,
+  selectedSong,
   selectedPerformance,
   onPerformanceSelect,
   onSongSelect,
-  onBack
+  onBack,
+  user
 }) => {
   switch (currentView) {
     case 'song':
@@ -607,6 +638,8 @@ const MainContent = memo(({
           return <SongBrowser onSongSelect={onSongSelect} />;
         case 'moments':
           return <MomentBrowser onSongSelect={onSongSelect} onPerformanceSelect={onPerformanceSelect} />;
+        case 'umotube':
+          return <UMOTube user={user} />;
         default:
           return <PerformanceList onPerformanceSelect={onPerformanceSelect} />;
       }
@@ -622,7 +655,9 @@ export default function App() {
       <WagmiProvider config={wagmiConfig}>
         <PlatformSettingsProvider>
           <AuthProvider>
-            <MainApp />
+            <TheaterQueueProvider>
+              <MainApp />
+            </TheaterQueueProvider>
           </AuthProvider>
         </PlatformSettingsProvider>
       </WagmiProvider>

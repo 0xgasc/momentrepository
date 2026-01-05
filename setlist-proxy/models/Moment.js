@@ -23,7 +23,44 @@ const momentSchema = new mongoose.Schema({
   mediaType: { type: String }, // 'video', 'audio', 'image'
   fileName: { type: String }, // Original filename
   fileSize: { type: Number }, // File size in bytes
-  
+
+  // YouTube/External Video Support (UMOTube)
+  mediaSource: {
+    type: String,
+    enum: ['upload', 'youtube', 'vimeo', 'soundcloud', 'archive'],
+    default: 'upload'
+  },
+  externalVideoId: { type: String }, // YouTube video ID
+  startTime: { type: Number, default: 0 }, // Clip start timestamp (seconds)
+  endTime: { type: Number }, // Clip end timestamp (seconds)
+  showInMoments: { type: Boolean, default: true }, // Hide from main feed if false
+
+  // View Tracking
+  viewCount: { type: Number, default: 0 },
+  uniqueViews: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    ipHash: { type: String },
+    viewedAt: { type: Date, default: Date.now }
+  }],
+
+  // Audio-Specific Metadata
+  sourceType: {
+    type: String,
+    enum: ['soundboard', 'audience', 'matrix', 'unknown'],
+    default: 'unknown'
+  },
+  taperNotes: { type: String },
+  recordingDevice: { type: String },
+  coverageType: { type: String, enum: ['full', 'clip'], default: 'full' },
+
+  // Timestamp Comments (for audio waveform)
+  timestampComments: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    text: { type: String, maxlength: 500 },
+    timestamp: { type: Number }, // seconds into audio
+    createdAt: { type: Date, default: Date.now }
+  }],
+
   // ✅ CRITICAL FIX: Added contentType field
   contentType: { 
     type: String, 
@@ -134,6 +171,12 @@ momentSchema.index({ approvalStatus: 1 }); // Find by approval status
 momentSchema.index({ reviewedBy: 1 }); // Find by reviewer
 momentSchema.index({ approvalStatus: 1, createdAt: -1 }); // Pending moments sorted by date
 momentSchema.index({ user: 1, approvalStatus: 1 }); // User's moments by status
+
+// ✅ NEW INDEXES for UMOTube, view tracking, and audio features
+momentSchema.index({ mediaSource: 1 }); // UMOTube queries
+momentSchema.index({ showInMoments: 1 }); // Filter visibility
+momentSchema.index({ viewCount: -1 }); // Popular moments
+momentSchema.index({ mediaSource: 1, approvalStatus: 1 }); // UMOTube approved videos
 
 // Virtual for getting full venue name
 momentSchema.virtual('fullVenueName').get(function() {

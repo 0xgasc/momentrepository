@@ -1,15 +1,18 @@
 // src/components/Moment/MomentDetailModal.jsx - OPTIMIZED & FIXED
 import React, { useState, useEffect, memo } from 'react';
-import { X, Download, Calendar, MapPin, User, FileText, Zap, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { X, Download, Calendar, MapPin, User, FileText, Zap, ChevronDown, ChevronUp, Clock, ListPlus, Check } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
+import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { formatFileSize } from '../../utils';
 import LazyMomentMint from '../Web3/LazyMomentMint';
 import LazyMedia from '../UI/LazyMedia';
+import AudioPlayer from '../UI/AudioPlayer';
 
 const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   const { user } = useAuth();
   const { isWeb3Enabled } = usePlatformSettings();
+  const { addToQueue, isInQueue } = useTheaterQueue();
   const [moment, setMoment] = useState(initialMoment);
   
   // Update moment state when initialMoment prop changes
@@ -110,6 +113,44 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
 
     fetchNftStatus();
   }, [moment._id, moment.nftContractAddress, moment.nftTokenId, isWeb3Enabled]);
+
+  // Track view when modal opens
+  useEffect(() => {
+    const trackView = async () => {
+      if (!moment?._id) return;
+
+      try {
+        // Generate a simple hash of IP for anonymous users
+        let ipHash = null;
+        if (!user) {
+          try {
+            // Use a simple session-based identifier for anonymous users
+            const sessionId = sessionStorage.getItem('anonViewerId') ||
+              Math.random().toString(36).substring(2, 15);
+            sessionStorage.setItem('anonViewerId', sessionId);
+            ipHash = btoa(sessionId);
+          } catch (e) {
+            // Fallback if sessionStorage fails
+            ipHash = btoa(Math.random().toString(36));
+          }
+        }
+
+        await fetch(`${API_BASE_URL}/moments/${moment._id}/view`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user?.id || user?._id || null,
+            ipHash
+          })
+        });
+      } catch (err) {
+        // Silently fail - view tracking is not critical
+        console.debug('View tracking failed:', err);
+      }
+    };
+
+    trackView();
+  }, [moment?._id, user]);
 
   const hasNFTEdition = nftStatus?.hasNFTEdition || false;
 
@@ -277,16 +318,36 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
       );
     }
 
+    // Audio player with waveform and timestamp comments
+    const isAudio = moment.mediaType === 'audio' || moment.fileName?.toLowerCase().match(/\.(mp3|wav|flac|m4a|aac|ogg)$/);
+    if (isAudio) {
+      return (
+        <div className="media-container audio-player-container">
+          <AudioPlayer
+            src={moment.mediaUrl}
+            title={moment.songName || moment.fileName}
+            sourceType={moment.sourceType}
+            momentId={moment._id}
+            onDownload={handleDownload}
+          />
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            {moment.fileSize ? formatFileSize(moment.fileSize) : ''}
+            {moment.taperNotes && ` • ${moment.taperNotes}`}
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="media-container audio-placeholder">
         <div className="text-center py-8">
-          <div className="text-4xl mb-2">🎵</div>
+          <div className="text-4xl mb-2">📁</div>
           <p className="text-gray-600 mb-4">{moment.fileName}</p>
           <p className="text-sm text-gray-500 mb-4">
-            {moment.fileSize ? formatFileSize(moment.fileSize) : 'Unknown size'} • {moment.mediaType || 'Audio'}
+            {moment.fileSize ? formatFileSize(moment.fileSize) : 'Unknown size'} • {moment.mediaType || 'File'}
           </p>
           <button onClick={handleDownload} className="text-blue-600 hover:text-blue-800 underline">
-            Click here to download and play
+            Click here to download
           </button>
         </div>
       </div>
@@ -582,6 +643,23 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
               </div>
             </div>
             <div className="download-section">
+              <button
+                onClick={() => addToQueue(moment)}
+                className={`queue-button ${isInQueue(moment._id) ? 'in-queue' : ''}`}
+                disabled={isInQueue(moment._id)}
+              >
+                {isInQueue(moment._id) ? (
+                  <>
+                    <Check size={14} />
+                    In Queue
+                  </>
+                ) : (
+                  <>
+                    <ListPlus size={14} />
+                    Add to Queue
+                  </>
+                )}
+              </button>
               <button onClick={handleDownload} className="download-link">Click here to download</button>
             </div>
           </div>
@@ -1301,6 +1379,39 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
           .download-section {
             flex: 1;
             text-align: right;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            justify-content: flex-end;
+          }
+
+          .queue-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+            color: #000;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+          }
+
+          .queue-button:hover:not(:disabled) {
+            background: linear-gradient(135deg, #facc15 0%, #eab308 100%);
+            transform: translateY(-1px);
+          }
+
+          .queue-button.in-queue {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: white;
+          }
+
+          .queue-button:disabled {
+            cursor: default;
           }
 
           .download-link {

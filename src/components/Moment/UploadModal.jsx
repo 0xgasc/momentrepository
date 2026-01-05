@@ -1,6 +1,7 @@
 // src/components/Moment/UploadModal.jsx - SIMPLIFIED with removed fields
-import React, { useState, memo, useEffect } from 'react';
+import React, { useState, memo, useEffect, useRef } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
+import * as tus from 'tus-js-client';
 // Removed styles import - now using UMO design system
 
 const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) => {
@@ -138,92 +139,91 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
     setUploading(true);
     setError('');
     setUploadProgress(0);
-    setUploadStage('Preparing upload...');
+    setUploadStage('Preparing resumable upload...');
 
     try {
-      const formDataUpload = new FormData();
-      formDataUpload.append('file', file);
-
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('Please log in to upload moments');
       }
 
-      // Estimate upload progress based on file size
-      const fileSizeMB = file.size / (1024 * 1024);
-      const estimatedUploadTime = Math.min(Math.max(fileSizeMB * 100, 2000), 10000); // 2-10 seconds
-      
-      setUploadProgress(15);
-      setUploadStage('Uploading to decentralized storage...');
+      setUploadProgress(2);
+      setUploadStage('Starting chunked upload...');
 
-      // Simulate progressive upload based on file size
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev < 60) return prev + Math.random() * 5 + 3;
-          return prev;
-        });
-      }, estimatedUploadTime / 20);
-
-      // Create XMLHttpRequest for better progress tracking
-      const xhr = new XMLHttpRequest();
-      
-      // Track real upload progress
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          const percentComplete = Math.round((e.loaded / e.total) * 100);
-          // Update progress from 60% to 90% based on actual upload
-          setUploadProgress(60 + (percentComplete * 0.3));
-          console.log(`Upload progress: ${percentComplete}%`);
-        }
-      });
-
-      // Create a promise for the XHR request
-      const uploadPromise = new Promise((resolve, reject) => {
-        xhr.onload = function() {
-          clearInterval(progressInterval);
-          if (xhr.status >= 200 && xhr.status < 300) {
+      // Use tus-js-client for resumable uploads
+      const fileData = await new Promise((resolve, reject) => {
+        const upload = new tus.Upload(file, {
+          endpoint: `${API_BASE_URL}/tus-upload`,
+          retryDelays: [0, 1000, 3000, 5000, 10000, 30000],
+          chunkSize: 5 * 1024 * 1024, // 5MB chunks for reliable uploads
+          metadata: {
+            filename: file.name,
+            filetype: file.type,
+            filesize: file.size.toString()
+          },
+          onProgress: (bytesUploaded, bytesTotal) => {
+            const percentage = Math.round((bytesUploaded / bytesTotal) * 100);
+            // Progress: 5-70% for tus upload
+            setUploadProgress(5 + (percentage * 0.65));
+            setUploadStage(`Uploading... ${percentage}% (${Math.round(bytesUploaded / 1024 / 1024)}MB / ${Math.round(bytesTotal / 1024 / 1024)}MB)`);
+          },
+          onSuccess: async () => {
             try {
-              const response = JSON.parse(xhr.responseText);
-              resolve({ ok: true, json: () => Promise.resolve(response) });
-            } catch (e) {
-              reject(new Error('Invalid response from server'));
+              setUploadProgress(72);
+              setUploadStage('Processing on decentralized network...');
+
+              // Extract upload ID from the URL
+              const uploadId = upload.url.split('/').pop();
+              console.log(`Tus upload complete, processing: ${uploadId}`);
+
+              // Call completion endpoint to process and upload to Irys
+              const response = await fetch(`${API_BASE_URL}/tus-upload/complete`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  uploadId,
+                  originalFilename: file.name
+                })
+              });
+
+              if (!response.ok) {
+                const errorData = await response.json();
+                reject(new Error(errorData.error || 'Failed to process upload'));
+                return;
+              }
+
+              const data = await response.json();
+              console.log('Irys upload complete:', data);
+              resolve(data);
+            } catch (err) {
+              reject(err);
             }
-          } else {
-            try {
-              const errorData = JSON.parse(xhr.responseText);
-              reject(new Error(errorData.error || `Upload failed with status ${xhr.status}`));
-            } catch (e) {
-              reject(new Error(`Upload failed with status ${xhr.status}`));
-            }
+          },
+          onError: (error) => {
+            console.error('Tus upload error:', error);
+            reject(new Error(error.message || 'Upload failed'));
           }
-        };
-        
-        xhr.onerror = function() {
-          clearInterval(progressInterval);
-          reject(new Error('Network error during upload'));
-        };
-        
-        xhr.ontimeout = function() {
-          clearInterval(progressInterval);
-          reject(new Error('Upload timeout - please try again with a smaller file or better connection'));
-        };
-        
-        // Set timeout to 10 minutes for large files on mobile
-        xhr.timeout = 600000;
-        
-        xhr.open('POST', `${API_BASE_URL}/upload-file`, true);
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        xhr.send(formDataUpload);
+        });
+
+        // Check for previous uploads to resume
+        upload.findPreviousUploads().then((previousUploads) => {
+          // Filter out invalid uploads
+          const validUploads = previousUploads.filter(prev =>
+            prev.uploadUrl && !prev.uploadUrl.includes('undefined')
+          );
+
+          if (validUploads.length > 0) {
+            console.log('Resuming previous upload:', validUploads[0]);
+            setUploadStage('Resuming previous upload...');
+            upload.resumeFromPreviousUpload(validUploads[0]);
+          }
+
+          upload.start();
+        });
       });
-
-      const fileResponse = await uploadPromise;
-
-      if (!fileResponse.ok) {
-        const errorData = await fileResponse.json();
-        throw new Error(errorData.error || 'File upload failed');
-      }
-
-      const fileData = await fileResponse.json();
       setUploadProgress(75);
       setUploadStage('Saving moment metadata...');
 

@@ -141,6 +141,121 @@ app.use(cors({
   exposedHeaders: ['Content-Length', 'Content-Type']
 }));
 
+// =====================================================
+// TUS RESUMABLE UPLOAD SERVER
+// Must be BEFORE body parsers to handle raw upload chunks
+// =====================================================
+const path = require('path');
+const os = require('os');
+const fs = require('fs');
+
+// Create tus upload directory
+const tusUploadDir = path.join(os.tmpdir(), 'umo-tus-uploads');
+if (!fs.existsSync(tusUploadDir)) {
+  fs.mkdirSync(tusUploadDir, { recursive: true });
+}
+console.log(`📁 Tus upload directory: ${tusUploadDir}`);
+
+// Track completed tus uploads
+const completedTusUploads = new Map();
+
+// Tus server (initialized lazily due to ESM import)
+let tusServer = null;
+let EVENTS = null;
+
+async function initTusServer() {
+  if (tusServer) return;
+
+  try {
+    const tusServerModule = await import('@tus/server');
+    const fileStoreModule = await import('@tus/file-store');
+
+    EVENTS = tusServerModule.EVENTS;
+
+    tusServer = new tusServerModule.Server({
+      path: '/tus-upload',
+      datastore: new fileStoreModule.FileStore({ directory: tusUploadDir }),
+      maxSize: 6 * 1024 * 1024 * 1024, // 6GB
+      respectForwardedHeaders: true,
+    });
+
+    tusServer.on(EVENTS.POST_FINISH, (req, res, upload) => {
+      console.log(`✅ Tus upload complete: ${upload.id}, size: ${upload.size} bytes`);
+      completedTusUploads.set(upload.id, {
+        filePath: path.join(tusUploadDir, upload.id),
+        size: upload.size,
+        metadata: upload.metadata,
+        completedAt: new Date()
+      });
+    });
+
+    tusServer.on(EVENTS.POST_CREATE, (req, res, upload) => {
+      console.log(`📤 Tus upload started: ${upload.id}`);
+    });
+
+    console.log('✅ Tus server initialized');
+  } catch (error) {
+    console.error('❌ Failed to initialize Tus server:', error);
+    throw error;
+  }
+}
+
+// Tus upload route - handles CORS and delegates to tus server
+app.all('/tus-upload', async (req, res) => {
+  // CORS headers for tus protocol
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'POST, GET, HEAD, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, X-HTTP-Method-Override, X-Requested-With');
+  res.header('Access-Control-Expose-Headers', 'Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat');
+  res.header('Tus-Resumable', '1.0.0');
+  res.header('Tus-Version', '1.0.0');
+  res.header('Tus-Extension', 'creation,creation-with-upload,termination,concatenation');
+  res.header('Tus-Max-Size', String(6 * 1024 * 1024 * 1024));
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  try {
+    await initTusServer();
+    return tusServer.handle(req, res);
+  } catch (error) {
+    console.error('❌ Tus handler error:', error);
+    return res.status(500).json({ error: 'Upload server error' });
+  }
+});
+
+// Tus upload route for individual uploads (handles PATCH, HEAD, DELETE for upload/:id)
+app.all('/tus-upload/:id', async (req, res, next) => {
+  // Skip to next handler for /tus-upload/complete
+  if (req.params.id === 'complete') {
+    return next();
+  }
+
+  // CORS headers for tus protocol
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'POST, GET, HEAD, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, X-HTTP-Method-Override, X-Requested-With');
+  res.header('Access-Control-Expose-Headers', 'Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat');
+  res.header('Tus-Resumable', '1.0.0');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  try {
+    await initTusServer();
+    return tusServer.handle(req, res);
+  } catch (error) {
+    console.error('❌ Tus handler error:', error);
+    return res.status(500).json({ error: 'Upload server error' });
+  }
+});
+
+// =====================================================
+// END TUS SERVER SETUP
+// =====================================================
+
 app.use(express.json({ limit: '6gb' }));
 app.use(express.urlencoded({ limit: '6gb', extended: true }));
 
@@ -193,7 +308,77 @@ const upload = multer({
 });
 
 // Import file uploaders
-const { uploadFileToIrys, validateBuffer } = require('./utils/irysUploader');
+const { uploadFileToIrys, uploadFileToIrysFromPath, validateBuffer } = require('./utils/irysUploader');
+
+// =====================================================
+// TUS UPLOAD COMPLETION ENDPOINT
+// Process completed tus upload and send to Irys
+// =====================================================
+app.post('/tus-upload/complete', async (req, res) => {
+  try {
+    const { uploadId, originalFilename } = req.body;
+
+    console.log(`📤 Processing completed tus upload: ${uploadId}`);
+    console.log(`   - Original filename: ${originalFilename}`);
+
+    // Get upload info from our tracking map
+    const uploadInfo = completedTusUploads.get(uploadId);
+
+    if (!uploadInfo) {
+      console.error(`❌ Upload not found: ${uploadId}`);
+      return res.status(404).json({ error: 'Upload not found. It may have expired or been processed already.' });
+    }
+
+    console.log(`   - File path: ${uploadInfo.filePath}`);
+    console.log(`   - File size: ${uploadInfo.size} bytes`);
+
+    // Check if file exists
+    if (!fs.existsSync(uploadInfo.filePath)) {
+      console.error(`❌ File not found on disk: ${uploadInfo.filePath}`);
+      completedTusUploads.delete(uploadId);
+      return res.status(404).json({ error: 'Upload file not found on server' });
+    }
+
+    // Upload to Irys
+    console.log(`🚀 Uploading to Irys...`);
+    const result = await uploadFileToIrysFromPath(uploadInfo.filePath, originalFilename);
+
+    console.log(`✅ Irys upload complete: ${result.url}`);
+
+    // Cleanup - delete the tus file from disk
+    try {
+      fs.unlinkSync(uploadInfo.filePath);
+      // Also try to delete the .json metadata file if it exists
+      const metadataPath = uploadInfo.filePath + '.json';
+      if (fs.existsSync(metadataPath)) {
+        fs.unlinkSync(metadataPath);
+      }
+      console.log(`🧹 Cleaned up temp file: ${uploadInfo.filePath}`);
+    } catch (cleanupError) {
+      console.error(`⚠️ Failed to cleanup temp file:`, cleanupError);
+      // Don't fail the request for cleanup errors
+    }
+
+    // Remove from tracking map
+    completedTusUploads.delete(uploadId);
+
+    res.json({
+      success: true,
+      fileUri: result.url,
+      transactionId: result.id,
+      arUrl: result.arUrl,
+      size: result.size,
+      hash: result.originalHash
+    });
+
+  } catch (error) {
+    console.error('❌ Tus completion error:', error);
+    res.status(500).json({
+      error: 'Failed to process upload',
+      details: error.message
+    });
+  }
+});
 
 // JWT helpers - CRITICAL: No fallback for production security
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -2760,6 +2945,179 @@ app.get('/moments/:momentId', async (req, res) => {
   }
 });
 
+// =====================================================
+// VIEW TRACKING ENDPOINT
+// Track unique views for moments
+// =====================================================
+app.post('/moments/:momentId/view', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { userId, ipHash } = req.body;
+
+    // Validate input
+    if (!userId && !ipHash) {
+      return res.status(400).json({ error: 'Either userId or ipHash required' });
+    }
+
+    // Build query to check for existing view
+    let existingViewQuery;
+    if (userId) {
+      existingViewQuery = { _id: momentId, 'uniqueViews.user': userId };
+    } else {
+      existingViewQuery = { _id: momentId, 'uniqueViews.ipHash': ipHash };
+    }
+
+    // Check if this view already exists
+    const existingView = await Moment.findOne(existingViewQuery);
+
+    if (existingView) {
+      // View already tracked, don't count again
+      return res.json({ success: true, newView: false, viewCount: existingView.viewCount });
+    }
+
+    // Add new unique view
+    const viewData = {
+      viewedAt: new Date()
+    };
+    if (userId) {
+      viewData.user = userId;
+    }
+    if (ipHash) {
+      viewData.ipHash = ipHash;
+    }
+
+    const updatedMoment = await Moment.findByIdAndUpdate(
+      momentId,
+      {
+        $inc: { viewCount: 1 },
+        $push: { uniqueViews: viewData }
+      },
+      { new: true }
+    );
+
+    if (!updatedMoment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    console.log(`👁️ New view tracked for moment ${momentId}: total ${updatedMoment.viewCount} views`);
+    res.json({ success: true, newView: true, viewCount: updatedMoment.viewCount });
+
+  } catch (err) {
+    console.error('❌ View tracking error:', err);
+    res.status(500).json({ error: 'Failed to track view' });
+  }
+});
+
+// =====================================================
+// TIMESTAMP COMMENTS ENDPOINTS
+// For audio waveform comments at specific timestamps
+// =====================================================
+
+// Get timestamp comments for a moment
+app.get('/moments/:momentId/timestamp-comments', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+
+    const moment = await Moment.findById(momentId)
+      .select('timestampComments')
+      .populate('timestampComments.user', 'displayName');
+
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    // Sort comments by timestamp
+    const sortedComments = (moment.timestampComments || [])
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    res.json({ success: true, comments: sortedComments });
+  } catch (err) {
+    console.error('❌ Fetch timestamp comments error:', err);
+    res.status(500).json({ error: 'Failed to fetch comments' });
+  }
+});
+
+// Add a timestamp comment
+app.post('/moments/:momentId/timestamp-comments', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { text, timestamp } = req.body;
+    const userId = req.user.id;
+
+    // Validate input
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ error: 'Comment text is required' });
+    }
+    if (text.length > 500) {
+      return res.status(400).json({ error: 'Comment must be 500 characters or less' });
+    }
+    if (typeof timestamp !== 'number' || timestamp < 0) {
+      return res.status(400).json({ error: 'Valid timestamp is required' });
+    }
+
+    const moment = await Moment.findByIdAndUpdate(
+      momentId,
+      {
+        $push: {
+          timestampComments: {
+            user: userId,
+            text: text.trim(),
+            timestamp,
+            createdAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    ).populate('timestampComments.user', 'displayName');
+
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    const newComment = moment.timestampComments[moment.timestampComments.length - 1];
+    console.log(`💬 Timestamp comment added to moment ${momentId} at ${timestamp}s`);
+
+    res.json({ success: true, comment: newComment });
+  } catch (err) {
+    console.error('❌ Add timestamp comment error:', err);
+    res.status(500).json({ error: 'Failed to add comment' });
+  }
+});
+
+// Delete a timestamp comment (owner only)
+app.delete('/moments/:momentId/timestamp-comments/:commentId', authenticateToken, async (req, res) => {
+  try {
+    const { momentId, commentId } = req.params;
+    const userId = req.user.id;
+
+    const moment = await Moment.findById(momentId);
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    // Find the comment
+    const comment = moment.timestampComments.id(commentId);
+    if (!comment) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+
+    // Check if user owns the comment
+    if (comment.user.toString() !== userId) {
+      return res.status(403).json({ error: 'Not authorized to delete this comment' });
+    }
+
+    // Remove the comment
+    moment.timestampComments.pull(commentId);
+    await moment.save();
+
+    console.log(`🗑️ Timestamp comment deleted from moment ${momentId}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Delete timestamp comment error:', err);
+    res.status(500).json({ error: 'Failed to delete comment' });
+  }
+});
+
 app.get('/moments/performance/:performanceId', async (req, res) => {
   try {
     const { performanceId } = req.params;
@@ -3104,6 +3462,130 @@ app.use(
     logLevel: 'warn',
   })
 );
+
+// =====================================================
+// UMOTUBE - YouTube Linked Clips Feature
+// =====================================================
+
+// Add YouTube moment
+app.post('/add-youtube-moment', authenticateToken, async (req, res) => {
+  try {
+    const {
+      youtubeUrl,
+      performanceId,
+      performanceDate,
+      venueName,
+      venueCity,
+      venueCountry,
+      songName,
+      setName,
+      contentType,
+      momentDescription,
+      startTime,
+      endTime,
+      showInMoments
+    } = req.body;
+
+    // Validate YouTube URL and extract video ID
+    const youtubeIdMatch = youtubeUrl?.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+    if (!youtubeIdMatch) {
+      return res.status(400).json({ error: 'Invalid YouTube URL. Please provide a valid YouTube video link.' });
+    }
+
+    const youtubeId = youtubeIdMatch[1];
+    const embedUrl = `https://www.youtube.com/embed/${youtubeId}`;
+
+    // Validate required fields
+    if (!performanceId || !songName) {
+      return res.status(400).json({ error: 'Performance ID and song/content name are required' });
+    }
+
+    console.log(`🎬 Adding YouTube moment: ${youtubeId} for ${songName}`);
+
+    const moment = new Moment({
+      user: req.user.id,
+      performanceId,
+      performanceDate: performanceDate || new Date().toISOString().split('T')[0],
+      venueName: venueName || 'Unknown Venue',
+      venueCity: venueCity || 'Unknown City',
+      venueCountry: venueCountry || '',
+      songName,
+      setName: setName || 'Main Set',
+      mediaUrl: embedUrl,
+      mediaType: 'video',
+      mediaSource: 'youtube',
+      externalVideoId: youtubeId,
+      startTime: startTime || 0,
+      endTime: endTime || null,
+      contentType: contentType || 'song',
+      momentDescription: momentDescription || '',
+      showInMoments: showInMoments !== false,
+      approvalStatus: 'pending',
+      fileName: `YouTube: ${youtubeId}`,
+      fileSize: 0
+    });
+
+    await moment.save();
+
+    console.log(`✅ YouTube moment created: ${moment._id}`);
+    res.json({ success: true, moment });
+
+  } catch (err) {
+    console.error('❌ Add YouTube moment error:', err);
+    res.status(500).json({ error: 'Failed to add YouTube moment' });
+  }
+});
+
+// Get UMOTube videos (parent videos for browsing)
+app.get('/umotube/videos', async (req, res) => {
+  try {
+    // Get unique YouTube videos (distinct by externalVideoId)
+    const videos = await Moment.find({
+      mediaSource: 'youtube',
+      approvalStatus: 'approved'
+    })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .populate('user', 'displayName');
+
+    // Group by externalVideoId to show unique videos
+    const uniqueVideos = [];
+    const seenIds = new Set();
+
+    for (const video of videos) {
+      if (!seenIds.has(video.externalVideoId)) {
+        seenIds.add(video.externalVideoId);
+        uniqueVideos.push(video.toObject({ virtuals: true }));
+      }
+    }
+
+    console.log(`🎬 Returning ${uniqueVideos.length} UMOTube videos`);
+    res.json({ videos: uniqueVideos });
+  } catch (err) {
+    console.error('❌ Fetch UMOTube videos error:', err);
+    res.status(500).json({ error: 'Failed to fetch UMOTube videos' });
+  }
+});
+
+// Get moments for a specific YouTube video
+app.get('/umotube/video/:videoId/moments', async (req, res) => {
+  try {
+    const { videoId } = req.params;
+
+    const moments = await Moment.find({
+      externalVideoId: videoId,
+      approvalStatus: 'approved'
+    })
+      .sort({ startTime: 1, createdAt: -1 })
+      .populate('user', 'displayName');
+
+    console.log(`🎬 Found ${moments.length} moments for YouTube video ${videoId}`);
+    res.json({ moments: moments.map(m => m.toObject({ virtuals: true })) });
+  } catch (err) {
+    console.error('❌ Fetch video moments error:', err);
+    res.status(500).json({ error: 'Failed to fetch video moments' });
+  }
+});
 
 // Global error handler - ensure CORS headers on all errors
 app.use((err, req, res, next) => {

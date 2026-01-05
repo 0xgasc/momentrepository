@@ -223,6 +223,84 @@ const validateBuffer = (buffer, filename) => {
   return true;
 };
 
+// Upload file from disk path (for tus resumable uploads)
+const uploadFileToIrysFromPath = async (filePath, filename) => {
+  const fs = require('fs');
+  const path = require('path');
+
+  try {
+    console.log(`🔍 Upload from path Debug Info:`);
+    console.log(`   - File path: ${filePath}`);
+    console.log(`   - Filename: ${filename}`);
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File not found: ${filePath}`);
+    }
+
+    // Get file stats
+    const stats = fs.statSync(filePath);
+    console.log(`   - File size: ${stats.size} bytes (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+
+    // Read file into buffer
+    const buffer = fs.readFileSync(filePath);
+    console.log(`   - Buffer size: ${buffer.length} bytes`);
+
+    // Create hash for verification
+    const originalHash = crypto.createHash('md5').update(buffer).digest('hex');
+    console.log(`   - Original MD5: ${originalHash}`);
+
+    const irysUploader = await getIrysUploader();
+
+    // Check price and balance
+    const price = await irysUploader.getPrice(buffer.length);
+    const balance = await irysUploader.getBalance();
+    console.log(`📊 Cost: ${price} wei, Balance: ${balance} wei`);
+
+    if (BigInt(balance) < BigInt(price)) {
+      throw new Error(`Insufficient balance. Need: ${price} wei, Have: ${balance} wei`);
+    }
+
+    // Determine content type
+    const contentType = getContentType(filename);
+    console.log(`   - Content-Type: ${contentType}`);
+
+    console.log(`🚀 Uploading ${filename} from path...`);
+    const receipt = await irysUploader.upload(buffer, {
+      tags: [
+        { name: 'Content-Type', value: contentType },
+        { name: 'Filename', value: filename },
+        { name: 'Original-Size', value: buffer.length.toString() },
+        { name: 'Original-MD5', value: originalHash },
+        { name: 'Upload-Timestamp', value: new Date().toISOString() },
+        { name: 'Upload-Method', value: 'tus-resumable' }
+      ]
+    });
+
+    const arweaveUrl = `https://devnet.irys.xyz/${receipt.id}`;
+    console.log(`✅ Upload complete: ${arweaveUrl}`);
+    console.log(`   - Transaction ID: ${receipt.id}`);
+
+    return {
+      id: receipt.id,
+      url: arweaveUrl,
+      arUrl: `ar://${receipt.id}`,
+      originalHash,
+      size: buffer.length
+    };
+
+  } catch (error) {
+    console.error('❌ Upload from path error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      filePath,
+      filename
+    });
+    throw error;
+  }
+};
+
 // Fund account helper
 const fundAccount = async (amount) => {
   try {
@@ -258,9 +336,10 @@ const checkBalance = async (bufferSize) => {
   }
 };
 
-module.exports = { 
-  uploadFileToIrys, 
-  fundAccount, 
+module.exports = {
+  uploadFileToIrys,
+  uploadFileToIrysFromPath,
+  fundAccount,
   checkBalance,
   validateBuffer,
   verifyUpload
