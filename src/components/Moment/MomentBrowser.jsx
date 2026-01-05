@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { createTimeoutSignal, formatShortDate } from '../../utils';
-import { Play, Calendar, MapPin, User, Zap, Clock, ExternalLink, HelpCircle, X, ListPlus, Check, Music } from 'lucide-react';
+import { Play, Calendar, MapPin, User, Clock, ExternalLink, HelpCircle, X, ListPlus, Check, Music } from 'lucide-react';
 import MomentDetailModal from './MomentDetailModal';
 import PullToRefresh from '../UI/PullToRefresh';
 
@@ -302,8 +302,7 @@ const MomentHeader = memo(({ totalMoments, currentPage, totalPages, startIndex, 
   <div className="mb-6">
     <div className="flex items-center justify-between mb-4">
       <div>
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-          <Zap className="mr-2 text-blue-600" size={24} />
+        <h2 className="text-2xl font-bold text-gray-800">
           Recent Moments
         </h2>
         <button
