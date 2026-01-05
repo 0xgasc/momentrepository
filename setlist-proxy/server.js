@@ -121,6 +121,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   : [
       'http://localhost:3000',
       'https://umoarchive.vercel.app',
+      'https://umo-archive.vercel.app',
       'https://www.umoarchive.com',
       'https://momentrepository-production.up.railway.app',
       'https://umo-live.xyz',
