@@ -1,8 +1,9 @@
 // src/components/UI/VideoHero.jsx - Hero player for random video/audio clips
 import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
-import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2, Sparkles } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
+import UMOEffect from './UMOEffect';
 
 const VideoHero = memo(({ onMomentClick }) => {
   const videoRef = useRef(null);
@@ -19,6 +20,8 @@ const VideoHero = memo(({ onMomentClick }) => {
   const [error, setError] = useState(null);
   const [isMinimized, setIsMinimized] = useState(false);
   const [youtubeKey, setYoutubeKey] = useState(0);
+  const [trippyEffect, setTrippyEffect] = useState(false);
+  const [effectIntensity, setEffectIntensity] = useState(50);
 
   // Theater queue context
   const {
@@ -165,6 +168,41 @@ const VideoHero = memo(({ onMomentClick }) => {
       console.log('VideoHero: Queue playing:', queueMoment.songName, 'isYouTube:', isYT, 'isAudio:', isAud);
     }
   }, [isPlayingFromQueue, queueMoment, currentQueueIndex, detectContentType]);
+
+  // Ensure playback continues after moment change (fixes skip stopping bug)
+  useEffect(() => {
+    if (!moment || isYouTube) return;
+
+    const playMedia = async () => {
+      // Small delay to ensure DOM has updated with new source
+      await new Promise(r => setTimeout(r, 100));
+
+      if (isAudio && audioRef.current) {
+        audioRef.current.muted = isMuted;
+        try {
+          await audioRef.current.play();
+          setIsPlaying(true);
+        } catch (e) {
+          console.log('VideoHero: Audio autoplay blocked');
+          setIsPlaying(false);
+        }
+      } else if (videoRef.current) {
+        videoRef.current.muted = isMuted;
+        try {
+          await videoRef.current.play();
+          setIsPlaying(true);
+        } catch (e) {
+          console.log('VideoHero: Video autoplay blocked');
+          setIsPlaying(false);
+        }
+      }
+    };
+
+    if (isPlaying) {
+      playMedia();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moment?._id]); // Only trigger on moment ID change
 
   // Handle next
   const handleNext = useCallback(() => {
@@ -327,14 +365,46 @@ const VideoHero = memo(({ onMomentClick }) => {
 
   return (
     <div className="video-hero relative mb-6 overflow-hidden rounded-lg bg-black">
-      {/* Minimize button */}
-      <button
-        onClick={() => setIsMinimized(true)}
-        className="absolute top-3 left-1/2 -translate-x-1/2 z-30 bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 flex items-center gap-2 transition-all hover:scale-105"
-      >
-        <Minimize2 size={14} className="text-white" />
-        <span className="text-white text-xs font-medium">Minimize</span>
-      </button>
+      {/* Top controls bar */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
+        {/* UMO Effect Toggle */}
+        <button
+          onClick={() => setTrippyEffect(!trippyEffect)}
+          className={`backdrop-blur-sm border rounded-full px-3 py-2 flex items-center gap-2 transition-all hover:scale-105 ${
+            trippyEffect
+              ? 'bg-purple-600/80 border-purple-400/50 hover:bg-purple-500/80'
+              : 'bg-black/60 border-white/20 hover:bg-black/80'
+          }`}
+        >
+          <Sparkles size={14} className={trippyEffect ? 'text-yellow-300' : 'text-white'} />
+          <span className="text-white text-xs font-medium">UMO Effect</span>
+        </button>
+
+        {/* Intensity slider (visible when effect is on) */}
+        {trippyEffect && (
+          <div className="flex items-center gap-2 bg-black/60 backdrop-blur-sm border border-white/20 rounded-full px-3 py-1.5">
+            <input
+              type="range"
+              min="10"
+              max="100"
+              value={effectIntensity}
+              onChange={(e) => setEffectIntensity(Number(e.target.value))}
+              className="w-20 h-1.5 accent-purple-500 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <span className="text-white text-xs font-mono w-8">{effectIntensity}%</span>
+          </div>
+        )}
+
+        {/* Minimize button */}
+        <button
+          onClick={() => setIsMinimized(true)}
+          className="bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 flex items-center gap-2 transition-all hover:scale-105"
+        >
+          <Minimize2 size={14} className="text-white" />
+          <span className="text-white text-xs font-medium">Minimize</span>
+        </button>
+      </div>
 
       {/* Audio Mode */}
       {isAudio && moment ? (
@@ -388,6 +458,9 @@ const VideoHero = memo(({ onMomentClick }) => {
               {moment.venueName} {moment.performanceDate && `• ${moment.performanceDate}`}
             </p>
           </div>
+
+          {/* UMO Trippy Effect Overlay */}
+          {trippyEffect && <UMOEffect intensity={effectIntensity} />}
         </div>
       ) : isYouTube && youtubeId ? (
         /* YouTube Mode */
@@ -422,6 +495,9 @@ const VideoHero = memo(({ onMomentClick }) => {
               <Play size={64} className="text-white opacity-80" />
             </div>
           )}
+
+          {/* UMO Trippy Effect Overlay */}
+          {trippyEffect && <UMOEffect intensity={effectIntensity} />}
         </div>
       ) : (
         /* Uploaded Video Mode */
@@ -450,6 +526,9 @@ const VideoHero = memo(({ onMomentClick }) => {
               </div>
             )}
           </div>
+
+          {/* UMO Trippy Effect Overlay */}
+          {trippyEffect && <UMOEffect intensity={effectIntensity} className="z-5" />}
         </div>
       )}
 
