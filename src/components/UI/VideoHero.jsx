@@ -33,6 +33,9 @@ const VideoHero = memo(({ onMomentClick }) => {
   const [isAsciiMode, setIsAsciiMode] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isVerticalVideo, setIsVerticalVideo] = useState(false);
 
   // Theater queue context
   const {
@@ -259,17 +262,37 @@ const VideoHero = memo(({ onMomentClick }) => {
     animationRef.current = requestAnimationFrame(processFrame);
   }, [getAsciiChar, effectIntensity, isAsciiMode]);
 
+  // Reset ASCII when moment changes (fixes back-to-back video issue)
+  useEffect(() => {
+    setAsciiOutput([]);
+    setProgress(0);
+    setDuration(0);
+    setIsVerticalVideo(false);
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+  }, [moment?._id]);
+
   // Start/stop ASCII processing
   useEffect(() => {
-    if (isAsciiMode && !isYouTube && !isAudio && videoRef.current) {
-      animationRef.current = requestAnimationFrame(processFrame);
+    if (isAsciiMode && !isYouTube && !isAudio && videoRef.current && moment) {
+      // Wait for video to be ready
+      const startProcessing = () => {
+        if (videoRef.current && videoRef.current.readyState >= 2) {
+          animationRef.current = requestAnimationFrame(processFrame);
+        } else {
+          setTimeout(startProcessing, 100);
+        }
+      };
+      startProcessing();
     }
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isAsciiMode, isYouTube, isAudio, processFrame]);
+  }, [isAsciiMode, isYouTube, isAudio, processFrame, moment?._id]);
 
   // Auto-hide controls after 3 seconds of no interaction
   const resetHideTimer = useCallback(() => {
@@ -322,6 +345,38 @@ const VideoHero = memo(({ onMomentClick }) => {
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Handle time update for progress bar
+  const handleTimeUpdate = useCallback(() => {
+    const media = isAudio ? audioRef.current : videoRef.current;
+    if (media) {
+      const current = media.currentTime;
+      const total = media.duration;
+      if (total > 0) {
+        setProgress((current / total) * 100);
+        setDuration(total);
+      }
+    }
+  }, [isAudio]);
+
+  // Handle seeking on progress bar click
+  const handleSeek = useCallback((e) => {
+    const bar = e.currentTarget;
+    const rect = bar.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    const media = isAudio ? audioRef.current : videoRef.current;
+    if (media && media.duration) {
+      media.currentTime = pos * media.duration;
+    }
+  }, [isAudio]);
+
+  // Format time as mm:ss
+  const formatTime = useCallback((seconds) => {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   }, []);
 
   // Handle next
@@ -408,6 +463,8 @@ const VideoHero = memo(({ onMomentClick }) => {
   const handleVideoLoaded = () => {
     setIsLoading(false);
     if (videoRef.current) {
+      // Detect vertical video
+      setIsVerticalVideo(videoRef.current.videoHeight > videoRef.current.videoWidth);
       videoRef.current.muted = isMuted;
       videoRef.current.play()
         .then(() => setIsPlaying(true))
@@ -522,6 +579,7 @@ const VideoHero = memo(({ onMomentClick }) => {
                   .catch(() => setIsPlaying(false));
               }
             }}
+            onTimeUpdate={handleTimeUpdate}
             onEnded={handleNext}
           />
 
@@ -552,7 +610,7 @@ const VideoHero = memo(({ onMomentClick }) => {
             </h3>
             <p className="text-gray-300 text-xs sm:text-sm truncate">
               {moment.venueName}
-              {moment.venueLocation && ` - ${moment.venueLocation}`}
+              {moment.venueCity && ` - ${moment.venueCity}`}
               {moment.performanceDate && ` (${moment.performanceDate})`}
             </p>
           </div>
@@ -583,7 +641,7 @@ const VideoHero = memo(({ onMomentClick }) => {
                 </h3>
                 <p className="text-gray-300 text-xs sm:text-sm truncate drop-shadow-md">
                   {moment.venueName}
-                  {moment.venueLocation && ` - ${moment.venueLocation}`}
+                  {moment.venueCity && ` - ${moment.venueCity}`}
                   {moment.performanceDate && ` (${moment.performanceDate})`}
                 </p>
               </div>
@@ -601,7 +659,7 @@ const VideoHero = memo(({ onMomentClick }) => {
         </div>
       ) : (
         /* Uploaded Video Mode */
-        <div className="relative">
+        <div className="relative cursor-pointer" onClick={togglePlayPause}>
           {moment && !isYouTube && !isAudio && (
             <video
               key={`video-${moment._id}`}
@@ -612,18 +670,33 @@ const VideoHero = memo(({ onMomentClick }) => {
               playsInline
               preload="auto"
               onLoadedData={handleVideoLoaded}
+              onTimeUpdate={handleTimeUpdate}
               onEnded={handleNext}
               className={`w-full ${isAsciiMode ? 'opacity-0' : ''}`}
               style={{ maxHeight: isFullscreen ? '100vh' : '500px', objectFit: 'contain', backgroundColor: '#000' }}
             />
           )}
 
-          {/* ASCII Overlay - for uploaded video */}
+          {/* ASCII Overlay - for uploaded video with side reflections for vertical */}
           {isAsciiMode && !isYouTube && !isAudio && asciiOutput.length > 0 && (
             <div
               className="absolute inset-0 z-20 overflow-hidden bg-black flex items-center justify-center"
               style={{ fontFamily: 'monospace', lineHeight: '1' }}
             >
+              {/* Left reflection for vertical videos */}
+              {isVerticalVideo && (
+                <pre className="text-[6px] sm:text-[8px] leading-none whitespace-pre opacity-30 transform scale-x-[-1]">
+                  {asciiOutput.map((row, y) => (
+                    <div key={`left-${y}`} style={{ display: 'flex' }}>
+                      {row.map((cell, x) => (
+                        <span key={x} style={{ color: cell.color }}>{cell.char}</span>
+                      ))}
+                    </div>
+                  ))}
+                </pre>
+              )}
+
+              {/* Main ASCII */}
               <pre className="text-[6px] sm:text-[8px] leading-none whitespace-pre">
                 {asciiOutput.map((row, y) => (
                   <div key={y} style={{ display: 'flex' }}>
@@ -635,30 +708,63 @@ const VideoHero = memo(({ onMomentClick }) => {
                   </div>
                 ))}
               </pre>
+
+              {/* Right reflection for vertical videos */}
+              {isVerticalVideo && (
+                <pre className="text-[6px] sm:text-[8px] leading-none whitespace-pre opacity-30 transform scale-x-[-1]">
+                  {asciiOutput.map((row, y) => (
+                    <div key={`right-${y}`} style={{ display: 'flex' }}>
+                      {row.map((cell, x) => (
+                        <span key={x} style={{ color: cell.color }}>{cell.char}</span>
+                      ))}
+                    </div>
+                  ))}
+                </pre>
+              )}
             </div>
           )}
 
-          <div className="relative cursor-pointer" onClick={togglePlayPause}>
-            {!isPlaying && !isAsciiMode && (
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center pointer-events-none z-10">
-                <Play size={64} className="text-white opacity-80" />
-              </div>
-            )}
-          </div>
+          {/* Paused overlay */}
+          {!isPlaying && !isAsciiMode && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center pointer-events-none z-10">
+              <Play size={64} className="text-white opacity-80" />
+            </div>
+          )}
         </div>
       )}
 
-      {/* Bottom controls - fade on hover */}
-      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-3 sm:p-4 z-30 transition-opacity duration-300 ${
+      {/* Bottom controls - liquid glass effect */}
+      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent backdrop-blur-md p-3 sm:p-4 z-30 transition-opacity duration-300 ${
         showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}>
+        {/* Progress bar with seeking */}
+        {!isYouTube && duration > 0 && (
+          <div className="mb-2">
+            <div
+              className="w-full h-1.5 bg-white/20 rounded-full cursor-pointer group"
+              onClick={handleSeek}
+            >
+              <div
+                className="h-full bg-white/80 rounded-full transition-all relative group-hover:bg-white"
+                style={{ width: `${progress}%` }}
+              >
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+            <div className="flex justify-between text-[10px] text-white/60 mt-1 font-mono">
+              <span>{formatTime((progress / 100) * duration)}</span>
+              <span>{formatTime(duration)}</span>
+            </div>
+          </div>
+        )}
+
         {/* Song info */}
         {moment && (
           <div className="mb-2">
-            <h3 className="text-white font-bold text-sm sm:text-base truncate">{moment.songName}</h3>
-            <p className="text-gray-400 text-xs truncate">
+            <h3 className="text-white font-bold text-sm sm:text-base truncate drop-shadow-lg">{moment.songName}</h3>
+            <p className="text-gray-300 text-xs truncate drop-shadow-md">
               {moment.venueName}
-              {moment.venueLocation && ` - ${moment.venueLocation}`}
+              {moment.venueCity && ` - ${moment.venueCity}`}
               {moment.performanceDate && ` (${moment.performanceDate})`}
             </p>
           </div>
