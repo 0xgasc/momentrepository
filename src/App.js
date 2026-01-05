@@ -17,6 +17,7 @@ import MyAccount from './components/User/MyAccount';
 import AdminPanel from './components/Admin/AdminPanel';
 import UMOTube from './components/UMOTube/UMOTube';
 import TheaterQueue from './components/UI/TheaterQueue';
+import VideoHero from './components/UI/VideoHero';
 import { TheaterQueueProvider } from './contexts/TheaterQueueContext';
 import { useNotifications } from './hooks';
 import { API_BASE_URL } from './components/Auth/AuthProvider';
@@ -614,21 +615,26 @@ const MainContent = memo(({
   onBack,
   user
 }) => {
+  const [heroSelectedMoment, setHeroSelectedMoment] = useState(null);
+
+  // Import MomentDetailModal for hero clicks
+  const MomentDetailModal = React.lazy(() => import('./components/Moment/MomentDetailModal'));
+
   switch (currentView) {
     case 'song':
       return selectedSong ? (
-        <SongDetail 
-          songData={selectedSong} 
-          onBack={onBack} 
+        <SongDetail
+          songData={selectedSong}
+          onBack={onBack}
           onPerformanceSelect={onPerformanceSelect}
         />
       ) : null;
-      
+
     case 'performance':
       return selectedPerformance ? (
         <PerformanceDetail performance={selectedPerformance} onBack={onBack} />
       ) : null;
-      
+
     case 'home':
     default:
       switch (browseMode) {
@@ -637,7 +643,25 @@ const MainContent = memo(({
         case 'songs':
           return <SongBrowser onSongSelect={onSongSelect} />;
         case 'moments':
-          return <MomentBrowser onSongSelect={onSongSelect} onPerformanceSelect={onPerformanceSelect} />;
+          return (
+            <>
+              {/* VideoHero - Big random clip player at top */}
+              <VideoHero onMomentClick={(moment) => setHeroSelectedMoment(moment)} />
+
+              {/* Moment Browser grid below */}
+              <MomentBrowser onSongSelect={onSongSelect} onPerformanceSelect={onPerformanceSelect} />
+
+              {/* Modal for hero click */}
+              {heroSelectedMoment && (
+                <React.Suspense fallback={<div>Loading...</div>}>
+                  <MomentDetailModal
+                    moment={heroSelectedMoment}
+                    onClose={() => setHeroSelectedMoment(null)}
+                  />
+                </React.Suspense>
+              )}
+            </>
+          );
         case 'umotube':
           return <UMOTube user={user} />;
         default:

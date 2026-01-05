@@ -2,13 +2,15 @@
 import React, { memo, useState, useEffect } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
+import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { createTimeoutSignal, formatShortDate } from '../../utils';
-import { Play, Calendar, MapPin, User, Zap, Clock, ExternalLink, HelpCircle, X } from 'lucide-react';
+import { Play, Calendar, MapPin, User, Zap, Clock, ExternalLink, HelpCircle, X, ListPlus, Check, Music } from 'lucide-react';
 import MomentDetailModal from './MomentDetailModal';
 import PullToRefresh from '../UI/PullToRefresh';
 
 const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
   const { isWeb3Enabled } = usePlatformSettings();
+  const { addToQueue, isInQueue } = useTheaterQueue();
   const [moments, setMoments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -124,6 +126,8 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
                     window.scrollTo(0, 0);
                   }}
                   isWeb3Enabled={isWeb3Enabled}
+                  addToQueue={addToQueue}
+                  isInQueue={isInQueue}
                 />
               ))}
             </div>
@@ -345,15 +349,39 @@ const MomentHeader = memo(({ totalMoments, currentPage, totalPages, startIndex, 
 MomentHeader.displayName = 'MomentHeader';
 
 // Individual Moment Card Component
-const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSelect, isWeb3Enabled }) => {
+const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSelect, isWeb3Enabled, addToQueue, isInQueue }) => {
+  // Check if this moment is already in queue
+  const momentInQueue = isInQueue ? isInQueue(moment._id) : false;
+
+  const handleAddToQueue = (e) => {
+    e.stopPropagation();
+    if (addToQueue && !momentInQueue) {
+      addToQueue(moment);
+    }
+  };
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200 moment-card" style={{ minHeight: '300px' }}>
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200 moment-card group" style={{ minHeight: '300px' }}>
       {/* Media Preview - Clickable */}
       {moment.mediaUrl && (
-        <div 
+        <div
           className="relative aspect-video bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
           onClick={() => onMomentSelect(moment)}
         >
+          {/* Add to Queue Button - appears on hover */}
+          <button
+            onClick={handleAddToQueue}
+            className={`absolute bottom-2 right-2 z-10 rounded-full p-2 transition-all duration-200 ${
+              momentInQueue
+                ? 'bg-yellow-600/90 text-white'
+                : 'bg-black/70 text-white opacity-0 group-hover:opacity-100 hover:bg-yellow-600/90'
+            }`}
+            title={momentInQueue ? 'Already in queue' : 'Add to queue'}
+            disabled={momentInQueue}
+          >
+            {momentInQueue ? <Check size={16} /> : <ListPlus size={16} />}
+          </button>
+
           {/* Show auto-playing video for all video moments */}
           {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
             <div className="relative w-full h-full">
@@ -394,14 +422,26 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
               alt={moment.songName}
               className="w-full h-full object-cover"
             />
+          ) : (moment.mediaType === 'audio' || moment.fileName?.toLowerCase().match(/\.(mp3|wav|ogg|flac)$/)) ? (
+            /* Audio Card Preview */
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-800 via-gray-900 to-black p-4">
+              <Music size={48} className="text-purple-400 mb-3" />
+              <div className="text-sm text-gray-300 font-medium truncate max-w-full px-2 text-center">
+                {moment.songName}
+              </div>
+              {/* Play button overlay for audio */}
+              <div className="absolute bottom-3 left-3 w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                <Play className="text-white ml-0.5" size={20} />
+              </div>
+            </div>
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <Play className="text-gray-400" size={48} />
             </div>
           )}
 
-          {/* Play button overlay for clarity - only show for non-video content */}
-          {!(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) && (
+          {/* Play button overlay for clarity - only show for images and unknown content */}
+          {!(moment.mediaType === 'video' || moment.mediaType === 'audio' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm|mp3|wav|ogg|flac)$/)) && (
             <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black bg-opacity-20">
               <div className="bg-white bg-opacity-90 rounded-full p-3">
                 <Play className="text-gray-800" size={24} />
