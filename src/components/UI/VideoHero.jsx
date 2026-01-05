@@ -39,25 +39,6 @@ const VideoHero = memo(({ onMomentClick }) => {
     return match ? match[1] : null;
   };
 
-  // Check if URL is actual video (not audio)
-  const isActualVideoUrl = (url, fileName, contentType) => {
-    if (!url) return false;
-    if (contentType?.startsWith('video/')) return true;
-    if (contentType?.startsWith('audio/')) return false;
-
-    const videoExtensions = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v'];
-    const audioExtensions = ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a'];
-    const checkString = (fileName || url).toLowerCase();
-
-    for (const ext of audioExtensions) {
-      if (checkString.includes(ext)) return false;
-    }
-    for (const ext of videoExtensions) {
-      if (checkString.includes(ext)) return true;
-    }
-    return true;
-  };
-
   // Select random moment
   const selectRandomMoment = useCallback((moments, excludeCurrent = null) => {
     if (moments.length === 0) return null;
@@ -69,58 +50,94 @@ const VideoHero = memo(({ onMomentClick }) => {
     return availableMoments[randomIndex];
   }, []);
 
-  // Fetch all moments (video + audio)
+  // Detect content type from moment data
+  const detectContentType = useCallback((m) => {
+    if (!m || !m.mediaUrl) return { isYouTube: false, isAudio: false };
+
+    // Check for YouTube
+    const isYT = m.mediaSource === 'youtube' ||
+      m.mediaUrl?.includes('youtube.com') ||
+      m.mediaUrl?.includes('youtu.be') ||
+      m.externalVideoId;
+
+    if (isYT) return { isYouTube: true, isAudio: false };
+
+    // Check file extension and content type
+    const url = (m.mediaUrl || '').toLowerCase();
+    const fileName = (m.fileName || '').toLowerCase();
+    const contentType = (m.contentType || m.mediaType || '').toLowerCase();
+
+    const audioExtensions = ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a'];
+    const videoExtensions = ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v', '.quicktime'];
+
+    // Check for audio first
+    for (const ext of audioExtensions) {
+      if (url.includes(ext) || fileName.includes(ext)) {
+        return { isYouTube: false, isAudio: true };
+      }
+    }
+    if (contentType.includes('audio/')) {
+      return { isYouTube: false, isAudio: true };
+    }
+
+    // Check for video
+    for (const ext of videoExtensions) {
+      if (url.includes(ext) || fileName.includes(ext)) {
+        return { isYouTube: false, isAudio: false };
+      }
+    }
+    if (contentType.includes('video/') || contentType === 'video') {
+      return { isYouTube: false, isAudio: false };
+    }
+
+    // Default: treat as video (most uploads are video)
+    return { isYouTube: false, isAudio: false };
+  }, []);
+
+  // Fetch ALL moments and filter client-side
   useEffect(() => {
     const fetchAllMoments = async () => {
       try {
         setIsLoading(true);
         const cacheBuster = Date.now();
 
-        const [videoRes, audioRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/moments?mediaType=video&_=${cacheBuster}`),
-          fetch(`${API_BASE_URL}/moments?mediaType=audio&_=${cacheBuster}`)
-        ]);
+        // Fetch all moments without filtering
+        const response = await fetch(`${API_BASE_URL}/moments?_=${cacheBuster}`);
 
-        const videoData = videoRes.ok ? await videoRes.json() : { moments: [] };
-        const audioData = audioRes.ok ? await audioRes.json() : { moments: [] };
+        if (!response.ok) {
+          throw new Error('Failed to fetch moments');
+        }
 
-        const videoMoments = videoData.moments || [];
-        const audioMoments = audioData.moments || [];
+        const data = await response.json();
+        const allData = data.moments || [];
 
-        // Uploaded videos
-        const uploadedVideos = videoMoments.filter(m =>
-          m.mediaSource === 'upload' &&
-          m.mediaUrl &&
-          !m.mediaUrl.includes('youtube') &&
-          !m.mediaUrl.includes('youtu.be') &&
-          isActualVideoUrl(m.mediaUrl, m.fileName, m.contentType)
-        );
+        console.log('VideoHero: Fetched', allData.length, 'moments');
 
-        // YouTube videos
-        const youtubeVideos = videoMoments.filter(m =>
-          (m.mediaSource === 'youtube' || m.mediaUrl?.includes('youtube') || m.mediaUrl?.includes('youtu.be')) &&
-          (m.externalVideoId || getYouTubeId(m.mediaUrl))
-        );
+        // Filter to only playable content (has mediaUrl)
+        const playable = allData.filter(m => m.mediaUrl);
 
-        // Audio moments
-        const validAudio = audioMoments.filter(m =>
-          m.mediaUrl && m.mediaSource === 'upload'
-        );
+        // Add type flags to each moment
+        const withTypes = playable.map(m => {
+          const { isYouTube: isYT, isAudio: isAud } = detectContentType(m);
+          return { ...m, _isYouTube: isYT, _isAudio: isAud };
+        });
 
-        // Combine with type flags
-        const combined = [
-          ...uploadedVideos.map(m => ({ ...m, _isYouTube: false, _isAudio: false })),
-          ...youtubeVideos.map(m => ({ ...m, _isYouTube: true, _isAudio: false })),
-          ...validAudio.map(m => ({ ...m, _isYouTube: false, _isAudio: true }))
-        ];
+        console.log('VideoHero: Playable moments:', withTypes.length);
+        console.log('VideoHero: Videos:', withTypes.filter(m => !m._isYouTube && !m._isAudio).length);
+        console.log('VideoHero: YouTube:', withTypes.filter(m => m._isYouTube).length);
+        console.log('VideoHero: Audio:', withTypes.filter(m => m._isAudio).length);
 
-        setAllMoments(combined);
+        setAllMoments(withTypes);
 
-        if (combined.length > 0) {
-          const selected = selectRandomMoment(combined);
+        if (withTypes.length > 0) {
+          // Prefer video content over audio for hero
+          const videos = withTypes.filter(m => !m._isAudio);
+          const toSelect = videos.length > 0 ? videos : withTypes;
+          const selected = selectRandomMoment(toSelect);
           setMoment(selected);
           setIsYouTube(selected._isYouTube);
           setIsAudio(selected._isAudio);
+          console.log('VideoHero: Selected moment:', selected.songName, 'isYouTube:', selected._isYouTube, 'isAudio:', selected._isAudio);
         } else {
           setError('No content available');
         }
@@ -133,21 +150,21 @@ const VideoHero = memo(({ onMomentClick }) => {
     };
 
     fetchAllMoments();
-  }, [selectRandomMoment]);
+  }, [selectRandomMoment, detectContentType]);
 
   // Sync with queue playback
   useEffect(() => {
     if (isPlayingFromQueue && queueMoment) {
-      const isYT = queueMoment.mediaSource === 'youtube' || queueMoment.mediaUrl?.includes('youtube') || queueMoment.mediaUrl?.includes('youtu.be');
-      const isAud = queueMoment.mediaType === 'audio';
+      const { isYouTube: isYT, isAudio: isAud } = detectContentType(queueMoment);
       setMoment({ ...queueMoment, _isYouTube: isYT, _isAudio: isAud });
       setIsYouTube(isYT);
       setIsAudio(isAud);
       setIsPlaying(true);
       setIsMuted(false);
       setYoutubeKey(prev => prev + 1);
+      console.log('VideoHero: Queue playing:', queueMoment.songName, 'isYouTube:', isYT, 'isAudio:', isAud);
     }
-  }, [isPlayingFromQueue, queueMoment, currentQueueIndex]);
+  }, [isPlayingFromQueue, queueMoment, currentQueueIndex, detectContentType]);
 
   // Handle next
   const handleNext = useCallback(() => {
