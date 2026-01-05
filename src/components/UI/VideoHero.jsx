@@ -291,13 +291,13 @@ const VideoHero = memo(({ onMomentClick }) => {
     };
   }, [isAsciiMode, isYouTube, isAudio, processFrame, moment?._id]);
 
-  // Auto-hide controls after 3 seconds of no interaction
+  // Auto-hide controls after 2 seconds of no interaction
   const resetHideTimer = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     setShowControls(true);
     hideTimerRef.current = setTimeout(() => {
       setShowControls(false);
-    }, 3000);
+    }, 2000);
   }, []);
 
   // Start hide timer when playing
@@ -416,10 +416,20 @@ const VideoHero = memo(({ onMomentClick }) => {
     }
   };
 
-  // Handle info click
+  // Handle info click - pause playback before opening modal
   const handleInfoClick = (e) => {
     e.stopPropagation();
     if (moment && onMomentClick) {
+      // Pause media when opening info modal
+      if (isAudio && audioRef.current) {
+        audioRef.current.pause();
+      } else if (isYouTube) {
+        setIsPlaying(false);
+        setYoutubeKey(prev => prev + 1);
+      } else if (videoRef.current) {
+        videoRef.current.pause();
+      }
+      setIsPlaying(false);
       onMomentClick(moment);
     }
   };
