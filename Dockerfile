@@ -1,8 +1,9 @@
 # Use Node.js with build tools for canvas package
-FROM node:18-bullseye
+# Node 20+ required for cheerio, undici, @tus packages
+FROM node:20-bullseye
 
 # Force cache invalidation
-ARG CACHE_BUST=1
+ARG CACHE_BUST=2
 RUN echo "Cache bust: ${CACHE_BUST}"
 
 # Install system dependencies for canvas and other native modules
