@@ -274,8 +274,7 @@ const VideoHero = memo(({ onMomentClick }) => {
         const b = pixels[i + 2];
         const brightness = (r + g + b) / 3;
         const char = getAsciiChar(brightness);
-        // On mobile, use grayscale for better performance (fewer style calculations)
-        const color = isMobile ? `rgb(${brightness}, ${brightness}, ${brightness})` : `rgb(${r}, ${g}, ${b})`;
+        const color = `rgb(${r}, ${g}, ${b})`; // Keep colored ASCII on all devices
         row.push({ char, color });
       }
       asciiRows.push(row);
