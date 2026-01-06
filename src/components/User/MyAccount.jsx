@@ -184,64 +184,227 @@ const MyAccount = memo(({ onClose }) => {
   );
 });
 
-// Profile tab component
-const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => (
-  <div className="space-y-6">
-    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
-      <h3 className="text-lg font-semibold mb-4 text-gray-900" style={{ color: '#111827' }}>Account Information</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-          <div className="text-gray-900">{profile?.email}</div>
+// Profile tab component with social links
+const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
+  const { token } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editedProfile, setEditedProfile] = useState({
+    displayName: profile?.displayName || '',
+    bio: profile?.bio || '',
+    socialLinks: {
+      reddit: profile?.socialLinks?.reddit || '',
+      discord: profile?.socialLinks?.discord || '',
+      instagram: profile?.socialLinks?.instagram || '',
+      twitter: profile?.socialLinks?.twitter || '',
+      whatsapp: profile?.socialLinks?.whatsapp || ''
+    }
+  });
+
+  const handleSaveProfile = async () => {
+    try {
+      setSaving(true);
+      const response = await fetch(`${API_BASE_URL}/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editedProfile)
+      });
+
+      if (response.ok) {
+        setIsEditing(false);
+        window.location.reload();
+      } else {
+        alert('Failed to save profile');
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      alert('Failed to save profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const socialPlatforms = [
+    { key: 'reddit', label: 'Reddit', icon: '🔴', placeholder: 'u/username or profile URL' },
+    { key: 'discord', label: 'Discord', icon: '💬', placeholder: 'Username#1234 or server invite' },
+    { key: 'instagram', label: 'Instagram', icon: '📸', placeholder: '@username or profile URL' },
+    { key: 'twitter', label: 'X/Twitter', icon: '🐦', placeholder: '@username or profile URL' },
+    { key: 'whatsapp', label: 'WhatsApp', icon: '📱', placeholder: 'Phone number or group link' }
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Account Info Section */}
+      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900" style={{ color: '#111827' }}>Account Information</h3>
+          {!isEditing && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Edit Profile
+            </button>
+          )}
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
-          <div className="text-gray-900">{profile?.displayName || 'Not set'}</div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-          <div className={`flex items-center gap-2 ${roleDisplay.color}`}>
-            <span className="font-medium">{roleDisplay.label}</span>
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Member Since</label>
-          <div className="text-gray-900">
-            {new Date(profile?.createdAt).toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            })}
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Last Active</label>
-          <div className="text-gray-900">
-            {new Date(profile?.lastActive).toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </div>
-        </div>
-        {profile?.roleAssignedAt && (
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Role Assigned</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <div className="text-gray-900">{profile?.email}</div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
+            {isEditing ? (
+              <input
+                type="text"
+                value={editedProfile.displayName}
+                onChange={(e) => setEditedProfile({ ...editedProfile, displayName: e.target.value })}
+                className="w-full p-2 border border-gray-300 rounded text-sm"
+                placeholder="Your display name"
+                maxLength={50}
+              />
+            ) : (
+              <div className="text-gray-900">{profile?.displayName || 'Not set'}</div>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+            <div className={`flex items-center gap-2 ${roleDisplay.color}`}>
+              <span className="font-medium">{roleDisplay.label}</span>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Member Since</label>
             <div className="text-gray-900">
-              {new Date(profile.roleAssignedAt).toLocaleDateString('en-US', {
+              {new Date(profile?.createdAt).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
               })}
             </div>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Last Active</label>
+            <div className="text-gray-900">
+              {new Date(profile?.lastActive).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </div>
+          </div>
+          {profile?.roleAssignedAt && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Role Assigned</label>
+              <div className="text-gray-900">
+                {new Date(profile.roleAssignedAt).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bio Section */}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+          {isEditing ? (
+            <textarea
+              value={editedProfile.bio}
+              onChange={(e) => setEditedProfile({ ...editedProfile, bio: e.target.value })}
+              className="w-full p-2 border border-gray-300 rounded text-sm"
+              placeholder="Tell other fans about yourself..."
+              rows={3}
+              maxLength={500}
+            />
+          ) : (
+            <div className="text-gray-900 text-sm">
+              {profile?.bio || <span className="text-gray-400 italic">No bio set</span>}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Social Links Section */}
+      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
+        <h3 className="text-lg font-semibold mb-4 text-gray-900" style={{ color: '#111827' }}>
+          Social Links
+          <span className="text-sm font-normal text-gray-500 ml-2">Connect with other fans</span>
+        </h3>
+
+        <div className="space-y-3">
+          {socialPlatforms.map(({ key, label, icon, placeholder }) => (
+            <div key={key} className="flex items-center gap-3">
+              <span className="text-xl w-8">{icon}</span>
+              <label className="text-sm font-medium text-gray-700 w-24">{label}</label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editedProfile.socialLinks[key]}
+                  onChange={(e) => setEditedProfile({
+                    ...editedProfile,
+                    socialLinks: { ...editedProfile.socialLinks, [key]: e.target.value }
+                  })}
+                  className="flex-1 p-2 border border-gray-300 rounded text-sm"
+                  placeholder={placeholder}
+                  maxLength={200}
+                />
+              ) : (
+                <div className="flex-1 text-gray-900 text-sm">
+                  {profile?.socialLinks?.[key] ? (
+                    <span className="text-blue-600">{profile.socialLinks[key]}</span>
+                  ) : (
+                    <span className="text-gray-400 italic">Not set</span>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Save/Cancel buttons when editing */}
+        {isEditing && (
+          <div className="flex gap-3 mt-6 pt-4 border-t">
+            <button
+              onClick={handleSaveProfile}
+              disabled={saving}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+            <button
+              onClick={() => {
+                setIsEditing(false);
+                setEditedProfile({
+                  displayName: profile?.displayName || '',
+                  bio: profile?.bio || '',
+                  socialLinks: {
+                    reddit: profile?.socialLinks?.reddit || '',
+                    discord: profile?.socialLinks?.discord || '',
+                    instagram: profile?.socialLinks?.instagram || '',
+                    twitter: profile?.socialLinks?.twitter || '',
+                    whatsapp: profile?.socialLinks?.whatsapp || ''
+                  }
+                });
+              }}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
         )}
       </div>
-      
+
       {/* Logout Button */}
-      <div className="mt-6 pt-6 border-t">
+      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
         <button
           onClick={() => {
             logout();
@@ -253,8 +416,8 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => (
         </button>
       </div>
     </div>
-  </div>
-));
+  );
+});
 
 // Uploads tab component
 const UploadsTab = memo(({ moments, getStatusDisplay, formatDate }) => {

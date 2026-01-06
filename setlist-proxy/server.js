@@ -2188,12 +2188,90 @@ app.get('/profile', authenticateToken, async (req, res) => {
         role: user.role,
         createdAt: user.createdAt,
         lastActive: user.lastActive,
-        roleAssignedAt: user.roleAssignedAt
+        roleAssignedAt: user.roleAssignedAt,
+        socialLinks: user.socialLinks || {},
+        bio: user.bio || ''
       },
       roleFixed // Let frontend know if token needs refresh
     });
   } catch (error) {
     console.error('❌ Profile fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
+// Update current user's profile (display name, bio, social links)
+app.put('/profile', authenticateToken, async (req, res) => {
+  try {
+    const { displayName, bio, socialLinks } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update allowed fields
+    if (displayName !== undefined) {
+      user.displayName = displayName.trim().substring(0, 50);
+    }
+
+    if (bio !== undefined) {
+      user.bio = bio.trim().substring(0, 500);
+    }
+
+    if (socialLinks) {
+      // Sanitize and validate social links
+      const allowedPlatforms = ['reddit', 'discord', 'instagram', 'twitter', 'whatsapp'];
+      user.socialLinks = user.socialLinks || {};
+
+      for (const platform of allowedPlatforms) {
+        if (socialLinks[platform] !== undefined) {
+          // Basic sanitization - remove leading/trailing whitespace, limit length
+          user.socialLinks[platform] = String(socialLinks[platform]).trim().substring(0, 200);
+        }
+      }
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        socialLinks: user.socialLinks,
+        bio: user.bio
+      }
+    });
+  } catch (error) {
+    console.error('❌ Profile update error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Get public profile of a user by ID
+app.get('/api/users/:userId/profile', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId).select('displayName socialLinks bio createdAt');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      user: {
+        id: user._id,
+        displayName: user.displayName || 'Anonymous',
+        socialLinks: user.socialLinks || {},
+        bio: user.bio || '',
+        memberSince: user.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('❌ Public profile fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });

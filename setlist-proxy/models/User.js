@@ -5,18 +5,28 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   displayName: { type: String },
   passwordHash: { type: String },
-  role: { 
-    type: String, 
-    enum: ['user', 'mod', 'admin'], 
-    default: 'user' 
+  role: {
+    type: String,
+    enum: ['user', 'mod', 'admin'],
+    default: 'user'
   },
   lastActive: { type: Date, default: Date.now },
-  assignedBy: { 
-    type: mongoose.Schema.Types.ObjectId, 
+  assignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    default: null 
+    default: null
   }, // Track who assigned their role
-  roleAssignedAt: { type: Date, default: null }
+  roleAssignedAt: { type: Date, default: null },
+  // Social links for community connection
+  socialLinks: {
+    reddit: { type: String, default: '' },
+    discord: { type: String, default: '' },
+    instagram: { type: String, default: '' },
+    twitter: { type: String, default: '' },
+    whatsapp: { type: String, default: '' }
+  },
+  // Optional bio for user profiles
+  bio: { type: String, maxlength: 500, default: '' }
 }, { timestamps: true });
 
 // ✅ Password setter
