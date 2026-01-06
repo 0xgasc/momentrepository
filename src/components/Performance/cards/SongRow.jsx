@@ -51,7 +51,7 @@ const SongRow = memo(({
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
-            className="flex items-center gap-2 px-3 py-1.5 bg-blue-900/30 hover:bg-blue-900/50 border border-blue-700/30 rounded-full transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 bg-blue-900/30 hover:bg-blue-900/50 border border-blue-700/30 rounded-md transition-colors"
           >
             {/* Rarity dots preview */}
             <div className="flex -space-x-1">

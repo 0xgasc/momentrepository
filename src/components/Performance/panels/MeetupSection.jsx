@@ -57,7 +57,7 @@ const MeetupCard = memo(({ meetup, user, onJoin, onLeave }) => {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`text-xs px-2 py-0.5 rounded-full ${colorClasses[typeConfig.color]}`}>
+            <span className={`text-xs px-2 py-0.5 rounded ${colorClasses[typeConfig.color]}`}>
               {typeConfig.label}
             </span>
             {isOrganizer && (
@@ -116,7 +116,7 @@ const MeetupCard = memo(({ meetup, user, onJoin, onLeave }) => {
                 {meetup.participants.map((p, idx) => (
                   <span
                     key={p.user?._id || idx}
-                    className="text-xs bg-gray-700/50 px-2 py-1 rounded-full text-gray-300"
+                    className="text-xs bg-gray-700/50 px-2 py-1 rounded text-gray-300"
                   >
                     {p.user?.displayName}
                   </span>
@@ -360,7 +360,7 @@ const MeetupSection = memo(({ performanceId, user, token }) => {
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
           <button
             onClick={() => setFilter(null)}
-            className={`px-3 py-1 text-sm rounded-full whitespace-nowrap transition-colors ${
+            className={`px-3 py-1 text-sm rounded whitespace-nowrap transition-colors ${
               filter === null
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-800 text-gray-400 hover:text-white'
@@ -372,7 +372,7 @@ const MeetupSection = memo(({ performanceId, user, token }) => {
             <button
               key={t.id}
               onClick={() => setFilter(t.id)}
-              className={`px-3 py-1 text-sm rounded-full whitespace-nowrap transition-colors ${
+              className={`px-3 py-1 text-sm rounded whitespace-nowrap transition-colors ${
                 filter === t.id
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-800 text-gray-400 hover:text-white'

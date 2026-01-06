@@ -20,7 +20,7 @@ const SetlistPanel = memo(({
   moments = [],
   onSelectMoment
 }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false); // Collapsed by default
 
   // Extract sets from performance data
   const sets = performance?.sets?.set || [];

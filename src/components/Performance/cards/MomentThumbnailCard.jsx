@@ -113,14 +113,28 @@ const MomentThumbnailCard = memo(({
       `}
     >
       {/* Thumbnail / Preview area */}
-      <div className="relative aspect-video bg-gray-900/50 flex items-center justify-center">
+      <div className="relative aspect-video bg-gray-900/50 flex items-center justify-center overflow-hidden">
         {moment.mediaType === 'video' && moment.mediaUrl ? (
-          <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-            <Play size={24} className="text-white/60 group-hover:text-white/80 transition-colors" />
-          </div>
-        ) : (
+          <video
+            src={moment.mediaUrl}
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+        ) : null}
+        {/* Fallback play icon */}
+        <div
+          className="absolute inset-0 bg-gray-800 items-center justify-center"
+          style={{ display: moment.mediaType === 'video' && moment.mediaUrl ? 'none' : 'flex' }}
+        >
           <MediaIcon size={24} className="text-gray-500" />
-        )}
+        </div>
 
         {/* Duration badge */}
         {duration && (

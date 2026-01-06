@@ -91,7 +91,7 @@ const UpcomingShowCard = memo(({ show, onSelect }) => {
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               className={`
-                flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium
+                flex items-center gap-1 px-2 py-1 rounded text-xs font-medium
                 transition-colors
                 ${status.color === 'green' ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30' : ''}
                 ${status.color === 'red' ? 'bg-red-500/20 text-red-300' : ''}
@@ -124,7 +124,7 @@ const UpcomingShowCard = memo(({ show, onSelect }) => {
 
         {/* Festival badge */}
         {show.eventType === 'festival' && show.festivalName && (
-          <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full text-xs">
+          <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">
             {show.festivalName}
           </div>
         )}
@@ -176,7 +176,7 @@ const UpcomingShowsSection = memo(({ onShowSelect, token }) => {
         <div className="flex items-center gap-2">
           <Calendar className="text-blue-400" size={20} />
           <h3 className="text-lg font-semibold text-white">Upcoming Shows</h3>
-          <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full text-xs font-medium">
+          <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded text-xs font-medium">
             {upcoming.length}
           </span>
         </div>

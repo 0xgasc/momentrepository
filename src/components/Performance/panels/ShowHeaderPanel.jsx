@@ -33,19 +33,19 @@ const ShowHeaderPanel = memo(({
           {/* Compact stats */}
           <div className="flex items-center gap-2 text-xs">
             {songMoments.length > 0 && (
-              <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full">
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded">
                 <Music size={10} />
                 {songMoments.length}
               </span>
             )}
             {otherContent.length > 0 && (
-              <span className="flex items-center gap-1 px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full">
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded">
                 <Film size={10} />
                 {otherContent.length}
               </span>
             )}
             {rsvpCount > 0 && (
-              <span className="flex items-center gap-1 px-2 py-0.5 bg-green-500/20 text-green-300 rounded-full">
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-green-500/20 text-green-300 rounded">
                 <Users size={10} />
                 {rsvpCount}
               </span>
