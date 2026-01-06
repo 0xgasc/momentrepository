@@ -24,7 +24,19 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
   const [sortDirection, setSortDirection] = useState('desc');
   const [randomSeed, setRandomSeed] = useState(() => Math.random());
 
-  const MOMENTS_PER_PAGE = 6;
+  // Mobile detection and adaptive page size
+  const [isMobile, setIsMobile] = useState(false);
+  const [loadedCount, setLoadedCount] = useState(0);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Load fewer on mobile (3 vs 6), use "load more" pattern
+  const MOMENTS_PER_LOAD = isMobile ? 3 : 6;
 
   useEffect(() => {
     const fetchMoments = async () => {
@@ -109,10 +121,11 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
     return result;
   }, [moments, searchQuery, sortBy, sortDirection, randomSeed]);
 
-  // Reset to first page when search changes
+  // Reset loaded count when search/sort changes
   useEffect(() => {
+    setLoadedCount(MOMENTS_PER_LOAD);
     setCurrentPage(0);
-  }, [searchQuery, sortBy, sortDirection]);
+  }, [searchQuery, sortBy, sortDirection, MOMENTS_PER_LOAD]);
 
   // Search handlers
   const handleSearchChange = useCallback((e) => {
@@ -135,6 +148,10 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
     setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
   }, []);
 
+  const loadMore = useCallback(() => {
+    setLoadedCount(prev => prev + MOMENTS_PER_LOAD);
+  }, [MOMENTS_PER_LOAD]);
+
   if (loading) {
     return <LoadingState />;
   }
@@ -143,34 +160,19 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
     return <ErrorState error={error} />;
   }
 
-  // Calculate pagination (using filtered moments)
-  const totalPages = Math.ceil(filteredAndSortedMoments.length / MOMENTS_PER_PAGE);
-  const startIndex = currentPage * MOMENTS_PER_PAGE;
-  const endIndex = startIndex + MOMENTS_PER_PAGE;
-  const currentMoments = filteredAndSortedMoments.slice(startIndex, endIndex);
+  // Use "load more" pattern - show up to loadedCount moments
+  const currentMoments = filteredAndSortedMoments.slice(0, loadedCount || MOMENTS_PER_LOAD);
+  const hasMore = currentMoments.length < filteredAndSortedMoments.length;
+  const totalMomentsCount = filteredAndSortedMoments.length;
 
   // Handle pull-to-refresh
   const handleRefresh = async () => {
     // Add a small delay to show the refresh animation
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     // Reload moments by triggering useEffect
-    setCurrentPage(0);
+    setLoadedCount(MOMENTS_PER_LOAD);
     setMoments([]);
-  };
-  
-  const goToNextPage = () => {
-    if (currentPage < totalPages - 1) {
-      setCurrentPage(currentPage + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-  
-  const goToPrevPage = () => {
-    if (currentPage > 0) {
-      setCurrentPage(currentPage - 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
   };
 
   return (
@@ -186,11 +188,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
         <MomentHeader
           totalMoments={moments.length}
           filteredCount={filteredAndSortedMoments.length}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          momentsPerPage={MOMENTS_PER_PAGE}
-          startIndex={startIndex}
-          endIndex={Math.min(endIndex, filteredAndSortedMoments.length)}
+          showingCount={currentMoments.length}
           isWeb3Enabled={isWeb3Enabled}
           onShowHelp={() => setShowHelpModal(true)}
           searchQuery={searchQuery}
@@ -241,38 +239,27 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
               ))}
             </div>
             
-            {/* Pagination Controls */}
-            <div className="flex items-center justify-center gap-4 mt-8">
-              <button
-                onClick={goToPrevPage}
-                disabled={currentPage === 0}
-                className={`px-4 py-2 rounded-lg font-medium transition-all mobile-touch-target ${
-                  currentPage === 0
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
-                }`}
-                style={{ minHeight: '44px', minWidth: '100px' }}
-              >
-                ← Previous
-              </button>
-
-              <div className="text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg" style={{ minHeight: '44px', display: 'flex', alignItems: 'center' }}>
-                Page {currentPage + 1} of {totalPages}
+            {/* Load More */}
+            {hasMore && (
+              <div className="flex flex-col items-center gap-2 mt-8">
+                <div className="text-sm text-gray-500">
+                  Showing {currentMoments.length} of {totalMomentsCount} moments
+                </div>
+                <button
+                  onClick={loadMore}
+                  className="px-6 py-3 rounded-lg font-medium transition-all mobile-touch-target bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg"
+                  style={{ minHeight: '48px' }}
+                >
+                  Load More ({Math.min(MOMENTS_PER_LOAD, totalMomentsCount - currentMoments.length)} more)
+                </button>
               </div>
+            )}
 
-              <button
-                onClick={goToNextPage}
-                disabled={currentPage >= totalPages - 1}
-                className={`px-4 py-2 rounded-lg font-medium transition-all mobile-touch-target ${
-                  currentPage >= totalPages - 1
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
-                }`}
-                style={{ minHeight: '44px', minWidth: '100px' }}
-              >
-                Next →
-              </button>
-            </div>
+            {!hasMore && currentMoments.length > MOMENTS_PER_LOAD && (
+              <div className="text-center text-sm text-gray-500 mt-8">
+                Showing all {totalMomentsCount} moments
+              </div>
+            )}
           </>
         ) : (
           <div className="text-center py-12">
@@ -426,10 +413,7 @@ ErrorState.displayName = 'ErrorState';
 const MomentHeader = memo(({
   totalMoments,
   filteredCount,
-  currentPage,
-  totalPages,
-  startIndex,
-  endIndex,
+  showingCount,
   isWeb3Enabled,
   onShowHelp,
   searchQuery,
@@ -457,11 +441,6 @@ const MomentHeader = memo(({
         </button>
       </div>
       <div className="text-right">
-        {totalPages > 1 && (
-          <div className="text-sm text-gray-500">
-            Page {currentPage + 1} of {totalPages}
-          </div>
-        )}
         {/* Only show NFT legend if Web3 is enabled */}
         {isWeb3Enabled() && (
           <div className="flex items-center justify-end mt-2 text-xs text-gray-400 space-x-3">
@@ -483,9 +462,7 @@ const MomentHeader = memo(({
       {/* Left side - Results count */}
       <div className="text-sm text-gray-600">
         {searchQuery.trim() ? (
-          <>Showing {filteredCount} of {totalMoments} moments</>
-        ) : totalPages > 1 ? (
-          <>Showing {startIndex + 1}-{endIndex} of {totalMoments} moments</>
+          <>Showing {showingCount} of {filteredCount} matches ({totalMoments} total)</>
         ) : (
           <>Latest uploads from UMO fans around the world</>
         )}
