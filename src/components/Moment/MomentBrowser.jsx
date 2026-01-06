@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { createTimeoutSignal, formatShortDate } from '../../utils';
-import { Play, Calendar, MapPin, User, Clock, ExternalLink, HelpCircle, X, ListPlus, Check, Music } from 'lucide-react';
+import { Play, Calendar, MapPin, User, Clock, HelpCircle, X, ListPlus, Check, Music } from 'lucide-react';
 import MomentDetailModal from './MomentDetailModal';
 import PullToRefresh from '../UI/PullToRefresh';
 
@@ -20,8 +20,9 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
 
   // Search and sort state
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('newest');
+  const [sortBy, setSortBy] = useState('random');
   const [sortDirection, setSortDirection] = useState('desc');
+  const [randomSeed, setRandomSeed] = useState(() => Math.random());
 
   const MOMENTS_PER_PAGE = 6;
 
@@ -72,32 +73,41 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
     }
 
     // Sort moments
-    result.sort((a, b) => {
-      let comparison = 0;
-      switch (sortBy) {
-        case 'newest':
-          comparison = new Date(b.createdAt) - new Date(a.createdAt);
-          break;
-        case 'oldest':
-          comparison = new Date(a.createdAt) - new Date(b.createdAt);
-          break;
-        case 'songName':
-          comparison = (a.songName || '').localeCompare(b.songName || '');
-          break;
-        case 'venue':
-          comparison = (a.venueName || '').localeCompare(b.venueName || '');
-          break;
-        case 'performanceDate':
-          comparison = new Date(b.performanceDate || 0) - new Date(a.performanceDate || 0);
-          break;
-        default:
-          comparison = 0;
-      }
-      return sortDirection === 'asc' ? -comparison : comparison;
-    });
+    if (sortBy === 'random') {
+      // Seeded shuffle for consistent random order during session
+      result.sort((a, b) => {
+        const hashA = (a._id || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+        const hashB = (b._id || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+        return Math.sin(hashA * randomSeed) - Math.sin(hashB * randomSeed);
+      });
+    } else {
+      result.sort((a, b) => {
+        let comparison = 0;
+        switch (sortBy) {
+          case 'newest':
+            comparison = new Date(b.createdAt) - new Date(a.createdAt);
+            break;
+          case 'oldest':
+            comparison = new Date(a.createdAt) - new Date(b.createdAt);
+            break;
+          case 'songName':
+            comparison = (a.songName || '').localeCompare(b.songName || '');
+            break;
+          case 'venue':
+            comparison = (a.venueName || '').localeCompare(b.venueName || '');
+            break;
+          case 'performanceDate':
+            comparison = new Date(b.performanceDate || 0) - new Date(a.performanceDate || 0);
+            break;
+          default:
+            comparison = 0;
+        }
+        return sortDirection === 'asc' ? -comparison : comparison;
+      });
+    }
 
     return result;
-  }, [moments, searchQuery, sortBy, sortDirection]);
+  }, [moments, searchQuery, sortBy, sortDirection, randomSeed]);
 
   // Reset to first page when search changes
   useEffect(() => {
@@ -115,6 +125,10 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
 
   const handleSortChange = useCallback((value) => {
     setSortBy(value);
+    // Reshuffle when selecting random
+    if (value === 'random') {
+      setRandomSeed(Math.random());
+    }
   }, []);
 
   const toggleSortDirection = useCallback(() => {
@@ -508,6 +522,7 @@ const MomentHeader = memo(({
           onChange={(e) => onSortChange(e.target.value)}
           className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
         >
+          <option value="random">Random</option>
           <option value="newest">Newest First</option>
           <option value="oldest">Oldest First</option>
           <option value="songName">Song Name</option>
