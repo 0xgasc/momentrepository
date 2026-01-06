@@ -31,8 +31,8 @@ COPY setlist-proxy/ .
 # Set environment variables (temporary fix)
 ENV MONGO_URI="mongodb+srv://umo-backend:XwQTAhFpsEo5Hqvs@cluster0.ezddywd.mongodb.net/umo-archive?retryWrites=true&w=majority&appName=Cluster0"
 
-# Expose port
-EXPOSE $PORT
+# Expose default port (Railway sets PORT at runtime)
+EXPOSE 5050
 
 # Start the server
 CMD ["npm", "start"]

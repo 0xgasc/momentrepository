@@ -508,9 +508,11 @@ router.post('/auto-scan', async (req, res) => {
 
     console.log('🔍 Starting auto-scan for unlinked past shows...');
 
-    // Load the UMO cache
-    const cacheModule = require('../utils/umoCache');
-    const performances = await cacheModule.getPerformances();
+    // Load the UMO cache - create instance and load from disk
+    const { UMOCache } = require('../utils/umoCache');
+    const umoCache = new UMOCache();
+    await umoCache.loadCache();
+    const performances = await umoCache.getPerformances();
 
     if (!performances || performances.length === 0) {
       return res.json({ success: true, linked: 0, message: 'No performances in cache to scan' });
