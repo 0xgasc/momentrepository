@@ -1,6 +1,10 @@
 # Use Node.js with build tools for canvas package
 FROM node:18-bullseye
 
+# Force cache invalidation
+ARG CACHE_BUST=1
+RUN echo "Cache bust: ${CACHE_BUST}"
+
 # Install system dependencies for canvas and other native modules
 RUN apt-get update && apt-get install -y \
     python3 \
@@ -19,20 +23,21 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy backend package files
+# Copy backend package files ONLY (not node_modules)
 COPY setlist-proxy/package*.json ./
 
-# Install dependencies with verbose logging
-RUN npm install --only=production --verbose
+# Clean install dependencies
+RUN npm cache clean --force && npm install --omit=dev
 
-# Copy backend source code
+# Copy backend source code (excluding node_modules via .dockerignore)
 COPY setlist-proxy/ .
 
-# Set environment variables (temporary fix)
+# Set environment variables
 ENV MONGO_URI="mongodb+srv://umo-backend:XwQTAhFpsEo5Hqvs@cluster0.ezddywd.mongodb.net/umo-archive?retryWrites=true&w=majority&appName=Cluster0"
+ENV NODE_ENV=production
 
-# Expose default port (Railway sets PORT at runtime)
+# Expose port
 EXPOSE 5050
 
-# Start the server
-CMD ["npm", "start"]
+# Start the server with node directly for clearer error output
+CMD ["node", "server.js"]
