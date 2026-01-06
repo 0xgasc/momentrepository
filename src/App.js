@@ -25,16 +25,29 @@ import { API_BASE_URL } from './components/Auth/AuthProvider';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { baseSepolia, base } from 'wagmi/chains';
-import { metaMask, coinbaseWallet } from 'wagmi/connectors';
+import { metaMask, coinbaseWallet, injected } from 'wagmi/connectors';
+
+// Build connectors safely - Coinbase SDK can throw in some environments
+const buildConnectors = () => {
+  const connectors = [
+    metaMask(),
+    injected(), // Fallback for browser wallets
+  ];
+
+  try {
+    connectors.push(coinbaseWallet({
+      appName: 'UMO Repository',
+    }));
+  } catch (e) {
+    console.warn('Coinbase wallet connector failed to initialize:', e);
+  }
+
+  return connectors;
+};
 
 const wagmiConfig = createConfig({
   chains: [baseSepolia, base],
-  connectors: [
-    metaMask(),
-    coinbaseWallet({
-      appName: 'UMO Repository',
-    }),
-  ],
+  connectors: buildConnectors(),
   transports: {
     [baseSepolia.id]: http(),
     [base.id]: http(),
