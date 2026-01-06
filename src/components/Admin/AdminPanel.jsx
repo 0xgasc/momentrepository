@@ -226,6 +226,7 @@ const AdminPanel = memo(({ onClose }) => {
           {[
             ...(isAdmin ? [{ key: 'users', label: 'Users', count: users.length }] : []),
             { key: 'moderation', label: 'Pending Review', count: pendingMoments.length },
+            ...(isAdmin ? [{ key: 'shows', label: 'Upcoming Shows', count: null }] : []),
             ...(isAdmin ? [{ key: 'migration', label: 'Media Migration', count: migrationTotal || null }] : []),
             ...(isAdmin ? [{ key: 'settings', label: 'Settings', count: null }] : [])
           ].map(tab => (
@@ -274,6 +275,10 @@ const AdminPanel = memo(({ onClose }) => {
               setPlatformSettings={setPlatformSettings}
               token={token}
             />
+          )}
+
+          {activeTab === 'shows' && isAdmin && (
+            <UpcomingShowsTab token={token} />
           )}
 
           {activeTab === 'migration' && isAdmin && (
@@ -1366,10 +1371,419 @@ const MigrationTab = memo(({ moments, setMoments, total, setTotal, token }) => {
   );
 });
 
+// Upcoming Shows Management Tab
+const UpcomingShowsTab = memo(({ token }) => {
+  const [shows, setShows] = useState({ upcoming: [], past: [] });
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingShow, setEditingShow] = useState(null);
+  const [scraping, setScraping] = useState(false);
+  const [message, setMessage] = useState('');
+  const [formData, setFormData] = useState({
+    eventDate: '',
+    venue: { name: '', city: '', state: '', country: 'USA' },
+    ticketUrl: '',
+    ticketStatus: 'tba',
+    eventType: 'headlining',
+    festivalName: '',
+    notes: ''
+  });
+
+  const fetchShows = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/upcoming-shows?includePast=true`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setShows({ upcoming: data.upcoming || [], past: data.past || [] });
+      }
+    } catch (error) {
+      console.error('Failed to fetch shows:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchShows();
+  }, [fetchShows]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const url = editingShow
+        ? `${API_BASE_URL}/api/upcoming-shows/${editingShow._id}`
+        : `${API_BASE_URL}/api/upcoming-shows`;
+
+      const response = await fetch(url, {
+        method: editingShow ? 'PUT' : 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (response.ok) {
+        setMessage(editingShow ? 'Show updated!' : 'Show created!');
+        setShowForm(false);
+        setEditingShow(null);
+        resetForm();
+        fetchShows();
+      } else {
+        const error = await response.json();
+        setMessage(`Error: ${error.error}`);
+      }
+    } catch (error) {
+      setMessage(`Error: ${error.message}`);
+    }
+    setTimeout(() => setMessage(''), 3000);
+  };
+
+  const handleEdit = (show) => {
+    setEditingShow(show);
+    setFormData({
+      eventDate: show.eventDate?.split('T')[0] || '',
+      venue: show.venue || { name: '', city: '', state: '', country: 'USA' },
+      ticketUrl: show.ticketUrl || '',
+      ticketStatus: show.ticketStatus || 'tba',
+      eventType: show.eventType || 'headlining',
+      festivalName: show.festivalName || '',
+      notes: show.notes || ''
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (showId) => {
+    if (!window.confirm('Delete this show?')) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/upcoming-shows/${showId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        setMessage('Show deleted');
+        fetchShows();
+      }
+    } catch (error) {
+      setMessage(`Error: ${error.message}`);
+    }
+    setTimeout(() => setMessage(''), 3000);
+  };
+
+  const handleScrape = async () => {
+    setScraping(true);
+    setMessage('Scraping tour dates from UMO website...');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/upcoming-shows/scrape`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setMessage(`Scrape complete! Found ${data.added} new shows, ${data.updated} updated.`);
+        fetchShows();
+      } else {
+        const error = await response.json();
+        setMessage(`Scrape failed: ${error.error}`);
+      }
+    } catch (error) {
+      setMessage(`Scrape error: ${error.message}`);
+    }
+    setScraping(false);
+    setTimeout(() => setMessage(''), 5000);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      eventDate: '',
+      venue: { name: '', city: '', state: '', country: 'USA' },
+      ticketUrl: '',
+      ticketStatus: 'tba',
+      eventType: 'headlining',
+      festivalName: '',
+      notes: ''
+    });
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Upcoming Shows Management</h3>
+        <div className="flex gap-2">
+          <button
+            onClick={handleScrape}
+            disabled={scraping}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            {scraping ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Scraping...
+              </>
+            ) : (
+              '🔄 Scrape Tour Dates'
+            )}
+          </button>
+          <button
+            onClick={() => {
+              resetForm();
+              setEditingShow(null);
+              setShowForm(!showForm);
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            {showForm ? 'Cancel' : '+ Add Show'}
+          </button>
+        </div>
+      </div>
+
+      {message && (
+        <div className={`p-3 rounded ${message.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          {message}
+        </div>
+      )}
+
+      {/* Add/Edit Form */}
+      {showForm && (
+        <form onSubmit={handleSubmit} className="bg-gray-50 p-4 rounded-lg border space-y-4">
+          <h4 className="font-medium">{editingShow ? 'Edit Show' : 'Add New Show'}</h4>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Event Date *</label>
+              <input
+                type="date"
+                value={formData.eventDate}
+                onChange={(e) => setFormData({ ...formData, eventDate: e.target.value })}
+                className="w-full p-2 border rounded"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Event Type</label>
+              <select
+                value={formData.eventType}
+                onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
+                className="w-full p-2 border rounded"
+              >
+                <option value="headlining">Headlining</option>
+                <option value="festival">Festival</option>
+                <option value="support">Support</option>
+                <option value="special">Special Event</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Venue Name *</label>
+              <input
+                type="text"
+                value={formData.venue.name}
+                onChange={(e) => setFormData({ ...formData, venue: { ...formData.venue, name: e.target.value } })}
+                className="w-full p-2 border rounded"
+                placeholder="The Fillmore"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">City *</label>
+              <input
+                type="text"
+                value={formData.venue.city}
+                onChange={(e) => setFormData({ ...formData, venue: { ...formData.venue, city: e.target.value } })}
+                className="w-full p-2 border rounded"
+                placeholder="San Francisco"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">State</label>
+              <input
+                type="text"
+                value={formData.venue.state}
+                onChange={(e) => setFormData({ ...formData, venue: { ...formData.venue, state: e.target.value } })}
+                className="w-full p-2 border rounded"
+                placeholder="CA"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Country</label>
+              <input
+                type="text"
+                value={formData.venue.country}
+                onChange={(e) => setFormData({ ...formData, venue: { ...formData.venue, country: e.target.value } })}
+                className="w-full p-2 border rounded"
+                placeholder="USA"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Ticket URL</label>
+              <input
+                type="url"
+                value={formData.ticketUrl}
+                onChange={(e) => setFormData({ ...formData, ticketUrl: e.target.value })}
+                className="w-full p-2 border rounded"
+                placeholder="https://..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Ticket Status</label>
+              <select
+                value={formData.ticketStatus}
+                onChange={(e) => setFormData({ ...formData, ticketStatus: e.target.value })}
+                className="w-full p-2 border rounded"
+              >
+                <option value="tba">TBA</option>
+                <option value="presale">Presale</option>
+                <option value="available">Available</option>
+                <option value="limited">Limited</option>
+                <option value="sold_out">Sold Out</option>
+              </select>
+            </div>
+
+            {formData.eventType === 'festival' && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Festival Name</label>
+                <input
+                  type="text"
+                  value={formData.festivalName}
+                  onChange={(e) => setFormData({ ...formData, festivalName: e.target.value })}
+                  className="w-full p-2 border rounded"
+                  placeholder="Coachella, Primavera, etc."
+                />
+              </div>
+            )}
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Notes</label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                className="w-full p-2 border rounded"
+                rows="2"
+                placeholder="Any additional info..."
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+              {editingShow ? 'Update Show' : 'Add Show'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowForm(false); setEditingShow(null); resetForm(); }}
+              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* Upcoming Shows */}
+      <div>
+        <h4 className="font-medium mb-3 text-green-700">Upcoming Shows ({shows.upcoming.length})</h4>
+        {shows.upcoming.length === 0 ? (
+          <div className="text-center py-4 text-gray-500 bg-gray-50 rounded">
+            No upcoming shows. Add some or run the scraper!
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {shows.upcoming.map(show => (
+              <div key={show._id} className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded">
+                <div>
+                  <div className="font-medium">{show.venue?.name}</div>
+                  <div className="text-sm text-gray-600">
+                    {show.venue?.city}{show.venue?.state && `, ${show.venue.state}`} • {formatDate(show.eventDate)}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {show.eventType} • {show.ticketStatus}
+                    {show.festivalName && ` • ${show.festivalName}`}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEdit(show)}
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(show._id)}
+                    className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Past Shows */}
+      {shows.past.length > 0 && (
+        <div>
+          <h4 className="font-medium mb-3 text-gray-500">Past Shows ({shows.past.length})</h4>
+          <div className="space-y-2 opacity-60">
+            {shows.past.slice(0, 5).map(show => (
+              <div key={show._id} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded">
+                <div>
+                  <div className="font-medium">{show.venue?.name}</div>
+                  <div className="text-sm text-gray-600">
+                    {show.venue?.city}{show.venue?.state && `, ${show.venue.state}`} • {formatDate(show.eventDate)}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDelete(show._id)}
+                  className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            {shows.past.length > 5 && (
+              <div className="text-sm text-gray-500 text-center">
+                + {shows.past.length - 5} more past shows
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
 UsersTab.displayName = 'UsersTab';
 ModerationTab.displayName = 'ModerationTab';
 SettingsTab.displayName = 'SettingsTab';
 MigrationTab.displayName = 'MigrationTab';
+UpcomingShowsTab.displayName = 'UpcomingShowsTab';
 AdminPanel.displayName = 'AdminPanel';
 
 export default AdminPanel;
