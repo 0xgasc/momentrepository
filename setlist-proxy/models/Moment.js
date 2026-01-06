@@ -23,6 +23,7 @@ const momentSchema = new mongoose.Schema({
   mediaType: { type: String }, // 'video', 'audio', 'image'
   fileName: { type: String }, // Original filename
   fileSize: { type: Number }, // File size in bytes
+  duration: { type: Number }, // Duration in seconds (for video/audio)
 
   // YouTube/External Video Support (UMOTube)
   mediaSource: {

@@ -1,0 +1,163 @@
+// src/components/Performance/cards/MomentThumbnailCard.jsx
+import React, { memo } from 'react';
+import { Clock, Play, Music, Film, Mic } from 'lucide-react';
+
+// Format seconds to MM:SS or HH:MM:SS
+const formatDuration = (seconds) => {
+  if (!seconds || seconds <= 0) return null;
+
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
+// Rarity color configs
+const rarityConfig = {
+  legendary: {
+    bg: 'from-yellow-500/30 to-orange-500/30',
+    border: 'border-yellow-500/50',
+    dot: 'bg-yellow-400'
+  },
+  mythic: {
+    bg: 'from-purple-500/30 to-pink-500/30',
+    border: 'border-purple-500/50',
+    dot: 'bg-purple-400'
+  },
+  epic: {
+    bg: 'from-violet-500/30 to-purple-500/30',
+    border: 'border-violet-500/50',
+    dot: 'bg-violet-400'
+  },
+  rare: {
+    bg: 'from-red-500/30 to-pink-500/30',
+    border: 'border-red-500/50',
+    dot: 'bg-red-400'
+  },
+  uncommon: {
+    bg: 'from-blue-500/30 to-cyan-500/30',
+    border: 'border-blue-500/50',
+    dot: 'bg-blue-400'
+  },
+  common: {
+    bg: 'from-gray-500/20 to-gray-600/20',
+    border: 'border-gray-600/50',
+    dot: 'bg-gray-400'
+  },
+  basic: {
+    bg: 'from-gray-600/20 to-gray-700/20',
+    border: 'border-gray-700/50',
+    dot: 'bg-gray-500'
+  }
+};
+
+// Media type icons
+const getMediaIcon = (mediaType) => {
+  switch (mediaType) {
+    case 'video': return Film;
+    case 'audio': return Mic;
+    default: return Music;
+  }
+};
+
+const MomentThumbnailCard = memo(({
+  moment,
+  onClick,
+  showSongName = true,
+  compact = false
+}) => {
+  const rarity = rarityConfig[moment.rarityTier] || rarityConfig.basic;
+  const duration = formatDuration(moment.duration);
+  const MediaIcon = getMediaIcon(moment.mediaType);
+
+  if (compact) {
+    // Compact version for inline song lists
+    return (
+      <button
+        onClick={() => onClick?.(moment)}
+        className={`
+          flex items-center gap-2 px-3 py-1.5 rounded-lg
+          bg-gradient-to-r ${rarity.bg} ${rarity.border} border
+          hover:scale-105 transition-all duration-200
+          text-sm
+        `}
+      >
+        <div className={`w-2 h-2 rounded-full ${rarity.dot}`} />
+        {duration ? (
+          <span className="text-gray-300 flex items-center gap-1">
+            <Clock size={12} />
+            {duration}
+          </span>
+        ) : (
+          <MediaIcon size={12} className="text-gray-400" />
+        )}
+      </button>
+    );
+  }
+
+  // Full card version for gallery
+  return (
+    <button
+      onClick={() => onClick?.(moment)}
+      className={`
+        relative group flex flex-col
+        w-full min-w-[140px] max-w-[180px]
+        bg-gradient-to-br ${rarity.bg} ${rarity.border} border
+        rounded-xl overflow-hidden
+        hover:scale-[1.02] hover:shadow-lg hover:shadow-black/20
+        transition-all duration-200
+      `}
+    >
+      {/* Thumbnail / Preview area */}
+      <div className="relative aspect-video bg-gray-900/50 flex items-center justify-center">
+        {moment.mediaType === 'video' && moment.mediaUrl ? (
+          <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+            <Play size={24} className="text-white/60 group-hover:text-white/80 transition-colors" />
+          </div>
+        ) : (
+          <MediaIcon size={24} className="text-gray-500" />
+        )}
+
+        {/* Duration badge */}
+        {duration && (
+          <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/70 rounded text-xs text-white font-mono">
+            {duration}
+          </div>
+        )}
+
+        {/* Rarity dot */}
+        <div className={`absolute top-2 left-2 w-2.5 h-2.5 rounded-full ${rarity.dot} shadow-lg`} />
+      </div>
+
+      {/* Info */}
+      <div className="p-2.5 flex-1 flex flex-col gap-1">
+        {showSongName && (
+          <span className="text-white text-sm font-medium truncate">
+            {moment.songName}
+          </span>
+        )}
+
+        <div className="flex items-center justify-between text-xs text-gray-400">
+          <span className="flex items-center gap-1">
+            <MediaIcon size={10} />
+            {moment.mediaType || 'video'}
+          </span>
+          {!duration && (
+            <span className="flex items-center gap-1">
+              <Clock size={10} />
+              --:--
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+});
+
+MomentThumbnailCard.displayName = 'MomentThumbnailCard';
+
+export default MomentThumbnailCard;
