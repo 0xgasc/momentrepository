@@ -1,5 +1,5 @@
 // src/components/Moment/MomentBrowser.jsx
-import React, { memo, useState, useEffect } from 'react';
+import React, { memo, useState, useEffect, useMemo, useCallback } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
@@ -17,6 +17,11 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [showHelpModal, setShowHelpModal] = useState(false);
+
+  // Search and sort state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
+  const [sortDirection, setSortDirection] = useState('desc');
 
   const MOMENTS_PER_PAGE = 6;
 
@@ -50,7 +55,71 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
     fetchMoments();
   }, []);
 
+  // Filter and sort moments
+  const filteredAndSortedMoments = useMemo(() => {
+    let result = [...moments];
 
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(moment =>
+        (moment.songName && moment.songName.toLowerCase().includes(query)) ||
+        (moment.venueName && moment.venueName.toLowerCase().includes(query)) ||
+        (moment.venueCity && moment.venueCity.toLowerCase().includes(query)) ||
+        (moment.user?.displayName && moment.user.displayName.toLowerCase().includes(query)) ||
+        (moment.momentDescription && moment.momentDescription.toLowerCase().includes(query))
+      );
+    }
+
+    // Sort moments
+    result.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'newest':
+          comparison = new Date(b.createdAt) - new Date(a.createdAt);
+          break;
+        case 'oldest':
+          comparison = new Date(a.createdAt) - new Date(b.createdAt);
+          break;
+        case 'songName':
+          comparison = (a.songName || '').localeCompare(b.songName || '');
+          break;
+        case 'venue':
+          comparison = (a.venueName || '').localeCompare(b.venueName || '');
+          break;
+        case 'performanceDate':
+          comparison = new Date(b.performanceDate || 0) - new Date(a.performanceDate || 0);
+          break;
+        default:
+          comparison = 0;
+      }
+      return sortDirection === 'asc' ? -comparison : comparison;
+    });
+
+    return result;
+  }, [moments, searchQuery, sortBy, sortDirection]);
+
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchQuery, sortBy, sortDirection]);
+
+  // Search handlers
+  const handleSearchChange = useCallback((e) => {
+    setSearchQuery(e.target.value);
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+  }, []);
+
+  const handleSortChange = useCallback((value) => {
+    setSortBy(value);
+  }, []);
+
+  const toggleSortDirection = useCallback(() => {
+    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+  }, []);
 
   if (loading) {
     return <LoadingState />;
@@ -60,11 +129,11 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
     return <ErrorState error={error} />;
   }
 
-  // Calculate pagination
-  const totalPages = Math.ceil(moments.length / MOMENTS_PER_PAGE);
+  // Calculate pagination (using filtered moments)
+  const totalPages = Math.ceil(filteredAndSortedMoments.length / MOMENTS_PER_PAGE);
   const startIndex = currentPage * MOMENTS_PER_PAGE;
   const endIndex = startIndex + MOMENTS_PER_PAGE;
-  const currentMoments = moments.slice(startIndex, endIndex);
+  const currentMoments = filteredAndSortedMoments.slice(startIndex, endIndex);
 
   // Handle pull-to-refresh
   const handleRefresh = async () => {
@@ -102,14 +171,40 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
         {/* Header */}
         <MomentHeader
           totalMoments={moments.length}
+          filteredCount={filteredAndSortedMoments.length}
           currentPage={currentPage}
           totalPages={totalPages}
           momentsPerPage={MOMENTS_PER_PAGE}
           startIndex={startIndex}
-          endIndex={Math.min(endIndex, moments.length)}
+          endIndex={Math.min(endIndex, filteredAndSortedMoments.length)}
           isWeb3Enabled={isWeb3Enabled}
           onShowHelp={() => setShowHelpModal(true)}
+          searchQuery={searchQuery}
+          onSearchChange={handleSearchChange}
+          onClearSearch={clearSearch}
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
+          onToggleSortDirection={toggleSortDirection}
         />
+
+        {/* Search Results Info */}
+        {searchQuery.trim() && (
+          <div className="mb-4 text-sm">
+            {filteredAndSortedMoments.length === 0 ? (
+              <div className="text-gray-700">
+                No moments found matching "{searchQuery}"
+              </div>
+            ) : (
+              <div className="text-gray-700">
+                Found {filteredAndSortedMoments.length} moment{filteredAndSortedMoments.length !== 1 ? 's' : ''} matching "{searchQuery}"
+                {sortBy !== 'newest' && (
+                  <span className="text-gray-500"> (sorted by {sortBy.replace(/([A-Z])/g, ' $1').toLowerCase()})</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Moments Grid */}
         {currentMoments.length > 0 ? (
@@ -167,8 +262,24 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
           </>
         ) : (
           <div className="text-center py-12">
-            <div className="text-gray-500 text-lg mb-2">No moments found</div>
-            <div className="text-gray-400 text-sm">Be the first to upload a moment!</div>
+            {searchQuery.trim() ? (
+              <>
+                <div className="text-4xl mb-4">🔍</div>
+                <div className="text-gray-700 text-lg mb-2">No moments found</div>
+                <div className="text-gray-500 text-sm mb-4">No moments match your search "{searchQuery}"</div>
+                <button
+                  onClick={clearSearch}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Clear Search
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="text-gray-500 text-lg mb-2">No moments found</div>
+                <div className="text-gray-400 text-sm">Be the first to upload a moment!</div>
+              </>
+            )}
           </div>
         )}
         </div>
@@ -298,8 +409,25 @@ const ErrorState = memo(({ error }) => (
 ErrorState.displayName = 'ErrorState';
 
 // Header Component
-const MomentHeader = memo(({ totalMoments, currentPage, totalPages, startIndex, endIndex, isWeb3Enabled, onShowHelp }) => (
+const MomentHeader = memo(({
+  totalMoments,
+  filteredCount,
+  currentPage,
+  totalPages,
+  startIndex,
+  endIndex,
+  isWeb3Enabled,
+  onShowHelp,
+  searchQuery,
+  onSearchChange,
+  onClearSearch,
+  sortBy,
+  sortDirection,
+  onSortChange,
+  onToggleSortDirection
+}) => (
   <div className="mb-6">
+    {/* Title Row */}
     <div className="flex items-center justify-between mb-4">
       <div>
         <h2 className="text-2xl font-bold text-gray-800">
@@ -313,13 +441,6 @@ const MomentHeader = memo(({ totalMoments, currentPage, totalPages, startIndex, 
           <HelpCircle size={16} className="mr-1" />
           How to upload moments
         </button>
-        <p className="text-gray-600 mt-1">
-          {totalPages > 1 ? (
-            <>Showing {startIndex + 1}-{endIndex} of {totalMoments} moments (6 at a time for performance)</>
-          ) : (
-            <>Latest uploads from UMO fans around the world</>
-          )}
-        </p>
       </div>
       <div className="text-right">
         {totalPages > 1 && (
@@ -340,6 +461,67 @@ const MomentHeader = memo(({ totalMoments, currentPage, totalPages, startIndex, 
             </div>
           </div>
         )}
+      </div>
+    </div>
+
+    {/* Search and Sort Controls */}
+    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
+      {/* Left side - Results count */}
+      <div className="text-sm text-gray-600">
+        {searchQuery.trim() ? (
+          <>Showing {filteredCount} of {totalMoments} moments</>
+        ) : totalPages > 1 ? (
+          <>Showing {startIndex + 1}-{endIndex} of {totalMoments} moments</>
+        ) : (
+          <>Latest uploads from UMO fans around the world</>
+        )}
+      </div>
+
+      {/* Center - Search Bar */}
+      <div className="relative w-full max-w-md">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={onSearchChange}
+          placeholder="Search songs, venues, cities, or uploaders..."
+          className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+        />
+        <div className="absolute right-3 top-2 flex items-center gap-1">
+          {searchQuery && (
+            <button
+              onClick={onClearSearch}
+              className="text-gray-400 hover:text-gray-600"
+              title="Clear search"
+              style={{ minWidth: '32px', minHeight: '32px', padding: '6px', fontSize: '18px' }}
+            >
+              ×
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Right side - Sort Controls */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium text-gray-700">Sort:</span>
+        <select
+          value={sortBy}
+          onChange={(e) => onSortChange(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        >
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="songName">Song Name</option>
+          <option value="venue">Venue</option>
+          <option value="performanceDate">Performance Date</option>
+        </select>
+
+        <button
+          onClick={onToggleSortDirection}
+          className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+          title={`Sort ${sortDirection === 'asc' ? 'Descending' : 'Ascending'}`}
+        >
+          {sortDirection === 'asc' ? '↑' : '↓'}
+        </button>
       </div>
     </div>
   </div>
