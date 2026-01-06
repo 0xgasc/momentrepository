@@ -427,17 +427,16 @@ const MomentHeader = memo(({
   <div className="mb-6">
     {/* Title Row */}
     <div className="flex items-center justify-between mb-4">
-      <div>
+      <div className="flex items-center gap-2">
         <h2 className="text-2xl font-bold text-gray-800">
           Recent Moments
         </h2>
         <button
           onClick={onShowHelp}
-          className="flex items-center text-sm text-blue-600 hover:text-blue-700 mt-2 transition-colors mobile-touch-target"
-          style={{ minHeight: '44px' }}
+          className="text-gray-400 hover:text-blue-600 transition-colors p-1"
+          title="How to upload moments"
         >
-          <HelpCircle size={16} className="mr-1" />
-          How to upload moments
+          <HelpCircle size={18} />
         </button>
       </div>
       <div className="text-right">

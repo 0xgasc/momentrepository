@@ -35,6 +35,16 @@ const VideoHero = memo(({ onMomentClick }) => {
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const frameSkipRef = useRef(0);
+
+  // Mobile detection for performance optimization
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Theater queue context
   const {
@@ -228,10 +238,22 @@ const VideoHero = memo(({ onMomentClick }) => {
     const canvas = canvasRef.current;
     if (!video || !canvas || video.paused || video.ended || !isAsciiMode) return;
 
+    // Skip frames on mobile for better performance (process every 3rd frame)
+    if (isMobile) {
+      frameSkipRef.current = (frameSkipRef.current + 1) % 3;
+      if (frameSkipRef.current !== 0) {
+        animationRef.current = requestAnimationFrame(processFrame);
+        return;
+      }
+    }
+
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-    // Scale based on intensity (higher = more columns/detail)
-    const cols = Math.floor(60 + (effectIntensity * 0.8)); // 60-140 columns
+    // Scale based on intensity - reduced on mobile for performance
+    // Desktop: 60-140 columns, Mobile: 30-70 columns
+    const baseCols = isMobile ? 30 : 60;
+    const colMultiplier = isMobile ? 0.4 : 0.8;
+    const cols = Math.floor(baseCols + (effectIntensity * colMultiplier));
     const aspectRatio = video.videoHeight / video.videoWidth;
     const rows = Math.floor(cols * aspectRatio * 0.5); // Half because chars are taller
 
@@ -252,14 +274,15 @@ const VideoHero = memo(({ onMomentClick }) => {
         const b = pixels[i + 2];
         const brightness = (r + g + b) / 3;
         const char = getAsciiChar(brightness);
-        const color = `rgb(${r}, ${g}, ${b})`; // Colored ASCII
+        // On mobile, use grayscale for better performance (fewer style calculations)
+        const color = isMobile ? `rgb(${brightness}, ${brightness}, ${brightness})` : `rgb(${r}, ${g}, ${b})`;
         row.push({ char, color });
       }
       asciiRows.push(row);
     }
     setAsciiOutput(asciiRows);
     animationRef.current = requestAnimationFrame(processFrame);
-  }, [getAsciiChar, effectIntensity, isAsciiMode]);
+  }, [getAsciiChar, effectIntensity, isAsciiMode, isMobile]);
 
   // Reset ASCII when moment changes (fixes back-to-back video issue)
   useEffect(() => {
