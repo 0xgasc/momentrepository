@@ -3,6 +3,8 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
+const http = require('http');
+const { Server } = require('socket.io');
 require('dotenv').config();
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const rateLimit = require('express-rate-limit');
@@ -18,8 +20,10 @@ const { UMOCache } = require('./utils/umoCache');
 const { ethers } = require('ethers');
 const { extractVideoThumbnail } = require('./utils/videoThumbnailExtractor');
 const { generateNFTCard } = require('./utils/nftCardGenerator');
+const communityRoutes = require('./routes/community');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 5050;
 
 // Initialize UMO cache
@@ -141,6 +145,41 @@ app.use(cors({
   allowedHeaders: '*', // Allow all headers
   exposedHeaders: ['Content-Length', 'Content-Type']
 }));
+
+// =====================================================
+// SOCKET.IO SETUP FOR LIVE CHAT
+// =====================================================
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Store io instance for use in routes
+app.set('io', io);
+
+// Socket.io connection handling
+io.on('connection', (socket) => {
+  console.log(`🔌 Socket connected: ${socket.id}`);
+
+  // Join a performance chat room
+  socket.on('join-chat', (performanceId) => {
+    socket.join(`chat-${performanceId}`);
+    console.log(`💬 Socket ${socket.id} joined chat-${performanceId}`);
+  });
+
+  // Leave a performance chat room
+  socket.on('leave-chat', (performanceId) => {
+    socket.leave(`chat-${performanceId}`);
+    console.log(`👋 Socket ${socket.id} left chat-${performanceId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`🔌 Socket disconnected: ${socket.id}`);
+  });
+});
 
 // =====================================================
 // TUS RESUMABLE UPLOAD SERVER
@@ -496,6 +535,25 @@ const requireRole = (requiredRole) => {
 
 const requireAdmin = requireRole('admin');
 const requireMod = requireRole('mod');
+
+// Optional authentication middleware (doesn't reject if no token)
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(' ')[1];
+
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    req.user = err ? null : user;
+    next();
+  });
+};
+
+// Mount community routes with optional auth
+app.use('/api/community', optionalAuth, communityRoutes);
 
 // Connect to MongoDB
 console.log('🔍 Environment check:');
@@ -3724,12 +3782,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-app.listen(PORT, '0.0.0.0', () => {
+// Start server (using http server for Socket.io)
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server listening at http://0.0.0.0:${PORT}`);
   console.log(`📱 Mobile access: http://192.168.1.170:${PORT}`);
   console.log(`💻 Local access: http://localhost:${PORT}`);
-  
+  console.log(`🔌 Socket.io enabled for live chat`);
+
   // Initialize cache after server starts
   initializeCache();
   scheduleDailyRefresh();

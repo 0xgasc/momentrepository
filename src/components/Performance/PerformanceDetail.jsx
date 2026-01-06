@@ -6,7 +6,7 @@ import MomentDetailModal from '../Moment/MomentDetailModal';
 import UploadModal from '../Moment/UploadModal';
 
 // Import new dashboard panels
-import { ShowHeaderPanel, MediaGalleryPanel, SetlistPanel, UploadPanel } from './panels';
+import { ShowHeaderPanel, MediaGalleryPanel, SetlistPanel, UploadPanel, CommunityPanel } from './panels';
 
 const PerformanceDetail = memo(({ performance, onBack }) => {
   const [uploadingMoment, setUploadingMoment] = useState(null);
@@ -14,7 +14,7 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
   const [fullPerformance, setFullPerformance] = useState(performance);
   const [loading, setLoading] = useState(false);
 
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { refreshNotifications } = useNotifications(API_BASE_URL);
   const { moments, loadingMomentDetails, loadMomentDetails } = useMoments(API_BASE_URL);
 
@@ -154,6 +154,15 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
             onUploadOther={handleUploadOtherContent}
           />
         </div>
+      </div>
+
+      {/* Community Panel - Chat, Comments, RSVP, Meetups */}
+      <div className="mt-6">
+        <CommunityPanel
+          performance={fullPerformance}
+          user={user}
+          token={token}
+        />
       </div>
 
       {/* Modals */}

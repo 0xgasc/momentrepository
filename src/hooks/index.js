@@ -8,3 +8,5 @@ export { useCacheStatus } from './useCacheStatus';
 export { useSongDatabase } from './useSongDatabase';
 export { useModal } from './useModal';
 export { useNotifications } from './useNotifications';
+export { useLiveChat } from './useLiveChat';
+export { useComments, useRSVP, useMeetups } from './useCommunity';
