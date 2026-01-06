@@ -14,66 +14,64 @@ const ShowHeaderPanel = memo(({
   const venue = performance?.venue;
 
   return (
-    <div className="show-header-panel bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 rounded-xl p-6 mb-6 border border-gray-700/50">
-      {/* Back button */}
-      <button
-        onClick={onBack}
-        className="mb-4 text-gray-400 hover:text-white flex items-center gap-2 transition-colors text-sm"
-      >
-        <ArrowLeft size={16} />
-        <span>Back to shows</span>
-      </button>
+    <div className="show-header-panel relative mb-4">
+      {/* Glass background */}
+      <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-white/10 to-white/5 backdrop-blur-xl rounded-xl border border-white/10 shadow-lg shadow-black/20" />
 
-      {/* Main info */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-            {venue?.name || 'Unknown Venue'}
-          </h1>
-          <div className="flex flex-wrap items-center gap-4 text-gray-400">
-            <span className="flex items-center gap-1.5">
-              <MapPin size={14} />
-              {venue?.city?.name || 'Unknown City'}
-              {venue?.city?.country?.name && `, ${venue.city.country.name}`}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Calendar size={14} />
-              {formatDate(performance?.eventDate)}
-            </span>
+      {/* Content */}
+      <div className="relative px-4 py-3">
+        {/* Top row: Back button + Stats */}
+        <div className="flex items-center justify-between gap-4 mb-2">
+          <button
+            onClick={onBack}
+            className="text-gray-400 hover:text-white flex items-center gap-1.5 transition-colors text-sm group"
+          >
+            <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
+            <span>Back</span>
+          </button>
+
+          {/* Compact stats */}
+          <div className="flex items-center gap-2 text-xs">
+            {songMoments.length > 0 && (
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 text-blue-300 rounded-full">
+                <Music size={10} />
+                {songMoments.length}
+              </span>
+            )}
+            {otherContent.length > 0 && (
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded-full">
+                <Film size={10} />
+                {otherContent.length}
+              </span>
+            )}
+            {rsvpCount > 0 && (
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-green-500/20 text-green-300 rounded-full">
+                <Users size={10} />
+                {rsvpCount}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Stats badges */}
-        <div className="flex flex-wrap gap-3">
-          {songMoments.length > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-900/40 border border-blue-700/50 rounded-full">
-              <Music size={14} className="text-blue-400" />
-              <span className="text-blue-300 text-sm font-medium">
-                {songMoments.length} song{songMoments.length !== 1 ? 's' : ''}
+        {/* Main info row */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+          <h1 className="text-lg sm:text-xl font-semibold text-white truncate">
+            {venue?.name || 'Unknown Venue'}
+          </h1>
+
+          <div className="flex items-center gap-3 text-sm text-gray-400 shrink-0">
+            <span className="flex items-center gap-1">
+              <MapPin size={12} className="text-gray-500" />
+              <span className="truncate max-w-[150px]">
+                {venue?.city?.name || 'Unknown'}
+                {venue?.city?.country?.code && `, ${venue.city.country.code}`}
               </span>
-            </div>
-          )}
-          {otherContent.length > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-900/40 border border-purple-700/50 rounded-full">
-              <Film size={14} className="text-purple-400" />
-              <span className="text-purple-300 text-sm font-medium">
-                {otherContent.length} other
-              </span>
-            </div>
-          )}
-          {rsvpCount > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-900/40 border border-green-700/50 rounded-full">
-              <Users size={14} className="text-green-400" />
-              <span className="text-green-300 text-sm font-medium">
-                {rsvpCount} going
-              </span>
-            </div>
-          )}
-          {totalMoments === 0 && (
-            <div className="px-3 py-1.5 bg-gray-800/50 border border-gray-700/50 rounded-full">
-              <span className="text-gray-500 text-sm">No moments yet</span>
-            </div>
-          )}
+            </span>
+            <span className="flex items-center gap-1">
+              <Calendar size={12} className="text-gray-500" />
+              {formatDate(performance?.eventDate)}
+            </span>
+          </div>
         </div>
       </div>
     </div>

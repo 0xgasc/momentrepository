@@ -350,17 +350,19 @@ const Header = memo(({
                     Browse Songs
                   </button>
 
-                  <button
-                    onClick={() => { onBrowseModeChange('umotube'); closeMobileMenu(); }}
-                    className={`umo-btn w-full text-left ${
-                      browseMode === 'umotube'
-                        ? 'umo-btn--primary'
-                        : 'umo-btn--secondary'
-                    }`}
-                    style={{ minHeight: '44px' }}
-                  >
-                    UMOTube
-                  </button>
+                  {user && (user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') && (
+                    <button
+                      onClick={() => { onBrowseModeChange('umotube'); closeMobileMenu(); }}
+                      className={`umo-btn w-full text-left ${
+                        browseMode === 'umotube'
+                          ? 'umo-btn--primary'
+                          : 'umo-btn--secondary'
+                      }`}
+                      style={{ minHeight: '44px' }}
+                    >
+                      UMOTube
+                    </button>
+                  )}
                 </div>
 
                 {/* Account Actions */}
@@ -596,17 +598,19 @@ const Header = memo(({
               >
                 Songs
               </button>
-              <button
-                onClick={() => onBrowseModeChange('umotube')}
-                className={`umo-btn flex-1 ${
-                  browseMode === 'umotube'
-                    ? 'umo-btn--primary'
-                    : 'umo-btn--ghost'
-                }`}
-                style={{ minHeight: '44px' }}
-              >
-                UMOTube
-              </button>
+              {user && (user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') && (
+                <button
+                  onClick={() => onBrowseModeChange('umotube')}
+                  className={`umo-btn flex-1 ${
+                    browseMode === 'umotube'
+                      ? 'umo-btn--primary'
+                      : 'umo-btn--ghost'
+                  }`}
+                  style={{ minHeight: '44px' }}
+                >
+                  UMOTube
+                </button>
+              )}
             </div>
           </div>
         )}
