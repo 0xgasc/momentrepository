@@ -1,0 +1,44 @@
+# Node modules - let Docker build these fresh
+node_modules
+setlist-proxy/node_modules
+
+# Build outputs
+dist
+build
+.next
+
+# Development files
+.git
+.gitignore
+*.md
+.env.local
+.env.development
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test files
+coverage
+__tests__
+*.test.js
+*.spec.js
+
+# Frontend (not needed in backend container)
+src
+public
+package.json
+package-lock.json
+
+# Keep only setlist-proxy for backend
+!setlist-proxy/
