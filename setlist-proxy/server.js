@@ -21,6 +21,7 @@ const { ethers } = require('ethers');
 const { extractVideoThumbnail } = require('./utils/videoThumbnailExtractor');
 const { generateNFTCard } = require('./utils/nftCardGenerator');
 const communityRoutes = require('./routes/community');
+const upcomingShowsRoutes = require('./routes/upcomingShows');
 
 const app = express();
 const server = http.createServer(app);
@@ -554,6 +555,9 @@ const optionalAuth = (req, res, next) => {
 
 // Mount community routes with optional auth
 app.use('/api/community', optionalAuth, communityRoutes);
+
+// Mount upcoming shows routes with optional auth
+app.use('/api/upcoming-shows', optionalAuth, upcomingShowsRoutes);
 
 // Connect to MongoDB
 console.log('🔍 Environment check:');

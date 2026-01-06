@@ -1,11 +1,13 @@
 // src/components/Performance/PerformanceList.jsx
 import React, { useEffect, memo, useMemo } from 'react';
-import { API_BASE_URL } from '../Auth/AuthProvider';
+import { API_BASE_URL, useAuth } from '../Auth/AuthProvider';
 import { usePerformances, useMoments } from '../../hooks';
 import { formatShortDate } from '../../utils';
 import PullToRefresh from '../UI/PullToRefresh';
+import UpcomingShowsSection from './UpcomingShowsSection';
 
 const PerformanceList = memo(({ onPerformanceSelect }) => {
+  const { token } = useAuth();
   const {
     displayedPerformances,
     loading,
@@ -71,12 +73,18 @@ const PerformanceList = memo(({ onPerformanceSelect }) => {
   };
 
   return (
-    <PullToRefresh 
+    <PullToRefresh
       onRefresh={handleRefresh}
       pullText="Pull down to refresh performances"
       releaseText="Release to refresh performances"
       refreshingText="Loading latest performances..."
     >
+      {/* Upcoming Shows Section */}
+      <UpcomingShowsSection
+        onShowSelect={onPerformanceSelect}
+        token={token}
+      />
+
       <div className="mb-8">
       {/* Header with Search */}
       <PerformanceHeader 

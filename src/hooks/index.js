@@ -10,3 +10,4 @@ export { useModal } from './useModal';
 export { useNotifications } from './useNotifications';
 export { useLiveChat } from './useLiveChat';
 export { useComments, useRSVP, useMeetups } from './useCommunity';
+export { useUpcomingShows } from './useUpcomingShows';
