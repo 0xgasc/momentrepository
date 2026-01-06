@@ -2296,6 +2296,121 @@ app.get('/debug/user', authenticateToken, async (req, res) => {
 });
 
 // =============================================================================
+// ADMIN: MOMENT MEDIA MIGRATION ENDPOINTS
+// =============================================================================
+
+// Admin: Get all moments for migration (with pagination)
+app.get('/admin/moments/all', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const moments = await Moment.find({})
+      .populate('user', 'email displayName')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .select('_id songName venueName venueCity mediaUrl mediaType fileName createdAt approvalStatus');
+
+    const total = await Moment.countDocuments({});
+
+    res.json({
+      moments,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (error) {
+    console.error('❌ Admin fetch moments error:', error);
+    res.status(500).json({ error: 'Failed to fetch moments' });
+  }
+});
+
+// Admin: Update single moment mediaUrl
+app.put('/admin/moments/:momentId/media', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { mediaUrl, mediaType } = req.body;
+
+    if (!mediaUrl) {
+      return res.status(400).json({ error: 'mediaUrl is required' });
+    }
+
+    const updateData = { mediaUrl };
+    if (mediaType) {
+      updateData.mediaType = mediaType;
+    }
+
+    const moment = await Moment.findByIdAndUpdate(
+      momentId,
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    console.log(`🔄 Admin updated media for moment ${momentId}: ${mediaUrl}`);
+    res.json({ success: true, moment });
+  } catch (error) {
+    console.error('❌ Admin update moment media error:', error);
+    res.status(500).json({ error: 'Failed to update moment media' });
+  }
+});
+
+// Admin: Bulk update moment mediaUrls
+app.post('/admin/moments/bulk-migrate', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { updates } = req.body;
+    // updates should be an array of { momentId, mediaUrl, mediaType? }
+
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ error: 'updates array is required' });
+    }
+
+    const results = {
+      success: [],
+      failed: []
+    };
+
+    for (const update of updates) {
+      try {
+        const updateData = { mediaUrl: update.mediaUrl };
+        if (update.mediaType) {
+          updateData.mediaType = update.mediaType;
+        }
+
+        const moment = await Moment.findByIdAndUpdate(
+          update.momentId,
+          { $set: updateData },
+          { new: true }
+        );
+
+        if (moment) {
+          results.success.push({ momentId: update.momentId, mediaUrl: update.mediaUrl });
+        } else {
+          results.failed.push({ momentId: update.momentId, error: 'Not found' });
+        }
+      } catch (err) {
+        results.failed.push({ momentId: update.momentId, error: err.message });
+      }
+    }
+
+    console.log(`🔄 Bulk migration: ${results.success.length} success, ${results.failed.length} failed`);
+    res.json({
+      success: true,
+      migrated: results.success.length,
+      failed: results.failed.length,
+      results
+    });
+  } catch (error) {
+    console.error('❌ Bulk migration error:', error);
+    res.status(500).json({ error: 'Failed to bulk migrate moments' });
+  }
+});
+
+// =============================================================================
 // CONTENT MODERATION ENDPOINTS
 // =============================================================================
 

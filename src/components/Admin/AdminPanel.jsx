@@ -16,6 +16,8 @@ const AdminPanel = memo(({ onClose }) => {
   const [platformSettings, setPlatformSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [migrationMoments, setMigrationMoments] = useState([]);
+  const [migrationTotal, setMigrationTotal] = useState(0);
 
   const fetchAdminData = useCallback(async () => {
     try {
@@ -220,10 +222,11 @@ const AdminPanel = memo(({ onClose }) => {
         )}
 
         {/* Tabs */}
-        <div className="flex border-b">
+        <div className="flex border-b overflow-x-auto">
           {[
             ...(isAdmin ? [{ key: 'users', label: 'Users', count: users.length }] : []),
             { key: 'moderation', label: 'Pending Review', count: pendingMoments.length },
+            ...(isAdmin ? [{ key: 'migration', label: 'Media Migration', count: migrationTotal || null }] : []),
             ...(isAdmin ? [{ key: 'settings', label: 'Settings', count: null }] : [])
           ].map(tab => (
             <button
@@ -266,9 +269,19 @@ const AdminPanel = memo(({ onClose }) => {
           )}
           
           {activeTab === 'settings' && isAdmin && (
-            <SettingsTab 
+            <SettingsTab
               platformSettings={platformSettings}
               setPlatformSettings={setPlatformSettings}
+              token={token}
+            />
+          )}
+
+          {activeTab === 'migration' && isAdmin && (
+            <MigrationTab
+              moments={migrationMoments}
+              setMoments={setMigrationMoments}
+              total={migrationTotal}
+              setTotal={setMigrationTotal}
               token={token}
             />
           )}
@@ -1084,9 +1097,279 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
   );
 });
 
+// Media Migration Tab
+const MigrationTab = memo(({ moments, setMoments, total, setTotal, token }) => {
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [editingId, setEditingId] = useState(null);
+  const [editUrl, setEditUrl] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const [bulkJson, setBulkJson] = useState('');
+  const [bulkMode, setBulkMode] = useState(false);
+
+  const fetchMoments = useCallback(async (pageNum = 1) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/admin/moments/all?page=${pageNum}&limit=20`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMoments(data.moments);
+        setTotal(data.total);
+        setPages(data.pages);
+        setPage(data.page);
+      }
+    } catch (error) {
+      console.error('Failed to fetch moments:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [token, setMoments, setTotal]);
+
+  useEffect(() => {
+    fetchMoments(1);
+  }, [fetchMoments]);
+
+  const handleEdit = (moment) => {
+    setEditingId(moment._id);
+    setEditUrl(moment.mediaUrl || '');
+  };
+
+  const handleSave = async (momentId) => {
+    try {
+      setSaving(true);
+      const response = await fetch(`${API_BASE_URL}/admin/moments/${momentId}/media`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ mediaUrl: editUrl })
+      });
+
+      if (response.ok) {
+        setMoments(prev => prev.map(m =>
+          m._id === momentId ? { ...m, mediaUrl: editUrl } : m
+        ));
+        setEditingId(null);
+        setMessage('Updated successfully');
+        setTimeout(() => setMessage(''), 3000);
+      } else {
+        setMessage('Failed to update');
+      }
+    } catch (error) {
+      setMessage('Error: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleBulkMigrate = async () => {
+    try {
+      setSaving(true);
+      let updates;
+      try {
+        updates = JSON.parse(bulkJson);
+      } catch {
+        setMessage('Invalid JSON format');
+        setSaving(false);
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin/moments/bulk-migrate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ updates })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setMessage(`Migrated ${result.migrated} moments, ${result.failed} failed`);
+        fetchMoments(page);
+        setBulkJson('');
+      } else {
+        setMessage('Bulk migration failed');
+      }
+    } catch (error) {
+      setMessage('Error: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const exportCurrentUrls = () => {
+    const data = moments.map(m => ({
+      momentId: m._id,
+      songName: m.songName,
+      currentUrl: m.mediaUrl
+    }));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `moments-export-page-${page}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Media Migration Tool</h3>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setBulkMode(!bulkMode)}
+            className={`px-3 py-1.5 text-sm rounded ${bulkMode ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+          >
+            {bulkMode ? 'Single Mode' : 'Bulk Mode'}
+          </button>
+          <button
+            onClick={exportCurrentUrls}
+            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Export Page ({moments.length})
+          </button>
+        </div>
+      </div>
+
+      {message && (
+        <div className={`p-3 rounded ${message.includes('Error') || message.includes('failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+          {message}
+        </div>
+      )}
+
+      {bulkMode ? (
+        <div className="space-y-4">
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-medium mb-2">Bulk Migration</h4>
+            <p className="text-sm text-gray-600 mb-3">
+              Paste JSON array with format: <code className="bg-gray-200 px-1 rounded">[{`{ "momentId": "...", "mediaUrl": "..." }`}]</code>
+            </p>
+            <textarea
+              value={bulkJson}
+              onChange={(e) => setBulkJson(e.target.value)}
+              placeholder={`[\n  { "momentId": "abc123", "mediaUrl": "https://new-url.com/video.mp4" },\n  { "momentId": "def456", "mediaUrl": "https://new-url.com/audio.mp3" }\n]`}
+              className="w-full h-48 p-3 border border-gray-300 rounded font-mono text-sm"
+            />
+            <button
+              onClick={handleBulkMigrate}
+              disabled={saving || !bulkJson.trim()}
+              className="mt-3 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
+            >
+              {saving ? 'Migrating...' : 'Run Bulk Migration'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="text-sm text-gray-600">
+                Showing page {page} of {pages} ({total} total moments)
+              </div>
+
+              {moments.map(moment => (
+                <div key={moment._id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 truncate">{moment.songName || 'Unknown Song'}</div>
+                      <div className="text-sm text-gray-600">{moment.venueName}, {moment.venueCity}</div>
+                      <div className="text-xs text-gray-400 mt-1">ID: {moment._id}</div>
+
+                      {editingId === moment._id ? (
+                        <div className="mt-2 flex gap-2">
+                          <input
+                            type="text"
+                            value={editUrl}
+                            onChange={(e) => setEditUrl(e.target.value)}
+                            className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded"
+                            placeholder="New media URL"
+                          />
+                          <button
+                            onClick={() => handleSave(moment._id)}
+                            disabled={saving}
+                            className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                          >
+                            {saving ? '...' : 'Save'}
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="mt-2">
+                          <div className="text-xs text-gray-500 break-all">
+                            {moment.mediaUrl || 'No URL'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className={`px-2 py-0.5 text-xs rounded ${
+                        moment.approvalStatus === 'approved' ? 'bg-green-100 text-green-700' :
+                        moment.approvalStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {moment.approvalStatus}
+                      </span>
+                      {editingId !== moment._id && (
+                        <button
+                          onClick={() => handleEdit(moment)}
+                          className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                          Edit URL
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Pagination */}
+              <div className="flex items-center justify-center gap-2 mt-4">
+                <button
+                  onClick={() => fetchMoments(page - 1)}
+                  disabled={page <= 1 || loading}
+                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+                >
+                  ← Prev
+                </button>
+                <span className="text-sm text-gray-600">Page {page} of {pages}</span>
+                <button
+                  onClick={() => fetchMoments(page + 1)}
+                  disabled={page >= pages || loading}
+                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+});
+
 UsersTab.displayName = 'UsersTab';
 ModerationTab.displayName = 'ModerationTab';
 SettingsTab.displayName = 'SettingsTab';
+MigrationTab.displayName = 'MigrationTab';
 AdminPanel.displayName = 'AdminPanel';
 
 export default AdminPanel;
