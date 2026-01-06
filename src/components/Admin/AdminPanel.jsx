@@ -1378,6 +1378,10 @@ const UpcomingShowsTab = memo(({ token }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingShow, setEditingShow] = useState(null);
   const [scraping, setScraping] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkText, setBulkText] = useState('');
   const [message, setMessage] = useState('');
   const [formData, setFormData] = useState({
     eventDate: '',
@@ -1496,6 +1500,62 @@ const UpcomingShowsTab = memo(({ token }) => {
     setTimeout(() => setMessage(''), 5000);
   };
 
+  const handleBulkImport = async () => {
+    if (!bulkText.trim()) {
+      setMessage('Please paste tour dates first');
+      return;
+    }
+    setImporting(true);
+    setMessage('Importing tour dates...');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/upcoming-shows/bulk-import`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ rawText: bulkText })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setMessage(`Import complete! Added ${data.added} shows, skipped ${data.skipped} (already exist).`);
+        setBulkText('');
+        setShowBulkImport(false);
+        fetchShows();
+      } else {
+        const error = await response.json();
+        setMessage(`Import failed: ${error.error}`);
+      }
+    } catch (error) {
+      setMessage(`Import error: ${error.message}`);
+    }
+    setImporting(false);
+    setTimeout(() => setMessage(''), 5000);
+  };
+
+  const handleAutoScan = async () => {
+    setScanning(true);
+    setMessage('Scanning for setlist.fm matches...');
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/upcoming-shows/auto-scan`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setMessage(`Scan complete! Linked ${data.linked} of ${data.scanned} past shows to setlist.fm.`);
+        fetchShows();
+      } else {
+        const error = await response.json();
+        setMessage(`Scan failed: ${error.error}`);
+      }
+    } catch (error) {
+      setMessage(`Scan error: ${error.message}`);
+    }
+    setScanning(false);
+    setTimeout(() => setMessage(''), 5000);
+  };
+
   const resetForm = () => {
     setFormData({
       eventDate: '',
@@ -1526,9 +1586,29 @@ const UpcomingShowsTab = memo(({ token }) => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-lg font-semibold">Upcoming Shows Management</h3>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => setShowBulkImport(!showBulkImport)}
+            className={`px-4 py-2 rounded flex items-center gap-2 ${showBulkImport ? 'bg-purple-700 text-white' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+          >
+            📋 Paste Tour Dates
+          </button>
+          <button
+            onClick={handleAutoScan}
+            disabled={scanning}
+            className="px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            {scanning ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Scanning...
+              </>
+            ) : (
+              '🔗 Link to Setlist.fm'
+            )}
+          </button>
           <button
             onClick={handleScrape}
             disabled={scraping}
@@ -1555,6 +1635,52 @@ const UpcomingShowsTab = memo(({ token }) => {
           </button>
         </div>
       </div>
+
+      {/* Bulk Import Section */}
+      {showBulkImport && (
+        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+          <h4 className="font-medium mb-2">Paste Tour Dates</h4>
+          <p className="text-sm text-gray-600 mb-3">
+            Copy tour dates from UMO website and paste below. Format: Date, City/Country, Venue (each on separate lines).
+          </p>
+          <textarea
+            value={bulkText}
+            onChange={(e) => setBulkText(e.target.value)}
+            placeholder={`Mar. 10, 2026
+Vilnius, Lithuania
+Kablys
+tickets
+Mar. 11, 2026
+Rīga, Latvia
+Palladium Riga
+tickets
+...`}
+            className="w-full h-48 p-3 border border-gray-300 rounded font-mono text-sm"
+          />
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={handleBulkImport}
+              disabled={importing || !bulkText.trim()}
+              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              {importing ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Importing...
+                </>
+              ) : (
+                '📥 Import Shows'
+              )}
+            </button>
+            <button
+              onClick={() => { setShowBulkImport(false); setBulkText(''); }}
+              className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {message && (
         <div className={`p-3 rounded ${message.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
@@ -1750,14 +1876,24 @@ const UpcomingShowsTab = memo(({ token }) => {
       {shows.past.length > 0 && (
         <div>
           <h4 className="font-medium mb-3 text-gray-500">Past Shows ({shows.past.length})</h4>
-          <div className="space-y-2 opacity-60">
-            {shows.past.slice(0, 5).map(show => (
-              <div key={show._id} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded">
+          <div className="space-y-2">
+            {shows.past.slice(0, 10).map(show => (
+              <div key={show._id} className={`flex items-center justify-between p-3 border rounded ${show.linkedPerformanceId ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200 opacity-60'}`}>
                 <div>
-                  <div className="font-medium">{show.venue?.name}</div>
+                  <div className="font-medium flex items-center gap-2">
+                    {show.venue?.name}
+                    {show.linkedPerformanceId && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Linked</span>
+                    )}
+                  </div>
                   <div className="text-sm text-gray-600">
                     {show.venue?.city}{show.venue?.state && `, ${show.venue.state}`} • {formatDate(show.eventDate)}
                   </div>
+                  {show.linkedPerformanceId && (
+                    <div className="text-xs text-blue-600 mt-1">
+                      Setlist.fm ID: {show.linkedPerformanceId}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => handleDelete(show._id)}
@@ -1767,9 +1903,9 @@ const UpcomingShowsTab = memo(({ token }) => {
                 </button>
               </div>
             ))}
-            {shows.past.length > 5 && (
+            {shows.past.length > 10 && (
               <div className="text-sm text-gray-500 text-center">
-                + {shows.past.length - 5} more past shows
+                + {shows.past.length - 10} more past shows
               </div>
             )}
           </div>

@@ -306,4 +306,289 @@ router.post('/scrape', async (req, res) => {
   }
 });
 
+// Bulk import tour dates (admin only)
+// Accepts format like:
+// Mar. 10, 2026
+// Vilnius, Lithuania
+// Kablys
+// tickets
+router.post('/bulk-import', async (req, res) => {
+  try {
+    if (!req.user || (req.user.role !== 'admin' && !['solo@solo.solo', 'solo2@solo.solo'].includes(req.user.email))) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { rawText } = req.body;
+    if (!rawText || typeof rawText !== 'string') {
+      return res.status(400).json({ error: 'rawText is required' });
+    }
+
+    console.log('📋 Starting bulk import...');
+
+    // Split by lines and clean up
+    const lines = rawText.split('\n').map(l => l.trim()).filter(l => l && l.toLowerCase() !== 'tickets');
+
+    const parsedShows = [];
+    let i = 0;
+
+    while (i < lines.length) {
+      const dateLine = lines[i];
+
+      // Check if this is a date line
+      const datePatterns = [
+        /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+(\d{1,2})(?:\s*-\s*\d{1,2})?,?\s*(\d{4})$/i,
+        /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
+        /^(\d{4})-(\d{2})-(\d{2})$/
+      ];
+
+      let isDateLine = datePatterns.some(p => p.test(dateLine));
+
+      if (isDateLine && i + 2 < lines.length) {
+        const locationLine = lines[i + 1];
+        const venueLine = lines[i + 2];
+
+        // Parse date - handle formats like "Mar. 10, 2026" or "Aug. 28 - 30, 2026"
+        let eventDate;
+        const monthMatch = dateLine.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+(\d{1,2})(?:\s*-\s*\d{1,2})?,?\s*(\d{4})$/i);
+        if (monthMatch) {
+          const months = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+          const month = months[monthMatch[1].toLowerCase()];
+          const day = parseInt(monthMatch[2]);
+          const year = parseInt(monthMatch[3]);
+          eventDate = new Date(year, month, day, 20, 0, 0); // 8 PM default
+        } else {
+          eventDate = new Date(dateLine);
+        }
+
+        if (isNaN(eventDate.getTime())) {
+          console.log(`⚠️ Could not parse date: ${dateLine}`);
+          i++;
+          continue;
+        }
+
+        // Parse location (City, Country)
+        const locationParts = locationLine.split(',').map(p => p.trim());
+        const city = locationParts[0] || 'TBA';
+        const country = locationParts[1] || 'Unknown';
+
+        // Check if it's a festival (has "Festival" or year range in venue or date has range)
+        const isFestival = dateLine.includes('-') || venueLine.toLowerCase().includes('festival') || venueLine.match(/\d{4}$/);
+
+        parsedShows.push({
+          eventDate,
+          venue: {
+            name: venueLine,
+            city,
+            state: '',
+            country
+          },
+          eventType: isFestival ? 'festival' : 'headlining',
+          festivalName: isFestival ? venueLine : '',
+          ticketStatus: 'available',
+          rawDate: dateLine,
+          rawLocation: locationLine
+        });
+
+        i += 3;
+      } else {
+        i++;
+      }
+    }
+
+    console.log(`📝 Parsed ${parsedShows.length} shows from input`);
+
+    // Import to database
+    let added = 0;
+    let skipped = 0;
+
+    for (const show of parsedShows) {
+      // Check if already exists (same date + city)
+      const startOfDay = new Date(show.eventDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(show.eventDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const existing = await UpcomingShow.findOne({
+        eventDate: { $gte: startOfDay, $lte: endOfDay },
+        'venue.city': show.venue.city
+      });
+
+      if (existing) {
+        console.log(`⏭️ Skipping (exists): ${show.venue.city} on ${show.eventDate.toDateString()}`);
+        skipped++;
+        continue;
+      }
+
+      const newShow = new UpcomingShow({
+        eventDate: show.eventDate,
+        venue: show.venue,
+        eventType: show.eventType,
+        festivalName: show.festivalName,
+        ticketStatus: show.ticketStatus,
+        ticketUrl: '',
+        notes: `Imported: ${show.rawDate} - ${show.rawLocation}`,
+        isActive: true,
+        isCancelled: false
+      });
+
+      await newShow.save();
+      added++;
+      console.log(`✅ Added: ${show.venue.name} - ${show.venue.city} on ${show.eventDate.toDateString()}`);
+    }
+
+    console.log(`🎉 Bulk import complete: ${added} added, ${skipped} skipped`);
+
+    res.json({
+      success: true,
+      parsed: parsedShows.length,
+      added,
+      skipped,
+      message: `Parsed ${parsedShows.length} shows. Added ${added}, skipped ${skipped} (already existed).`
+    });
+
+  } catch (err) {
+    console.error('❌ Bulk import error:', err);
+    res.status(500).json({ error: 'Bulk import failed: ' + err.message });
+  }
+});
+
+// Auto-link upcoming shows to setlist.fm performances
+// Called when a performance is fetched/created
+router.post('/auto-link', async (req, res) => {
+  try {
+    if (!req.user || (req.user.role !== 'admin' && !['solo@solo.solo', 'solo2@solo.solo'].includes(req.user.email))) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { performanceId, eventDate, venueName, city } = req.body;
+
+    if (!performanceId || !eventDate) {
+      return res.status(400).json({ error: 'performanceId and eventDate required' });
+    }
+
+    // Find matching upcoming show
+    const showDate = new Date(eventDate);
+    const startOfDay = new Date(showDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(showDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    let query = {
+      eventDate: { $gte: startOfDay, $lte: endOfDay },
+      linkedPerformanceId: { $exists: false }
+    };
+
+    // If city provided, narrow down
+    if (city) {
+      query['venue.city'] = { $regex: new RegExp(city, 'i') };
+    }
+
+    const upcomingShow = await UpcomingShow.findOne(query);
+
+    if (upcomingShow) {
+      upcomingShow.linkedPerformanceId = performanceId;
+      await upcomingShow.save();
+      console.log(`🔗 Auto-linked upcoming show to performance: ${performanceId}`);
+      return res.json({ success: true, linked: true, upcomingShowId: upcomingShow._id });
+    }
+
+    res.json({ success: true, linked: false, message: 'No matching upcoming show found' });
+  } catch (err) {
+    console.error('❌ Auto-link error:', err);
+    res.status(500).json({ error: 'Auto-link failed: ' + err.message });
+  }
+});
+
+// Auto-scan: find all unlinked past shows and try to link them to setlist.fm
+router.post('/auto-scan', async (req, res) => {
+  try {
+    if (!req.user || (req.user.role !== 'admin' && !['solo@solo.solo', 'solo2@solo.solo'].includes(req.user.email))) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    console.log('🔍 Starting auto-scan for unlinked past shows...');
+
+    // Load the UMO cache
+    const cacheModule = require('../utils/umoCache');
+    const performances = await cacheModule.getPerformances();
+
+    if (!performances || performances.length === 0) {
+      return res.json({ success: true, linked: 0, message: 'No performances in cache to scan' });
+    }
+
+    // Find all unlinked past shows
+    const now = new Date();
+    const unlinkedShows = await UpcomingShow.find({
+      eventDate: { $lt: now },
+      linkedPerformanceId: { $exists: false },
+      isActive: true,
+      isCancelled: false
+    });
+
+    console.log(`📋 Found ${unlinkedShows.length} unlinked past shows to scan`);
+
+    let linked = 0;
+
+    for (const show of unlinkedShows) {
+      // Find matching performance by date
+      // Show.eventDate is JS Date, performance.eventDate is DD-MM-YYYY string
+      const showYear = show.eventDate.getFullYear();
+      const showMonth = String(show.eventDate.getMonth() + 1).padStart(2, '0');
+      const showDay = String(show.eventDate.getDate()).padStart(2, '0');
+      const showDateStr = `${showDay}-${showMonth}-${showYear}`;
+
+      const matching = performances.filter(p => {
+        if (p.eventDate !== showDateStr) return false;
+
+        // Also try to match city (fuzzy)
+        const perfCity = p.venue?.city?.name?.toLowerCase() || '';
+        const showCity = show.venue?.city?.toLowerCase() || '';
+
+        return perfCity.includes(showCity) || showCity.includes(perfCity);
+      });
+
+      if (matching.length === 1) {
+        // Exact match found
+        show.linkedPerformanceId = matching[0].id;
+        await show.save();
+        linked++;
+        console.log(`✅ Linked: ${show.venue.city} on ${showDateStr} → ${matching[0].id}`);
+      } else if (matching.length > 1) {
+        console.log(`⚠️ Multiple matches for ${show.venue.city} on ${showDateStr}: ${matching.length} found`);
+      }
+    }
+
+    console.log(`🎉 Auto-scan complete: linked ${linked} shows`);
+
+    res.json({
+      success: true,
+      scanned: unlinkedShows.length,
+      linked,
+      message: `Scanned ${unlinkedShows.length} unlinked shows, linked ${linked}`
+    });
+
+  } catch (err) {
+    console.error('❌ Auto-scan error:', err);
+    res.status(500).json({ error: 'Auto-scan failed: ' + err.message });
+  }
+});
+
+// Get upcoming show by linked performance ID (for community features)
+router.get('/by-performance/:performanceId', async (req, res) => {
+  try {
+    const show = await UpcomingShow.findOne({
+      linkedPerformanceId: req.params.performanceId
+    }).lean();
+
+    if (!show) {
+      return res.json({ show: null });
+    }
+
+    res.json({ show });
+  } catch (err) {
+    console.error('❌ Get by performance error:', err);
+    res.status(500).json({ error: 'Failed to fetch show' });
+  }
+});
+
 module.exports = router;
