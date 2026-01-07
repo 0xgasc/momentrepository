@@ -316,11 +316,10 @@ CreateMeetupForm.displayName = 'CreateMeetupForm';
 const MeetupSection = memo(({ performanceId, user, token }) => {
   const { meetups, loading, fetchMeetups, createMeetup, joinMeetup, leaveMeetup } = useMeetups(performanceId, token);
   const [showForm, setShowForm] = useState(false);
-  const [filter, setFilter] = useState(null);
 
   useEffect(() => {
-    fetchMeetups(filter);
-  }, [fetchMeetups, filter]);
+    fetchMeetups(null); // Fetch all meetups
+  }, [fetchMeetups]);
 
   const handleCreate = async (data) => {
     const result = await createMeetup(data);
@@ -355,44 +354,18 @@ const MeetupSection = memo(({ performanceId, user, token }) => {
 
   return (
     <div className="meetup-section">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-          <button
-            onClick={() => setFilter(null)}
-            className={`px-3 py-1 text-sm rounded whitespace-nowrap transition-colors ${
-              filter === null
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:text-white'
-            }`}
-          >
-            All
-          </button>
-          {meetupTypes.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setFilter(t.id)}
-              className={`px-3 py-1 text-sm rounded whitespace-nowrap transition-colors ${
-                filter === t.id
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:text-white'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {user && !showForm && (
+      {/* Header - just the create button */}
+      {user && !showForm && (
+        <div className="flex justify-end mb-4">
           <button
             onClick={() => setShowForm(true)}
             className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-sm transition-colors"
           >
             <Plus size={16} />
-            New
+            Create Meetup
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Create form */}
       {showForm && (
