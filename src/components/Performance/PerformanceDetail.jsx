@@ -106,7 +106,9 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
   // Check if show is today or in the past (can upload moments)
   const isShowDayOrPast = (() => {
     if (!fullPerformance?.eventDate) return false;
-    const showDate = new Date(fullPerformance.eventDate);
+    // Parse DD-MM-YYYY format from setlist.fm
+    const [day, month, year] = fullPerformance.eventDate.split('-');
+    const showDate = new Date(year, month - 1, day);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     showDate.setHours(0, 0, 0, 0);

@@ -228,11 +228,11 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
   };
 
   const socialPlatforms = [
-    { key: 'reddit', label: 'Reddit', icon: '🔴', placeholder: 'u/username or profile URL' },
-    { key: 'discord', label: 'Discord', icon: '💬', placeholder: 'Username#1234 or server invite' },
-    { key: 'instagram', label: 'Instagram', icon: '📸', placeholder: '@username or profile URL' },
-    { key: 'twitter', label: 'X/Twitter', icon: '🐦', placeholder: '@username or profile URL' },
-    { key: 'whatsapp', label: 'WhatsApp', icon: '📱', placeholder: 'Phone number or group link' }
+    { key: 'reddit', label: 'Reddit', placeholder: 'u/username or profile URL' },
+    { key: 'discord', label: 'Discord', placeholder: 'Username#1234 or server invite' },
+    { key: 'instagram', label: 'Instagram', placeholder: '@username or profile URL' },
+    { key: 'twitter', label: 'X/Twitter', placeholder: '@username or profile URL' },
+    { key: 'whatsapp', label: 'WhatsApp', placeholder: 'Phone number or group link' }
   ];
 
   return (
@@ -341,9 +341,8 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
         </h3>
 
         <div className="space-y-3">
-          {socialPlatforms.map(({ key, label, icon, placeholder }) => (
+          {socialPlatforms.map(({ key, label, placeholder }) => (
             <div key={key} className="flex items-center gap-3">
-              <span className="text-xl w-8">{icon}</span>
               <label className="text-sm font-medium text-gray-700 w-24">{label}</label>
               {isEditing ? (
                 <input

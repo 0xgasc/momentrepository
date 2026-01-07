@@ -47,7 +47,7 @@
   
   /* Borders - Sharp, Clean */
   --umo-border-width: 1px;
-  --umo-border-radius: 4px; /* Subtle rounding - not too sharp, not too round */
+  --umo-border-radius: 2px; /* Sharp, clean edges */
   --umo-border-color: var(--umo-steel-gray);
 }
 
@@ -162,16 +162,13 @@ body, html {
 
 /* Card System */
 .umo-card {
-  background: linear-gradient(135deg, var(--umo-shadow-gray) 0%, var(--umo-void-black) 100%);
-  border: var(--umo-border-width) solid var(--umo-steel-gray);
+  background: rgba(26, 26, 26, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: var(--umo-border-width) solid rgba(255, 255, 255, 0.08);
   border-radius: var(--umo-border-radius);
-  box-shadow: var(--umo-shadow-md);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  
-  /* Subtle texture */
-  background-image: 
-    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
-  background-size: 20px 20px;
 }
 
 .umo-card:hover {
@@ -192,8 +189,9 @@ body, html {
 .umo-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   z-index: 50;
   display: flex;
   align-items: center;
@@ -202,10 +200,12 @@ body, html {
 }
 
 .umo-modal {
-  background: linear-gradient(135deg, var(--umo-shadow-gray) 0%, var(--umo-void-black) 100%);
-  border: var(--umo-border-width) solid var(--umo-steel-gray);
+  background: rgba(26, 26, 26, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: var(--umo-border-width) solid rgba(255, 255, 255, 0.1);
   border-radius: var(--umo-border-radius);
-  box-shadow: var(--umo-shadow-xl);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
   max-width: 90vw;
   max-height: 90vh;
   overflow: auto;
@@ -414,12 +414,14 @@ body, html {
   animation: umo-fade-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Glass Effect - Subtle */
+/* Glass Effect - Enhanced */
 .umo-glass {
-  background: rgba(26, 26, 26, 0.8);
-  backdrop-filter: blur(12px);
-  border: var(--umo-border-width) solid rgba(74, 74, 74, 0.3);
+  background: rgba(26, 26, 26, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: var(--umo-border-width) solid rgba(255, 255, 255, 0.1);
   border-radius: var(--umo-border-radius);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
 }
 
 /* Override any existing rounded styles */

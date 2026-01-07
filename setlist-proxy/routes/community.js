@@ -410,7 +410,7 @@ router.post('/performances/:performanceId/rsvp', async (req, res) => {
     if (req.user) {
       const User = require('../models/User');
       const user = await User.findById(req.user.userId);
-      userDisplayName = user?.displayName || 'User';
+      userDisplayName = user?.displayName || user?.email?.split('@')[0] || 'User';
     }
 
     const rsvp = new RSVP({
