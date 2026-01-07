@@ -153,6 +153,14 @@ const AdminPanel = memo(({ onClose }) => {
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    // Handle DD-MM-YYYY format from setlist.fm
+    if (typeof dateString === 'string' && /^\d{2}-\d{2}-\d{4}$/.test(dateString)) {
+      const [day, month, year] = dateString.split('-');
+      return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric'
+      });
+    }
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -1570,6 +1578,13 @@ const UpcomingShowsTab = memo(({ token }) => {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
+    // Handle DD-MM-YYYY format from setlist.fm
+    if (typeof dateStr === 'string' && /^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+      const [day, month, year] = dateStr.split('-');
+      return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+      });
+    }
     return new Date(dateStr).toLocaleDateString('en-US', {
       weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
     });
