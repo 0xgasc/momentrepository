@@ -274,3 +274,57 @@ export const useMeetups = (performanceId, token) => {
 
   return { meetups, loading, fetchMeetups, createMeetup, joinMeetup, leaveMeetup };
 };
+
+// Guestbook hook - simple signatures, supports anonymous
+export const useGuestbook = (performanceId, token) => {
+  const [signatures, setSignatures] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchSignatures = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/performances/${performanceId}/guestbook`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setSignatures(data.signatures || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch guestbook:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [performanceId, token]);
+
+  const addSignature = useCallback(async (displayName, message, isAnonymous = false) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/performances/${performanceId}/guestbook`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ displayName, message, isAnonymous })
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        return { error: data.error || 'Failed to sign guestbook' };
+      }
+
+      await fetchSignatures();
+      return { success: true };
+    } catch (err) {
+      return { error: 'Network error' };
+    }
+  }, [performanceId, token, fetchSignatures]);
+
+  return { signatures, loading, fetchSignatures, addSignature };
+};

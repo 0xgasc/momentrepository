@@ -1,7 +1,7 @@
 // src/components/Performance/panels/CommunityPanel.jsx
-import React, { useState, memo } from 'react';
-import { MessageSquare, Users, Calendar, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import CommentsSection from './CommentsSection';
+import React, { useState, useEffect, memo } from 'react';
+import { PenLine, Users, Calendar, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import GuestbookSection from './GuestbookSection';
 import LiveChatSection from './LiveChatSection';
 import RSVPSection from './RSVPSection';
 import MeetupSection from './MeetupSection';
@@ -16,7 +16,7 @@ const isUpcomingShow = (eventDate) => {
 };
 
 const CommunityPanel = memo(({ performance, user, token }) => {
-  const [activeTab, setActiveTab] = useState('chat');
+  const [activeTab, setActiveTab] = useState('guestbook');
   const [isExpanded, setIsExpanded] = useState(false); // Collapsed by default
 
   const performanceId = performance?.id;
@@ -27,18 +27,18 @@ const CommunityPanel = memo(({ performance, user, token }) => {
   // Filter tabs based on whether show is upcoming or past
   const tabs = [
     {
-      id: 'chat',
-      label: 'Live Chat',
-      icon: MessageCircle,
-      description: 'Real-time chat (like Discord)',
+      id: 'guestbook',
+      label: 'Guestbook',
+      icon: PenLine,
+      description: 'Sign the guestbook - leave your mark!',
       available: true
     },
     {
-      id: 'comments',
-      label: 'Discussion',
-      icon: MessageSquare,
-      description: 'Threaded comments (like Reddit)',
-      available: true
+      id: 'chat',
+      label: 'Live Chat',
+      icon: MessageCircle,
+      description: 'Real-time chat for the show',
+      available: isUpcoming
     },
     {
       id: 'rsvp',
@@ -58,10 +58,12 @@ const CommunityPanel = memo(({ performance, user, token }) => {
 
   const availableTabs = tabs.filter(t => t.available);
 
-  // Reset to chat if current tab becomes unavailable
-  if (!availableTabs.find(t => t.id === activeTab)) {
-    setActiveTab('chat');
-  }
+  // Reset to guestbook if current tab becomes unavailable
+  useEffect(() => {
+    if (!availableTabs.find(t => t.id === activeTab)) {
+      setActiveTab('guestbook');
+    }
+  }, [availableTabs, activeTab]);
 
   return (
     <div className="community-panel bg-gray-900/50 rounded-lg border border-gray-800/50 overflow-hidden">
@@ -71,9 +73,9 @@ const CommunityPanel = memo(({ performance, user, token }) => {
         className="w-full flex items-center justify-between p-4 hover:bg-gray-800/30 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <MessageCircle size={18} className="text-blue-400" />
+          <PenLine size={18} className="text-blue-400" />
           <h3 className="text-lg font-semibold text-white">Community</h3>
-          <span className="text-sm text-gray-500">Chat & Discussion</span>
+          <span className="text-sm text-gray-500">Sign the Guestbook</span>
         </div>
         {isExpanded ? (
           <ChevronUp size={18} className="text-gray-400" />
@@ -119,15 +121,15 @@ const CommunityPanel = memo(({ performance, user, token }) => {
 
           {/* Tab Content */}
           <div className="p-4">
-            {activeTab === 'chat' && (
-              <LiveChatSection
+            {activeTab === 'guestbook' && (
+              <GuestbookSection
                 performanceId={performanceId}
                 user={user}
                 token={token}
               />
             )}
-            {activeTab === 'comments' && (
-              <CommentsSection
+            {activeTab === 'chat' && isUpcoming && (
+              <LiveChatSection
                 performanceId={performanceId}
                 user={user}
                 token={token}

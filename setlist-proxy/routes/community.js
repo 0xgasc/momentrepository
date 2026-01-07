@@ -9,6 +9,7 @@ const Comment = require('../models/Comment');
 const ChatMessage = require('../models/ChatMessage');
 const RSVP = require('../models/RSVP');
 const Meetup = require('../models/Meetup');
+const Guestbook = require('../models/Guestbook');
 
 // Rate limiters
 const chatLimiter = rateLimit({
@@ -284,6 +285,76 @@ router.post('/performances/:performanceId/chat',
     } catch (err) {
       console.error('❌ Post chat error:', err);
       res.status(500).json({ error: 'Failed to send message' });
+    }
+  }
+);
+
+// ============================================
+// GUESTBOOK - Simple signatures
+// ============================================
+
+// Get guestbook signatures for a performance
+router.get('/performances/:performanceId/guestbook', async (req, res) => {
+  try {
+    const { performanceId } = req.params;
+
+    const signatures = await Guestbook.find({ performanceId })
+      .sort({ createdAt: -1 })
+      .populate('user', 'displayName')
+      .lean();
+
+    res.json({
+      signatures: signatures.map(s => ({
+        _id: s._id,
+        displayName: s.isAnonymous ? s.displayName : (s.user?.displayName || s.displayName),
+        message: s.message,
+        createdAt: s.createdAt,
+        isAnonymous: s.isAnonymous,
+        user: s.isAnonymous ? null : s.user
+      }))
+    });
+  } catch (err) {
+    console.error('❌ Get guestbook error:', err);
+    res.status(500).json({ error: 'Failed to fetch guestbook' });
+  }
+});
+
+// Sign guestbook (anonymous allowed)
+router.post('/performances/:performanceId/guestbook',
+  [body('message').optional().trim().isLength({ max: 280 })],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { performanceId } = req.params;
+      const { displayName, message, isAnonymous } = req.body;
+
+      // Get display name
+      let finalDisplayName = displayName || 'Anonymous Fan';
+      if (req.user && !isAnonymous) {
+        const User = require('../models/User');
+        const user = await User.findById(req.user.userId);
+        finalDisplayName = user?.displayName || 'Fan';
+      }
+
+      const signature = new Guestbook({
+        performanceId,
+        user: (req.user && !isAnonymous) ? req.user.userId : null,
+        displayName: finalDisplayName,
+        message: message || null,
+        isAnonymous: isAnonymous || !req.user
+      });
+
+      await signature.save();
+
+      console.log(`✍️ New guestbook signature for performance ${performanceId}`);
+      res.status(201).json({ signature: signature.toObject() });
+    } catch (err) {
+      console.error('❌ Sign guestbook error:', err);
+      res.status(500).json({ error: 'Failed to sign guestbook' });
     }
   }
 );

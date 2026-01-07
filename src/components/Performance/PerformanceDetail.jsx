@@ -133,6 +133,15 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
         />
       )}
 
+      {/* Community Panel - Guestbook, Chat (upcoming only), RSVP, Meetups */}
+      <div className="mb-6">
+        <CommunityPanel
+          performance={fullPerformance}
+          user={user}
+          token={token}
+        />
+      </div>
+
       {/* Main Content Grid: Setlist + Upload */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Setlist Panel - Takes 2/3 width on desktop */}
@@ -154,15 +163,6 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
             onUploadOther={handleUploadOtherContent}
           />
         </div>
-      </div>
-
-      {/* Community Panel - Chat, Comments, RSVP, Meetups */}
-      <div className="mt-6">
-        <CommunityPanel
-          performance={fullPerformance}
-          user={user}
-          token={token}
-        />
       </div>
 
       {/* Modals */}
