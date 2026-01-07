@@ -46,21 +46,6 @@ const UMOTube = ({ user }) => {
   const [setlistError, setSetlistError] = useState('');
   const [setlistSuccess, setSetlistSuccess] = useState('');
 
-  // Guard: only admins can access
-  if (!isAdmin) {
-    return (
-      <div className="umo-container py-12 text-center">
-        <div className="max-w-md mx-auto">
-          <Youtube className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-          <h2 className="umo-heading umo-heading--lg mb-4">Admin Only</h2>
-          <p className="umo-text-secondary">
-            UMOTube is currently available to administrators only.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   const [formData, setFormData] = useState({
     youtubeUrl: '',
     performanceId: '',
@@ -76,8 +61,25 @@ const UMOTube = ({ user }) => {
   });
 
   useEffect(() => {
-    fetchVideos();
-  }, []);
+    if (isAdmin) {
+      fetchVideos();
+    }
+  }, [isAdmin]);
+
+  // Guard: only admins can access
+  if (!isAdmin) {
+    return (
+      <div className="umo-container py-12 text-center">
+        <div className="max-w-md mx-auto">
+          <Youtube className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <h2 className="umo-heading umo-heading--lg mb-4">Admin Only</h2>
+          <p className="umo-text-secondary">
+            UMOTube is currently available to administrators only.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const fetchVideos = async () => {
     try {
