@@ -16,7 +16,7 @@ const CacheStatusDisplay = memo(() => {
   if (!shouldShow) return null;
 
   return (
-    <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <div className="mb-6 bg-blue-50 border border-blue-200 rounded-sm p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <div className="text-blue-600 mr-3">📊</div>

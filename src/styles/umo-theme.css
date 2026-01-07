@@ -45,9 +45,9 @@
   --umo-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
   --umo-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6);
   
-  /* Borders - Sharp, Clean */
+  /* Borders - Square */
   --umo-border-width: 1px;
-  --umo-border-radius: 2px; /* Sharp, clean edges */
+  --umo-border-radius: 0; /* Square corners */
   --umo-border-color: var(--umo-steel-gray);
 }
 
@@ -447,13 +447,13 @@ body, html {
   border-radius: var(--umo-border-radius) !important;
 }
 
-/* Override excessive rounding from other CSS */
-.rounded-lg, .rounded-xl, .rounded-2xl {
-  border-radius: var(--umo-border-radius) !important;
+/* Override all rounded classes to square */
+.rounded, .rounded-sm, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl {
+  border-radius: 0 !important;
 }
 
 .rounded-full {
-  border-radius: 50% !important; /* Keep circular elements circular */
+  border-radius: 50% !important; /* Keep circular elements circular (spinners, avatars) */
 }
 
 /* Loading States */

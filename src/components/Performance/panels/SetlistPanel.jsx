@@ -49,7 +49,7 @@ const SetlistPanel = memo(({
 
   if (totalSongs === 0) {
     return (
-      <div className="setlist-panel bg-gray-900/50 rounded-xl p-4 border border-gray-800/50">
+      <div className="setlist-panel bg-gray-900/50 rounded-sm p-4 border border-gray-800/50">
         <div className="flex items-center gap-2 text-gray-500">
           <ListMusic size={18} />
           <span>No setlist available</span>
@@ -59,7 +59,7 @@ const SetlistPanel = memo(({
   }
 
   return (
-    <div className="setlist-panel bg-gray-900/50 rounded-xl border border-gray-800/50 overflow-hidden">
+    <div className="setlist-panel bg-gray-900/50 rounded-sm border border-gray-800/50 overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}

@@ -267,7 +267,7 @@ const AudioPlayer = memo(({
       />
 
       {/* Main horizontal player layout */}
-      <div className="flex items-center gap-3 bg-gray-900 rounded-lg p-3 border border-gray-700">
+      <div className="flex items-center gap-3 bg-gray-900 rounded-sm p-3 border border-gray-700">
         {/* Play button */}
         <button
           onClick={handlePlayPause}
@@ -415,7 +415,7 @@ const AudioPlayer = memo(({
 
       {/* Active timestamp comment display */}
       {activeComment && (
-        <div className="mt-2 px-3 py-2 bg-gray-800/80 border border-yellow-500/30 rounded-lg flex items-start gap-2">
+        <div className="mt-2 px-3 py-2 bg-gray-800/80 border border-yellow-500/30 rounded-sm flex items-start gap-2">
           <div className="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs rounded font-mono">
             {formatTime(activeComment.timestamp)}
           </div>

@@ -332,7 +332,7 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
         {/* Hovered comment tooltip */}
         {hoveredComment && (
           <div
-            className="absolute bottom-8 transform -translate-x-1/2 z-30 bg-black/90 backdrop-blur-xl rounded-lg px-3 py-2 max-w-64 shadow-xl border border-white/20"
+            className="absolute bottom-8 transform -translate-x-1/2 z-30 bg-black/90 backdrop-blur-xl rounded-sm px-3 py-2 max-w-64 shadow-xl border border-white/20"
             style={{ left: `${duration > 0 ? (hoveredComment.timestamp / duration) * 100 : 0}%` }}
           >
             <div className="text-[10px] text-cyan-400 font-medium">
@@ -346,7 +346,7 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
         {/* Comment input popup */}
         {showCommentInput && (
           <div
-            className="absolute bottom-10 transform -translate-x-1/2 z-40 bg-black/90 backdrop-blur-xl rounded-xl p-3 shadow-2xl border border-white/20 w-72"
+            className="absolute bottom-10 transform -translate-x-1/2 z-40 bg-black/90 backdrop-blur-xl rounded-sm p-3 shadow-2xl border border-white/20 w-72"
             style={{ left: `${commentInputPos * 100}%` }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -366,13 +366,13 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
                 onChange={(e) => setCommentText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSubmitComment()}
                 placeholder="Say something..."
-                className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-fuchsia-500/50 focus:bg-white/15 transition-all"
+                className="flex-1 bg-white/10 border border-white/20 rounded-sm px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-fuchsia-500/50 focus:bg-white/15 transition-all"
                 autoFocus
               />
               <button
                 onClick={handleSubmitComment}
                 disabled={!commentText.trim() || isSubmitting}
-                className="bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-400 hover:to-fuchsia-400 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed rounded-lg px-3 py-2 transition-all"
+                className="bg-gradient-to-r from-purple-500 to-fuchsia-500 hover:from-purple-400 hover:to-fuchsia-400 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed rounded-sm px-3 py-2 transition-all"
               >
                 <Send size={14} className="text-white" />
               </button>

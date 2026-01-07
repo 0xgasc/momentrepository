@@ -52,7 +52,7 @@ button, .btn {
   color: var(--text-primary) !important;
   font-family: inherit !important;
   font-weight: 500 !important;
-  border-radius: 8px !important;
+  border-radius: 0 !important;
   transition: all 0.2s ease !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
 }
@@ -70,7 +70,7 @@ input, textarea, select {
   border: 1px solid var(--border-color) !important;
   color: var(--text-primary) !important;
   font-family: inherit !important;
-  border-radius: 6px !important;
+  border-radius: 0 !important;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2) !important;
 }
 
@@ -84,7 +84,7 @@ input:focus, textarea:focus, select:focus {
 .card, .modal-content, .bg-white\/10 {
   background: var(--card-bg) !important;
   border: 1px solid var(--border-color) !important;
-  border-radius: 12px !important;
+  border-radius: 0 !important;
   box-shadow: 
     0 4px 12px rgba(0, 0, 0, 0.3),
     0 1px 3px rgba(0, 0, 0, 0.1) !important;
@@ -114,20 +114,20 @@ a:hover {
 /* Modern Progress Bars */
 .progress, .bg-blue-600 {
   background: linear-gradient(90deg, var(--blue-primary) 0%, var(--blue-light) 100%) !important;
-  border-radius: 6px !important;
+  border-radius: 0 !important;
 }
 
 /* Modern Success/Error Messages */
 .bg-green-500\/20 {
   background: rgba(72, 187, 120, 0.2) !important;
   border-color: var(--green-success) !important;
-  border-radius: 8px !important;
+  border-radius: 0 !important;
 }
 
 .bg-red-500\/20 {
   background: rgba(229, 62, 62, 0.2) !important;
   border-color: var(--primary-red) !important;
-  border-radius: 8px !important;
+  border-radius: 0 !important;
 }
 
 /* Modern Subtle Effects */
@@ -148,7 +148,7 @@ a:hover {
 .moment-card, .nft-card {
   background: var(--card-bg) !important;
   border: 1px solid var(--border-color) !important;
-  border-radius: 12px !important;
+  border-radius: 0 !important;
   transition: all 0.2s ease !important;
   position: relative !important;
 }
@@ -172,12 +172,12 @@ a:hover {
 
 ::-webkit-scrollbar-track {
   background: var(--dark-bg) !important;
-  border-radius: 4px !important;
+  border-radius: 0 !important;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--surface-bg) !important;
-  border-radius: 4px !important;
+  border-radius: 0 !important;
   transition: background 0.2s ease !important;
 }
 
@@ -195,14 +195,14 @@ a:hover {
 .rarity-legendary, .rarity-mythic {
   background: linear-gradient(135deg, var(--purple-accent) 0%, var(--blue-primary) 100%) !important;
   color: var(--text-primary) !important;
-  border-radius: 6px !important;
+  border-radius: 0 !important;
   font-weight: 600 !important;
 }
 
 .rarity-epic, .rarity-rare {
   background: var(--accent-gradient) !important;
   color: var(--text-primary) !important;
-  border-radius: 6px !important;
+  border-radius: 0 !important;
   font-weight: 600 !important;
 }
 
@@ -331,7 +331,7 @@ div {
 }
 
 /* Any remaining Tailwind utilities */
-.rounded, .rounded-lg, .rounded-xl, .rounded-full, .shadow, .shadow-lg, .shadow-xl {
+.rounded, .rounded-sm, .rounded-sm, .rounded-full, .shadow, .shadow-lg, .shadow-xl {
   background-color: transparent !important;
 }
 
@@ -660,7 +660,7 @@ div[style*="background: #ffffff"] {
   background: var(--shadow-gray) !important;
   color: var(--text-primary) !important;
   border: 1px solid var(--border-color) !important;
-  border-radius: 8px !important;
+  border-radius: 0 !important;
 }
 
 /* Rarity section - "⚡ Simple 3-Factor Rarity" */
@@ -672,7 +672,7 @@ div[style*="background: #ffffff"] {
   background: var(--shadow-gray) !important;
   color: var(--text-primary) !important;
   border: 1px solid var(--orange-accent) !important;
-  border-radius: 8px !important;
+  border-radius: 0 !important;
   padding: 12px !important;
 }
 
@@ -685,7 +685,7 @@ div[style*="background: #ffffff"] {
   background: var(--shadow-gray) !important;
   color: var(--text-primary) !important;
   border: 1px solid var(--green-success) !important;
-  border-radius: 8px !important;
+  border-radius: 0 !important;
   padding: 12px !important;
 }
 
@@ -697,7 +697,7 @@ div[style*="background: #ffffff"] {
   background: var(--shadow-gray) !important;
   color: var(--text-primary) !important;
   border: 1px solid var(--border-color) !important;
-  border-radius: 8px !important;
+  border-radius: 0 !important;
   margin: 8px 0 !important;
   padding: 12px !important;
 }
@@ -768,7 +768,7 @@ div[style*="background: #ffffff"] {
   background: var(--shadow-gray) !important;
   color: var(--text-primary) !important;
   border: 2px solid var(--purple-accent) !important;
-  border-radius: 8px !important;
+  border-radius: 0 !important;
   padding: 16px !important;
   margin: 12px 0 !important;
 }
@@ -781,7 +781,7 @@ div[style*="background: #ffffff"] {
   background: var(--shadow-gray) !important;
   color: var(--text-primary) !important;
   border: 1px solid var(--orange-accent) !important;
-  border-radius: 8px !important;
+  border-radius: 0 !important;
   padding: 12px !important;
 }
 
@@ -805,7 +805,7 @@ div[style*="background: #ffffff"] {
   background: var(--shadow-gray) !important;
   color: var(--text-primary) !important;
   border: 1px solid var(--primary-red) !important;
-  border-radius: 6px !important;
+  border-radius: 0 !important;
   padding: 8px !important;
 }
 
@@ -828,7 +828,7 @@ div[style*="background: #ffffff"] {
   background: var(--shadow-gray) !important;
   color: var(--text-primary) !important;
   border: 1px solid var(--green-success) !important;
-  border-radius: 6px !important;
+  border-radius: 0 !important;
   padding: 8px !important;
 }
 
@@ -840,7 +840,7 @@ div[style*="background: #ffffff"] {
   background: var(--shadow-gray) !important;
   color: var(--text-primary) !important;
   border: 1px solid currentColor !important;
-  border-radius: 6px !important;
+  border-radius: 0 !important;
   padding: 8px !important;
 }
 
@@ -937,7 +937,7 @@ div[style*="background: #ffffff"] {
   min-width: 400px !important;
   background: var(--surface-gradient) !important;
   border: 2px solid var(--purple-accent) !important;
-  border-radius: 12px !important;
+  border-radius: 0 !important;
   box-shadow: 
     0 0 30px rgba(45, 27, 105, 0.8),
     inset 0 1px 0 rgba(168, 85, 247, 0.2) !important;
@@ -998,7 +998,7 @@ div[style*="background: #ffffff"] {
   border: 1px solid var(--purple-accent) !important;
   color: var(--text-primary) !important;
   padding: 8px 16px !important;
-  border-radius: 6px !important;
+  border-radius: 0 !important;
   font-family: 'Courier New', monospace !important;
   text-transform: uppercase !important;
   letter-spacing: 1px !important;

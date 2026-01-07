@@ -15,7 +15,7 @@ const UploadPanel = memo(({
   // If user is not logged in, show login prompt
   if (!user) {
     return (
-      <div className="upload-panel bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-xl p-5 border border-blue-800/30">
+      <div className="upload-panel bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-sm p-5 border border-blue-800/30">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center">
             <Upload size={20} className="text-blue-400" />
@@ -48,7 +48,7 @@ const UploadPanel = memo(({
   };
 
   return (
-    <div className="upload-panel bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-xl p-5 border border-blue-800/30">
+    <div className="upload-panel bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-sm p-5 border border-blue-800/30">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
@@ -68,7 +68,7 @@ const UploadPanel = memo(({
         <div className="relative">
           <button
             onClick={() => setShowSongPicker(!showSongPicker)}
-            className={`w-full flex items-center justify-between px-3 py-2.5 bg-gray-800/50 border rounded-lg text-left hover:bg-gray-800 transition-colors ${
+            className={`w-full flex items-center justify-between px-3 py-2.5 bg-gray-800/50 border rounded-sm text-left hover:bg-gray-800 transition-colors ${
               !selectedSong && showSongPicker ? 'border-yellow-500/50' : 'border-gray-700/50'
             }`}
           >
@@ -79,7 +79,7 @@ const UploadPanel = memo(({
           </button>
 
           {showSongPicker && songs.length > 0 && (
-            <div className="absolute z-20 w-full mt-1 max-h-48 overflow-y-auto bg-gray-800 border border-gray-700 rounded-lg shadow-xl">
+            <div className="absolute z-20 w-full mt-1 max-h-48 overflow-y-auto bg-gray-800 border border-gray-700 rounded-sm shadow-xl">
               {songs.map((song, i) => (
                 <button
                   key={i}
@@ -101,7 +101,7 @@ const UploadPanel = memo(({
       <div className="grid grid-cols-2 gap-3">
         <button
           onClick={handleUploadSong}
-          className={`flex flex-col items-center gap-2 p-4 border rounded-lg transition-all hover:scale-[1.02] ${
+          className={`flex flex-col items-center gap-2 p-4 border rounded-sm transition-all hover:scale-[1.02] ${
             selectedSong
               ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/30'
               : 'bg-gray-700/20 hover:bg-gray-700/30 border-gray-600/30'
@@ -116,7 +116,7 @@ const UploadPanel = memo(({
 
         <button
           onClick={() => onUploadOther?.()}
-          className="flex flex-col items-center gap-2 p-4 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded-lg transition-all hover:scale-[1.02]"
+          className="flex flex-col items-center gap-2 p-4 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded-sm transition-all hover:scale-[1.02]"
         >
           <Film size={24} className="text-purple-400" />
           <span className="text-sm text-purple-300 font-medium">Other Content</span>

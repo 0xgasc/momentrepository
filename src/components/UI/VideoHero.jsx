@@ -483,7 +483,7 @@ const VideoHero = memo(({ onMomentClick }) => {
   // Minimized view - mobile optimized
   if (isMinimized) {
     return (
-      <div className="mb-4 sm:mb-6 bg-gray-900 border border-gray-700 rounded-lg overflow-hidden">
+      <div className="mb-4 sm:mb-6 bg-gray-900 border border-gray-700 rounded-sm overflow-hidden">
         <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3">
           <div className="flex-1 min-w-0 cursor-pointer" onClick={handleInfoClick}>
             {moment && (
@@ -537,7 +537,7 @@ const VideoHero = memo(({ onMomentClick }) => {
   return (
     <div
       ref={containerRef}
-      className={`video-hero relative mb-4 sm:mb-6 overflow-hidden rounded-lg bg-black ${isFullscreen ? 'fullscreen-mode' : ''}`}
+      className={`video-hero relative mb-4 sm:mb-6 overflow-hidden rounded-sm bg-black ${isFullscreen ? 'fullscreen-mode' : ''}`}
       onMouseMove={resetHideTimer}
       onMouseEnter={() => setShowControls(true)}
       onTouchStart={resetHideTimer}

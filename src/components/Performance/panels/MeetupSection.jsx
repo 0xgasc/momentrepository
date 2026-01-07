@@ -45,13 +45,13 @@ const MeetupCard = memo(({ meetup, user, onJoin, onLeave }) => {
   };
 
   return (
-    <div className="meetup-card bg-gray-800/50 rounded-xl border border-gray-700/50 overflow-hidden">
+    <div className="meetup-card bg-gray-800/50 rounded-sm border border-gray-700/50 overflow-hidden">
       {/* Header */}
       <div
         onClick={() => setExpanded(!expanded)}
         className="flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-800/30 transition-colors"
       >
-        <div className={`p-2 rounded-lg border ${colorClasses[typeConfig.color]}`}>
+        <div className={`p-2 rounded-sm border ${colorClasses[typeConfig.color]}`}>
           <Icon size={20} />
         </div>
 
@@ -134,7 +134,7 @@ const MeetupCard = memo(({ meetup, user, onJoin, onLeave }) => {
               </div>
               <div className="space-y-2">
                 {meetup.replies.map((reply, idx) => (
-                  <div key={idx} className="text-sm bg-gray-900/50 rounded-lg p-2">
+                  <div key={idx} className="text-sm bg-gray-900/50 rounded-sm p-2">
                     <span className="text-gray-400 text-xs">{reply.user?.displayName}:</span>
                     <p className="text-gray-300">{reply.text}</p>
                   </div>
@@ -149,7 +149,7 @@ const MeetupCard = memo(({ meetup, user, onJoin, onLeave }) => {
               isJoined ? (
                 <button
                   onClick={() => onLeave(meetup._id)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg text-sm transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-sm text-sm transition-colors"
                 >
                   <LogOut size={14} />
                   Leave
@@ -158,7 +158,7 @@ const MeetupCard = memo(({ meetup, user, onJoin, onLeave }) => {
                 <button
                   onClick={() => onJoin(meetup._id)}
                   disabled={meetup.spotsRemaining === 0}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg text-sm transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-sm text-sm transition-colors"
                 >
                   <UserPlus size={14} />
                   {meetup.spotsRemaining === 0 ? 'Full' : 'Join'}
@@ -195,7 +195,7 @@ const CreateMeetupForm = memo(({ onSubmit, onCancel }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-gray-800/50 rounded-xl border border-gray-700">
+    <form onSubmit={handleSubmit} className="p-4 bg-gray-800/50 rounded-sm border border-gray-700">
       <h4 className="font-medium text-white mb-4">Create a Meetup</h4>
 
       {/* Type selection */}
@@ -210,7 +210,7 @@ const CreateMeetupForm = memo(({ onSubmit, onCancel }) => {
                 type="button"
                 onClick={() => setType(t.id)}
                 className={`
-                  flex items-center gap-2 p-2 rounded-lg border text-sm transition-colors
+                  flex items-center gap-2 p-2 rounded-sm border text-sm transition-colors
                   ${type === t.id
                     ? 'bg-blue-600/20 border-blue-500 text-blue-400'
                     : 'bg-gray-900/50 border-gray-700 text-gray-400 hover:text-white'
@@ -233,7 +233,7 @@ const CreateMeetupForm = memo(({ onSubmit, onCancel }) => {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Pre-show drinks at..."
-          className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-gray-900/50 border border-gray-700 rounded-sm px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           required
           maxLength={100}
         />
@@ -246,7 +246,7 @@ const CreateMeetupForm = memo(({ onSubmit, onCancel }) => {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="More details..."
-          className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-gray-900/50 border border-gray-700 rounded-sm px-3 py-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
           rows={2}
           maxLength={1000}
         />
@@ -260,7 +260,7 @@ const CreateMeetupForm = memo(({ onSubmit, onCancel }) => {
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           placeholder="Bar name, address..."
-          className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-gray-900/50 border border-gray-700 rounded-sm px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           maxLength={200}
         />
       </div>
@@ -272,7 +272,7 @@ const CreateMeetupForm = memo(({ onSubmit, onCancel }) => {
           type="datetime-local"
           value={time}
           onChange={(e) => setTime(e.target.value)}
-          className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-gray-900/50 border border-gray-700 rounded-sm px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -286,7 +286,7 @@ const CreateMeetupForm = memo(({ onSubmit, onCancel }) => {
           placeholder="Leave empty for unlimited"
           min="2"
           max="100"
-          className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-gray-900/50 border border-gray-700 rounded-sm px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
@@ -295,7 +295,7 @@ const CreateMeetupForm = memo(({ onSubmit, onCancel }) => {
         <button
           type="submit"
           disabled={!title.trim()}
-          className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors"
+          className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-sm transition-colors"
         >
           Create Meetup
         </button>
@@ -386,7 +386,7 @@ const MeetupSection = memo(({ performanceId, user, token }) => {
         {user && !showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-sm transition-colors"
           >
             <Plus size={16} />
             New
@@ -403,7 +403,7 @@ const MeetupSection = memo(({ performanceId, user, token }) => {
 
       {/* Login prompt */}
       {!user && (
-        <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-sm text-yellow-400">
+        <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-sm text-sm text-yellow-400">
           Log in to create or join meetups
         </div>
       )}

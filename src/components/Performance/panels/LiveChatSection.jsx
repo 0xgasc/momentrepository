@@ -10,7 +10,7 @@ const formatTime = (date) => {
 const ChatMessage = memo(({ message, isOwn }) => (
   <div className={`flex gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
     <div className={`
-      max-w-[80%] px-3 py-2 rounded-xl
+      max-w-[80%] px-3 py-2 rounded-sm
       ${isOwn
         ? 'bg-blue-600 text-white rounded-br-sm'
         : 'bg-gray-700/50 text-gray-200 rounded-bl-sm'
@@ -136,7 +136,7 @@ const LiveChatSection = memo(({ performanceId, user, token }) => {
 
       {/* Anonymous name input */}
       {showNameInput && !user && (
-        <div className="mt-2 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+        <div className="mt-2 p-3 bg-gray-800/50 rounded-sm border border-gray-700">
           <div className="flex items-center gap-2 mb-2">
             <User size={14} className="text-gray-400" />
             <span className="text-sm text-gray-300">Enter a display name</span>
@@ -147,13 +147,13 @@ const LiveChatSection = memo(({ performanceId, user, token }) => {
               value={anonName}
               onChange={(e) => setAnonName(e.target.value)}
               placeholder="Your name..."
-              className="flex-1 bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 bg-gray-900/50 border border-gray-700 rounded-sm px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               maxLength={50}
               autoFocus
             />
             <button
               onClick={handleSetName}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-sm transition-colors"
             >
               Join
             </button>
@@ -171,13 +171,13 @@ const LiveChatSection = memo(({ performanceId, user, token }) => {
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder={user ? "Type a message..." : `Chat as ${anonName || 'Anonymous'}...`}
-            className="flex-1 bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 bg-gray-800/50 border border-gray-700 rounded-sm px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             maxLength={500}
           />
           <button
             onClick={handleSend}
             disabled={!input.trim()}
-            className="p-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-lg transition-colors"
+            className="p-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-sm transition-colors"
           >
             <Send size={18} />
           </button>

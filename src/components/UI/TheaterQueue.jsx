@@ -58,7 +58,7 @@ const TheaterQueue = () => {
 
   return (
     <>
-      <div className="theater-queue fixed bottom-4 right-4 z-40 w-72 sm:w-80 bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg shadow-2xl overflow-hidden">
+      <div className="theater-queue fixed bottom-4 right-4 z-40 w-72 sm:w-80 bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-sm shadow-2xl overflow-hidden">
         {/* Header - mobile-friendly touch targets */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}

@@ -173,7 +173,7 @@ const AdminPanel = memo(({ onClose }) => {
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-8 max-w-md">
+        <div className="bg-white rounded-sm p-8 max-w-md">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
           <div className="text-center mt-4">Loading admin panel...</div>
         </div>
@@ -184,7 +184,7 @@ const AdminPanel = memo(({ onClose }) => {
   if (error && error.includes('Access denied')) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-8 max-w-md text-center">
+        <div className="bg-white rounded-sm p-8 max-w-md text-center">
           <div className="text-red-500 text-6xl mb-4">🚫</div>
           <div className="text-xl font-bold text-gray-800 mb-2">Access Denied</div>
           <div className="text-gray-600 mb-4">Administrator privileges required</div>
@@ -201,7 +201,7 @@ const AdminPanel = memo(({ onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-gray-300" style={{ backgroundColor: 'white' }}>
+      <div className="bg-white rounded-sm shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-gray-300" style={{ backgroundColor: 'white' }}>
         {/* Header */}
         <div className="bg-gray-100 px-6 py-4 border-b border-gray-300 flex items-center justify-between" style={{ backgroundColor: '#e5e7eb' }}>
           <div>
@@ -321,7 +321,7 @@ const UsersTab = memo(({ users, assignRole, getRoleDisplay, formatDate }) => {
         {Object.entries(roleStats).map(([role, count]) => {
           const roleDisplay = getRoleDisplay(role);
           return (
-            <div key={role} className="bg-gray-50 rounded-lg p-4">
+            <div key={role} className="bg-gray-50 rounded-sm p-4">
               <div className="flex items-center gap-2">
                 <div>
                   <div className="font-medium">{count}</div>
@@ -339,7 +339,7 @@ const UsersTab = memo(({ users, assignRole, getRoleDisplay, formatDate }) => {
         {users.map(user => {
           const roleDisplay = getRoleDisplay(user.role);
           return (
-            <div key={user._id} className="border border-gray-200 rounded-lg p-4">
+            <div key={user._id} className="border border-gray-200 rounded-sm p-4">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
@@ -479,7 +479,7 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
       ) : (
         <div className="space-y-4">
           {pendingMoments.map(moment => (
-            <div key={moment._id} className="border border-gray-200 rounded-lg p-4 bg-yellow-50">
+            <div key={moment._id} className="border border-gray-200 rounded-sm p-4 bg-yellow-50">
               <div className="flex items-start gap-4">
                 {/* Media Preview */}
                 {moment.mediaUrl && (
@@ -870,28 +870,28 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
       </div>
       
       {/* Settings Summary - Moved to top */}
-      <div className="bg-white rounded-lg p-6 border border-gray-200">
+      <div className="bg-white rounded-sm p-6 border border-gray-200">
         <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           📊 Settings Summary
         </h4>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-          <div className={`p-3 rounded-lg ${localSettings?.web3Enabled ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>
+          <div className={`p-3 rounded-sm ${localSettings?.web3Enabled ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>
             <div className="text-2xl">{localSettings?.web3Enabled ? '🌐' : '🚫'}</div>
             <div className="text-sm font-medium">Web3</div>
             <div className="text-xs">{localSettings?.web3Enabled ? 'Enabled' : 'Disabled'}</div>
           </div>
-          <div className={`p-3 rounded-lg ${localSettings?.uploadsEnabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+          <div className={`p-3 rounded-sm ${localSettings?.uploadsEnabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
             <div className="text-2xl">{localSettings?.uploadsEnabled ? '📤' : '🚫'}</div>
             <div className="text-sm font-medium">Uploads</div>
             <div className="text-xs">{localSettings?.uploadsEnabled ? 'Enabled' : 'Disabled'}</div>
           </div>
-          <div className={`p-3 rounded-lg ${!localSettings?.maintenanceMode ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          <div className={`p-3 rounded-sm ${!localSettings?.maintenanceMode ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
             <div className="text-2xl">{!localSettings?.maintenanceMode ? '✅' : '🔧'}</div>
             <div className="text-sm font-medium">Status</div>
             <div className="text-xs">{!localSettings?.maintenanceMode ? 'Live' : 'Maintenance'}</div>
           </div>
-          <div className={`p-3 rounded-lg ${!localSettings?.autoApprovalEnabled ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}`}>
+          <div className={`p-3 rounded-sm ${!localSettings?.autoApprovalEnabled ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'}`}>
             <div className="text-lg font-semibold">{!localSettings?.autoApprovalEnabled ? 'Manual Review' : 'Auto Approval'}</div>
             <div className="text-sm font-medium">Moderation</div>
             <div className="text-xs">{!localSettings?.autoApprovalEnabled ? 'Manual' : 'Auto'}</div>
@@ -901,7 +901,7 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
       
       {/* Cache Status */}
       {cacheStatus && (
-        <div className="bg-amber-50 rounded-lg p-6 border border-amber-200">
+        <div className="bg-amber-50 rounded-sm p-6 border border-amber-200">
           <h4 className="text-lg font-semibold text-amber-900 mb-4 flex items-center gap-2">
             📊 Cache Status
           </h4>
@@ -967,7 +967,7 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
       )}
       
       {/* Web3/NFT Settings */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-sm p-6 border border-purple-200">
         <h4 className="text-lg font-semibold text-purple-900 mb-4 flex items-center gap-2">
           🌐 Web3 & NFT Features
         </h4>
@@ -1010,7 +1010,7 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
       </div>
       
       {/* Platform Controls */}
-      <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+      <div className="bg-gray-50 rounded-sm p-6 border border-gray-200">
         <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           🎛️ Platform Controls
         </h4>
@@ -1076,7 +1076,7 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
       </div>
       
       {/* Platform Information */}
-      <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
+      <div className="bg-blue-50 rounded-sm p-6 border border-blue-200">
         <h4 className="text-lg font-semibold text-blue-900 mb-4 flex items-center gap-2">
           📋 Platform Information
         </h4>
@@ -1260,7 +1260,7 @@ const MigrationTab = memo(({ moments, setMoments, total, setTotal, token }) => {
 
       {bulkMode ? (
         <div className="space-y-4">
-          <div className="bg-gray-50 p-4 rounded-lg">
+          <div className="bg-gray-50 p-4 rounded-sm">
             <h4 className="font-medium mb-2">Bulk Migration</h4>
             <p className="text-sm text-gray-600 mb-3">
               Paste JSON array with format: <code className="bg-gray-200 px-1 rounded">[{`{ "momentId": "...", "mediaUrl": "..." }`}]</code>
@@ -1293,7 +1293,7 @@ const MigrationTab = memo(({ moments, setMoments, total, setTotal, token }) => {
               </div>
 
               {moments.map(moment => (
-                <div key={moment._id} className="border border-gray-200 rounded-lg p-4">
+                <div key={moment._id} className="border border-gray-200 rounded-sm p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900 truncate">{moment.songName || 'Unknown Song'}</div>
@@ -1653,7 +1653,7 @@ const UpcomingShowsTab = memo(({ token }) => {
 
       {/* Bulk Import Section */}
       {showBulkImport && (
-        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+        <div className="bg-purple-50 p-4 rounded-sm border border-purple-200">
           <h4 className="font-medium mb-2">Paste Tour Dates</h4>
           <p className="text-sm text-gray-600 mb-3">
             Copy tour dates from UMO website and paste below. Format: Date, City/Country, Venue (each on separate lines).
@@ -1705,7 +1705,7 @@ tickets
 
       {/* Add/Edit Form */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-gray-50 p-4 rounded-lg border space-y-4">
+        <form onSubmit={handleSubmit} className="bg-gray-50 p-4 rounded-sm border space-y-4">
           <h4 className="font-medium">{editingShow ? 'Edit Show' : 'Add New Show'}</h4>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -16,7 +16,7 @@ const ShowHeaderPanel = memo(({
   return (
     <div className="show-header-panel relative mb-4">
       {/* Glass background */}
-      <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-white/10 to-white/5 backdrop-blur-xl rounded-xl border border-white/10 shadow-lg shadow-black/20" />
+      <div className="absolute inset-0 bg-gradient-to-r from-white/5 via-white/10 to-white/5 backdrop-blur-xl rounded-sm border border-white/10 shadow-lg shadow-black/20" />
 
       {/* Content */}
       <div className="relative px-4 py-3">

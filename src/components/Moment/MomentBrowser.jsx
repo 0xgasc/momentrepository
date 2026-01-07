@@ -260,7 +260,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
                 <div className="text-gray-500 text-sm mb-4">No moments match your search "{searchQuery}"</div>
                 <button
                   onClick={clearSearch}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-sm hover:bg-blue-700 transition-colors"
                 >
                   Clear Search
                 </button>
@@ -294,7 +294,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
           style={{ backdropFilter: 'blur(4px)' }}
         >
           <div
-            className="rounded-lg shadow-xl max-w-lg w-full p-6 relative"
+            className="rounded-sm shadow-xl max-w-lg w-full p-6 relative"
             onClick={(e) => e.stopPropagation()}
             style={{
               maxHeight: '90vh',
@@ -352,7 +352,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
                 </div>
               </div>
 
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="mt-6 p-4 bg-blue-50 rounded-sm border border-blue-200">
                 <p className="text-sm text-blue-800">
                   <strong>💡 Tip:</strong> Moments can be videos or photos from UMO concerts. Share your favorite performances with fans worldwide!
                 </p>
@@ -361,7 +361,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
 
             <button
               onClick={() => setShowHelpModal(false)}
-              className="mt-6 w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium mobile-touch-target"
+              className="mt-6 w-full bg-blue-600 text-white py-3 rounded-sm hover:bg-blue-700 transition-colors font-medium mobile-touch-target"
               style={{ minHeight: '44px' }}
             >
               Got it!
@@ -464,7 +464,7 @@ const MomentHeader = memo(({
           value={searchQuery}
           onChange={onSearchChange}
           placeholder="Search songs, venues, cities, or uploaders..."
-          className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+          className="w-full px-4 py-2 text-sm border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
         />
         <div className="absolute right-3 top-2 flex items-center gap-1">
           {searchQuery && (
@@ -486,7 +486,7 @@ const MomentHeader = memo(({
         <select
           value={sortBy}
           onChange={(e) => onSortChange(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          className="px-3 py-2 text-sm border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
         >
           <option value="random">Random</option>
           <option value="newest">Newest First</option>
@@ -498,7 +498,7 @@ const MomentHeader = memo(({
 
         <button
           onClick={onToggleSortDirection}
-          className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+          className="px-3 py-2 text-sm border border-gray-300 rounded-sm hover:bg-gray-100 transition-colors"
           title={`Sort ${sortDirection === 'asc' ? 'Descending' : 'Ascending'}`}
         >
           {sortDirection === 'asc' ? '↑' : '↓'}
@@ -523,7 +523,7 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200 moment-card group" style={{ minHeight: '300px' }}>
+    <div className="bg-white rounded-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200 moment-card group" style={{ minHeight: '300px' }}>
       {/* Media Preview - Clickable */}
       {moment.mediaUrl && (
         <div

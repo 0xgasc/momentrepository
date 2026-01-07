@@ -80,7 +80,7 @@ const MomentThumbnailCard = memo(({
       <button
         onClick={() => onClick?.(moment)}
         className={`
-          flex items-center gap-2 px-3 py-1.5 rounded-lg
+          flex items-center gap-2 px-3 py-1.5 rounded-sm
           bg-gradient-to-r ${rarity.bg} ${rarity.border} border
           hover:scale-105 transition-all duration-200
           text-sm
@@ -107,7 +107,7 @@ const MomentThumbnailCard = memo(({
         relative group flex flex-col
         w-full min-w-[140px] max-w-[180px]
         bg-gradient-to-br ${rarity.bg} ${rarity.border} border
-        rounded-xl overflow-hidden
+        rounded-sm overflow-hidden
         hover:scale-[1.02] hover:shadow-lg hover:shadow-black/20
         transition-all duration-200
       `}

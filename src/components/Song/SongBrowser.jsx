@@ -240,7 +240,7 @@ SongGrid.displayName = 'SongGrid';
 const SongCard = memo(({ song, onSelect }) => (
   <button
     onClick={onSelect}
-    className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-blue-300 text-left group"
+    className="p-4 bg-white rounded-sm shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 hover:border-blue-300 text-left group"
   >
     <div className="font-medium text-gray-900 mb-3 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">
       {song.songName}
@@ -288,7 +288,7 @@ const NoResultsState = memo(({ searchQuery, onClearSearch }) => (
         <p className="mb-4">No songs match your search "{searchQuery}"</p>
         <button
           onClick={onClearSearch}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-4 py-2 bg-blue-600 text-white rounded-sm hover:bg-blue-700 transition-colors"
         >
           Clear Search
         </button>

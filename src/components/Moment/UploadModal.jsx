@@ -933,7 +933,7 @@ const SimplifiedUploadForm = memo(({
 
       {/* Audio-Specific Metadata - Only show for audio files */}
       {file?.type?.startsWith('audio/') && (
-        <div className="umo-card p-4 mb-6 border border-blue-600/30 bg-blue-900/10 rounded-lg">
+        <div className="umo-card p-4 mb-6 border border-blue-600/30 bg-blue-900/10 rounded-sm">
           <h3 className="text-lg font-semibold umo-text-primary mb-4 flex items-center gap-2">
             <span>🎙️</span> Recording Details
           </h3>

@@ -102,7 +102,7 @@ const LoginModal = memo(({ onClose }) => {
   };
 
   return (
-    <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+    <div className="bg-white p-8 rounded-sm shadow-lg w-full max-w-md">
       <div className="text-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900">
           {mode === 'login' ? 'Welcome Back' : 
@@ -148,7 +148,7 @@ const LoginModal = memo(({ onClose }) => {
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="How others will see you"
               required
             />
@@ -163,7 +163,7 @@ const LoginModal = memo(({ onClose }) => {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="your@email.com"
             required
             disabled={mode === 'userNotFound' && loading}
@@ -178,7 +178,7 @@ const LoginModal = memo(({ onClose }) => {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder={mode === 'login' ? 'Enter your password' : 'Create a password (min 6 characters)'}
             required
             minLength={mode !== 'login' ? 6 : undefined}
@@ -188,7 +188,7 @@ const LoginModal = memo(({ onClose }) => {
         <button
           type="submit"
           disabled={loading || !email || !password || ((mode === 'register' || mode === 'userNotFound') && !displayName)}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {loading ? (
             <div className="flex items-center justify-center">

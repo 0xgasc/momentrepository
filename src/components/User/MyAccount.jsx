@@ -84,7 +84,7 @@ const MyAccount = memo(({ onClose }) => {
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{ zIndex: 9999 }}>
-        <div className="bg-white rounded-lg p-8 max-w-md border border-gray-300">
+        <div className="bg-white rounded-sm p-8 max-w-md border border-gray-300">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
           <div className="text-center mt-4">Loading account...</div>
         </div>
@@ -97,7 +97,7 @@ const MyAccount = memo(({ onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" style={{ zIndex: 9999 }}>
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-300" style={{ backgroundColor: 'white' }}>
+      <div className="bg-white rounded-sm shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-300" style={{ backgroundColor: 'white' }}>
         {/* Header */}
         <div className="bg-gray-50 px-6 py-4 border-b flex items-center justify-between" style={{ backgroundColor: '#f9fafb' }}>
           <div className="flex items-center gap-3">
@@ -238,7 +238,7 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
   return (
     <div className="space-y-6">
       {/* Account Info Section */}
-      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
+      <div className="bg-gray-50 rounded-sm p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900" style={{ color: '#111827' }}>Account Information</h3>
           {!isEditing && (
@@ -334,7 +334,7 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
       </div>
 
       {/* Social Links Section */}
-      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
+      <div className="bg-gray-50 rounded-sm p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
         <h3 className="text-lg font-semibold mb-4 text-gray-900" style={{ color: '#111827' }}>
           Social Links
           <span className="text-sm font-normal text-gray-500 ml-2">Connect with other fans</span>
@@ -375,7 +375,7 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
             <button
               onClick={handleSaveProfile}
               disabled={saving}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
@@ -394,7 +394,7 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
                   }
                 });
               }}
-              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+              className="px-4 py-2 bg-gray-500 text-white rounded-sm hover:bg-gray-600 transition-colors"
             >
               Cancel
             </button>
@@ -403,13 +403,13 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
       </div>
 
       {/* Logout Button */}
-      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
+      <div className="bg-gray-50 rounded-sm p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
         <button
           onClick={() => {
             logout();
             onClose();
           }}
-          className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          className="w-full px-4 py-2 bg-red-600 text-white rounded-sm hover:bg-red-700 transition-colors"
         >
           Logout
         </button>
@@ -512,7 +512,7 @@ const UploadsTab = memo(({ moments, getStatusDisplay, formatDate }) => {
             const isDeleting_this = isDeleting === moment._id;
             
             return (
-              <div key={moment._id} className="border border-gray-200 rounded-lg p-4 bg-white">
+              <div key={moment._id} className="border border-gray-200 rounded-sm p-4 bg-white">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <h4 className="font-medium text-gray-900">{moment.songName}</h4>
@@ -826,7 +826,7 @@ const StatusTab = memo(({ moments, status, getStatusDisplay, formatDate }) => {
             const isDeleting_this = isDeleting === moment._id;
             
             return (
-              <div key={moment._id} className="border border-gray-200 rounded-lg p-4 bg-white">
+              <div key={moment._id} className="border border-gray-200 rounded-sm p-4 bg-white">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <h4 className="font-medium text-gray-900">{moment.songName}</h4>

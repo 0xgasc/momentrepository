@@ -74,9 +74,9 @@ const RSVPSection = memo(({ performanceId, user, token }) => {
   return (
     <div className="rsvp-section">
       {/* Counter */}
-      <div className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-green-900/30 to-emerald-900/30 rounded-xl border border-green-800/50">
+      <div className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-green-900/30 to-emerald-900/30 rounded-sm border border-green-800/50">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-green-500/20 rounded-lg">
+          <div className="p-2 bg-green-500/20 rounded-sm">
             <Users size={24} className="text-green-400" />
           </div>
           <div>
@@ -90,7 +90,7 @@ const RSVPSection = memo(({ performanceId, user, token }) => {
         {currentRsvp ? (
           <button
             onClick={handleRemoveRSVP}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors border border-red-600/50"
+            className="flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-sm transition-colors border border-red-600/50"
           >
             <UserMinus size={16} />
             Cancel RSVP
@@ -98,7 +98,7 @@ const RSVPSection = memo(({ performanceId, user, token }) => {
         ) : (
           <button
             onClick={handleRSVP}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-sm transition-colors"
           >
             <UserPlus size={16} />
             I'm Going!
@@ -108,7 +108,7 @@ const RSVPSection = memo(({ performanceId, user, token }) => {
 
       {/* Anonymous form */}
       {showForm && !user && !currentRsvp && (
-        <div className="mb-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+        <div className="mb-4 p-4 bg-gray-800/50 rounded-sm border border-gray-700">
           <div className="mb-3">
             <label className="block text-sm text-gray-400 mb-1">Display name</label>
             <input
@@ -116,7 +116,7 @@ const RSVPSection = memo(({ performanceId, user, token }) => {
               value={anonName}
               onChange={(e) => setAnonName(e.target.value)}
               placeholder="Your name..."
-              className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full bg-gray-900/50 border border-gray-700 rounded-sm px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
               maxLength={50}
             />
           </div>
@@ -127,14 +127,14 @@ const RSVPSection = memo(({ performanceId, user, token }) => {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Can't wait for this show!"
-              className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full bg-gray-900/50 border border-gray-700 rounded-sm px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
               maxLength={200}
             />
           </div>
           <div className="flex gap-2">
             <button
               onClick={handleRSVP}
-              className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors"
+              className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-sm transition-colors"
             >
               Confirm RSVP
             </button>
@@ -159,7 +159,7 @@ const RSVPSection = memo(({ performanceId, user, token }) => {
           rsvps.map((rsvp, idx) => (
             <div
               key={rsvp.id || idx}
-              className="flex items-start gap-3 p-3 bg-gray-800/30 rounded-lg"
+              className="flex items-start gap-3 p-3 bg-gray-800/30 rounded-sm"
             >
               <div className="p-1.5 bg-green-500/20 rounded-full">
                 <Check size={14} className="text-green-400" />

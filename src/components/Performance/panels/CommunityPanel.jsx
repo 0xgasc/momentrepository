@@ -66,7 +66,7 @@ const CommunityPanel = memo(({ performance, user, token }) => {
   if (!performanceId) return null;
 
   return (
-    <div className="community-panel bg-gray-900/50 rounded-lg border border-gray-800/50 overflow-hidden">
+    <div className="community-panel bg-gray-900/50 rounded-sm border border-gray-800/50 overflow-hidden">
       {/* Collapsible Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}

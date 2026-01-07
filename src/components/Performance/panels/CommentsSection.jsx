@@ -98,13 +98,13 @@ const CommentItem = memo(({ comment, onVote, onReply, user, depth = 0 }) => {
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
                 placeholder="Write a reply..."
-                className="w-full bg-gray-800/50 border border-gray-700 rounded-lg p-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-gray-800/50 border border-gray-700 rounded-sm p-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={2}
               />
               <div className="flex gap-2 mt-2">
                 <button
                   onClick={handleReply}
-                  className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-lg transition-colors"
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-sm transition-colors"
                 >
                   Reply
                 </button>
@@ -188,7 +188,7 @@ const CommentsSection = memo(({ performanceId, user, token }) => {
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
           placeholder={user ? "Share your thoughts about this show..." : "Log in to comment..."}
-          className="w-full bg-gray-800/50 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-gray-800/50 border border-gray-700 rounded-sm p-3 text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
           rows={3}
           disabled={!user}
         />
@@ -207,7 +207,7 @@ const CommentsSection = memo(({ performanceId, user, token }) => {
           <button
             onClick={handleAddComment}
             disabled={!user || !newComment.trim()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm rounded-lg transition-colors"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm rounded-sm transition-colors"
           >
             Post Comment
           </button>

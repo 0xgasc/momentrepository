@@ -99,7 +99,7 @@ const GuestbookSection = memo(({ performanceId, user, token }) => {
   return (
     <div className="guestbook-section">
       {/* Sign the Guestbook */}
-      <div className="mb-6 p-4 bg-gray-800/30 rounded-lg border border-gray-700/50">
+      <div className="mb-6 p-4 bg-gray-800/30 rounded-sm border border-gray-700/50">
         <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
           <PenLine size={14} className="text-blue-400" />
           Sign the Guestbook
@@ -112,7 +112,7 @@ const GuestbookSection = memo(({ performanceId, user, token }) => {
             value={anonName}
             onChange={(e) => setAnonName(e.target.value)}
             placeholder="Your name (optional)"
-            className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-gray-900/50 border border-gray-700 rounded-sm px-3 py-2 text-sm text-white placeholder-gray-500 mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             maxLength={50}
           />
         )}
@@ -121,7 +121,7 @@ const GuestbookSection = memo(({ performanceId, user, token }) => {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Leave a message (optional)..."
-          className="w-full bg-gray-900/50 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-gray-900/50 border border-gray-700 rounded-sm p-3 text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
           rows={2}
           maxLength={280}
         />
@@ -147,7 +147,7 @@ const GuestbookSection = memo(({ performanceId, user, token }) => {
           <button
             onClick={handleSign}
             disabled={submitting}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm rounded-lg transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm rounded-sm transition-colors flex items-center gap-2"
           >
             {submitting ? (
               <>

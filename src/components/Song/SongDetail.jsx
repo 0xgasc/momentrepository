@@ -196,7 +196,7 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
       {/* Controls */}
       {/* Video Preview Section - Hidden if no moments */}
       {songMoments.length > 0 && (
-        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-4 mb-6 shadow-sm">
+        <div className="bg-white/60 backdrop-blur-sm rounded-sm border border-gray-200/50 p-4 mb-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-800">🎬 Song Moments ({songMoments.length})</h3>
           </div>
@@ -204,7 +204,7 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
             {songMoments.slice(0, 4).map((moment) => (
               <div 
                 key={moment._id}
-                className="bg-white/70 rounded-lg border border-gray-200/50 overflow-hidden hover:shadow-lg transition-shadow duration-200 cursor-pointer aspect-video"
+                className="bg-white/70 rounded-sm border border-gray-200/50 overflow-hidden hover:shadow-lg transition-shadow duration-200 cursor-pointer aspect-video"
                 onClick={() => setSelectedMoment(moment)}
               >
                 {moment.mediaUrl && (
@@ -301,7 +301,7 @@ const SongDetailHeader = memo(({ songData, songMoments, nonSongMoments, onBack }
     </button>
     
     {/* Sleek Song Header */}
-    <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 mb-6 shadow-sm">
+    <div className="bg-white/80 backdrop-blur-sm rounded-sm border border-gray-200/50 p-6 mb-6 shadow-sm">
       <div className="mb-6">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">{songData.songName}</h2>
         <div className="text-sm text-gray-600">
@@ -322,7 +322,7 @@ const SongDetailHeader = memo(({ songData, songMoments, nonSongMoments, onBack }
       </div>
       
       {/* Sleek Stats Row */}
-      <div className="flex items-center justify-between text-center bg-gray-50/80 rounded-xl p-4">
+      <div className="flex items-center justify-between text-center bg-gray-50/80 rounded-sm p-4">
         <div className="flex-1">
           <div className="text-2xl font-bold text-blue-600">{songData.totalPerformances}</div>
           <div className="text-xs text-gray-600">Performances</div>
@@ -346,7 +346,7 @@ const SongDetailHeader = memo(({ songData, songMoments, nonSongMoments, onBack }
       
       {/* ✅ NEW: Additional info for non-song moments */}
       {nonSongMoments.length > 0 && (
-        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+        <div className="mt-4 p-3 bg-gray-50 rounded-sm">
           <div className="text-sm text-gray-600 text-center">
             📀 {nonSongMoments.length} additional moment{nonSongMoments.length !== 1 ? 's' : ''} with this name (non-song content)
           </div>
@@ -371,7 +371,7 @@ const NonSongMomentsSection = memo(({
   const totalNonSongMoments = Object.values(groupedMoments).reduce((sum, moments) => sum + moments.length, 0);
 
   return (
-    <div className="mb-6 border border-gray-200 rounded-lg bg-gradient-to-r from-gray-50 to-slate-50 shadow-sm">
+    <div className="mb-6 border border-gray-200 rounded-sm bg-gradient-to-r from-gray-50 to-slate-50 shadow-sm">
       {/* Header */}
       <div 
         className="p-4 cursor-pointer flex items-center justify-between hover:bg-gray-100/50 transition-colors rounded-t-lg"
@@ -403,7 +403,7 @@ const NonSongMomentsSection = memo(({
               const typeInfo = getContentTypeInfo(contentType);
               
               return (
-                <div key={contentType} className="bg-white/70 rounded-lg p-3 border border-gray-200/50">
+                <div key={contentType} className="bg-white/70 rounded-sm p-3 border border-gray-200/50">
                   <h4 className={`text-sm font-semibold mb-2 inline-flex items-center gap-2 px-2 py-1 rounded-full ${typeInfo.color}`}>
                     <span>{typeInfo.emoji}</span>
                     {typeInfo.label}
@@ -425,7 +425,7 @@ const NonSongMomentsSection = memo(({
                           key={moment._id}
                           onClick={() => onSelectMoment(moment)}
                           className={`
-                            px-3 py-2 rounded-lg border-2 text-xs font-medium transition-all duration-200
+                            px-3 py-2 rounded-sm border-2 text-xs font-medium transition-all duration-200
                             ${rarityColors.border} ${rarityColors.text} ${rarityColors.bg}
                             hover:scale-105 hover:shadow-lg transform backdrop-blur-sm
                             flex items-center gap-2 max-w-[250px] hover:bg-white/90
@@ -465,7 +465,7 @@ const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShow
         {/* View Mode Toggle - simplified and mobile-friendly */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-gray-700">View:</span>
-          <div className="bg-white rounded-lg border border-gray-200 p-1 inline-flex flex-wrap gap-1">
+          <div className="bg-white rounded-sm border border-gray-200 p-1 inline-flex flex-wrap gap-1">
             {[
               { key: 'chronological', label: 'Chronological' },
               { key: 'byVenue', label: 'By Venue' },
@@ -526,7 +526,7 @@ const SongPerformancesList = memo(({
   return (
     <div className="space-y-6">
       {groupedPerformances.map(([groupName, performances]) => (
-      <div key={groupName} className="bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200/50 shadow-sm mb-4">
+      <div key={groupName} className="bg-white/60 backdrop-blur-sm rounded-sm border border-gray-200/50 shadow-sm mb-4">
         {viewMode !== 'chronological' && (
           <div className="px-4 py-3 border-b border-gray-200/50 bg-gray-50/60 rounded-t-xl">
             <h4 className="font-semibold text-gray-900">
@@ -614,7 +614,7 @@ const SongPerformancesList = memo(({
                               key={moment._id}
                               onClick={() => onSelectMoment(moment)}
                               className={`
-                                px-2 py-1 rounded-md border-2 font-medium transition-all duration-200
+                                px-2 py-1 rounded-sm border-2 font-medium transition-all duration-200
                                 ${rarityColors.border} ${rarityColors.text} ${rarityColors.bg}
                                 hover:scale-105 hover:shadow-lg transform backdrop-blur-sm
                                 text-xs min-w-[60px] h-7 flex items-center justify-center
@@ -658,7 +658,7 @@ const SongMomentCard = memo(({ moment, onMomentSelect }) => {
   const rarityColor = rarityColors[moment.rarityTier] || rarityColors.basic;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200">
+    <div className="bg-white rounded-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200">
       {/* Media Preview - Clickable */}
       {moment.mediaUrl && (
         <div 
@@ -812,7 +812,7 @@ const SongMomentsView = memo(({ moments, onMomentSelect }) => {
               <button
                 onClick={goToPrevPage}
                 disabled={currentPage === 0}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                className={`px-4 py-2 rounded-sm font-medium transition-all ${
                   currentPage === 0
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
@@ -821,14 +821,14 @@ const SongMomentsView = memo(({ moments, onMomentSelect }) => {
                 ← Previous
               </button>
               
-              <div className="text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-lg">
+              <div className="text-sm text-gray-600 bg-gray-50 px-4 py-2 rounded-sm">
                 Page {currentPage + 1} of {totalPages}
               </div>
               
               <button
                 onClick={goToNextPage}
                 disabled={currentPage >= totalPages - 1}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                className={`px-4 py-2 rounded-sm font-medium transition-all ${
                   currentPage >= totalPages - 1
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'

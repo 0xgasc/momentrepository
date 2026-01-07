@@ -30,7 +30,7 @@ const MediaGalleryPanel = memo(({
   const hasMore = moments.length > 12;
 
   return (
-    <div className="media-gallery-panel bg-gray-900/50 rounded-xl p-4 mb-6 border border-gray-800/50">
+    <div className="media-gallery-panel bg-gray-900/50 rounded-sm p-4 mb-6 border border-gray-800/50">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -92,7 +92,7 @@ const MediaGalleryPanel = memo(({
             {hasMore && !showAll && (
               <button
                 onClick={() => setShowAll(true)}
-                className="flex-shrink-0 w-[140px] aspect-video bg-gray-800/50 border border-gray-700/50 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
+                className="flex-shrink-0 w-[140px] aspect-video bg-gray-800/50 border border-gray-700/50 rounded-sm flex flex-col items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
               >
                 <span className="text-2xl font-bold text-gray-400">+{moments.length - 12}</span>
                 <span className="text-xs text-gray-500">more</span>
