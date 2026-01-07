@@ -40,14 +40,41 @@ const ticketStatusConfig = {
   tba: { label: 'TBA', color: 'gray' }
 };
 
+// Transform upcoming show to match setlist.fm performance format
+const transformUpcomingShow = (show) => ({
+  id: `upcoming-${show._id}`,
+  eventDate: new Date(show.eventDate).toISOString().split('T')[0].split('-').reverse().join('-'), // DD-MM-YYYY
+  venue: {
+    name: show.venue.name,
+    city: {
+      name: show.venue.city,
+      state: show.venue.state ? { name: show.venue.state } : undefined,
+      country: { name: show.venue.country, code: show.venue.countryCode }
+    }
+  },
+  sets: { set: [] }, // No setlist for upcoming shows
+  isUpcomingShow: true, // Flag for special handling
+  ticketUrl: show.ticketUrl,
+  ticketStatus: show.ticketStatus,
+  eventType: show.eventType,
+  festivalName: show.festivalName,
+  notes: show.notes
+});
+
 const UpcomingShowCard = memo(({ show, onSelect }) => {
   const status = ticketStatusConfig[show.ticketStatus] || ticketStatusConfig.tba;
   const days = daysUntil(show.eventDate);
   const isUpcoming = days !== 'Past';
 
+  const handleClick = () => {
+    if (onSelect) {
+      onSelect(transformUpcomingShow(show));
+    }
+  };
+
   return (
     <div
-      onClick={() => onSelect?.(show)}
+      onClick={handleClick}
       className={`
         group relative overflow-hidden rounded-xl border cursor-pointer
         transition-all duration-300 hover:scale-[1.02]

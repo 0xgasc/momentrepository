@@ -5,7 +5,7 @@ import * as tus from 'tus-js-client';
 // Removed styles import - now using UMO design system
 
 const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) => {
-  const [step, setStep] = useState('form');
+  const [step, setStep] = useState(uploadingMoment?.performanceId ? 'form' : 'selectPerformance');
   const [file, setFile] = useState(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState(null);
   // eslint-disable-next-line no-unused-vars
@@ -13,26 +13,41 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [uploadStage, setUploadStage] = useState('');
-  
+
+  // Performance search state
+  const [performanceSearch, setPerformanceSearch] = useState('');
+  const [performanceResults, setPerformanceResults] = useState([]);
+  const [selectedPerformance, setSelectedPerformance] = useState(uploadingMoment?.performanceId ? uploadingMoment : null);
+  const [loadingPerformances, setLoadingPerformances] = useState(false);
+
   // ✅ SMART: Determine if this is a song upload or other content upload
   const isSongUpload = uploadingMoment?.type === 'song';
   const isOtherContentUpload = uploadingMoment?.type === 'other';
-  
+
+  // ESC key to close modal
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && !uploading) onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose, uploading]);
+
   const [formData, setFormData] = useState({
     // ✅ SMART: Set content type based on upload context
     contentType: isSongUpload ? 'song' : '',
-    
+
     // Core fields (always needed)
     songName: uploadingMoment?.songName || '',
     venueName: uploadingMoment?.venueName || '',
     venueCity: uploadingMoment?.venueCity || '',
     venueCountry: uploadingMoment?.venueCountry || '',
     performanceDate: uploadingMoment?.performanceDate || '',
-    
+
     // Song-specific fields (only for songs)
     setName: uploadingMoment?.setName || 'Main Set',
     // ✅ REMOVED: songPosition
-    
+
     // ✅ SIMPLIFIED: Only the 6 metadata fields used in rarity calculation
     momentDescription: '',
     emotionalTags: [],
@@ -41,11 +56,19 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
     crowdReaction: '',
     uniqueElements: '',
     // ✅ REMOVED: guestAppearances, personalNote
-    
+
     // Quality
     audioQuality: 'good',
     videoQuality: 'good',
-    momentType: 'performance'
+    momentType: 'performance',
+
+    // Audio-specific metadata
+    sourceType: 'unknown',
+    taperNotes: '',
+    recordingDevice: '',
+
+    // Coverage type: full song or clip
+    coverageType: 'full'
   });
 
   const handleInputChange = (field, value) => {
@@ -55,10 +78,51 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
   const handleArrayToggle = (field, option) => {
     setFormData(prev => ({
       ...prev,
-      [field]: prev[field].includes(option) 
+      [field]: prev[field].includes(option)
         ? prev[field].filter(item => item !== option)
         : [...prev[field], option]
     }));
+  };
+
+  // Search performances
+  const searchPerformances = async (query) => {
+    if (!query || query.length < 2) {
+      setPerformanceResults([]);
+      return;
+    }
+
+    setLoadingPerformances(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/cached/performances?search=${encodeURIComponent(query)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPerformanceResults(data.performances || []);
+      }
+    } catch (error) {
+      console.error('Error searching performances:', error);
+    } finally {
+      setLoadingPerformances(false);
+    }
+  };
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchPerformances(performanceSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [performanceSearch]);
+
+  const selectPerformance = (performance) => {
+    setSelectedPerformance(performance);
+    setFormData(prev => ({
+      ...prev,
+      venueName: performance.venue?.name || '',
+      venueCity: performance.venue?.city?.name || '',
+      venueCountry: performance.venue?.city?.country?.name || '',
+      performanceDate: performance.eventDate || ''
+    }));
+    setStep('form');
   };
 
   // Cleanup preview URL when component unmounts or file changes
@@ -97,9 +161,9 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
 
     setFile(selectedFile);
     setError('');
-    
-    // Create preview URL for video/image files
-    if (selectedFile.type.startsWith('video/') || selectedFile.type.startsWith('image/')) {
+
+    // Create preview URL for video/image/audio files
+    if (selectedFile.type.startsWith('video/') || selectedFile.type.startsWith('image/') || selectedFile.type.startsWith('audio/')) {
       const url = URL.createObjectURL(selectedFile);
       setFilePreviewUrl(url);
     }
@@ -139,7 +203,7 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
     setUploading(true);
     setError('');
     setUploadProgress(0);
-    setUploadStage('Preparing resumable upload...');
+    setUploadStage('Preparing upload...');
 
     try {
       const token = localStorage.getItem('token');
@@ -147,11 +211,17 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
         throw new Error('Please log in to upload moments');
       }
 
-      setUploadProgress(2);
-      setUploadStage('Starting chunked upload...');
+      const fileSizeMB = file.size / (1024 * 1024);
+      console.log(`📤 Starting upload for ${fileSizeMB.toFixed(2)}MB file using resumable tus protocol`);
 
-      // Use tus-js-client for resumable uploads
+      setUploadProgress(5);
+      setUploadStage('Initializing resumable upload...');
+
+      // Use tus for resumable uploads - this handles network interruptions gracefully
       const fileData = await new Promise((resolve, reject) => {
+        let uploadId = null;
+        let progressInterval = null;
+
         const upload = new tus.Upload(file, {
           endpoint: `${API_BASE_URL}/tus-upload`,
           retryDelays: [0, 1000, 3000, 5000, 10000, 30000],
@@ -161,22 +231,41 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
             filetype: file.type,
             filesize: file.size.toString()
           },
+          onError: (error) => {
+            console.error('❌ Tus upload error:', error);
+            clearInterval(progressInterval);
+            reject(new Error(`Upload failed: ${error.message}. Your upload can be resumed if you try again.`));
+          },
           onProgress: (bytesUploaded, bytesTotal) => {
             const percentage = Math.round((bytesUploaded / bytesTotal) * 100);
-            // Progress: 5-70% for tus upload
-            setUploadProgress(5 + (percentage * 0.65));
-            setUploadStage(`Uploading... ${percentage}% (${Math.round(bytesUploaded / 1024 / 1024)}MB / ${Math.round(bytesTotal / 1024 / 1024)}MB)`);
+            // Map 0-100% upload to 5-70% progress (leaving room for Irys processing)
+            const adjustedProgress = 5 + (percentage * 0.65);
+            setUploadProgress(adjustedProgress);
+            setUploadStage(`Uploading to server... ${percentage}% (${(bytesUploaded / 1024 / 1024).toFixed(1)}MB / ${(bytesTotal / 1024 / 1024).toFixed(1)}MB)`);
+            console.log(`📤 Upload progress: ${percentage}%`);
           },
           onSuccess: async () => {
+            console.log('✅ Tus upload complete, processing on server...');
+            clearInterval(progressInterval);
+
+            // Extract upload ID from the URL
+            const uploadUrl = upload.url;
+            uploadId = uploadUrl.split('/').pop();
+            console.log(`📋 Upload ID: ${uploadId}`);
+
+            setUploadProgress(72);
+            setUploadStage('Processing on decentralized network...');
+
+            // Start simulated progress for Irys phase (72% to 95%)
+            progressInterval = setInterval(() => {
+              setUploadProgress(prev => {
+                if (prev < 95) return prev + Math.random() * 1.5 + 0.3;
+                return prev;
+              });
+            }, 1500);
+
             try {
-              setUploadProgress(72);
-              setUploadStage('Processing on decentralized network...');
-
-              // Extract upload ID from the URL
-              const uploadId = upload.url.split('/').pop();
-              console.log(`Tus upload complete, processing: ${uploadId}`);
-
-              // Call completion endpoint to process and upload to Irys
+              // Tell server to process the completed upload (upload to Irys)
               const response = await fetch(`${API_BASE_URL}/tus-upload/complete`, {
                 method: 'POST',
                 headers: {
@@ -189,6 +278,8 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
                 })
               });
 
+              clearInterval(progressInterval);
+
               if (!response.ok) {
                 const errorData = await response.json();
                 reject(new Error(errorData.error || 'Failed to process upload'));
@@ -196,31 +287,29 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
               }
 
               const data = await response.json();
-              console.log('Irys upload complete:', data);
+              console.log('✅ File processed successfully:', data.fileUri);
               resolve(data);
             } catch (err) {
+              clearInterval(progressInterval);
               reject(err);
             }
-          },
-          onError: (error) => {
-            console.error('Tus upload error:', error);
-            reject(new Error(error.message || 'Upload failed'));
           }
         });
 
-        // Check for previous uploads to resume
+        // Check for previous uploads that can be resumed
         upload.findPreviousUploads().then((previousUploads) => {
-          // Filter out invalid uploads
+          // Filter out invalid cached uploads (may have 'undefined' in URL from old bugs)
           const validUploads = previousUploads.filter(prev =>
             prev.uploadUrl && !prev.uploadUrl.includes('undefined')
           );
-
           if (validUploads.length > 0) {
-            console.log('Resuming previous upload:', validUploads[0]);
+            console.log('🔄 Found valid previous upload, attempting to resume...');
+            console.log(`   - URL: ${validUploads[0].uploadUrl}`);
             setUploadStage('Resuming previous upload...');
             upload.resumeFromPreviousUpload(validUploads[0]);
+          } else if (previousUploads.length > 0) {
+            console.log('⚠️ Found cached uploads with invalid URLs, starting fresh');
           }
-
           upload.start();
         });
       });
@@ -228,7 +317,7 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
       setUploadStage('Saving moment metadata...');
 
       const momentPayload = {
-        performanceId: uploadingMoment.performanceId,
+        performanceId: selectedPerformance?.id || uploadingMoment?.performanceId || `custom-${Date.now()}`,
         performanceDate: formData.performanceDate,
         venueName: formData.venueName,
         venueCity: formData.venueCity,
@@ -237,12 +326,12 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
         setName: formData.setName,
         // ✅ REMOVED: songPosition
         mediaUrl: fileData.fileUri,
-        mediaType: file.type.startsWith('video/') ? 'video' : 
-                   file.type.startsWith('audio/') ? 'audio' : 
+        mediaType: file.type.startsWith('video/') ? 'video' :
+                   file.type.startsWith('audio/') ? 'audio' :
                    file.type.startsWith('image/') ? 'image' : 'unknown',
         fileName: file.name,
         fileSize: file.size,
-        
+
         // ✅ SIMPLIFIED: Only the 6 metadata fields
         momentDescription: formData.momentDescription,
         emotionalTags: formData.emotionalTags.join(', '),
@@ -251,13 +340,21 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
         crowdReaction: formData.crowdReaction,
         uniqueElements: formData.uniqueElements,
         // ✅ REMOVED: guestAppearances, personalNote
-        
+
         audioQuality: formData.audioQuality,
         videoQuality: formData.videoQuality,
         momentType: formData.momentType,
-        
+
         // ✅ CRITICAL: Include content type
-        contentType: formData.contentType
+        contentType: formData.contentType,
+
+        // Coverage type: full song vs clip
+        coverageType: formData.coverageType,
+
+        // Audio-specific metadata
+        sourceType: formData.sourceType,
+        taperNotes: formData.taperNotes,
+        recordingDevice: formData.recordingDevice
       };
 
       console.log('🚀 Uploading moment with contentType:', formData.contentType);
@@ -297,8 +394,19 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
   };
 
   return (
-    <div className="umo-modal-overlay" onClick={() => step === 'form' && onClose()}>
+    <div className="umo-modal-overlay" onClick={() => (step === 'form' || step === 'selectPerformance') && onClose()}>
       <div className="umo-modal max-w-2xl w-full max-h-90vh overflow-auto" onClick={(e) => e.stopPropagation()}>
+        {step === 'selectPerformance' && (
+          <PerformanceSearchStep
+            performanceSearch={performanceSearch}
+            setPerformanceSearch={setPerformanceSearch}
+            performanceResults={performanceResults}
+            loadingPerformances={loadingPerformances}
+            selectPerformance={selectPerformance}
+            onClose={onClose}
+          />
+        )}
+
         {step === 'form' && (
           <SimplifiedUploadForm 
             formData={formData}
@@ -582,16 +690,35 @@ const SimplifiedUploadForm = memo(({
 
         {/* ✅ SIMPLIFIED: Only show set for songs, removed song position */}
         {isSongUpload && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium umo-text-primary mb-2">Set Name</label>
-            <select
-              value={formData.setName}
-              onChange={(e) => onInputChange('setName', e.target.value)}
-              className="umo-select"
-            >
-              <option value="Main Set">Main Set</option>
-              <option value="Encore">Encore</option>
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium umo-text-primary mb-2">Set Name</label>
+              <select
+                value={formData.setName}
+                onChange={(e) => onInputChange('setName', e.target.value)}
+                className="umo-select"
+              >
+                <option value="Main Set">Main Set</option>
+                <option value="Encore">Encore</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium umo-text-primary mb-2">Recording Coverage</label>
+              <select
+                value={formData.coverageType}
+                onChange={(e) => onInputChange('coverageType', e.target.value)}
+                className="umo-select"
+              >
+                <option value="full">Full Song (90%+)</option>
+                <option value="clip">Clip (Partial)</option>
+              </select>
+              <p className="text-xs umo-text-muted mt-1">
+                {formData.coverageType === 'full'
+                  ? 'Complete or nearly complete recording'
+                  : 'Short clip or partial recording'}
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -774,17 +901,24 @@ const SimplifiedUploadForm = memo(({
                 {filePreviewUrl && (
                   <div className="mt-4">
                     {file.type.startsWith('video/') ? (
-                      <video 
-                        src={filePreviewUrl} 
-                        controls 
+                      <video
+                        src={filePreviewUrl}
+                        controls
                         className="w-full max-h-48 bg-black rounded"
                         style={{ borderRadius: '4px' }}
                         preload="metadata"
                       />
+                    ) : file.type.startsWith('audio/') ? (
+                      <audio
+                        src={filePreviewUrl}
+                        controls
+                        className="w-full"
+                        preload="metadata"
+                      />
                     ) : file.type.startsWith('image/') ? (
-                      <img 
-                        src={filePreviewUrl} 
-                        alt="Preview" 
+                      <img
+                        src={filePreviewUrl}
+                        alt="Preview"
                         className="w-full max-h-48 object-contain rounded"
                         style={{ borderRadius: '4px' }}
                       />
@@ -797,21 +931,74 @@ const SimplifiedUploadForm = memo(({
         </div>
       </div>
 
+      {/* Audio-Specific Metadata - Only show for audio files */}
+      {file?.type?.startsWith('audio/') && (
+        <div className="umo-card p-4 mb-6 border border-blue-600/30 bg-blue-900/10 rounded-lg">
+          <h3 className="text-lg font-semibold umo-text-primary mb-4 flex items-center gap-2">
+            <span>🎙️</span> Recording Details
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium umo-text-primary mb-2">
+                Recording Source
+              </label>
+              <select
+                value={formData.sourceType}
+                onChange={(e) => onInputChange('sourceType', e.target.value)}
+                className="umo-select"
+              >
+                <option value="unknown">Unknown</option>
+                <option value="soundboard">Soundboard (SBD)</option>
+                <option value="audience">Audience Recording (AUD)</option>
+                <option value="matrix">Matrix (SBD+AUD Mix)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium umo-text-primary mb-2">
+                Recording Equipment
+              </label>
+              <input
+                type="text"
+                value={formData.recordingDevice}
+                onChange={(e) => onInputChange('recordingDevice', e.target.value)}
+                className="umo-input"
+                placeholder="e.g., Zoom H6, DPA 4061, Sony PCM-D100"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium umo-text-primary mb-2">
+              Taper Notes
+            </label>
+            <textarea
+              value={formData.taperNotes}
+              onChange={(e) => onInputChange('taperNotes', e.target.value)}
+              className="umo-input umo-textarea"
+              placeholder="Notes about the recording (mic placement, transfer notes, lineage, etc.)"
+              rows={3}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex justify-between items-center pt-6 border-t border-gray-600">
         <button onClick={onClose} className="umo-btn umo-btn--secondary">Cancel</button>
-        
+
         <button
           onClick={onUpload}
-          disabled={!file || !formData.venueName || !formData.venueCity || 
-                   (isSongUpload && !formData.songName) || 
+          disabled={!file || !formData.venueName || !formData.venueCity ||
+                   (isSongUpload && !formData.songName) ||
                    (!isSongUpload && !formData.contentType) ||
                    (!isSongUpload && formData.contentType === 'other' && !formData.songName)}
           className={`umo-btn ${
-            (!file || !formData.venueName || !formData.venueCity || 
-             (isSongUpload && !formData.songName) || 
+            (!file || !formData.venueName || !formData.venueCity ||
+             (isSongUpload && !formData.songName) ||
              (!isSongUpload && !formData.contentType) ||
-             (!isSongUpload && formData.contentType === 'other' && !formData.songName)) 
+             (!isSongUpload && formData.contentType === 'other' && !formData.songName))
             ? 'opacity-50 cursor-not-allowed'
             : 'umo-btn--primary'
           }`}
@@ -907,5 +1094,64 @@ const UploadSuccess = memo(({ isSongUpload, contentType, onClose }) => {
 });
 
 UploadSuccess.displayName = 'UploadSuccess';
+
+// Performance Search Step
+const PerformanceSearchStep = memo(({ performanceSearch, setPerformanceSearch, performanceResults, loadingPerformances, selectPerformance, onClose }) => (
+  <div className="p-6">
+    <h2 className="umo-heading umo-heading--xl mb-4">Select Performance</h2>
+    <p className="umo-text-muted mb-6">Search for the UMO performance where this moment is from</p>
+
+    <div className="mb-6">
+      <input
+        type="text"
+        value={performanceSearch}
+        onChange={(e) => setPerformanceSearch(e.target.value)}
+        placeholder="Search by venue, city, or date (e.g., 'Bowery Ballroom' or 'New York')"
+        className="umo-input w-full"
+        autoFocus
+      />
+    </div>
+
+    {loadingPerformances && (
+      <div className="text-center py-8">
+        <div className="umo-text-muted">Searching performances...</div>
+      </div>
+    )}
+
+    {!loadingPerformances && performanceResults.length === 0 && performanceSearch.length >= 2 && (
+      <div className="text-center py-8">
+        <div className="umo-text-muted">No performances found. Try a different search.</div>
+      </div>
+    )}
+
+    {!loadingPerformances && performanceResults.length > 0 && (
+      <div className="space-y-2 max-h-96 overflow-y-auto">
+        {performanceResults.map((perf) => (
+          <button
+            key={perf.id}
+            onClick={() => selectPerformance(perf)}
+            className="w-full text-left p-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded transition-colors"
+          >
+            <div className="font-medium umo-text-primary">{perf.venue?.name || 'Unknown Venue'}</div>
+            <div className="text-sm umo-text-muted">
+              {perf.venue?.city?.name}, {perf.venue?.city?.country?.name} • {perf.eventDate}
+            </div>
+            {perf.sets?.set?.[0]?.song && (
+              <div className="text-xs text-gray-500 mt-1">
+                {perf.sets.set[0].song.length} songs
+              </div>
+            )}
+          </button>
+        ))}
+      </div>
+    )}
+
+    <div className="flex justify-between items-center pt-6 mt-6 border-t border-gray-600">
+      <button onClick={onClose} className="umo-btn umo-btn--secondary">Cancel</button>
+    </div>
+  </div>
+));
+
+PerformanceSearchStep.displayName = 'PerformanceSearchStep';
 
 export default UploadModal;

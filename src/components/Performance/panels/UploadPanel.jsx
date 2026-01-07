@@ -36,13 +36,13 @@ const UploadPanel = memo(({
   }
 
   const handleUploadSong = () => {
-    if (selectedSong) {
-      const song = songs.find(s => s.name === selectedSong);
-      onUploadSong?.(song, null, 0);
-    } else {
-      // Open modal without pre-selected song
-      onUploadSong?.(null, null, 0);
+    if (!selectedSong) {
+      // Require song selection
+      setShowSongPicker(true);
+      return;
     }
+    const song = songs.find(s => s.name === selectedSong);
+    onUploadSong?.(song, null, 0);
     setSelectedSong('');
     setShowSongPicker(false);
   };
@@ -63,30 +63,23 @@ const UploadPanel = memo(({
       {/* Song selector */}
       <div className="mb-4">
         <label className="block text-sm text-gray-400 mb-2">
-          Quick upload for a specific song:
+          Select a song from the setlist:
         </label>
         <div className="relative">
           <button
             onClick={() => setShowSongPicker(!showSongPicker)}
-            className="w-full flex items-center justify-between px-3 py-2.5 bg-gray-800/50 border border-gray-700/50 rounded-lg text-left hover:bg-gray-800 transition-colors"
+            className={`w-full flex items-center justify-between px-3 py-2.5 bg-gray-800/50 border rounded-lg text-left hover:bg-gray-800 transition-colors ${
+              !selectedSong && showSongPicker ? 'border-yellow-500/50' : 'border-gray-700/50'
+            }`}
           >
             <span className={selectedSong ? 'text-white' : 'text-gray-500'}>
-              {selectedSong || 'Select a song (optional)'}
+              {selectedSong || 'Select a song...'}
             </span>
             <ChevronDown size={16} className={`text-gray-400 transition-transform ${showSongPicker ? 'rotate-180' : ''}`} />
           </button>
 
           {showSongPicker && songs.length > 0 && (
             <div className="absolute z-20 w-full mt-1 max-h-48 overflow-y-auto bg-gray-800 border border-gray-700 rounded-lg shadow-xl">
-              <button
-                onClick={() => {
-                  setSelectedSong('');
-                  setShowSongPicker(false);
-                }}
-                className="w-full px-3 py-2 text-left text-gray-400 hover:bg-gray-700/50 text-sm"
-              >
-                Any song / Other content
-              </button>
               {songs.map((song, i) => (
                 <button
                   key={i}
@@ -108,11 +101,17 @@ const UploadPanel = memo(({
       <div className="grid grid-cols-2 gap-3">
         <button
           onClick={handleUploadSong}
-          className="flex flex-col items-center gap-2 p-4 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-lg transition-all hover:scale-[1.02]"
+          className={`flex flex-col items-center gap-2 p-4 border rounded-lg transition-all hover:scale-[1.02] ${
+            selectedSong
+              ? 'bg-blue-600/20 hover:bg-blue-600/30 border-blue-500/30'
+              : 'bg-gray-700/20 hover:bg-gray-700/30 border-gray-600/30'
+          }`}
         >
-          <Music size={24} className="text-blue-400" />
-          <span className="text-sm text-blue-300 font-medium">Song Moment</span>
-          <span className="text-xs text-blue-400/60">Video or audio</span>
+          <Music size={24} className={selectedSong ? 'text-blue-400' : 'text-gray-500'} />
+          <span className={`text-sm font-medium ${selectedSong ? 'text-blue-300' : 'text-gray-400'}`}>
+            {selectedSong ? 'Upload Song' : 'Select Song First'}
+          </span>
+          <span className="text-xs text-gray-500">{selectedSong || 'Pick from setlist'}</span>
         </button>
 
         <button

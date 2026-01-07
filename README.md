@@ -484,35 +484,16 @@ npx hardhat verify --network sepolia CONTRACT_ADDRESS
 - **Input Sanitization** - XSS/injection prevention
 - **Wallet Signatures** - Cryptographic user verification
 
-## 🔮 Future Roadmap
+## 🔮 What's Been Built
 
-### Phase 1: Core Platform ✅
-- [x] Basic moment upload and display
-- [x] Performance database integration
-- [x] 3-factor rarity system
-- [x] ERC1155 NFT minting
-
-### Phase 2: Enhanced Features 🚧  
+### Core Platform ✅
+- [x] Moment upload to decentralized storage (Irys/Arweave)
+- [x] Performance database integration (setlist.fm)
 - [x] Content moderation system (Admin/Mod/User roles)
-- [x] Email notification skeleton (ready for provider setup)
-- [x] My Account panel with submission tracking
 - [x] Admin panel for user/content management
-- [ ] Mobile app (React Native)
-- [ ] Advanced search filters
-- [ ] User profiles and following
-- [ ] Moment collections and playlists
-
-### Phase 3: Community 🔄
-- [ ] User ratings and reviews
-- [ ] Community moderation tools
-- [ ] Social features and sharing
-- [ ] Integration with music streaming
-
-### Phase 4: Expansion 🎯
-- [ ] Multi-artist support
-- [ ] LiveNation API integration
-- [ ] Advanced analytics dashboard
-- [ ] Marketplace for trading moments
+- [x] Community features (Guestbook, Live Chat, RSVP, Meetups)
+- [x] Upcoming shows management with smart panel behavior
+- [x] UMOTube video player with queue system
 
 ## 🤝 Contributing
 
@@ -543,70 +524,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Arweave** - For permanent decentralized storage
 - **The UMO Community** - For sharing incredible concert moments
 
-## 🐛 Current Issues & Next Session TODOs
+## 🐛 Current Session TODOs
 
-### ✅ **COMPLETED: Content Moderation & Email System**
+*Start fresh here - add new tasks as needed*
 
-**🎉 LATEST SESSION ACCOMPLISHMENTS:**
-
-**1. Complete User Role System**:
-- ✅ 3-tier roles: User → Moderator → Administrator  
-- ✅ Role assignment functionality (admin only)
-- ✅ Proper authentication middleware for each role
-- ✅ Database schema with role tracking and timestamps
-
-**2. Content Moderation Workflow**:
-- ✅ Admin Panel with Users and Moderation tabs
-- ✅ Pending content review with media previews
-- ✅ Approve/Reject/Send-back-for-revision workflow
-- ✅ Metadata editing by moderators (all 10 fields)
-- ✅ Collaborative revision process (mod edits → user reviews → resubmit)
-
-**3. My Account Panel**:
-- ✅ Profile tab with role display and user info
-- ✅ Upload tracking with status indicators
-- ✅ Separate tabs: All Uploads, Pending, Needs Revision, Approved
-- ✅ Edit/withdraw functionality for pending submissions
-- ✅ Visual feedback for different approval statuses
-
-**4. Email Notification Skeleton**:
-- ✅ Complete email service with 8 notification types
-- ✅ Template system for all user-moderator interactions
-- ✅ Backend integration at all relevant endpoints
-- ✅ Dynamic recipient queries (mods/admins from database)
-- ✅ Ready for email provider setup (SendGrid/AWS SES/Mailgun)
-
-**5. Enhanced Database Schema**:
-- ✅ Added `approvalStatus` enum: pending/approved/rejected/needs_revision
-- ✅ Added moderation fields: reviewedBy, reviewedAt, rejectionReason
-- ✅ Added user role fields: role, assignedBy, roleAssignedAt
-- ✅ Added "outro" to contentType enum for better content classification
-
-**🎯 MODERATION SYSTEM STATUS: FULLY OPERATIONAL**
-Complete content moderation pipeline with user roles, admin panel, email notifications, and collaborative revision workflow.
-
-### 🚀 **Next Development Focus: Dynamic NFT Pricing**
-
-**Current Fixed Price**: All NFTs mint for 0.001 ETH (~$1 USD)
-
-**Planned Dynamic Pricing Features**:
-- **Rarity-based pricing**: Higher rarity tiers cost more to mint
-- **Time decay**: Price increases as minting window progresses  
-- **Supply-based**: Price increases with each mint (bonding curve)
-- **Venue/date premium**: Special shows have higher base prices
-
-**Key Files for Dynamic Pricing**:
-- `src/components/Web3/MomentMint.js` - Update mint price calculation
-- `setlist-proxy/server.js` - Update create-nft-edition endpoint pricing logic
-- `contracts/UMOMomentsERC1155.sol` - Modify contract pricing if needed
-
-### 🏗️ **Current Architecture Status**:
-- **Smart Contract**: ERC1155 on Base Sepolia (`0x5417E6db8cF893ac2a11BBd9970c4bd7defc6F39`)
-- **Storage**: Irys devnet (`devnet.irys.xyz`) 
-- **Database**: MongoDB with comprehensive moment schema
-- **Frontend**: React with Wagmi v2 for Web3 integration (FULLY WORKING)
-- **Backend**: Express server with NFT card generation
-- **Minting**: End-to-end functional with proper database sync
+### 🏗️ **Current Architecture**:
+- **Storage**: Irys devnet (`devnet.irys.xyz`) for decentralized media
+- **Database**: MongoDB with moment schema
+- **Frontend**: React (Wagmi v2 available but NFT minting paused)
+- **Backend**: Express server on Railway
 
 ---
 

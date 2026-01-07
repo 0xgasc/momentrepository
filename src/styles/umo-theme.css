@@ -1,7 +1,7 @@
 /* UMO Archive - Design System Inspired by UMO's Aesthetic */
 
 /* Import Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&family=Fira+Code:wght@300;400;500;600;700&display=swap');
 
 :root {
   /* Color Palette - Dark, Gritty, Natural */
@@ -26,9 +26,9 @@
   --umo-amber-yellow: #d97706;
   --umo-gold-yellow: #b45309;
   
-  /* Typography - VSCode Inspired */
-  --umo-font-primary: 'Segoe UI', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
-  --umo-font-heading: 'Segoe UI', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+  /* Typography - Quicksand (organic, rounded humanist feel) */
+  --umo-font-primary: 'Quicksand', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --umo-font-heading: 'Quicksand', 'Segoe UI', 'Helvetica Neue', sans-serif;
   --umo-font-mono: 'Fira Code', 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
   
   /* Spacing */
