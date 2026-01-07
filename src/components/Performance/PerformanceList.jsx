@@ -383,24 +383,16 @@ const NoResultsState = memo(({ isSearchMode, searchQuery, onClearSearch }) => (
 
 NoResultsState.displayName = 'NoResultsState';
 
-const LoadMoreButton = memo(({ loading, onClick, isSearchMode, searchQuery }) => (
-  <div className="flex justify-center mt-8">
+const LoadMoreButton = memo(({ loading, onClick }) => (
+  <div className="flex justify-center mt-6">
     <button
       onClick={onClick}
       disabled={loading}
-      className={`umo-btn px-6 py-3 transition-colors mobile-touch-target ${
-        loading ? 'opacity-50 cursor-not-allowed' : 'umo-btn--secondary hover:umo-btn--primary'
+      className={`px-4 py-1.5 text-sm border border-gray-700 rounded transition-colors ${
+        loading ? 'opacity-50 cursor-not-allowed text-gray-500' : 'text-gray-400 hover:text-white hover:border-gray-600'
       }`}
-      style={{ minHeight: '48px', minWidth: '200px' }}
     >
-      {loading ? (
-        <div className="flex items-center gap-2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-          <span>Loading more...</span>
-        </div>
-      ) : (
-        <span>{isSearchMode ? `Load More Results` : 'Load More Performances'}</span>
-      )}
+      {loading ? 'Loading...' : 'Load more'}
     </button>
   </div>
 ));

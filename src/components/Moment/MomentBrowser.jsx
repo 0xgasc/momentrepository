@@ -241,23 +241,13 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
             
             {/* Load More */}
             {hasMore && (
-              <div className="flex flex-col items-center gap-2 mt-8">
-                <div className="text-sm text-gray-500">
-                  Showing {currentMoments.length} of {totalMomentsCount} moments
-                </div>
+              <div className="flex justify-center mt-6">
                 <button
                   onClick={loadMore}
-                  className="px-6 py-3 rounded-lg font-medium transition-all mobile-touch-target bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg"
-                  style={{ minHeight: '48px' }}
+                  className="px-4 py-1.5 text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-600 rounded transition-colors"
                 >
-                  Load More ({Math.min(MOMENTS_PER_LOAD, totalMomentsCount - currentMoments.length)} more)
+                  Load more
                 </button>
-              </div>
-            )}
-
-            {!hasMore && currentMoments.length > MOMENTS_PER_LOAD && (
-              <div className="text-center text-sm text-gray-500 mt-8">
-                Showing all {totalMomentsCount} moments
               </div>
             )}
           </>
