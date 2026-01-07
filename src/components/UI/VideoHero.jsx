@@ -18,7 +18,7 @@ const VIDEO_FILTER_PRESETS = {
   vhs: { label: 'VHS', filter: 'saturate(130%) contrast(95%) brightness(105%) blur(0.5px)' }
 };
 
-const VideoHero = memo(({ onMomentClick, mediaFilter = 'all', setMediaFilter }) => {
+const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
   const videoRef = useRef(null);
   const audioRef = useRef(null);
   const iframeRef = useRef(null);
@@ -29,10 +29,8 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all', setMediaFilter }) 
 
   const [moment, setMoment] = useState(null);
   const [allMoments, setAllMoments] = useState([]);
-  // mediaFilter is now controlled by parent - use local state as fallback
-  const [localMediaFilter, setLocalMediaFilter] = useState('all');
-  const activeFilter = mediaFilter || localMediaFilter;
-  const handleFilterChange = setMediaFilter || setLocalMediaFilter;
+  // mediaFilter is controlled by parent
+  const activeFilter = mediaFilter || 'all';
   const [isYouTube, setIsYouTube] = useState(false);
   const [isAudio, setIsAudio] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -604,30 +602,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all', setMediaFilter }) 
       {/* Hidden canvas for ASCII processing */}
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Media filter - top left, sleek pills */}
-      <div className={`absolute top-2 left-2 sm:top-3 sm:left-3 z-30 flex gap-1 transition-all duration-300 ${
-        showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      }`}>
-        {[
-          { key: 'all', label: 'All' },
-          { key: 'clips', label: 'Clips' },
-          { key: 'audio', label: 'Audio' },
-          { key: 'linked', label: 'Linked' }
-        ].map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => handleFilterChange(key)}
-            className={`px-2 py-1 text-xs font-medium transition-all backdrop-blur-sm border ${
-              activeFilter === key
-                ? 'bg-white/90 text-black border-white/50'
-                : 'bg-black/40 text-gray-300 border-white/10 hover:bg-black/60 hover:text-white'
-            }`}
-            style={{ borderRadius: '2px' }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* Media filter moved to App.js - above hero */}
 
       {/* Minimize button - top right, fades with controls */}
       <button

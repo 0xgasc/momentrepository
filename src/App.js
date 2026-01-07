@@ -602,11 +602,35 @@ const MainContent = memo(({
   // Home view - Hero persists above navigation tabs
   return (
     <>
+      {/* Media Filter Pills - Top of page */}
+      <div className="flex justify-center mb-4">
+        <div className="flex gap-1">
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'clips', label: 'Clips' },
+            { key: 'audio', label: 'Audio' },
+            { key: 'linked', label: 'Linked' }
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setMediaFilter(key)}
+              className={`px-3 py-1.5 text-sm font-medium transition-all border ${
+                mediaFilter === key
+                  ? 'bg-blue-600 text-white border-blue-500'
+                  : 'bg-white/80 text-gray-700 border-gray-300 hover:bg-gray-100'
+              }`}
+              style={{ borderRadius: '2px' }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* VideoHero - Big random clip player, persists across all home tabs */}
       <VideoHero
         onMomentClick={(moment) => setHeroSelectedMoment(moment)}
         mediaFilter={mediaFilter}
-        setMediaFilter={setMediaFilter}
       />
 
       {/* Navigation Tabs - Below Hero */}

@@ -28,8 +28,8 @@ const CommunityPanel = memo(({ performance, user, token }) => {
       id: 'guestbook',
       label: 'Guestbook',
       icon: PenLine,
-      description: 'Sign the guestbook - leave your mark!',
-      available: true
+      description: 'Sign the guestbook - share your memories!',
+      available: !isUpcoming // Only for past shows
     },
     {
       id: 'chat',
