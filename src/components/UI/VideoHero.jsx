@@ -18,7 +18,7 @@ const VIDEO_FILTER_PRESETS = {
   vhs: { label: 'VHS', filter: 'saturate(130%) contrast(95%) brightness(105%) blur(0.5px)' }
 };
 
-const VideoHero = memo(({ onMomentClick }) => {
+const VideoHero = memo(({ onMomentClick, mediaFilter = 'all', setMediaFilter }) => {
   const videoRef = useRef(null);
   const audioRef = useRef(null);
   const iframeRef = useRef(null);
@@ -29,7 +29,10 @@ const VideoHero = memo(({ onMomentClick }) => {
 
   const [moment, setMoment] = useState(null);
   const [allMoments, setAllMoments] = useState([]);
-  const [mediaFilter, setMediaFilter] = useState('all');
+  // mediaFilter is now controlled by parent - use local state as fallback
+  const [localMediaFilter, setLocalMediaFilter] = useState('all');
+  const activeFilter = mediaFilter || localMediaFilter;
+  const handleFilterChange = setMediaFilter || setLocalMediaFilter;
   const [isYouTube, setIsYouTube] = useState(false);
   const [isAudio, setIsAudio] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -141,8 +144,8 @@ const VideoHero = memo(({ onMomentClick }) => {
 
   // Memoized filtered moments
   const filteredMoments = useMemo(() =>
-    filterMoments(allMoments, mediaFilter),
-    [allMoments, mediaFilter, filterMoments]
+    filterMoments(allMoments, activeFilter),
+    [allMoments, activeFilter, filterMoments]
   );
 
   // Fetch ALL moments and filter client-side
@@ -218,7 +221,7 @@ const VideoHero = memo(({ onMomentClick }) => {
         setYoutubeKey(prev => prev + 1);
       }
     }
-  }, [mediaFilter, filteredMoments, moment, selectRandomMoment]);
+  }, [activeFilter, filteredMoments, moment, selectRandomMoment]);
 
   // Reset effects when media type changes
   useEffect(() => {
@@ -613,9 +616,9 @@ const VideoHero = memo(({ onMomentClick }) => {
         ].map(({ key, label }) => (
           <button
             key={key}
-            onClick={() => setMediaFilter(key)}
+            onClick={() => handleFilterChange(key)}
             className={`px-2 py-1 text-xs font-medium transition-all backdrop-blur-sm border ${
-              mediaFilter === key
+              activeFilter === key
                 ? 'bg-white/90 text-black border-white/50'
                 : 'bg-black/40 text-gray-300 border-white/10 hover:bg-black/60 hover:text-white'
             }`}

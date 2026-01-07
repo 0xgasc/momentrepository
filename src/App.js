@@ -68,7 +68,10 @@ const MainApp = memo(() => {
   const [showMyAccount, setShowMyAccount] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showHowToGuide, setShowHowToGuide] = useState(false);
-  
+
+  // Global media filter (affects hero + moments grid)
+  const [mediaFilter, setMediaFilter] = useState('all');
+
   const { user, logout, loading } = useAuth();
   
   // Notifications hook
@@ -176,7 +179,10 @@ const MainApp = memo(() => {
           onPerformanceSelect={handlePerformanceSelect}
           onSongSelect={handleSongBrowseSelect}
           onBack={handleBackToHome}
+          onBrowseModeChange={switchBrowseMode}
           user={user}
+          mediaFilter={mediaFilter}
+          setMediaFilter={setMediaFilter}
         />
 
         {/* Credits Footer */}
@@ -259,33 +265,33 @@ const Header = memo(({
         {/* How to Guide - Mobile - Simplified */}
         {showHowToGuide && (
           <div className="mb-4 umo-card p-3">
-            <h3 className="umo-heading umo-heading--sm mb-2">How to Use UMO Archive</h3>
+            <h3 className="umo-heading umo-heading--sm mb-2">UMO Archive</h3>
             <p className="umo-text-secondary text-xs mb-3">
-              Explore UMO's performance history and upload your concert moments.
+              Fan-curated concert moments from Unknown Mortal Orchestra.
             </p>
-            
+
             <div className="space-y-3">
               <div className="flex items-start gap-2">
                 <div className="flex-shrink-0 w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-xs font-bold text-blue-600">1</div>
                 <div>
-                  <div className="umo-text-primary text-xs font-medium">Browse & Explore</div>
-                  <div className="umo-text-secondary text-xs">Use tabs to browse Moments, Shows, Songs</div>
+                  <div className="umo-text-primary text-xs font-medium">Watch & Explore</div>
+                  <div className="umo-text-secondary text-xs">Filter by Clips, Audio, or Linked. Browse Shows & Songs.</div>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-2">
-                <div className="flex-shrink-0 w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-xs font-bold text-blue-600">2</div>
+                <div className="flex-shrink-0 w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center text-xs font-bold text-yellow-600">2</div>
                 <div>
-                  <div className="umo-text-primary text-xs font-medium">Upload Moments</div>
-                  <div className="umo-text-secondary text-xs">Login → My Account → Upload New Moment</div>
+                  <div className="umo-text-primary text-xs font-medium">Build Playlists</div>
+                  <div className="umo-text-secondary text-xs">Tap + to queue moments. Keep browsing while music plays.</div>
                 </div>
               </div>
-              
+
               <div className="flex items-start gap-2">
-                <div className="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center text-xs font-bold text-green-600">✓</div>
+                <div className="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center text-xs font-bold text-green-600">3</div>
                 <div>
-                  <div className="umo-text-primary text-xs font-medium">Approval & Sharing</div>
-                  <div className="umo-text-secondary text-xs">Check My Account for status updates</div>
+                  <div className="umo-text-primary text-xs font-medium">Upload & Share</div>
+                  <div className="umo-text-secondary text-xs">Login → My Account → Upload your concert clips.</div>
                 </div>
               </div>
             </div>
@@ -450,48 +456,38 @@ const Header = memo(({
             
             {showHowToGuide && (
               <div className="mt-3 umo-card p-4">
-                <h3 className="umo-heading umo-heading--md mb-3">How to Use UMO Archive</h3>
+                <h3 className="umo-heading umo-heading--md mb-3">UMO Archive</h3>
                 <p className="umo-text-secondary text-sm mb-4">
-                  Explore UMO's complete performance history and upload your own concert moments.
+                  Fan-curated archive of Unknown Mortal Orchestra concert moments.
                 </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-sm font-bold text-blue-600">1</div>
                     <div>
-                      <div className="umo-text-primary font-medium mb-1 text-sm">Browse & Explore</div>
+                      <div className="umo-text-primary font-medium mb-1 text-sm">Watch & Explore</div>
                       <div className="umo-text-secondary text-xs">
-                        Use tabs to browse Moments, Shows, Songs. Search by city, venue, or song name.
+                        Filter by Clips, Audio, or Linked content. Browse Shows, Songs, and fan uploads.
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-sm font-bold text-blue-600">2</div>
+                    <div className="flex-shrink-0 w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center text-sm font-bold text-yellow-600">2</div>
                     <div>
-                      <div className="umo-text-primary font-medium mb-1 text-sm">Upload Your Moments</div>
+                      <div className="umo-text-primary font-medium mb-1 text-sm">Build Playlists</div>
                       <div className="umo-text-secondary text-xs">
-                        Login → My Account → Upload New Moment. Add details like song, venue, and date.
+                        Click + on any moment to add to your queue. Keep browsing while music plays.
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center text-sm font-bold text-orange-600">⏳</div>
+                    <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-sm font-bold text-green-600">3</div>
                     <div>
-                      <div className="umo-text-primary font-medium mb-1 text-sm">Wait for Approval</div>
+                      <div className="umo-text-primary font-medium mb-1 text-sm">Upload & Share</div>
                       <div className="umo-text-secondary text-xs">
-                        Uploads go through moderation. Check My Account for status updates.
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-sm font-bold text-green-600">✓</div>
-                    <div>
-                      <div className="umo-text-primary font-medium mb-1 text-sm">Enjoy & Share</div>
-                      <div className="umo-text-secondary text-xs">
-                        Approved moments appear in the public archive for all fans to discover.
+                        Login → My Account → Upload. Your moments join the archive after approval.
                       </div>
                     </div>
                   </div>
@@ -561,59 +557,7 @@ const Header = memo(({
           </div>
         </div>
 
-        {/* Desktop Navigation Tabs (only on home view) */}
-        {currentView === 'home' && (
-          <div className="flex justify-center">
-            <div className="umo-glass p-1 inline-flex w-full max-w-lg" style={{ borderRadius: '2px' }}>
-              <button
-                onClick={() => onBrowseModeChange('moments')}
-                className={`umo-btn flex-1 ${
-                  browseMode === 'moments' 
-                    ? 'umo-btn--primary' 
-                    : 'umo-btn--ghost'
-                }`}
-                style={{ minHeight: '44px' }}
-              >
-                Moments
-              </button>
-              <button
-                onClick={() => onBrowseModeChange('performances')}
-                className={`umo-btn flex-1 ${
-                  browseMode === 'performances' 
-                    ? 'umo-btn--primary' 
-                    : 'umo-btn--ghost'
-                }`}
-                style={{ minHeight: '44px' }}
-              >
-                Shows
-              </button>
-              <button
-                onClick={() => onBrowseModeChange('songs')}
-                className={`umo-btn flex-1 ${
-                  browseMode === 'songs'
-                    ? 'umo-btn--primary'
-                    : 'umo-btn--ghost'
-                }`}
-                style={{ minHeight: '44px' }}
-              >
-                Songs
-              </button>
-              {user && (user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') && (
-                <button
-                  onClick={() => onBrowseModeChange('umotube')}
-                  className={`umo-btn flex-1 ${
-                    browseMode === 'umotube'
-                      ? 'umo-btn--primary'
-                      : 'umo-btn--ghost'
-                  }`}
-                  style={{ minHeight: '44px' }}
-                >
-                  UMOTube
-                </button>
-              )}
-            </div>
-          </div>
-        )}
+        {/* Navigation tabs moved to MainContent below hero */}
       </div>
     </div>
   );
@@ -630,61 +574,122 @@ const MainContent = memo(({
   onPerformanceSelect,
   onSongSelect,
   onBack,
-  user
+  onBrowseModeChange,
+  user,
+  mediaFilter,
+  setMediaFilter
 }) => {
   const [heroSelectedMoment, setHeroSelectedMoment] = useState(null);
 
   // Import MomentDetailModal for hero clicks
   const MomentDetailModal = React.lazy(() => import('./components/Moment/MomentDetailModal'));
 
-  switch (currentView) {
-    case 'song':
-      return selectedSong ? (
-        <SongDetail
-          songData={selectedSong}
-          onBack={onBack}
-          onPerformanceSelect={onPerformanceSelect}
-        />
-      ) : null;
-
-    case 'performance':
-      return selectedPerformance ? (
-        <PerformanceDetail performance={selectedPerformance} onBack={onBack} />
-      ) : null;
-
-    case 'home':
-    default:
-      switch (browseMode) {
-        case 'performances':
-          return <PerformanceList onPerformanceSelect={onPerformanceSelect} />;
-        case 'songs':
-          return <SongBrowser onSongSelect={onSongSelect} />;
-        case 'moments':
-          return (
-            <>
-              {/* VideoHero - Big random clip player at top */}
-              <VideoHero onMomentClick={(moment) => setHeroSelectedMoment(moment)} />
-
-              {/* Moment Browser grid below */}
-              <MomentBrowser onSongSelect={onSongSelect} onPerformanceSelect={onPerformanceSelect} />
-
-              {/* Modal for hero click */}
-              {heroSelectedMoment && (
-                <React.Suspense fallback={<div>Loading...</div>}>
-                  <MomentDetailModal
-                    moment={heroSelectedMoment}
-                    onClose={() => setHeroSelectedMoment(null)}
-                  />
-                </React.Suspense>
-              )}
-            </>
-          );
-        case 'umotube':
-          return <UMOTube user={user} />;
-        default:
-          return <PerformanceList onPerformanceSelect={onPerformanceSelect} />;
-      }
+  // Non-home views (song detail, performance detail)
+  if (currentView === 'song' && selectedSong) {
+    return (
+      <SongDetail
+        songData={selectedSong}
+        onBack={onBack}
+        onPerformanceSelect={onPerformanceSelect}
+      />
+    );
   }
+
+  if (currentView === 'performance' && selectedPerformance) {
+    return <PerformanceDetail performance={selectedPerformance} onBack={onBack} />;
+  }
+
+  // Home view - Hero persists above navigation tabs
+  return (
+    <>
+      {/* VideoHero - Big random clip player, persists across all home tabs */}
+      <VideoHero
+        onMomentClick={(moment) => setHeroSelectedMoment(moment)}
+        mediaFilter={mediaFilter}
+        setMediaFilter={setMediaFilter}
+      />
+
+      {/* Navigation Tabs - Below Hero */}
+      <div className="flex justify-center mb-6">
+        <div className="umo-glass p-1 inline-flex w-full max-w-lg" style={{ borderRadius: '2px' }}>
+          <button
+            onClick={() => onBrowseModeChange('moments')}
+            className={`umo-btn flex-1 ${
+              browseMode === 'moments'
+                ? 'umo-btn--primary'
+                : 'umo-btn--ghost'
+            }`}
+            style={{ minHeight: '44px' }}
+          >
+            Moments
+          </button>
+          <button
+            onClick={() => onBrowseModeChange('performances')}
+            className={`umo-btn flex-1 ${
+              browseMode === 'performances'
+                ? 'umo-btn--primary'
+                : 'umo-btn--ghost'
+            }`}
+            style={{ minHeight: '44px' }}
+          >
+            Shows
+          </button>
+          <button
+            onClick={() => onBrowseModeChange('songs')}
+            className={`umo-btn flex-1 ${
+              browseMode === 'songs'
+                ? 'umo-btn--primary'
+                : 'umo-btn--ghost'
+            }`}
+            style={{ minHeight: '44px' }}
+          >
+            Songs
+          </button>
+          {user && (user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') && (
+            <button
+              onClick={() => onBrowseModeChange('umotube')}
+              className={`umo-btn flex-1 ${
+                browseMode === 'umotube'
+                  ? 'umo-btn--primary'
+                  : 'umo-btn--ghost'
+              }`}
+              style={{ minHeight: '44px' }}
+            >
+              UMOTube
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      {browseMode === 'moments' && (
+        <MomentBrowser
+          onSongSelect={onSongSelect}
+          onPerformanceSelect={onPerformanceSelect}
+          mediaFilter={mediaFilter}
+        />
+      )}
+      {browseMode === 'performances' && (
+        <PerformanceList onPerformanceSelect={onPerformanceSelect} />
+      )}
+      {browseMode === 'songs' && (
+        <SongBrowser onSongSelect={onSongSelect} />
+      )}
+      {browseMode === 'umotube' && (
+        <UMOTube user={user} />
+      )}
+
+      {/* Modal for hero click */}
+      {heroSelectedMoment && (
+        <React.Suspense fallback={<div>Loading...</div>}>
+          <MomentDetailModal
+            moment={heroSelectedMoment}
+            onClose={() => setHeroSelectedMoment(null)}
+          />
+        </React.Suspense>
+      )}
+    </>
+  );
 });
 
 MainContent.displayName = 'MainContent';

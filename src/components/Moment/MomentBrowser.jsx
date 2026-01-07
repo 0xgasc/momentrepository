@@ -8,7 +8,7 @@ import { Play, Calendar, MapPin, User, Clock, HelpCircle, X, ListPlus, Check, Mu
 import MomentDetailModal from './MomentDetailModal';
 import PullToRefresh from '../UI/PullToRefresh';
 
-const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
+const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilter = 'all' }) => {
   const { isWeb3Enabled } = usePlatformSettings();
   const { addToQueue, isInQueue } = useTheaterQueue();
   const [moments, setMoments] = useState([]);
@@ -68,9 +68,40 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
     fetchMoments();
   }, []);
 
+  // Helper to detect if moment is YouTube/linked
+  const isYouTubeMoment = useCallback((m) => {
+    return m.mediaSource === 'youtube' ||
+      m.mediaUrl?.includes('youtube.com') ||
+      m.mediaUrl?.includes('youtu.be') ||
+      m.externalVideoId;
+  }, []);
+
+  // Helper to detect if moment is audio
+  const isAudioMoment = useCallback((m) => {
+    const fileName = m.fileName?.toLowerCase() || '';
+    const mediaType = m.mediaType?.toLowerCase() || '';
+    const contentType = m.contentType?.toLowerCase() || '';
+    return mediaType.includes('audio') ||
+      contentType.includes('audio') ||
+      fileName.match(/\.(mp3|wav|ogg|flac|m4a|aac)$/);
+  }, []);
+
   // Filter and sort moments
   const filteredAndSortedMoments = useMemo(() => {
     let result = [...moments];
+
+    // Apply media type filter from hero
+    if (mediaFilter !== 'all') {
+      result = result.filter(m => {
+        const isYT = isYouTubeMoment(m);
+        const isAudio = isAudioMoment(m);
+
+        if (mediaFilter === 'clips') return m.mediaSource === 'upload' && !isAudio;
+        if (mediaFilter === 'audio') return isAudio;
+        if (mediaFilter === 'linked') return isYT || m.mediaSource === 'vimeo';
+        return true;
+      });
+    }
 
     // Filter by search query
     if (searchQuery.trim()) {
@@ -119,13 +150,13 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect }) => {
     }
 
     return result;
-  }, [moments, searchQuery, sortBy, sortDirection, randomSeed]);
+  }, [moments, searchQuery, sortBy, sortDirection, randomSeed, mediaFilter, isYouTubeMoment, isAudioMoment]);
 
-  // Reset loaded count when search/sort changes
+  // Reset loaded count when search/sort/filter changes
   useEffect(() => {
     setLoadedCount(MOMENTS_PER_LOAD);
     setCurrentPage(0);
-  }, [searchQuery, sortBy, sortDirection, MOMENTS_PER_LOAD]);
+  }, [searchQuery, sortBy, sortDirection, mediaFilter, MOMENTS_PER_LOAD]);
 
   // Search handlers
   const handleSearchChange = useCallback((e) => {
