@@ -16,11 +16,11 @@ const isUpcomingShow = (eventDate) => {
 };
 
 const CommunityPanel = memo(({ performance, user, token }) => {
-  const [activeTab, setActiveTab] = useState('guestbook');
-  const [isExpanded, setIsExpanded] = useState(false); // Collapsed by default
-
   const performanceId = performance?.id;
   const isUpcoming = isUpcomingShow(performance?.eventDate);
+
+  const [activeTab, setActiveTab] = useState(isUpcoming ? 'chat' : 'guestbook');
+  const [isExpanded, setIsExpanded] = useState(isUpcoming); // Expanded for upcoming shows
 
   // Filter tabs based on whether show is upcoming or past
   const tabs = [

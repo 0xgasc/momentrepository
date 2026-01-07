@@ -103,6 +103,16 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
     (set.song || []).filter(song => isActualSong(song.name))
   );
 
+  // Check if show is today or in the past (can upload moments)
+  const isShowDayOrPast = (() => {
+    if (!fullPerformance?.eventDate) return false;
+    const showDate = new Date(fullPerformance.eventDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    showDate.setHours(0, 0, 0, 0);
+    return showDate <= today;
+  })();
+
   if (loading || loadingMomentDetails) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -143,9 +153,9 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
       </div>
 
       {/* Main Content Grid: Setlist + Upload */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Setlist Panel - Takes 2/3 width on desktop */}
-        <div className="lg:col-span-2">
+      <div className={`grid grid-cols-1 ${isShowDayOrPast ? 'lg:grid-cols-3' : ''} gap-6`}>
+        {/* Setlist Panel - Takes 2/3 width on desktop (or full width for future shows) */}
+        <div className={isShowDayOrPast ? 'lg:col-span-2' : ''}>
           <SetlistPanel
             performance={fullPerformance}
             moments={songMoments}
@@ -153,16 +163,18 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
           />
         </div>
 
-        {/* Upload Panel - Takes 1/3 width on desktop */}
-        <div className="lg:col-span-1">
-          <UploadPanel
-            performance={fullPerformance}
-            songs={allSongs}
-            user={user}
-            onUploadSong={handleUploadSongMoment}
-            onUploadOther={handleUploadOtherContent}
-          />
-        </div>
+        {/* Upload Panel - Only show on show day or after */}
+        {isShowDayOrPast && (
+          <div className="lg:col-span-1">
+            <UploadPanel
+              performance={fullPerformance}
+              songs={allSongs}
+              user={user}
+              onUploadSong={handleUploadSongMoment}
+              onUploadOther={handleUploadOtherContent}
+            />
+          </div>
+        )}
       </div>
 
       {/* Modals */}
