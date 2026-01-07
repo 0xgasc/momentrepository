@@ -2550,6 +2550,74 @@ app.post('/admin/moments/bulk-migrate', authenticateToken, requireAdmin, async (
   }
 });
 
+// Admin: Batch create moments from YouTube setlist
+// Creates multiple song moments from a single YouTube video with timestamps
+app.post('/admin/moments/batch', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { moments } = req.body;
+
+    if (!Array.isArray(moments) || moments.length === 0) {
+      return res.status(400).json({ error: 'moments array is required' });
+    }
+
+    const createdMoments = [];
+    const errors = [];
+
+    for (const momentData of moments) {
+      try {
+        // Validate required fields
+        if (!momentData.songName || !momentData.externalVideoId) {
+          errors.push({ songName: momentData.songName, error: 'Missing songName or externalVideoId' });
+          continue;
+        }
+
+        // Build YouTube mediaUrl with timestamp
+        const startParam = momentData.startTime ? `&start=${momentData.startTime}` : '';
+        const mediaUrl = `https://www.youtube.com/watch?v=${momentData.externalVideoId}${startParam}`;
+
+        const newMoment = new Moment({
+          songName: momentData.songName,
+          performanceId: momentData.performanceId,
+          performanceDate: momentData.performanceDate,
+          venueName: momentData.venueName,
+          venueCity: momentData.venueCity,
+          venueCountry: momentData.venueCountry || '',
+          setName: momentData.setName || 'Main Set',
+          contentType: momentData.contentType || 'song',
+          mediaSource: 'youtube',
+          mediaUrl: mediaUrl,
+          externalVideoId: momentData.externalVideoId,
+          startTime: momentData.startTime || 0,
+          endTime: momentData.endTime || null,
+          user: req.user.id,
+          approvalStatus: 'approved', // Admin-created moments are auto-approved
+          reviewedBy: req.user.id,
+          reviewedAt: new Date()
+        });
+
+        await newMoment.save();
+        createdMoments.push(newMoment);
+        console.log(`✅ Created moment: ${momentData.songName} at ${momentData.startTime}s`);
+      } catch (err) {
+        console.error(`❌ Failed to create moment ${momentData.songName}:`, err);
+        errors.push({ songName: momentData.songName, error: err.message });
+      }
+    }
+
+    console.log(`🎵 Batch create: ${createdMoments.length} created, ${errors.length} failed`);
+    res.json({
+      success: true,
+      created: createdMoments.length,
+      failed: errors.length,
+      moments: createdMoments,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    console.error('❌ Batch moment creation error:', error);
+    res.status(500).json({ error: 'Failed to batch create moments' });
+  }
+});
+
 // =============================================================================
 // CONTENT MODERATION ENDPOINTS
 // =============================================================================

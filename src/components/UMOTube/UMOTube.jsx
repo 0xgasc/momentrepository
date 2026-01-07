@@ -1,10 +1,33 @@
 // src/components/UMOTube/UMOTube.jsx - YouTube linked clips feature
 import React, { useState, useEffect } from 'react';
-import { Plus, Youtube, Calendar, MapPin, Play } from 'lucide-react';
+import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 
+// Helper to parse MM:SS to seconds
+const parseTimeToSeconds = (timeStr) => {
+  if (!timeStr) return 0;
+  const parts = timeStr.split(':').map(Number);
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  }
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  return parseInt(timeStr) || 0;
+};
+
+// Helper to format seconds to MM:SS
+const formatSecondsToTime = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
 const UMOTube = ({ user }) => {
+  // Admin-only access
+  const isAdmin = user && (user.role === 'admin' || user.role === 'mod' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo');
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [videos, setVideos] = useState([]);
@@ -12,6 +35,31 @@ const UMOTube = ({ user }) => {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Setlist generator state
+  const [showSetlistGenerator, setShowSetlistGenerator] = useState(false);
+  const [selectedVideoForSetlist, setSelectedVideoForSetlist] = useState(null);
+  const [setlistRows, setSetlistRows] = useState([
+    { songName: '', startTime: '0:00', contentType: 'song' }
+  ]);
+  const [generatingSetlist, setGeneratingSetlist] = useState(false);
+  const [setlistError, setSetlistError] = useState('');
+  const [setlistSuccess, setSetlistSuccess] = useState('');
+
+  // Guard: only admins can access
+  if (!isAdmin) {
+    return (
+      <div className="umo-container py-12 text-center">
+        <div className="max-w-md mx-auto">
+          <Youtube className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <h2 className="umo-heading umo-heading--lg mb-4">Admin Only</h2>
+          <p className="umo-text-secondary">
+            UMOTube is currently available to administrators only.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const [formData, setFormData] = useState({
     youtubeUrl: '',
@@ -92,8 +140,105 @@ const UMOTube = ({ user }) => {
     }
   };
 
-  // Check if user is admin/mod
-  const isAdmin = user && (user.role === 'admin' || user.role === 'mod');
+  // Setlist generator functions
+  const addSetlistRow = () => {
+    setSetlistRows([...setlistRows, { songName: '', startTime: '', contentType: 'song' }]);
+  };
+
+  const removeSetlistRow = (index) => {
+    if (setlistRows.length > 1) {
+      setSetlistRows(setlistRows.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateSetlistRow = (index, field, value) => {
+    const updated = [...setlistRows];
+    updated[index][field] = value;
+    setSetlistRows(updated);
+  };
+
+  const openSetlistGenerator = (video) => {
+    setSelectedVideoForSetlist(video);
+    setSetlistRows([{ songName: '', startTime: '0:00', contentType: 'song' }]);
+    setShowSetlistGenerator(true);
+    setSetlistError('');
+    setSetlistSuccess('');
+  };
+
+  const generateSetlist = async () => {
+    if (!selectedVideoForSetlist) return;
+
+    // Validate rows
+    const validRows = setlistRows.filter(row => row.songName.trim() && row.startTime);
+    if (validRows.length === 0) {
+      setSetlistError('Please add at least one song with a name and start time');
+      return;
+    }
+
+    setGeneratingSetlist(true);
+    setSetlistError('');
+    setSetlistSuccess('');
+
+    try {
+      const token = localStorage.getItem('token');
+
+      // Sort rows by start time
+      const sortedRows = [...validRows].sort((a, b) =>
+        parseTimeToSeconds(a.startTime) - parseTimeToSeconds(b.startTime)
+      );
+
+      // Calculate end times (each song ends when next begins)
+      const momentsToCreate = sortedRows.map((row, index) => {
+        const startTime = parseTimeToSeconds(row.startTime);
+        const endTime = index < sortedRows.length - 1
+          ? parseTimeToSeconds(sortedRows[index + 1].startTime)
+          : null; // Last song has no end time
+
+        return {
+          songName: row.songName.trim(),
+          startTime,
+          endTime,
+          contentType: row.contentType,
+          // Copy info from parent video
+          performanceId: selectedVideoForSetlist.performanceId,
+          performanceDate: selectedVideoForSetlist.performanceDate,
+          venueName: selectedVideoForSetlist.venueName,
+          venueCity: selectedVideoForSetlist.venueCity,
+          venueCountry: selectedVideoForSetlist.venueCountry,
+          externalVideoId: selectedVideoForSetlist.externalVideoId,
+          mediaSource: 'youtube',
+          setName: selectedVideoForSetlist.setName || 'Main Set'
+        };
+      });
+
+      // Create moments via API
+      const response = await fetch(`${API_BASE_URL}/admin/moments/batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ moments: momentsToCreate })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSetlistSuccess(`Created ${data.created} song moments!`);
+        fetchVideos();
+        setTimeout(() => {
+          setShowSetlistGenerator(false);
+          setSetlistSuccess('');
+        }, 2000);
+      } else {
+        setSetlistError(data.error || 'Failed to generate setlist');
+      }
+    } catch (err) {
+      setSetlistError(`Failed to generate setlist: ${err.message}`);
+    } finally {
+      setGeneratingSetlist(false);
+    }
+  };
 
   // Get YouTube thumbnail from video ID
   const getYouTubeThumbnail = (videoId) => {
@@ -360,7 +505,8 @@ const UMOTube = ({ user }) => {
                       {video.momentDescription}
                     </p>
                   )}
-                  <div className="mt-3 flex items-center gap-2">
+                  <div className="mt-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
                     <span className="text-xs px-2 py-1 bg-gray-700 rounded">
                       {video.contentType === 'song' ? 'Song' :
                        video.contentType === 'jam' ? 'Jam' : 'Full Performance'}
@@ -371,12 +517,152 @@ const UMOTube = ({ user }) => {
                       </span>
                     )}
                   </div>
+                  {video.contentType === 'other' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openSetlistGenerator(video);
+                      }}
+                      className="flex items-center gap-1 text-xs px-2 py-1 bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/40 rounded transition-colors"
+                      title="Generate song moments from this video"
+                    >
+                      <ListMusic size={12} />
+                      Setlist
+                    </button>
+                  )}
+                </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Setlist Generator Modal */}
+      {showSetlistGenerator && selectedVideoForSetlist && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="umo-card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <ListMusic className="w-6 h-6 text-yellow-500" />
+                  <h2 className="umo-heading umo-heading--lg">Generate Setlist</h2>
+                </div>
+                <button
+                  onClick={() => setShowSetlistGenerator(false)}
+                  className="text-gray-400 hover:text-white text-2xl"
+                >
+                  &times;
+                </button>
+              </div>
+
+              {/* Video info */}
+              <div className="bg-gray-800 p-4 rounded mb-6">
+                <div className="flex items-center gap-4">
+                  <img
+                    src={getYouTubeThumbnail(selectedVideoForSetlist.externalVideoId)}
+                    alt={selectedVideoForSetlist.songName}
+                    className="w-32 h-20 object-cover rounded"
+                  />
+                  <div>
+                    <h3 className="umo-heading umo-heading--sm">{selectedVideoForSetlist.songName}</h3>
+                    <p className="umo-text-secondary text-sm">
+                      {selectedVideoForSetlist.venueName} - {selectedVideoForSetlist.venueCity}
+                    </p>
+                    <p className="umo-text-muted text-xs">{selectedVideoForSetlist.performanceDate}</p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="umo-text-secondary text-sm mb-4">
+                Add songs with their start times (MM:SS). End times will be calculated automatically.
+              </p>
+
+              {setlistError && (
+                <div className="bg-red-900/20 border border-red-500/30 p-3 rounded mb-4">
+                  <p className="text-red-400 text-sm">{setlistError}</p>
+                </div>
+              )}
+
+              {setlistSuccess && (
+                <div className="bg-green-900/20 border border-green-500/30 p-3 rounded mb-4">
+                  <p className="text-green-400 text-sm">{setlistSuccess}</p>
+                </div>
+              )}
+
+              {/* Song rows */}
+              <div className="space-y-3 mb-6">
+                {setlistRows.map((row, index) => (
+                  <div key={index} className="flex items-center gap-3 bg-gray-800/50 p-3 rounded">
+                    <span className="text-gray-500 text-sm w-6">{index + 1}.</span>
+
+                    <input
+                      type="text"
+                      value={row.songName}
+                      onChange={(e) => updateSetlistRow(index, 'songName', e.target.value)}
+                      placeholder="Song name"
+                      className="umo-input flex-1"
+                    />
+
+                    <div className="flex items-center gap-1">
+                      <Clock size={14} className="text-gray-500" />
+                      <input
+                        type="text"
+                        value={row.startTime}
+                        onChange={(e) => updateSetlistRow(index, 'startTime', e.target.value)}
+                        placeholder="0:00"
+                        className="umo-input w-20 text-center"
+                      />
+                    </div>
+
+                    <select
+                      value={row.contentType}
+                      onChange={(e) => updateSetlistRow(index, 'contentType', e.target.value)}
+                      className="umo-select w-24"
+                    >
+                      <option value="song">Song</option>
+                      <option value="jam">Jam</option>
+                    </select>
+
+                    <button
+                      onClick={() => removeSetlistRow(index)}
+                      className="text-gray-500 hover:text-red-400 transition-colors p-1"
+                      disabled={setlistRows.length <= 1}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={addSetlistRow}
+                className="umo-btn umo-btn--secondary w-full mb-6"
+              >
+                <Plus size={16} className="mr-2" />
+                Add Song
+              </button>
+
+              {/* Actions */}
+              <div className="flex gap-4">
+                <button
+                  onClick={generateSetlist}
+                  disabled={generatingSetlist}
+                  className="umo-btn umo-btn--primary flex-1"
+                >
+                  {generatingSetlist ? 'Generating...' : 'Generate Moments'}
+                </button>
+                <button
+                  onClick={() => setShowSetlistGenerator(false)}
+                  className="umo-btn umo-btn--secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Video Detail Modal */}
       {selectedVideo && (

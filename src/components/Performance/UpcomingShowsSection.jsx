@@ -29,7 +29,7 @@ const daysUntil = (dateStr) => {
   if (diff === 0) return 'Today!';
   if (diff === 1) return 'Tomorrow';
   if (diff < 0) return 'Past';
-  return `${diff} days`;
+  return `in ${diff} days`;
 };
 
 const ticketStatusConfig = {

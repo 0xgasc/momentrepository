@@ -1,5 +1,5 @@
 // src/components/UI/VideoHero.jsx - Hero player for random video/audio clips
-import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2, Droplet } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
@@ -8,6 +8,15 @@ import WaveformPlayer from './WaveformPlayer';
 
 // ASCII character map - from darkest to brightest
 const ASCII_CHARS = ' .:-=+*#%@';
+
+// Video filter presets for YouTube/linked content
+const VIDEO_FILTER_PRESETS = {
+  none: { label: 'Off', filter: 'none' },
+  warm: { label: 'Warm', filter: 'sepia(30%) saturate(120%) brightness(105%) contrast(105%)' },
+  lofi: { label: 'Lo-Fi', filter: 'grayscale(30%) contrast(120%) brightness(95%) saturate(80%)' },
+  retro: { label: 'Retro', filter: 'sepia(50%) hue-rotate(-10deg) saturate(150%) contrast(110%)' },
+  vhs: { label: 'VHS', filter: 'saturate(130%) contrast(95%) brightness(105%) blur(0.5px)' }
+};
 
 const VideoHero = memo(({ onMomentClick }) => {
   const videoRef = useRef(null);
@@ -20,6 +29,7 @@ const VideoHero = memo(({ onMomentClick }) => {
 
   const [moment, setMoment] = useState(null);
   const [allMoments, setAllMoments] = useState([]);
+  const [mediaFilter, setMediaFilter] = useState('all');
   const [isYouTube, setIsYouTube] = useState(false);
   const [isAudio, setIsAudio] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -30,6 +40,7 @@ const VideoHero = memo(({ onMomentClick }) => {
   const [youtubeKey, setYoutubeKey] = useState(0);
   const [trippyEffect, setTrippyEffect] = useState(false);
   const [effectIntensity, setEffectIntensity] = useState(50);
+  const [videoFilterMode, setVideoFilterMode] = useState('none'); // For YouTube: none, warm, lofi, retro, vhs
   const [asciiOutput, setAsciiOutput] = useState([]);
   const [isAsciiMode, setIsAsciiMode] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -119,6 +130,21 @@ const VideoHero = memo(({ onMomentClick }) => {
     return { isYouTube: false, isAudio: false };
   }, []);
 
+  // Filter moments based on media type
+  const filterMoments = useCallback((moments, filter) => {
+    if (filter === 'all') return moments;
+    if (filter === 'clips') return moments.filter(m => m.mediaSource === 'upload' && !m._isAudio);
+    if (filter === 'audio') return moments.filter(m => m._isAudio);
+    if (filter === 'linked') return moments.filter(m => m._isYouTube || m.mediaSource === 'vimeo');
+    return moments;
+  }, []);
+
+  // Memoized filtered moments
+  const filteredMoments = useMemo(() =>
+    filterMoments(allMoments, mediaFilter),
+    [allMoments, mediaFilter, filterMoments]
+  );
+
   // Fetch ALL moments and filter client-side
   useEffect(() => {
     const fetchAllMoments = async () => {
@@ -176,6 +202,36 @@ const VideoHero = memo(({ onMomentClick }) => {
 
     fetchAllMoments();
   }, [selectRandomMoment, detectContentType]);
+
+  // Handle filter change - select new moment if current doesn't match filter
+  useEffect(() => {
+    if (!moment || filteredMoments.length === 0) return;
+
+    // Check if current moment is in filtered list
+    const currentInFiltered = filteredMoments.some(m => m._id === moment._id);
+    if (!currentInFiltered) {
+      const next = selectRandomMoment(filteredMoments);
+      if (next) {
+        setMoment(next);
+        setIsYouTube(next._isYouTube);
+        setIsAudio(next._isAudio);
+        setYoutubeKey(prev => prev + 1);
+      }
+    }
+  }, [mediaFilter, filteredMoments, moment, selectRandomMoment]);
+
+  // Reset effects when media type changes
+  useEffect(() => {
+    // Reset ASCII mode when switching away from uploaded video
+    if (isYouTube || isAudio) {
+      setIsAsciiMode(false);
+    }
+    // Reset trippy effect when switching away from YouTube
+    if (!isYouTube) {
+      setTrippyEffect(false);
+      setVideoFilterMode('none');
+    }
+  }, [isYouTube, isAudio]);
 
   // Sync with queue playback
   useEffect(() => {
@@ -379,8 +435,8 @@ const VideoHero = memo(({ onMomentClick }) => {
 
     if (isPlayingFromQueue) {
       playNextInQueue();
-    } else if (allMoments.length > 0) {
-      const next = selectRandomMoment(allMoments, moment);
+    } else if (filteredMoments.length > 0) {
+      const next = selectRandomMoment(filteredMoments, moment);
       if (next) {
         setMoment(next);
         setIsYouTube(next._isYouTube);
@@ -389,7 +445,7 @@ const VideoHero = memo(({ onMomentClick }) => {
         setYoutubeKey(prev => prev + 1);
       }
     }
-  }, [allMoments, moment, selectRandomMoment, isPlayingFromQueue, playNextInQueue]);
+  }, [filteredMoments, moment, selectRandomMoment, isPlayingFromQueue, playNextInQueue]);
 
   // Add to queue
   const handleAddToQueue = useCallback(() => {
@@ -545,6 +601,31 @@ const VideoHero = memo(({ onMomentClick }) => {
       {/* Hidden canvas for ASCII processing */}
       <canvas ref={canvasRef} className="hidden" />
 
+      {/* Media filter - top left, sleek pills */}
+      <div className={`absolute top-2 left-2 sm:top-3 sm:left-3 z-30 flex gap-1 transition-all duration-300 ${
+        showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}>
+        {[
+          { key: 'all', label: 'All' },
+          { key: 'clips', label: 'Clips' },
+          { key: 'audio', label: 'Audio' },
+          { key: 'linked', label: 'Linked' }
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setMediaFilter(key)}
+            className={`px-2 py-1 text-xs font-medium transition-all backdrop-blur-sm border ${
+              mediaFilter === key
+                ? 'bg-white/90 text-black border-white/50'
+                : 'bg-black/40 text-gray-300 border-white/10 hover:bg-black/60 hover:text-white'
+            }`}
+            style={{ borderRadius: '2px' }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* Minimize button - top right, fades with controls */}
       <button
         onClick={() => setIsMinimized(true)}
@@ -610,9 +691,7 @@ const VideoHero = memo(({ onMomentClick }) => {
               {moment.performanceDate && ` (${moment.performanceDate})`}
             </p>
           </div>
-
-          {/* UMO Trippy Effect Overlay */}
-          {trippyEffect && <UMOEffect intensity={effectIntensity} />}
+          {/* No effects for audio */}
         </div>
       ) : isYouTube && youtubeId ? (
         /* YouTube Mode */
@@ -620,12 +699,13 @@ const VideoHero = memo(({ onMomentClick }) => {
           <iframe
             key={youtubeKey}
             ref={iframeRef}
-            className="absolute top-0 left-0 w-full h-full"
+            className="absolute top-0 left-0 w-full h-full transition-all duration-300"
             src={youtubeUrl}
             title={moment?.songName || 'Video'}
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
+            style={{ filter: VIDEO_FILTER_PRESETS[videoFilterMode]?.filter || 'none' }}
           />
 
           {/* Top info banner - glassy */}
@@ -650,7 +730,7 @@ const VideoHero = memo(({ onMomentClick }) => {
             </div>
           )}
 
-          {/* UMO Trippy Effect Overlay */}
+          {/* UMO Trippy Effect Overlay - only when trippy mode is on */}
           {trippyEffect && <UMOEffect intensity={effectIntensity} />}
         </div>
       ) : (
@@ -773,38 +853,90 @@ const VideoHero = memo(({ onMomentClick }) => {
 
           {/* Main controls */}
           <div className="flex items-center gap-1">
-            {/* Effect toggle - ASCII for uploads, trippy for YouTube */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isYouTube) {
-                  setTrippyEffect(!trippyEffect);
-                } else {
-                  setIsAsciiMode(!isAsciiMode);
-                }
-              }}
-              className={`rounded-full p-2 transition-colors ${
-                (isYouTube ? trippyEffect : isAsciiMode) ? 'bg-purple-600 hover:bg-purple-500' : 'bg-white/20 hover:bg-white/30'
-              }`}
-              style={{ minWidth: '36px', minHeight: '36px' }}
-              title={isYouTube ? 'Trippy effect' : 'ASCII mode'}
-            >
-              <Droplet size={16} className="text-white" />
-            </button>
+            {/* Effect controls - different for each media type */}
+            {/* Audio: No effects */}
+            {/* Uploaded Video: ASCII mode toggle */}
+            {!isYouTube && !isAudio && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsAsciiMode(!isAsciiMode);
+                  }}
+                  className={`rounded-full p-2 transition-colors ${
+                    isAsciiMode ? 'bg-purple-600 hover:bg-purple-500' : 'bg-white/20 hover:bg-white/30'
+                  }`}
+                  style={{ minWidth: '36px', minHeight: '36px' }}
+                  title="ASCII mode"
+                >
+                  <Droplet size={16} className="text-white" />
+                </button>
+                {isAsciiMode && (
+                  <div className="hidden sm:flex items-center bg-black/60 rounded-full px-2 py-1">
+                    <input
+                      type="range"
+                      min="10"
+                      max="100"
+                      value={effectIntensity}
+                      onChange={(e) => setEffectIntensity(Number(e.target.value))}
+                      className="w-16 h-1 accent-purple-500 cursor-pointer"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                )}
+              </>
+            )}
 
-            {/* Intensity slider - hidden on mobile, shown when effect active */}
-            {(isYouTube ? trippyEffect : isAsciiMode) && (
-              <div className="hidden sm:flex items-center bg-black/60 rounded-full px-2 py-1">
-                <input
-                  type="range"
-                  min="10"
-                  max="100"
-                  value={effectIntensity}
-                  onChange={(e) => setEffectIntensity(Number(e.target.value))}
-                  className="w-16 h-1 accent-purple-500 cursor-pointer"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </div>
+            {/* YouTube: Filter presets + trippy effect */}
+            {isYouTube && (
+              <>
+                {/* Filter selector */}
+                <div className="flex items-center gap-0.5 bg-black/40 rounded-full px-1">
+                  {Object.entries(VIDEO_FILTER_PRESETS).map(([key, { label }]) => (
+                    <button
+                      key={key}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setVideoFilterMode(key);
+                      }}
+                      className={`px-2 py-1 text-xs transition-colors rounded-full ${
+                        videoFilterMode === key
+                          ? 'bg-white/90 text-black'
+                          : 'text-gray-300 hover:text-white'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {/* Trippy effect toggle */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTrippyEffect(!trippyEffect);
+                  }}
+                  className={`rounded-full p-2 transition-colors ${
+                    trippyEffect ? 'bg-purple-600 hover:bg-purple-500' : 'bg-white/20 hover:bg-white/30'
+                  }`}
+                  style={{ minWidth: '36px', minHeight: '36px' }}
+                  title="Trippy overlay"
+                >
+                  <Droplet size={16} className="text-white" />
+                </button>
+                {trippyEffect && (
+                  <div className="hidden sm:flex items-center bg-black/60 rounded-full px-2 py-1">
+                    <input
+                      type="range"
+                      min="10"
+                      max="100"
+                      value={effectIntensity}
+                      onChange={(e) => setEffectIntensity(Number(e.target.value))}
+                      className="w-16 h-1 accent-purple-500 cursor-pointer"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             <button
