@@ -22,8 +22,6 @@ const CommunityPanel = memo(({ performance, user, token }) => {
   const performanceId = performance?.id;
   const isUpcoming = isUpcomingShow(performance?.eventDate);
 
-  if (!performanceId) return null;
-
   // Filter tabs based on whether show is upcoming or past
   const tabs = [
     {
@@ -60,10 +58,12 @@ const CommunityPanel = memo(({ performance, user, token }) => {
 
   // Reset to guestbook if current tab becomes unavailable
   useEffect(() => {
-    if (!availableTabs.find(t => t.id === activeTab)) {
+    if (availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
       setActiveTab('guestbook');
     }
   }, [availableTabs, activeTab]);
+
+  if (!performanceId) return null;
 
   return (
     <div className="community-panel bg-gray-900/50 rounded-lg border border-gray-800/50 overflow-hidden">
