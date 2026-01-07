@@ -1,6 +1,6 @@
 // src/components/Performance/panels/UploadPanel.jsx
 import React, { memo, useState } from 'react';
-import { Upload, Music, Film, ChevronDown, Sparkles } from 'lucide-react';
+import { Upload, Music, Film, ChevronDown } from 'lucide-react';
 
 const UploadPanel = memo(({
   performance,
@@ -52,7 +52,7 @@ const UploadPanel = memo(({
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-          <Sparkles size={20} className="text-white" />
+          <Upload size={20} className="text-white" />
         </div>
         <div>
           <h3 className="font-semibold text-white">Share Your Moments</h3>

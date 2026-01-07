@@ -75,7 +75,6 @@ const CommunityPanel = memo(({ performance, user, token }) => {
         <div className="flex items-center gap-3">
           <PenLine size={18} className="text-blue-400" />
           <h3 className="text-lg font-semibold text-white">Community</h3>
-          <span className="text-sm text-gray-500">Sign the Guestbook</span>
         </div>
         {isExpanded ? (
           <ChevronUp size={18} className="text-gray-400" />
