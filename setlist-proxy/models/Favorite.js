@@ -12,7 +12,7 @@ const favoriteSchema = new mongoose.Schema({
     ref: 'Moment',
     required: true
   },
-  collection: {
+  collectionRef: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Collection',
     default: null
@@ -30,6 +30,6 @@ favoriteSchema.index({ user: 1, moment: 1 }, { unique: true });
 favoriteSchema.index({ user: 1, addedAt: -1 });
 
 // Index for querying favorites in a collection
-favoriteSchema.index({ user: 1, collection: 1, addedAt: -1 });
+favoriteSchema.index({ user: 1, collectionRef: 1, addedAt: -1 });
 
 module.exports = mongoose.model('Favorite', favoriteSchema);

@@ -251,7 +251,7 @@ const FavoritesTab = memo(() => {
   };
 
   const filteredFavorites = selectedCollection
-    ? favorites.filter(f => f.collection === selectedCollection)
+    ? favorites.filter(f => f.collectionRef === selectedCollection)
     : favorites;
 
   if (loading) {

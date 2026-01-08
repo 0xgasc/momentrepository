@@ -819,7 +819,7 @@ router.get('/favorites', async (req, res) => {
 
     const { collection } = req.query;
     const query = { user: req.user.userId };
-    if (collection) query.collection = collection;
+    if (collection) query.collectionRef = collection;
 
     const favorites = await Favorite.find(query)
       .sort({ addedAt: -1 })
@@ -881,7 +881,7 @@ router.post('/favorites/:momentId', async (req, res) => {
     const favorite = new Favorite({
       user: req.user.userId,
       moment: momentId,
-      collection: collectionId || null
+      collectionRef: collectionId || null
     });
 
     await favorite.save();
@@ -920,8 +920,8 @@ router.delete('/favorites/:momentId', async (req, res) => {
     }
 
     // Update collection moment count if applicable
-    if (favorite.collection) {
-      await Collection.findByIdAndUpdate(favorite.collection, {
+    if (favorite.collectionRef) {
+      await Collection.findByIdAndUpdate(favorite.collectionRef, {
         $inc: { momentCount: -1 }
       });
     }
@@ -1041,8 +1041,8 @@ router.delete('/collections/:collectionId', async (req, res) => {
 
     // Remove collection reference from favorites but keep them
     await Favorite.updateMany(
-      { collection: collectionId },
-      { $set: { collection: null } }
+      { collectionRef: collectionId },
+      { $set: { collectionRef: null } }
     );
 
     await Collection.findByIdAndDelete(collectionId);
@@ -1076,8 +1076,8 @@ router.post('/collections/:collectionId/moments/:momentId', async (req, res) => 
 
     if (favorite) {
       // Update existing favorite to add to collection
-      const oldCollection = favorite.collection;
-      favorite.collection = collectionId;
+      const oldCollection = favorite.collectionRef;
+      favorite.collectionRef = collectionId;
       await favorite.save();
 
       // Update counts
@@ -1094,7 +1094,7 @@ router.post('/collections/:collectionId/moments/:momentId', async (req, res) => 
       favorite = new Favorite({
         user: req.user.userId,
         moment: momentId,
-        collection: collectionId
+        collectionRef: collectionId
       });
       await favorite.save();
 
@@ -1135,11 +1135,11 @@ router.delete('/collections/:collectionId/moments/:momentId', async (req, res) =
     const favorite = await Favorite.findOne({
       user: req.user.userId,
       moment: momentId,
-      collection: collectionId
+      collectionRef: collectionId
     });
 
     if (favorite) {
-      favorite.collection = null;
+      favorite.collectionRef = null;
       await favorite.save();
 
       await Collection.findByIdAndUpdate(collectionId, {
@@ -1150,7 +1150,7 @@ router.delete('/collections/:collectionId/moments/:momentId', async (req, res) =
       if (collection.coverMoment?.toString() === momentId) {
         const nextFavorite = await Favorite.findOne({
           user: req.user.userId,
-          collection: collectionId
+          collectionRef: collectionId
         });
         collection.coverMoment = nextFavorite?.moment || null;
         await collection.save();
