@@ -7,6 +7,7 @@ import { createTimeoutSignal, formatShortDate } from '../../utils';
 import { Play, Calendar, MapPin, User, Clock, HelpCircle, X, ListPlus, Check, Music } from 'lucide-react';
 import MomentDetailModal from './MomentDetailModal';
 import PullToRefresh from '../UI/PullToRefresh';
+import { transformMediaUrl } from '../../utils/mediaUrl';
 
 const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilter = 'all' }) => {
   const { isWeb3Enabled } = usePlatformSettings();
@@ -579,7 +580,7 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
           {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
             <div className="relative w-full h-full">
               <video
-                src={moment.mediaUrl}
+                src={transformMediaUrl(moment.mediaUrl)}
                 className="w-full h-full object-cover pointer-events-none"
                 autoPlay
                 muted
@@ -611,7 +612,7 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
             </div>
           ) : moment.mediaType?.startsWith('image') ? (
             <img
-              src={moment.mediaUrl}
+              src={transformMediaUrl(moment.mediaUrl)}
               alt={moment.songName}
               className="w-full h-full object-cover"
             />

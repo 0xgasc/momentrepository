@@ -1,6 +1,7 @@
 // src/components/Performance/cards/MomentThumbnailCard.jsx
 import React, { memo } from 'react';
 import { Clock, Play, Music, Film, Mic } from 'lucide-react';
+import { transformMediaUrl } from '../../../utils/mediaUrl';
 
 // Format seconds to MM:SS or HH:MM:SS
 const formatDuration = (seconds) => {
@@ -116,7 +117,7 @@ const MomentThumbnailCard = memo(({
       <div className="relative aspect-video bg-gray-900/50 flex items-center justify-center overflow-hidden">
         {moment.mediaType === 'video' && moment.mediaUrl ? (
           <video
-            src={moment.mediaUrl}
+            src={transformMediaUrl(moment.mediaUrl)}
             autoPlay
             loop
             muted

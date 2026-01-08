@@ -4,6 +4,7 @@ import { Upload, Eye, MessageCircle, Star, Heart, Folder, Plus, Trash2 } from 'l
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useUserStats } from '../../hooks/useUserStats';
 import { useFavorites } from '../../hooks/useFavorites';
+import { transformMediaUrl } from '../../utils/mediaUrl';
 
 const MyAccount = memo(({ onClose }) => {
   // eslint-disable-next-line no-unused-vars
@@ -369,7 +370,7 @@ const FavoritesTab = memo(() => {
                 <div className="aspect-video bg-gray-800 flex items-center justify-center">
                   {fav.moment?.thumbnailUrl || fav.moment?.mediaUrl ? (
                     <img
-                      src={fav.moment.thumbnailUrl || fav.moment.mediaUrl}
+                      src={transformMediaUrl(fav.moment.thumbnailUrl || fav.moment.mediaUrl)}
                       alt={fav.moment.songName}
                       className="w-full h-full object-cover"
                     />

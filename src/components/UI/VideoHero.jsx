@@ -7,6 +7,7 @@ import UMOEffect from './UMOEffect';
 import WaveformPlayer from './WaveformPlayer';
 import VideoHeroComments from './VideoHeroComments';
 import FavoriteButton from './FavoriteButton';
+import { transformMediaUrl } from '../../utils/mediaUrl';
 
 // ASCII character map - from darkest to brightest
 const ASCII_CHARS = ' .:-=+*#%@';
@@ -662,7 +663,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
           <audio
             key={`audio-${moment._id}`}
             ref={audioRef}
-            src={moment.mediaUrl}
+            src={transformMediaUrl(moment.mediaUrl)}
             crossOrigin="anonymous"
             muted={isMuted}
             preload="auto"
@@ -758,7 +759,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
             <video
               key={`video-${moment._id}`}
               ref={videoRef}
-              src={moment.mediaUrl}
+              src={transformMediaUrl(moment.mediaUrl)}
               crossOrigin="anonymous"
               muted={isMuted}
               playsInline

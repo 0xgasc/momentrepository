@@ -10,6 +10,7 @@ import LazyMedia from '../UI/LazyMedia';
 import AudioPlayer from '../UI/AudioPlayer';
 import MomentCommentsSection from './MomentCommentsSection';
 import FavoriteButton from '../UI/FavoriteButton';
+import { transformMediaUrl } from '../../utils/mediaUrl';
 
 const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   const { user, token } = useAuth();
@@ -258,7 +259,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
         <div className="media-container relative">
           <LazyMedia
             type="video"
-            src={moment.mediaUrl}
+            src={transformMediaUrl(moment.mediaUrl)}
             className="media-element w-full"
             style={{ maxHeight: '500px', width: '100%', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
             controls={true}
@@ -294,7 +295,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
         <div className="media-container relative">
           <LazyMedia
             type="image"
-            src={moment.mediaUrl}
+            src={transformMediaUrl(moment.mediaUrl)}
             alt={moment.fileName || 'Moment media'}
             className="media-element w-full"
             style={{ maxHeight: '300px', objectFit: 'contain', borderRadius: '8px' }}
@@ -327,7 +328,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
       return (
         <div className="media-container audio-player-container">
           <AudioPlayer
-            src={moment.mediaUrl}
+            src={transformMediaUrl(moment.mediaUrl)}
             title={moment.songName || moment.fileName}
             sourceType={moment.sourceType}
             momentId={moment._id}

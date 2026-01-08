@@ -2,6 +2,7 @@
 import React, { useState, useEffect, memo, useCallback } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useCacheStatus } from '../../hooks';
+import { transformMediaUrl } from '../../utils/mediaUrl';
 
 // Constants
 const REFRESH_DELAY_MS = 1500;
@@ -486,14 +487,14 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
                   <div className="flex-shrink-0">
                     {moment.mediaType === 'video' ? (
                       <video
-                        src={moment.mediaUrl}
+                        src={transformMediaUrl(moment.mediaUrl)}
                         className="w-32 h-24 object-cover rounded border"
                         controls
                         preload="metadata"
                       />
                     ) : moment.mediaType === 'image' ? (
                       <img
-                        src={moment.mediaUrl}
+                        src={transformMediaUrl(moment.mediaUrl)}
                         alt="Moment preview"
                         className="w-32 h-24 object-cover rounded border"
                       />

@@ -7,6 +7,7 @@ import MomentDetailModal from '../Moment/MomentDetailModal';
 import UploadModal from '../Moment/UploadModal';
 import LazyMedia from '../UI/LazyMedia';
 import { Play } from 'lucide-react';
+import { transformMediaUrl } from '../../utils/mediaUrl';
 
 const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
   const [selectedMoment, setSelectedMoment] = useState(null);
@@ -211,7 +212,7 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
                   <div className="relative w-full h-full">
                     {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
                       <video
-                        src={moment.mediaUrl}
+                        src={transformMediaUrl(moment.mediaUrl)}
                         className="w-full h-full object-cover"
                         autoPlay
                         muted
@@ -221,7 +222,7 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
                       />
                     ) : (
                       <img
-                        src={moment.mediaUrl}
+                        src={transformMediaUrl(moment.mediaUrl)}
                         alt={moment.songName}
                         className="w-full h-full object-cover"
                       />
@@ -669,7 +670,7 @@ const SongMomentCard = memo(({ moment, onMomentSelect }) => {
           {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
             <div className="relative w-full h-full">
               <LazyMedia
-                src={moment.mediaUrl}
+                src={transformMediaUrl(moment.mediaUrl)}
                 type="video"
                 alt={moment.songName}
                 className="w-full h-full object-cover"
@@ -702,7 +703,7 @@ const SongMomentCard = memo(({ moment, onMomentSelect }) => {
             </div>
           ) : moment.mediaType?.startsWith('image') ? (
             <img
-              src={moment.mediaUrl}
+              src={transformMediaUrl(moment.mediaUrl)}
               alt={moment.songName}
               className="w-full h-full object-cover"
             />
