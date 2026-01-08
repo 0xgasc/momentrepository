@@ -136,22 +136,12 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 console.log('🔐 CORS allowed origins:', allowedOrigins);
 
+// Use permissive CORS to fix issues - allow all origins
 app.use(cors({
-  origin: function (origin, callback) {
-    // Log origin for debugging
-    if (origin && !allowedOrigins.includes(origin)) {
-      console.log('⚠️ CORS origin not in list:', origin);
-    }
-    // Allow requests with no origin (like mobile apps, Postman) or matching origins
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: true, // Allow all origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: '*', // Allow all headers
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Length', 'Content-Type']
 }));
 
