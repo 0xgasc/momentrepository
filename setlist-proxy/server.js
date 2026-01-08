@@ -3931,6 +3931,24 @@ app.get('/my-youtube-moments', authenticateToken, async (req, res) => {
   }
 });
 
+// Admin: Get all YouTube moments (for admin editing)
+app.get('/admin/youtube-moments', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const moments = await Moment.find({
+      mediaSource: 'youtube'
+    })
+      .sort({ createdAt: -1 })
+      .populate('user', 'displayName email');
+
+    console.log(`🎬 Admin fetched ${moments.length} YouTube moments`);
+    res.json({ moments: moments.map(m => m.toObject({ virtuals: true })) });
+
+  } catch (err) {
+    console.error('❌ Admin fetch YouTube moments error:', err);
+    res.status(500).json({ error: 'Failed to fetch YouTube moments' });
+  }
+});
+
 // Get UMOTube videos (parent videos for browsing)
 app.get('/umotube/videos', async (req, res) => {
   try {

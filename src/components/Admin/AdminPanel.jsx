@@ -19,6 +19,7 @@ const AdminPanel = memo(({ onClose }) => {
   const [error, setError] = useState('');
   const [migrationMoments, setMigrationMoments] = useState([]);
   const [migrationTotal, setMigrationTotal] = useState(0);
+  const [youtubeMoments, setYoutubeMoments] = useState([]);
 
   const fetchAdminData = useCallback(async () => {
     try {
@@ -59,7 +60,18 @@ const AdminPanel = memo(({ onClose }) => {
         const settingsData = await settingsResponse.json();
         setPlatformSettings(settingsData.settings);
       }
-      
+
+      // Fetch YouTube moments (for editing any YouTube moment)
+      if (isAdmin) {
+        const youtubeResponse = await fetch(`${API_BASE_URL}/admin/youtube-moments`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (youtubeResponse.ok) {
+          const youtubeData = await youtubeResponse.json();
+          setYoutubeMoments(youtubeData.moments || []);
+        }
+      }
+
     } catch (error) {
       setError('Failed to load admin data');
     } finally {
@@ -235,6 +247,7 @@ const AdminPanel = memo(({ onClose }) => {
           {[
             ...(isAdmin ? [{ key: 'users', label: 'Users', count: users.length }] : []),
             { key: 'moderation', label: 'Pending Review', count: pendingMoments.length },
+            ...(isAdmin ? [{ key: 'youtube', label: 'YouTube Moments', count: youtubeMoments.length || null }] : []),
             ...(isAdmin ? [{ key: 'shows', label: 'Upcoming Shows', count: null }] : []),
             ...(isAdmin ? [{ key: 'migration', label: 'Media Migration', count: migrationTotal || null }] : []),
             ...(isAdmin ? [{ key: 'settings', label: 'Settings', count: null }] : [])
@@ -288,6 +301,14 @@ const AdminPanel = memo(({ onClose }) => {
 
           {activeTab === 'shows' && isAdmin && (
             <UpcomingShowsTab token={token} />
+          )}
+
+          {activeTab === 'youtube' && isAdmin && (
+            <YouTubeTab
+              moments={youtubeMoments}
+              setMoments={setYoutubeMoments}
+              token={token}
+            />
           )}
 
           {activeTab === 'migration' && isAdmin && (
@@ -1532,6 +1553,244 @@ const MigrationTab = memo(({ moments, setMoments, total, setTotal, token }) => {
             </div>
           )}
         </>
+      )}
+    </div>
+  );
+});
+
+// YouTube Moments Management Tab
+const YouTubeTab = memo(({ moments, setMoments, token }) => {
+  const [editingId, setEditingId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [editData, setEditData] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const startEdit = (moment) => {
+    setEditingId(moment._id);
+    setEditData({
+      performanceDate: moment.performanceDate || '',
+      songName: moment.songName || '',
+      venueName: moment.venueName || '',
+      venueCity: moment.venueCity || '',
+      venueCountry: moment.venueCountry || '',
+      contentType: moment.contentType || 'song',
+      momentDescription: moment.momentDescription || '',
+      showInMoments: moment.showInMoments !== false
+    });
+  };
+
+  const saveEdit = async (momentId) => {
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/youtube-moment/${momentId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editData)
+      });
+
+      if (response.ok) {
+        // Update local state
+        setMoments(moments.map(m =>
+          m._id === momentId ? { ...m, ...editData } : m
+        ));
+        setEditingId(null);
+        alert('YouTube moment updated!');
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to update');
+      }
+    } catch (err) {
+      alert('Failed to update: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filteredMoments = moments.filter(m => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      m.songName?.toLowerCase().includes(q) ||
+      m.venueName?.toLowerCase().includes(q) ||
+      m.venueCity?.toLowerCase().includes(q) ||
+      m.performanceDate?.includes(q)
+    );
+  });
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold text-gray-900">YouTube Moments</h2>
+        <input
+          type="text"
+          placeholder="Search by song, venue, city, date..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded text-sm w-64"
+        />
+      </div>
+
+      {filteredMoments.length === 0 ? (
+        <p className="text-gray-500 text-center py-8">No YouTube moments found.</p>
+      ) : (
+        <div className="space-y-4">
+          {filteredMoments.map(moment => (
+            <div key={moment._id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <div className="flex gap-4">
+                {/* Thumbnail */}
+                <img
+                  src={`https://img.youtube.com/vi/${moment.externalVideoId}/default.jpg`}
+                  alt={moment.songName}
+                  className="w-24 h-16 object-cover rounded"
+                />
+
+                {/* Info */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-medium text-gray-900">{moment.songName || 'Untitled'}</h3>
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                      moment.approvalStatus === 'approved'
+                        ? 'bg-green-100 text-green-700'
+                        : moment.approvalStatus === 'pending'
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {moment.approvalStatus}
+                    </span>
+                    {moment.showInMoments === false && (
+                      <span className="text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-600">
+                        Hidden from Moments
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {moment.venueName}, {moment.venueCity} - {moment.performanceDate}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    By: {moment.user?.displayName || 'Unknown'} | Created: {new Date(moment.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+
+                {/* Edit button */}
+                {editingId !== moment._id && (
+                  <button
+                    onClick={() => startEdit(moment)}
+                    className="bg-purple-600 text-white px-4 py-2 rounded text-sm hover:bg-purple-700 h-fit"
+                  >
+                    ✏️ Edit
+                  </button>
+                )}
+              </div>
+
+              {/* Edit form */}
+              {editingId === moment._id && (
+                <div className="mt-4 p-4 bg-purple-50 rounded border border-purple-200">
+                  <h4 className="font-medium text-gray-900 mb-3">Edit YouTube Moment</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date (DD-MM-YYYY):</label>
+                      <input
+                        type="text"
+                        value={editData.performanceDate}
+                        onChange={(e) => setEditData({ ...editData, performanceDate: e.target.value })}
+                        placeholder="e.g. 14-06-2024"
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Song Name:</label>
+                      <input
+                        type="text"
+                        value={editData.songName}
+                        onChange={(e) => setEditData({ ...editData, songName: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Venue:</label>
+                      <input
+                        type="text"
+                        value={editData.venueName}
+                        onChange={(e) => setEditData({ ...editData, venueName: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">City:</label>
+                      <input
+                        type="text"
+                        value={editData.venueCity}
+                        onChange={(e) => setEditData({ ...editData, venueCity: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Country:</label>
+                      <input
+                        type="text"
+                        value={editData.venueCountry}
+                        onChange={(e) => setEditData({ ...editData, venueCountry: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Content Type:</label>
+                      <select
+                        value={editData.contentType}
+                        onChange={(e) => setEditData({ ...editData, contentType: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="song">Song</option>
+                        <option value="jam">Jam</option>
+                        <option value="banter">Banter</option>
+                        <option value="soundcheck">Soundcheck</option>
+                        <option value="full-show">Full Show</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description:</label>
+                      <textarea
+                        value={editData.momentDescription}
+                        onChange={(e) => setEditData({ ...editData, momentDescription: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                        rows={2}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={editData.showInMoments}
+                          onChange={(e) => setEditData({ ...editData, showInMoments: e.target.checked })}
+                          className="rounded"
+                        />
+                        <span className="text-sm text-gray-700">Show in Moments browser</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={() => saveEdit(moment._id)}
+                      disabled={saving}
+                      className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {saving ? 'Saving...' : '✅ Save'}
+                    </button>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="bg-gray-500 text-white px-4 py-2 rounded text-sm hover:bg-gray-600"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
