@@ -439,6 +439,7 @@ if (!PRIVATE_KEY) {
 const generateToken = (user) => {
   const token = jwt.sign({
     id: user._id,
+    userId: user._id, // Alias for community routes compatibility
     email: user.email,
     role: user.role || 'user'
   }, JWT_SECRET, { expiresIn: '7d' });
@@ -547,7 +548,12 @@ const optionalAuth = (req, res, next) => {
   }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    req.user = err ? null : user;
+    if (err) {
+      req.user = null;
+    } else {
+      // Ensure userId is available (fallback to id for older tokens)
+      req.user = { ...user, userId: user.userId || user.id };
+    }
     next();
   });
 };
