@@ -3781,103 +3781,6 @@ app.use((error, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.use('*', (req, res) => {
-  console.log(`❌ Route not found: ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ error: `Route ${req.originalUrl} not found` });
-});
-
-// Cache initialization and scheduling
-const initializeCache = async () => {
-  try {
-    console.log('🏗️ Initializing UMO cache...');
-    
-    await umoCache.loadCache();
-    const needsRefresh = await umoCache.needsRefresh();
-    
-    if (needsRefresh || !umoCache.cache) {
-      const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
-        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-        : `http://localhost:${PORT}`;
-
-      if (umoCache.cache) {
-        // STALE-WHILE-REVALIDATE: Serve existing cache immediately, refresh in background
-        console.log('🔄 Cache stale but usable - refreshing in background...');
-
-        const hasNewShows = await umoCache.checkForNewShows(API_BASE_URL, umoCache.cache.stats.totalPerformances);
-        if (!hasNewShows) {
-          console.log('✅ No new shows detected, using existing cache');
-          return;
-        }
-
-        // Start background refresh (don't await)
-        console.log('🏗️ Starting background cache refresh...');
-        umoCache.buildFreshCache(API_BASE_URL)
-          .then(() => console.log('✅ Background cache refresh complete'))
-          .catch(err => console.error('❌ Background cache refresh failed:', err));
-
-        console.log('📦 Serving stale cache while refreshing in background');
-      } else {
-        // No cache at all - must wait for initial build
-        console.log('🔄 No cache found, building (this may take a few minutes)...');
-        await umoCache.buildFreshCache(API_BASE_URL);
-      }
-    } else {
-      console.log('✅ Using existing cache');
-    }
-    
-  } catch (err) {
-    console.error('❌ Failed to initialize cache:', err);
-    console.log('⚠️ Server will continue with limited functionality');
-  }
-};
-
-const scheduleDailyRefresh = () => {
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(3, 0, 0, 0); // 3 AM
-  
-  const msUntilRefresh = tomorrow.getTime() - now.getTime();
-  
-  setTimeout(async () => {
-    console.log('🕐 Daily cache refresh triggered');
-    try {
-      const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN 
-      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-      : `http://localhost:${PORT}`;
-      const hasNewShows = await umoCache.checkForNewShows(API_BASE_URL, umoCache.cache?.stats?.totalPerformances || 0);
-      if (hasNewShows) {
-        console.log('📅 New shows detected, refreshing cache...');
-        await umoCache.buildFreshCache(API_BASE_URL);
-      } else {
-        console.log('✅ No new shows, skipping refresh');
-      }
-    } catch (err) {
-      console.error('❌ Daily refresh failed:', err);
-    }
-    
-    scheduleDailyRefresh();
-  }, msUntilRefresh);
-  
-  console.log(`⏰ Next cache refresh scheduled for ${tomorrow.toLocaleString()}`);
-};
-
-// API proxy for cache rebuild
-app.use(
-  '/api',
-  createProxyMiddleware({
-    target: 'https://api.setlist.fm',
-    changeOrigin: true,
-    pathRewrite: { '^/api': '' },
-    headers: {
-      Accept: 'application/json',
-      'x-api-key': process.env.SETLIST_FM_API_KEY,
-      'User-Agent': 'SetlistProxy/1.0',
-    },
-    logLevel: 'warn',
-  })
-);
-
 // =====================================================
 // UMOTUBE - YouTube Linked Clips Feature
 // =====================================================
@@ -4001,6 +3904,104 @@ app.get('/umotube/video/:videoId/moments', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch video moments' });
   }
 });
+
+// Catch-all 404 handler - must be AFTER all routes
+app.use('*', (req, res) => {
+  console.log(`❌ Route not found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({ error: `Route ${req.originalUrl} not found` });
+});
+
+// Cache initialization and scheduling
+const initializeCache = async () => {
+  try {
+    console.log('🏗️ Initializing UMO cache...');
+    
+    await umoCache.loadCache();
+    const needsRefresh = await umoCache.needsRefresh();
+    
+    if (needsRefresh || !umoCache.cache) {
+      const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+        : `http://localhost:${PORT}`;
+
+      if (umoCache.cache) {
+        // STALE-WHILE-REVALIDATE: Serve existing cache immediately, refresh in background
+        console.log('🔄 Cache stale but usable - refreshing in background...');
+
+        const hasNewShows = await umoCache.checkForNewShows(API_BASE_URL, umoCache.cache.stats.totalPerformances);
+        if (!hasNewShows) {
+          console.log('✅ No new shows detected, using existing cache');
+          return;
+        }
+
+        // Start background refresh (don't await)
+        console.log('🏗️ Starting background cache refresh...');
+        umoCache.buildFreshCache(API_BASE_URL)
+          .then(() => console.log('✅ Background cache refresh complete'))
+          .catch(err => console.error('❌ Background cache refresh failed:', err));
+
+        console.log('📦 Serving stale cache while refreshing in background');
+      } else {
+        // No cache at all - must wait for initial build
+        console.log('🔄 No cache found, building (this may take a few minutes)...');
+        await umoCache.buildFreshCache(API_BASE_URL);
+      }
+    } else {
+      console.log('✅ Using existing cache');
+    }
+    
+  } catch (err) {
+    console.error('❌ Failed to initialize cache:', err);
+    console.log('⚠️ Server will continue with limited functionality');
+  }
+};
+
+const scheduleDailyRefresh = () => {
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(3, 0, 0, 0); // 3 AM
+  
+  const msUntilRefresh = tomorrow.getTime() - now.getTime();
+  
+  setTimeout(async () => {
+    console.log('🕐 Daily cache refresh triggered');
+    try {
+      const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN 
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : `http://localhost:${PORT}`;
+      const hasNewShows = await umoCache.checkForNewShows(API_BASE_URL, umoCache.cache?.stats?.totalPerformances || 0);
+      if (hasNewShows) {
+        console.log('📅 New shows detected, refreshing cache...');
+        await umoCache.buildFreshCache(API_BASE_URL);
+      } else {
+        console.log('✅ No new shows, skipping refresh');
+      }
+    } catch (err) {
+      console.error('❌ Daily refresh failed:', err);
+    }
+    
+    scheduleDailyRefresh();
+  }, msUntilRefresh);
+  
+  console.log(`⏰ Next cache refresh scheduled for ${tomorrow.toLocaleString()}`);
+};
+
+// API proxy for cache rebuild
+app.use(
+  '/api',
+  createProxyMiddleware({
+    target: 'https://api.setlist.fm',
+    changeOrigin: true,
+    pathRewrite: { '^/api': '' },
+    headers: {
+      Accept: 'application/json',
+      'x-api-key': process.env.SETLIST_FM_API_KEY,
+      'User-Agent': 'SetlistProxy/1.0',
+    },
+    logLevel: 'warn',
+  })
+);
 
 // Global error handler - ensure CORS headers on all errors
 app.use((err, req, res, next) => {
