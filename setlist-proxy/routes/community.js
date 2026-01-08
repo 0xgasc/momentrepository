@@ -2,8 +2,12 @@
 // Community features: Comments, Chat, RSVP, Meetups
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
 const rateLimit = require('express-rate-limit');
+
+// Helper to validate ObjectId
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 const Comment = require('../models/Comment');
 const ChatMessage = require('../models/ChatMessage');
@@ -847,6 +851,12 @@ router.get('/favorites/check/:momentId', async (req, res) => {
     }
 
     const { momentId } = req.params;
+
+    // Validate ObjectId format
+    if (!isValidObjectId(momentId)) {
+      return res.json({ isFavorited: false });
+    }
+
     const favorite = await Favorite.findOne({
       user: req.user.userId,
       moment: momentId
@@ -854,7 +864,7 @@ router.get('/favorites/check/:momentId', async (req, res) => {
 
     res.json({ isFavorited: !!favorite });
   } catch (err) {
-    console.error('❌ Check favorite error:', err);
+    console.error('❌ Check favorite error:', err.name, err.message);
     res.status(500).json({ error: 'Failed to check favorite' });
   }
 });
@@ -868,6 +878,11 @@ router.post('/favorites/:momentId', async (req, res) => {
 
     const { momentId } = req.params;
     const { collectionId } = req.body;
+
+    // Validate ObjectId format
+    if (!isValidObjectId(momentId)) {
+      return res.status(400).json({ error: 'Invalid moment ID format' });
+    }
 
     // Check if already favorited
     const existing = await Favorite.findOne({
@@ -911,6 +926,11 @@ router.delete('/favorites/:momentId', async (req, res) => {
     }
 
     const { momentId } = req.params;
+
+    // Validate ObjectId format
+    if (!isValidObjectId(momentId)) {
+      return res.status(400).json({ error: 'Invalid moment ID format' });
+    }
 
     const favorite = await Favorite.findOneAndDelete({
       user: req.user.userId,
