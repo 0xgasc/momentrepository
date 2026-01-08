@@ -1,7 +1,7 @@
 // src/components/Moment/MomentCommentsSection.jsx
 // Compact comments section for moment detail modal
 import React, { useState, useEffect, memo } from 'react';
-import { ChevronUp, ChevronDown, MessageSquare, Reply, Clock, User, Trash2 } from 'lucide-react';
+import { Heart, MessageSquare, Reply, Clock, User, Trash2 } from 'lucide-react';
 import { useMomentComments } from '../../hooks/useCommunity';
 
 const formatTimeAgo = (date) => {
@@ -49,26 +49,22 @@ const CommentItem = memo(({ comment, onVote, onReply, onDelete, user, depth = 0 
   return (
     <div className={`comment-item ${isNested ? 'ml-3 pl-3 border-l border-gray-700/50' : ''}`}>
       <div className="flex gap-2 py-2">
-        {/* Vote buttons - compact */}
-        <div className="flex flex-col items-center">
+        {/* Like button */}
+        <div className="flex flex-col items-center pt-1">
           <button
             onClick={() => handleVote('up')}
-            className="p-0.5 hover:bg-gray-700/50 rounded transition-colors text-gray-500 hover:text-orange-400"
+            className={`p-1 hover:bg-gray-700/50 rounded transition-colors ${
+              (comment.upvotes?.length || 0) > 0 ? 'text-red-400' : 'text-gray-500 hover:text-red-400'
+            }`}
+            title="Like this comment"
           >
-            <ChevronUp size={14} />
+            <Heart size={14} fill={(comment.upvotes?.length || 0) > 0 ? 'currentColor' : 'none'} />
           </button>
-          <span className={`text-xs font-medium ${
-            comment.score > 0 ? 'text-orange-400' :
-            comment.score < 0 ? 'text-blue-400' : 'text-gray-500'
-          }`}>
-            {comment.score || 0}
-          </span>
-          <button
-            onClick={() => handleVote('down')}
-            className="p-0.5 hover:bg-gray-700/50 rounded transition-colors text-gray-500 hover:text-blue-400"
-          >
-            <ChevronDown size={14} />
-          </button>
+          {(comment.upvotes?.length || 0) > 0 && (
+            <span className="text-xs font-medium text-red-400">
+              {comment.upvotes?.length || 0}
+            </span>
+          )}
         </div>
 
         {/* Content */}

@@ -469,11 +469,10 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <StatCard label="Uploads" value={stats?.totalUploads || 0} icon={Upload} color="blue" />
             <StatCard label="Views Received" value={stats?.totalViews || 0} icon={Eye} color="green" />
             <StatCard label="Comments" value={stats?.totalCommentsReceived || 0} icon={MessageCircle} color="purple" />
-            <StatCard label="First Captures" value={stats?.firstCaptures || 0} icon={Star} color="yellow" />
           </div>
         )}
       </div>

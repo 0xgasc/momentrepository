@@ -124,15 +124,15 @@ router.post('/performances/:performanceId/comments',
   }
 );
 
-// Vote on comment (auth required)
+// Like comment (auth required) - toggle like on/off
 router.post('/comments/:commentId/vote', async (req, res) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ error: 'Login required to vote' });
+      return res.status(401).json({ error: 'Login required to like' });
     }
 
     const { commentId } = req.params;
-    const { vote } = req.body; // 'up', 'down', or 'none'
+    const { vote } = req.body; // 'up' to like, 'none' to unlike
 
     const comment = await Comment.findById(commentId);
     if (!comment) {
@@ -140,23 +140,21 @@ router.post('/comments/:commentId/vote', async (req, res) => {
     }
 
     const userId = req.user.userId;
+    const alreadyLiked = comment.upvotes.some(id => id.toString() === userId);
 
-    // Remove existing votes
-    comment.upvotes = comment.upvotes.filter(id => id.toString() !== userId);
-    comment.downvotes = comment.downvotes.filter(id => id.toString() !== userId);
-
-    // Add new vote
-    if (vote === 'up') {
+    if (vote === 'up' && !alreadyLiked) {
+      // Add like
       comment.upvotes.push(userId);
-    } else if (vote === 'down') {
-      comment.downvotes.push(userId);
+    } else if (alreadyLiked) {
+      // Remove like (toggle off)
+      comment.upvotes = comment.upvotes.filter(id => id.toString() !== userId);
     }
 
     await comment.save();
-    res.json({ score: comment.score });
+    res.json({ likes: comment.upvotes.length, liked: comment.upvotes.some(id => id.toString() === userId) });
   } catch (err) {
-    console.error('❌ Vote error:', err);
-    res.status(500).json({ error: 'Failed to vote' });
+    console.error('❌ Like error:', err);
+    res.status(500).json({ error: 'Failed to like' });
   }
 });
 
