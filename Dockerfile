@@ -3,7 +3,7 @@
 FROM node:20-bullseye
 
 # Force cache invalidation
-ARG CACHE_BUST=2
+ARG CACHE_BUST=3
 RUN echo "Cache bust: ${CACHE_BUST}"
 
 # Install system dependencies for canvas and other native modules
