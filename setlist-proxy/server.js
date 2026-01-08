@@ -134,8 +134,15 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
       'https://www.umo-live.xyz'
     ];
 
+console.log('🔐 CORS allowed origins:', allowedOrigins);
+
 app.use(cors({
   origin: function (origin, callback) {
+    // Log origin for debugging
+    if (origin && !allowedOrigins.includes(origin)) {
+      console.log('⚠️ CORS origin not in list:', origin);
+    }
+    // Allow requests with no origin (like mobile apps, Postman) or matching origins
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
