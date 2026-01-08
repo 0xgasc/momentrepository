@@ -14,6 +14,7 @@ const mongoSanitize = require('express-mongo-sanitize');
 const { body, validationResult } = require('express-validator');
 const User = require('./models/User');
 const Moment = require('./models/Moment');
+const Comment = require('./models/Comment');
 const PlatformSettings = require('./models/PlatformSettings');
 const emailService = require('./services/emailService');
 const { UMOCache } = require('./utils/umoCache');
