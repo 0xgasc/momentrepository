@@ -2680,6 +2680,8 @@ app.post('/admin/moments/batch', authenticateToken, requireAdmin, async (req, re
           externalVideoId: momentData.externalVideoId,
           startTime: momentData.startTime || 0,
           endTime: momentData.endTime || null,
+          mediaType: 'video',
+          showInMoments: true, // Child moments should show in Moments browser
           user: req.user.id,
           approvalStatus: 'approved', // Admin-created moments are auto-approved
           reviewedBy: req.user.id,

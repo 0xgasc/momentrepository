@@ -736,7 +736,7 @@ const UMOTube = ({ user }) => {
                       </span>
                     )}
                   </div>
-                  {video.contentType === 'other' && (
+                  {(video.contentType === 'other' || video.contentType === 'full-show' || !video.contentType) && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
