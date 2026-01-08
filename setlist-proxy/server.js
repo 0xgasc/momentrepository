@@ -2357,8 +2357,9 @@ app.get('/api/users/:userId/stats', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ User stats fetch error:', error);
-    res.status(500).json({ error: 'Failed to fetch user stats' });
+    console.error('❌ User stats fetch error:', error.name, error.message);
+    console.error('❌ Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    res.status(500).json({ error: 'Failed to fetch user stats', details: error.message });
   }
 });
 

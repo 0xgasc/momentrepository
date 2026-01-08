@@ -833,8 +833,9 @@ router.get('/favorites', async (req, res) => {
       favorites: favorites.filter(f => f.moment) // Filter out deleted moments
     });
   } catch (err) {
-    console.error('❌ Get favorites error:', err);
-    res.status(500).json({ error: 'Failed to fetch favorites' });
+    console.error('❌ Get favorites error:', err.name, err.message);
+    console.error('❌ Full error:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
+    res.status(500).json({ error: 'Failed to fetch favorites', details: err.message });
   }
 });
 
@@ -896,8 +897,9 @@ router.post('/favorites/:momentId', async (req, res) => {
     console.log(`❤️ User ${req.user.userId} favorited moment ${momentId}`);
     res.status(201).json({ success: true });
   } catch (err) {
-    console.error('❌ Add favorite error:', err);
-    res.status(500).json({ error: 'Failed to add favorite' });
+    console.error('❌ Add favorite error:', err.name, err.message);
+    console.error('❌ Full error:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
+    res.status(500).json({ error: 'Failed to add favorite', details: err.message });
   }
 });
 
