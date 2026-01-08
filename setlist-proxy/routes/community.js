@@ -10,6 +10,8 @@ const ChatMessage = require('../models/ChatMessage');
 const RSVP = require('../models/RSVP');
 const Meetup = require('../models/Meetup');
 const Guestbook = require('../models/Guestbook');
+const Favorite = require('../models/Favorite');
+const Collection = require('../models/Collection');
 
 // Rate limiters
 const chatLimiter = rateLimit({
@@ -212,6 +214,112 @@ router.delete('/comments/:commentId', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete comment' });
   }
 });
+
+// ============================================
+// MOMENT COMMENTS - Comments on individual moments
+// ============================================
+
+// Get comments for a moment
+router.get('/moments/:momentId/comments', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { sort = 'top' } = req.query;
+
+    const comments = await Comment.find({
+      momentId,
+      isDeleted: false
+    })
+      .populate('user', 'displayName')
+      .lean();
+
+    // Build comment tree
+    const commentMap = {};
+    const rootComments = [];
+
+    comments.forEach(comment => {
+      comment.score = (comment.upvotes?.length || 0) - (comment.downvotes?.length || 0);
+      comment.replies = [];
+      commentMap[comment._id] = comment;
+    });
+
+    comments.forEach(comment => {
+      if (comment.parentId && commentMap[comment.parentId]) {
+        commentMap[comment.parentId].replies.push(comment);
+      } else if (!comment.parentId) {
+        rootComments.push(comment);
+      }
+    });
+
+    // Sort root comments
+    if (sort === 'top') {
+      rootComments.sort((a, b) => b.score - a.score);
+    } else if (sort === 'new') {
+      rootComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    res.json({ comments: rootComments, count: comments.length });
+  } catch (err) {
+    console.error('❌ Get moment comments error:', err);
+    res.status(500).json({ error: 'Failed to fetch comments' });
+  }
+});
+
+// Get comment count for a moment (lightweight for badges)
+router.get('/moments/:momentId/comments/count', async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const count = await Comment.countDocuments({ momentId, isDeleted: false });
+    res.json({ count });
+  } catch (err) {
+    console.error('❌ Get moment comment count error:', err);
+    res.status(500).json({ error: 'Failed to get comment count' });
+  }
+});
+
+// Create comment on moment (auth required)
+router.post('/moments/:momentId/comments',
+  commentLimiter,
+  [body('text').trim().isLength({ min: 1, max: 2000 })],
+  async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Login required to comment' });
+      }
+
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { momentId } = req.params;
+      const { text, parentId } = req.body;
+
+      // Verify parent exists if replying
+      if (parentId) {
+        const parent = await Comment.findById(parentId);
+        if (!parent || parent.momentId?.toString() !== momentId) {
+          return res.status(400).json({ error: 'Invalid parent comment' });
+        }
+      }
+
+      const comment = new Comment({
+        momentId,
+        parentId: parentId || null,
+        user: req.user.userId,
+        text
+      });
+
+      await comment.save();
+      await comment.populate('user', 'displayName');
+
+      console.log(`💬 New comment on moment ${momentId}`);
+      res.status(201).json({ comment: comment.toObject({ virtuals: true }) });
+    } catch (err) {
+      console.error('❌ Create moment comment error:', err);
+      res.status(500).json({ error: 'Failed to create comment' });
+    }
+  }
+);
 
 // ============================================
 // CHAT - Real-time chat (persists forever)
@@ -697,5 +805,363 @@ router.post('/meetups/:meetupId/reply',
     }
   }
 );
+
+// ============================================
+// FAVORITES - Bookmark moments
+// ============================================
+
+// Get user's favorites (auth required)
+router.get('/favorites', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Login required' });
+    }
+
+    const { collection } = req.query;
+    const query = { user: req.user.userId };
+    if (collection) query.collection = collection;
+
+    const favorites = await Favorite.find(query)
+      .sort({ addedAt: -1 })
+      .populate({
+        path: 'moment',
+        select: 'songName venueName venueCity performanceDate mediaUrl mediaType thumbnailUrl rarityTier'
+      })
+      .lean();
+
+    res.json({
+      favorites: favorites.filter(f => f.moment) // Filter out deleted moments
+    });
+  } catch (err) {
+    console.error('❌ Get favorites error:', err);
+    res.status(500).json({ error: 'Failed to fetch favorites' });
+  }
+});
+
+// Check if moment is favorited (auth required)
+router.get('/favorites/check/:momentId', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.json({ isFavorited: false });
+    }
+
+    const { momentId } = req.params;
+    const favorite = await Favorite.findOne({
+      user: req.user.userId,
+      moment: momentId
+    });
+
+    res.json({ isFavorited: !!favorite });
+  } catch (err) {
+    console.error('❌ Check favorite error:', err);
+    res.status(500).json({ error: 'Failed to check favorite' });
+  }
+});
+
+// Add moment to favorites (auth required)
+router.post('/favorites/:momentId', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Login required to favorite' });
+    }
+
+    const { momentId } = req.params;
+    const { collectionId } = req.body;
+
+    // Check if already favorited
+    const existing = await Favorite.findOne({
+      user: req.user.userId,
+      moment: momentId
+    });
+
+    if (existing) {
+      return res.status(400).json({ error: 'Already favorited' });
+    }
+
+    const favorite = new Favorite({
+      user: req.user.userId,
+      moment: momentId,
+      collection: collectionId || null
+    });
+
+    await favorite.save();
+
+    // Update collection moment count if applicable
+    if (collectionId) {
+      await Collection.findByIdAndUpdate(collectionId, {
+        $inc: { momentCount: 1 }
+      });
+    }
+
+    console.log(`❤️ User ${req.user.userId} favorited moment ${momentId}`);
+    res.status(201).json({ success: true });
+  } catch (err) {
+    console.error('❌ Add favorite error:', err);
+    res.status(500).json({ error: 'Failed to add favorite' });
+  }
+});
+
+// Remove moment from favorites (auth required)
+router.delete('/favorites/:momentId', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Login required' });
+    }
+
+    const { momentId } = req.params;
+
+    const favorite = await Favorite.findOneAndDelete({
+      user: req.user.userId,
+      moment: momentId
+    });
+
+    if (!favorite) {
+      return res.status(404).json({ error: 'Favorite not found' });
+    }
+
+    // Update collection moment count if applicable
+    if (favorite.collection) {
+      await Collection.findByIdAndUpdate(favorite.collection, {
+        $inc: { momentCount: -1 }
+      });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Remove favorite error:', err);
+    res.status(500).json({ error: 'Failed to remove favorite' });
+  }
+});
+
+// ============================================
+// COLLECTIONS - Organize favorites
+// ============================================
+
+// Get user's collections (auth required)
+router.get('/collections', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Login required' });
+    }
+
+    const collections = await Collection.find({ user: req.user.userId })
+      .sort({ createdAt: -1 })
+      .populate('coverMoment', 'mediaUrl thumbnailUrl')
+      .lean();
+
+    res.json({ collections });
+  } catch (err) {
+    console.error('❌ Get collections error:', err);
+    res.status(500).json({ error: 'Failed to fetch collections' });
+  }
+});
+
+// Create collection (auth required)
+router.post('/collections',
+  [body('name').trim().isLength({ min: 1, max: 100 })],
+  async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Login required' });
+      }
+
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { name, description, isPublic } = req.body;
+
+      const collection = new Collection({
+        user: req.user.userId,
+        name,
+        description: description || '',
+        isPublic: isPublic || false
+      });
+
+      await collection.save();
+
+      console.log(`📁 User ${req.user.userId} created collection: ${name}`);
+      res.status(201).json({ collection });
+    } catch (err) {
+      console.error('❌ Create collection error:', err);
+      res.status(500).json({ error: 'Failed to create collection' });
+    }
+  }
+);
+
+// Update collection (auth required, owner only)
+router.put('/collections/:collectionId', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Login required' });
+    }
+
+    const { collectionId } = req.params;
+    const collection = await Collection.findById(collectionId);
+
+    if (!collection) {
+      return res.status(404).json({ error: 'Collection not found' });
+    }
+
+    if (collection.user.toString() !== req.user.userId) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    const { name, description, isPublic } = req.body;
+    if (name) collection.name = name;
+    if (description !== undefined) collection.description = description;
+    if (isPublic !== undefined) collection.isPublic = isPublic;
+
+    await collection.save();
+    res.json({ collection });
+  } catch (err) {
+    console.error('❌ Update collection error:', err);
+    res.status(500).json({ error: 'Failed to update collection' });
+  }
+});
+
+// Delete collection (auth required, owner only)
+router.delete('/collections/:collectionId', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Login required' });
+    }
+
+    const { collectionId } = req.params;
+    const collection = await Collection.findById(collectionId);
+
+    if (!collection) {
+      return res.status(404).json({ error: 'Collection not found' });
+    }
+
+    if (collection.user.toString() !== req.user.userId) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    // Remove collection reference from favorites but keep them
+    await Favorite.updateMany(
+      { collection: collectionId },
+      { $set: { collection: null } }
+    );
+
+    await Collection.findByIdAndDelete(collectionId);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Delete collection error:', err);
+    res.status(500).json({ error: 'Failed to delete collection' });
+  }
+});
+
+// Add moment to collection (auth required)
+router.post('/collections/:collectionId/moments/:momentId', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Login required' });
+    }
+
+    const { collectionId, momentId } = req.params;
+
+    // Verify collection ownership
+    const collection = await Collection.findById(collectionId);
+    if (!collection || collection.user.toString() !== req.user.userId) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    // Check if moment is already favorited
+    let favorite = await Favorite.findOne({
+      user: req.user.userId,
+      moment: momentId
+    });
+
+    if (favorite) {
+      // Update existing favorite to add to collection
+      const oldCollection = favorite.collection;
+      favorite.collection = collectionId;
+      await favorite.save();
+
+      // Update counts
+      if (oldCollection) {
+        await Collection.findByIdAndUpdate(oldCollection, {
+          $inc: { momentCount: -1 }
+        });
+      }
+      await Collection.findByIdAndUpdate(collectionId, {
+        $inc: { momentCount: 1 }
+      });
+    } else {
+      // Create new favorite in collection
+      favorite = new Favorite({
+        user: req.user.userId,
+        moment: momentId,
+        collection: collectionId
+      });
+      await favorite.save();
+
+      await Collection.findByIdAndUpdate(collectionId, {
+        $inc: { momentCount: 1 }
+      });
+    }
+
+    // Set as cover if first moment
+    if (collection.momentCount === 0 || !collection.coverMoment) {
+      collection.coverMoment = momentId;
+      await collection.save();
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Add to collection error:', err);
+    res.status(500).json({ error: 'Failed to add to collection' });
+  }
+});
+
+// Remove moment from collection (auth required)
+router.delete('/collections/:collectionId/moments/:momentId', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Login required' });
+    }
+
+    const { collectionId, momentId } = req.params;
+
+    // Verify collection ownership
+    const collection = await Collection.findById(collectionId);
+    if (!collection || collection.user.toString() !== req.user.userId) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    // Remove from collection but keep favorite
+    const favorite = await Favorite.findOne({
+      user: req.user.userId,
+      moment: momentId,
+      collection: collectionId
+    });
+
+    if (favorite) {
+      favorite.collection = null;
+      await favorite.save();
+
+      await Collection.findByIdAndUpdate(collectionId, {
+        $inc: { momentCount: -1 }
+      });
+
+      // Update cover if needed
+      if (collection.coverMoment?.toString() === momentId) {
+        const nextFavorite = await Favorite.findOne({
+          user: req.user.userId,
+          collection: collectionId
+        });
+        collection.coverMoment = nextFavorite?.moment || null;
+        await collection.save();
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Remove from collection error:', err);
+    res.status(500).json({ error: 'Failed to remove from collection' });
+  }
+});
 
 module.exports = router;

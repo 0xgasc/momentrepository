@@ -8,9 +8,11 @@ import { formatFileSize } from '../../utils';
 import LazyMomentMint from '../Web3/LazyMomentMint';
 import LazyMedia from '../UI/LazyMedia';
 import AudioPlayer from '../UI/AudioPlayer';
+import MomentCommentsSection from './MomentCommentsSection';
+import FavoriteButton from '../UI/FavoriteButton';
 
 const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { isWeb3Enabled } = usePlatformSettings();
   const { addToQueue, isInQueue } = useTheaterQueue();
   const [moment, setMoment] = useState(initialMoment);
@@ -50,6 +52,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   const [showBasicInfo, setShowBasicInfo] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showFileDetails, setShowFileDetails] = useState(false);
+  const [showComments, setShowComments] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   
   // Detect mobile screen size
@@ -426,6 +429,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
                   {showNftPanel ? 'Close' : (hasNFTEdition ? 'Controls' : 'Launch Token')}
                 </button>
               )}
+              <FavoriteButton momentId={moment._id} size="md" />
               <button onClick={onClose} className="close-button">✕</button>
             </div>
           </div>
@@ -469,6 +473,9 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
                   )}
                   <button onClick={() => setShowEmptyFields(!showEmptyFields)} className="toggle-button">
                     Empty Fields {showEmptyFields ? '▼' : '▶'}
+                  </button>
+                  <button onClick={() => setShowComments(!showComments)} className="toggle-button comments-toggle">
+                    💬 Comments {showComments ? '▼' : '▶'}
                   </button>
                 </div>
 
@@ -604,6 +611,18 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
                 </div>
               )}
             </div>
+              </div>
+            )}
+
+            {/* Comments Section */}
+            {showComments && (
+              <div className="comments-section-wrapper">
+                <MomentCommentsSection
+                  momentId={moment._id}
+                  user={user}
+                  token={token}
+                  compact={true}
+                />
               </div>
             )}
           </div>
@@ -1139,6 +1158,24 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
 
           .toggle-button:hover {
             background: #d1d5db;
+          }
+
+          .toggle-button.comments-toggle {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border-color: #2563eb;
+          }
+
+          .toggle-button.comments-toggle:hover {
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+          }
+
+          .comments-section-wrapper {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 8px;
+            border: 1px solid rgba(71, 85, 105, 0.3);
           }
 
           .info-button {

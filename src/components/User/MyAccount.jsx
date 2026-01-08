@@ -1,6 +1,9 @@
 // src/components/User/MyAccount.jsx
 import React, { useState, useEffect, memo, useCallback } from 'react';
+import { Upload, Eye, MessageCircle, Star, Heart, Folder, Plus, Trash2 } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
+import { useUserStats } from '../../hooks/useUserStats';
+import { useFavorites } from '../../hooks/useFavorites';
 
 const MyAccount = memo(({ onClose }) => {
   // eslint-disable-next-line no-unused-vars
@@ -118,6 +121,7 @@ const MyAccount = memo(({ onClose }) => {
         <div className="flex border-b">
           {[
             { key: 'profile', label: 'Profile', count: null },
+            { key: 'favorites', label: 'Favorites', count: null, icon: Heart },
             { key: 'uploads', label: 'My Uploads', count: myMoments.length },
             { key: 'pending', label: 'Pending', count: groupedMoments.pending?.length || 0 },
             { key: 'needs_revision', label: 'Needs Revision', count: groupedMoments.needs_revision?.length || 0 },
@@ -147,7 +151,11 @@ const MyAccount = memo(({ onClose }) => {
           {activeTab === 'profile' && (
             <ProfileTab profile={profile} roleDisplay={roleDisplay} logout={logout} onClose={onClose} />
           )}
-          
+
+          {activeTab === 'favorites' && (
+            <FavoritesTab />
+          )}
+
           {activeTab === 'uploads' && (
             <UploadsTab moments={myMoments} getStatusDisplay={getStatusDisplay} formatDate={formatDate} />
           )}
@@ -184,9 +192,217 @@ const MyAccount = memo(({ onClose }) => {
   );
 });
 
+// Stat card component
+const StatCard = memo(({ label, value, icon: Icon, color = 'blue' }) => {
+  const colorClasses = {
+    blue: 'bg-blue-50 border-blue-200 text-blue-600',
+    green: 'bg-green-50 border-green-200 text-green-600',
+    purple: 'bg-purple-50 border-purple-200 text-purple-600',
+    yellow: 'bg-yellow-50 border-yellow-200 text-yellow-600'
+  };
+
+  return (
+    <div className={`p-4 rounded-sm border ${colorClasses[color]} flex items-center gap-3`}>
+      <div className="p-2 bg-white rounded-full shadow-sm">
+        <Icon size={20} />
+      </div>
+      <div>
+        <div className="text-2xl font-bold">{value ?? '-'}</div>
+        <div className="text-sm opacity-80">{label}</div>
+      </div>
+    </div>
+  );
+});
+
+StatCard.displayName = 'StatCard';
+
+// Favorites tab component
+const FavoritesTab = memo(() => {
+  const { token } = useAuth();
+  const {
+    favorites,
+    collections,
+    loading,
+    toggleFavorite,
+    createCollection,
+    deleteCollection,
+    fetchFavorites
+  } = useFavorites(token);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [selectedCollection, setSelectedCollection] = useState(null);
+
+  const handleCreateCollection = async () => {
+    if (!newCollectionName.trim()) return;
+    const result = await createCollection(newCollectionName.trim());
+    if (result.success) {
+      setNewCollectionName('');
+      setShowCreateModal(false);
+    }
+  };
+
+  const handleDeleteCollection = async (collectionId) => {
+    if (!window.confirm('Delete this collection? Moments will be kept in your favorites.')) return;
+    await deleteCollection(collectionId);
+  };
+
+  const handleRemoveFavorite = async (momentId) => {
+    await toggleFavorite(momentId);
+  };
+
+  const filteredFavorites = selectedCollection
+    ? favorites.filter(f => f.collection === selectedCollection)
+    : favorites;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Collections Section */}
+      <div className="bg-gray-50 rounded-sm p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb' }}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Folder size={18} />
+            Collections
+          </h3>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+          >
+            <Plus size={14} />
+            New Collection
+          </button>
+        </div>
+
+        {collections.length === 0 ? (
+          <p className="text-sm text-gray-500">No collections yet. Create one to organize your favorites!</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setSelectedCollection(null)}
+              className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                !selectedCollection
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              All ({favorites.length})
+            </button>
+            {collections.map(col => (
+              <div key={col._id} className="relative group">
+                <button
+                  onClick={() => setSelectedCollection(col._id)}
+                  className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                    selectedCollection === col._id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  {col.name} ({col.momentCount})
+                </button>
+                <button
+                  onClick={() => handleDeleteCollection(col._id)}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 size={10} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Create collection modal */}
+        {showCreateModal && (
+          <div className="mt-3 p-3 bg-white border rounded">
+            <input
+              type="text"
+              value={newCollectionName}
+              onChange={(e) => setNewCollectionName(e.target.value)}
+              placeholder="Collection name..."
+              className="w-full p-2 border border-gray-300 rounded text-sm mb-2"
+              maxLength={100}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleCreateCollection}
+                className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+              >
+                Create
+              </button>
+              <button
+                onClick={() => { setShowCreateModal(false); setNewCollectionName(''); }}
+                className="px-3 py-1.5 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Favorites Grid */}
+      <div className="bg-gray-50 rounded-sm p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb' }}>
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
+          <Heart size={18} className="text-red-500" />
+          Favorited Moments ({filteredFavorites.length})
+        </h3>
+
+        {filteredFavorites.length === 0 ? (
+          <div className="text-center py-6 text-gray-500">
+            <Heart size={32} className="mx-auto mb-2 opacity-50" />
+            <p className="text-sm">
+              {selectedCollection
+                ? 'No moments in this collection yet'
+                : 'No favorited moments yet. Click the heart on any moment to add it here!'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {filteredFavorites.map(fav => (
+              <div key={fav._id} className="relative group bg-white rounded border overflow-hidden">
+                <div className="aspect-video bg-gray-800 flex items-center justify-center">
+                  {fav.moment?.thumbnailUrl || fav.moment?.mediaUrl ? (
+                    <img
+                      src={fav.moment.thumbnailUrl || fav.moment.mediaUrl}
+                      alt={fav.moment.songName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-gray-500 text-2xl">🎵</span>
+                  )}
+                </div>
+                <div className="p-2">
+                  <p className="font-medium text-sm text-gray-900 truncate">{fav.moment?.songName}</p>
+                  <p className="text-xs text-gray-500 truncate">{fav.moment?.venueName}</p>
+                </div>
+                <button
+                  onClick={() => handleRemoveFavorite(fav.moment?._id)}
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Remove from favorites"
+                >
+                  <Heart size={12} fill="currentColor" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+FavoritesTab.displayName = 'FavoritesTab';
+
 // Profile tab component with social links
 const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const { stats, loading: statsLoading, fetchStats } = useUserStats(user?.id || user?._id);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editedProfile, setEditedProfile] = useState({
@@ -227,6 +443,13 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
     }
   };
 
+  // Fetch stats on mount
+  useEffect(() => {
+    if (user?.id || user?._id) {
+      fetchStats();
+    }
+  }, [user, fetchStats]);
+
   const socialPlatforms = [
     { key: 'reddit', label: 'Reddit', placeholder: 'u/username or profile URL' },
     { key: 'discord', label: 'Discord', placeholder: 'Username#1234 or server invite' },
@@ -237,6 +460,23 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
 
   return (
     <div className="space-y-6">
+      {/* Stats Section */}
+      <div className="bg-gray-50 rounded-sm p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4" style={{ color: '#111827' }}>Your Stats</h3>
+        {statsLoading ? (
+          <div className="flex items-center justify-center py-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard label="Uploads" value={stats?.totalUploads || 0} icon={Upload} color="blue" />
+            <StatCard label="Views Received" value={stats?.totalViews || 0} icon={Eye} color="green" />
+            <StatCard label="Comments" value={stats?.totalCommentsReceived || 0} icon={MessageCircle} color="purple" />
+            <StatCard label="First Captures" value={stats?.firstCaptures || 0} icon={Star} color="yellow" />
+          </div>
+        )}
+      </div>
+
       {/* Account Info Section */}
       <div className="bg-gray-50 rounded-sm p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
         <div className="flex items-center justify-between mb-4">

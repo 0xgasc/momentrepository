@@ -84,6 +84,130 @@ export const useComments = (performanceId, token) => {
   return { comments, loading, fetchComments, addComment, voteComment };
 };
 
+// Moment Comments hook - comments on individual moments
+export const useMomentComments = (momentId, token) => {
+  const [comments, setComments] = useState([]);
+  const [count, setCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const fetchComments = useCallback(async (sort = 'top') => {
+    if (!momentId) return;
+    try {
+      setLoading(true);
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/moments/${momentId}/comments?sort=${sort}`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setComments(data.comments || []);
+        setCount(data.count || 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch moment comments:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [momentId, token]);
+
+  const fetchCount = useCallback(async () => {
+    if (!momentId) return;
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/moments/${momentId}/comments/count`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setCount(data.count || 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch moment comment count:', err);
+    }
+  }, [momentId]);
+
+  const addComment = useCallback(async (text, parentId = null) => {
+    if (!token) return { error: 'Login required' };
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/moments/${momentId}/comments`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ text, parentId })
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        return { error: data.error || 'Failed to add comment' };
+      }
+
+      await fetchComments();
+      return { success: true };
+    } catch (err) {
+      return { error: 'Network error' };
+    }
+  }, [momentId, token, fetchComments]);
+
+  const voteComment = useCallback(async (commentId, vote) => {
+    if (!token) return { error: 'Login required' };
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/comments/${commentId}/vote`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ vote })
+        }
+      );
+
+      if (response.ok) {
+        await fetchComments();
+        return { success: true };
+      }
+      return { error: 'Failed to vote' };
+    } catch (err) {
+      return { error: 'Network error' };
+    }
+  }, [token, fetchComments]);
+
+  const deleteComment = useCallback(async (commentId) => {
+    if (!token) return { error: 'Login required' };
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/comments/${commentId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        await fetchComments();
+        return { success: true };
+      }
+      return { error: 'Failed to delete' };
+    } catch (err) {
+      return { error: 'Network error' };
+    }
+  }, [token, fetchComments]);
+
+  return { comments, count, loading, fetchComments, fetchCount, addComment, voteComment, deleteComment };
+};
+
 // RSVP hook
 export const useRSVP = (performanceId, token) => {
   const [rsvps, setRsvps] = useState([]);

@@ -2276,6 +2276,91 @@ app.get('/api/users/:userId/profile', async (req, res) => {
   }
 });
 
+// Get user statistics
+app.get('/api/users/:userId/stats', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Verify user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get total approved uploads
+    const totalUploads = await Moment.countDocuments({
+      user: userId,
+      approvalStatus: 'approved'
+    });
+
+    // Get total views received on user's moments
+    const viewsResult = await Moment.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(userId), approvalStatus: 'approved' } },
+      { $group: { _id: null, totalViews: { $sum: '$viewCount' } } }
+    ]);
+    const totalViews = viewsResult[0]?.totalViews || 0;
+
+    // Get user's moment IDs for comment counting
+    const userMomentIds = await Moment.find({
+      user: userId,
+      approvalStatus: 'approved'
+    }).distinct('_id');
+
+    // Get total comments received on user's moments
+    const totalCommentsReceived = await Comment.countDocuments({
+      $or: [
+        { momentId: { $in: userMomentIds }, isDeleted: false },
+        // Also count performance comments if they have performanceId
+      ]
+    });
+
+    // Get "first captures" - moments that were first for a song
+    const firstCaptures = await Moment.countDocuments({
+      user: userId,
+      approvalStatus: 'approved',
+      isFirstMomentForSong: true
+    });
+
+    // Get breakdown by media type
+    const mediaBreakdown = await Moment.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(userId), approvalStatus: 'approved' } },
+      { $group: {
+        _id: '$mediaType',
+        count: { $sum: 1 }
+      }}
+    ]);
+
+    // Get rarity breakdown
+    const rarityBreakdown = await Moment.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(userId), approvalStatus: 'approved' } },
+      { $group: {
+        _id: '$rarityTier',
+        count: { $sum: 1 }
+      }}
+    ]);
+
+    res.json({
+      stats: {
+        totalUploads,
+        totalViews,
+        totalCommentsReceived,
+        firstCaptures,
+        mediaBreakdown: mediaBreakdown.reduce((acc, { _id, count }) => {
+          if (_id) acc[_id] = count;
+          return acc;
+        }, {}),
+        rarityBreakdown: rarityBreakdown.reduce((acc, { _id, count }) => {
+          if (_id) acc[_id] = count;
+          return acc;
+        }, {})
+      }
+    });
+  } catch (error) {
+    console.error('❌ User stats fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch user stats' });
+  }
+});
+
 // Admin: Get all users with roles
 app.get('/admin/users', authenticateToken, requireAdmin, async (req, res) => {
   try {

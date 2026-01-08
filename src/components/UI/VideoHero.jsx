@@ -1,10 +1,12 @@
 // src/components/UI/VideoHero.jsx - Hero player for random video/audio clips
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
-import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2, Droplet } from 'lucide-react';
-import { API_BASE_URL } from '../Auth/AuthProvider';
+import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2, Droplet, MessageSquare } from 'lucide-react';
+import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import UMOEffect from './UMOEffect';
 import WaveformPlayer from './WaveformPlayer';
+import VideoHeroComments from './VideoHeroComments';
+import FavoriteButton from './FavoriteButton';
 
 // ASCII character map - from darkest to brightest
 const ASCII_CHARS = ' .:-=+*#%@';
@@ -19,6 +21,7 @@ const VIDEO_FILTER_PRESETS = {
 };
 
 const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
+  const { user, token } = useAuth();
   const videoRef = useRef(null);
   const audioRef = useRef(null);
   const iframeRef = useRef(null);
@@ -46,6 +49,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
   const [isAsciiMode, setIsAsciiMode] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showCommentsPanel, setShowCommentsPanel] = useState(false);
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const frameSkipRef = useRef(0);
@@ -206,7 +210,20 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
 
   // Handle filter change - select new moment if current doesn't match filter
   useEffect(() => {
-    if (!moment || filteredMoments.length === 0) return;
+    if (!moment) return;
+
+    // If no content matches filter, stop playback
+    if (filteredMoments.length === 0) {
+      // Stop all media
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      if (videoRef.current) {
+        videoRef.current.pause();
+      }
+      setIsPlaying(false);
+      return;
+    }
 
     // Check if current moment is in filtered list
     const currentInFiltered = filteredMoments.some(m => m._id === moment._id);
@@ -528,6 +545,29 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
 
   if (error || (!isLoading && !moment)) {
     return null;
+  }
+
+  // Empty state when filter has no content
+  const filterLabels = {
+    clips: 'video clips',
+    audio: 'audio clips',
+    linked: 'linked content'
+  };
+
+  if (!isLoading && filteredMoments.length === 0 && activeFilter !== 'all') {
+    return (
+      <div className="video-hero relative mb-4 sm:mb-6 overflow-hidden rounded-sm bg-gray-900/80 border border-gray-700/50">
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+          <div className="text-gray-500 mb-2">
+            {activeFilter === 'audio' && <Music size={48} className="mx-auto mb-3 opacity-50" />}
+            {activeFilter === 'clips' && <Play size={48} className="mx-auto mb-3 opacity-50" />}
+            {activeFilter === 'linked' && <Info size={48} className="mx-auto mb-3 opacity-50" />}
+          </div>
+          <p className="text-gray-400 text-lg">No {filterLabels[activeFilter]} yet</p>
+          <p className="text-gray-500 text-sm mt-1">Check back soon or try another filter</p>
+        </div>
+      </div>
+    );
   }
 
   // YouTube setup
@@ -956,6 +996,19 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
               <ListPlus size={16} className="text-white" />
             </button>
 
+            {moment?._id && (
+              <FavoriteButton momentId={moment._id} size="md" />
+            )}
+
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowCommentsPanel(true); }}
+              className="bg-blue-600/50 hover:bg-blue-600/70 rounded-full p-2 transition-colors"
+              style={{ minWidth: '36px', minHeight: '36px' }}
+              title="Comments"
+            >
+              <MessageSquare size={16} className="text-white" />
+            </button>
+
             <button
               onClick={handleInfoClick}
               className="bg-blue-600/50 hover:bg-blue-600/70 rounded-full p-2 transition-colors"
@@ -978,6 +1031,16 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
           </div>
         </div>
       </div>
+
+      {/* Comments Panel */}
+      <VideoHeroComments
+        momentId={moment?._id}
+        user={user}
+        token={token}
+        isOpen={showCommentsPanel}
+        onClose={() => setShowCommentsPanel(false)}
+        momentName={moment?.songName}
+      />
     </div>
   );
 });

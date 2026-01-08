@@ -2,10 +2,18 @@
 const mongoose = require('mongoose');
 
 const commentSchema = new mongoose.Schema({
-  // Reference to performance
+  // Reference to performance (optional - comment can be on performance OR moment)
   performanceId: {
     type: String,
-    required: true,
+    required: false,
+    index: true
+  },
+
+  // Reference to moment (optional - comment can be on performance OR moment)
+  momentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Moment',
+    default: null,
     index: true
   },
 
@@ -56,8 +64,17 @@ commentSchema.virtual('score').get(function() {
 commentSchema.set('toJSON', { virtuals: true });
 commentSchema.set('toObject', { virtuals: true });
 
+// Validation: comment must be associated with either a performance OR a moment
+commentSchema.pre('save', function(next) {
+  if (!this.performanceId && !this.momentId) {
+    return next(new Error('Comment must be associated with either a performance or moment'));
+  }
+  next();
+});
+
 // Index for efficient querying
 commentSchema.index({ performanceId: 1, createdAt: -1 });
+commentSchema.index({ momentId: 1, createdAt: -1 });
 commentSchema.index({ parentId: 1 });
 
 module.exports = mongoose.model('Comment', commentSchema);

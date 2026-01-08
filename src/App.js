@@ -145,17 +145,17 @@ const MainApp = memo(() => {
     <div className="umo-container">
       <div className="umo-container-fluid">
         {/* Header with Navigation */}
-        <Header 
+        <Header
           user={user}
           logout={logout}
           onLoginClick={() => setShowLogin(true)}
           onMyAccountClick={() => {
             setShowMyAccount(true);
-            refreshNotifications(); // Refresh when opening My Account
+            refreshNotifications();
           }}
           onAdminPanelClick={() => {
             setShowAdminPanel(true);
-            refreshNotifications(); // Refresh when opening Admin Panel
+            refreshNotifications();
           }}
           currentView={currentView}
           browseMode={browseMode}
@@ -164,6 +164,8 @@ const MainApp = memo(() => {
           badgeInfo={getBadgeInfo()}
           showHowToGuide={showHowToGuide}
           onToggleHowToGuide={() => setShowHowToGuide(!showHowToGuide)}
+          mediaFilter={mediaFilter}
+          setMediaFilter={setMediaFilter}
         />
 
 
@@ -213,19 +215,21 @@ const MainApp = memo(() => {
 MainApp.displayName = 'MainApp';
 
 // Mobile-Optimized Header Component with Hamburger Menu
-const Header = memo(({ 
-  user, 
-  logout, 
+const Header = memo(({
+  user,
+  logout,
   onLoginClick,
   onMyAccountClick,
   onAdminPanelClick,
-  currentView, 
-  browseMode, 
-  onBrowseModeChange, 
+  currentView,
+  browseMode,
+  onBrowseModeChange,
   onHomeClick,
   badgeInfo,
   showHowToGuide,
-  onToggleHowToGuide
+  onToggleHowToGuide,
+  mediaFilter,
+  setMediaFilter
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -236,30 +240,48 @@ const Header = memo(({
     <div className="mb-6">
       {/* Mobile Header */}
       <div className="block sm:hidden">
-        <div className="flex items-center justify-between mb-4 p-3 bg-white/90 backdrop-blur-sm" style={{ borderRadius: '4px', marginBottom: '1rem' }}>
-          {/* Logo/Title */}
-          <button 
-            onClick={() => {
-              onToggleHowToGuide();
-              // Don't navigate home or close menu when clicking for info
-            }} 
-            className="flex-1 text-left flex items-center gap-2"
-            title="Click for site info and how to use"
-          >
-            <h1 className="umo-heading umo-heading--sm text-blue-600">
-              UMO - the best band in the world
-            </h1>
-            {showHowToGuide ? <ChevronUp size={14} className="text-blue-600" /> : <ChevronDown size={14} className="text-blue-600" />}
-          </button>
-          
-          {/* Hamburger Menu Button */}
-          <button
-            onClick={toggleMobileMenu}
-            className="p-2 text-gray-600 hover:text-gray-900 focus:outline-none"
-            style={{ minHeight: '44px', minWidth: '44px' }}
-          >
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+        <div className="flex flex-col p-3 bg-white/90 backdrop-blur-sm" style={{ borderRadius: '4px', marginBottom: '1rem' }}>
+          <div className="flex items-center justify-between">
+            {/* Logo/Title */}
+            <button
+              onClick={() => {
+                onToggleHowToGuide();
+              }}
+              className="flex-1 text-left flex items-center gap-2"
+              title="Click for site info and how to use"
+            >
+              <h1 className="umo-heading umo-heading--sm text-blue-600">
+                UMO - the best band in the world
+              </h1>
+              {showHowToGuide ? <ChevronUp size={14} className="text-blue-600" /> : <ChevronDown size={14} className="text-blue-600" />}
+            </button>
+
+            {/* Hamburger Menu Button */}
+            <button
+              onClick={toggleMobileMenu}
+              className="p-2 text-gray-600 hover:text-gray-900 focus:outline-none"
+              style={{ minHeight: '44px', minWidth: '44px' }}
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
+
+          {/* Filter Pills - Mobile */}
+          <div className="flex gap-1 mt-2">
+            {['all', 'clips', 'audio', 'linked'].map(filter => (
+              <button
+                key={filter}
+                onClick={() => setMediaFilter(filter)}
+                className={`px-2 py-1 text-xs font-medium transition-all ${
+                  mediaFilter === filter
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* How to Guide - Mobile - Simplified */}
@@ -438,11 +460,10 @@ const Header = memo(({
         <div className="flex items-start justify-between mb-4 p-4 bg-white/90 backdrop-blur-sm" style={{ borderRadius: '4px', marginBottom: '1.5rem' }}>
           {/* Title Section */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <button 
+            <div className="flex items-center gap-4 mb-2">
+              <button
                 onClick={() => {
                   onToggleHowToGuide();
-                  // Don't navigate home when clicking for info
                 }}
                 className="flex items-center gap-2"
                 title="Click for site info and how to use"
@@ -452,6 +473,23 @@ const Header = memo(({
                 </h1>
                 {showHowToGuide ? <ChevronUp size={16} className="text-blue-600" /> : <ChevronDown size={16} className="text-blue-600" />}
               </button>
+
+              {/* Filter Pills - Desktop */}
+              <div className="flex gap-1">
+                {['all', 'clips', 'audio', 'linked'].map(filter => (
+                  <button
+                    key={filter}
+                    onClick={() => setMediaFilter(filter)}
+                    className={`px-2 py-1 text-xs font-medium transition-all ${
+                      mediaFilter === filter
+                        ? 'text-blue-600 border-b-2 border-blue-600'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
             
             {showHowToGuide && (
@@ -602,31 +640,6 @@ const MainContent = memo(({
   // Home view - Hero persists above navigation tabs
   return (
     <>
-      {/* Media Filter Pills - Top of page */}
-      <div className="flex justify-center mb-4">
-        <div className="flex gap-1">
-          {[
-            { key: 'all', label: 'All' },
-            { key: 'clips', label: 'Clips' },
-            { key: 'audio', label: 'Audio' },
-            { key: 'linked', label: 'Linked' }
-          ].map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setMediaFilter(key)}
-              className={`px-3 py-1.5 text-sm font-medium transition-all border ${
-                mediaFilter === key
-                  ? 'bg-blue-600 text-white border-blue-500'
-                  : 'bg-white/80 text-gray-700 border-gray-300 hover:bg-gray-100'
-              }`}
-              style={{ borderRadius: '2px' }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* VideoHero - Big random clip player, persists across all home tabs */}
       <VideoHero
         onMomentClick={(moment) => setHeroSelectedMoment(moment)}
