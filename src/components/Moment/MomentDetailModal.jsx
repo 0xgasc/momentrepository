@@ -247,8 +247,48 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
     };
   };
 
+  // Helper to extract YouTube video ID from URL
+  const getYouTubeId = (url) => {
+    if (!url) return null;
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+    return match ? match[1] : null;
+  };
+
   // Optimized media component
   const getMediaComponent = () => {
+    // Check for YouTube content FIRST (before regular video check)
+    const isYouTube = moment.mediaSource === 'youtube' ||
+                      moment.externalVideoId ||
+                      moment.mediaUrl?.includes('youtube.com') ||
+                      moment.mediaUrl?.includes('youtu.be');
+
+    if (isYouTube) {
+      const youtubeId = moment.externalVideoId || getYouTubeId(moment.mediaUrl);
+      const startTime = moment.startTime || 0;
+
+      if (!youtubeId) {
+        return (
+          <div className="media-container text-center py-8">
+            <div className="text-4xl mb-2">🎬</div>
+            <p className="text-gray-600">Invalid YouTube URL</p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="media-container relative" style={{ paddingBottom: '56.25%' }}>
+          <iframe
+            className="absolute top-0 left-0 w-full h-full rounded-lg"
+            src={`https://www.youtube.com/embed/${youtubeId}?start=${startTime}&rel=0&modestbranding=1`}
+            title={moment.songName || 'YouTube Video'}
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      );
+    }
+
     const isVideo = moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/);
     const isImage = moment.mediaType === 'image' || moment.fileName?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/);
 

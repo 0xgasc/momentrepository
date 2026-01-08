@@ -3263,8 +3263,11 @@ app.get('/moments/my', authenticateToken, async (req, res) => {
 
 app.get('/moments', async (req, res) => {
   try {
-    // Only show approved moments to the public
-    const moments = await Moment.find({ approvalStatus: 'approved' })
+    // Only show approved moments that should appear in feed (exclude parent YouTube videos)
+    const moments = await Moment.find({
+      approvalStatus: 'approved',
+      showInMoments: { $ne: false }  // Exclude moments where showInMoments is explicitly false
+    })
       .sort({ createdAt: -1 })
       .limit(100)
       .populate('user', 'displayName');
@@ -3851,6 +3854,80 @@ app.post('/add-youtube-moment', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('❌ Add YouTube moment error:', err);
     res.status(500).json({ error: 'Failed to add YouTube moment' });
+  }
+});
+
+// Edit YouTube moment (owner or admin only)
+app.put('/youtube-moment/:momentId', authenticateToken, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const {
+      performanceDate,
+      venueName,
+      venueCity,
+      venueCountry,
+      songName,
+      setName,
+      contentType,
+      momentDescription,
+      startTime,
+      endTime,
+      showInMoments
+    } = req.body;
+
+    const moment = await Moment.findById(momentId);
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    // Only owner or admin can edit
+    const isOwner = moment.user.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'moderator';
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Not authorized to edit this moment' });
+    }
+
+    // Update fields if provided
+    if (performanceDate !== undefined) moment.performanceDate = performanceDate;
+    if (venueName !== undefined) moment.venueName = venueName;
+    if (venueCity !== undefined) moment.venueCity = venueCity;
+    if (venueCountry !== undefined) moment.venueCountry = venueCountry;
+    if (songName !== undefined) moment.songName = songName;
+    if (setName !== undefined) moment.setName = setName;
+    if (contentType !== undefined) moment.contentType = contentType;
+    if (momentDescription !== undefined) moment.momentDescription = momentDescription;
+    if (startTime !== undefined) moment.startTime = startTime;
+    if (endTime !== undefined) moment.endTime = endTime;
+    if (showInMoments !== undefined) moment.showInMoments = showInMoments;
+
+    await moment.save();
+
+    console.log(`✅ YouTube moment updated: ${moment._id}`);
+    res.json({ success: true, moment: moment.toObject({ virtuals: true }) });
+
+  } catch (err) {
+    console.error('❌ Update YouTube moment error:', err);
+    res.status(500).json({ error: 'Failed to update YouTube moment' });
+  }
+});
+
+// Get user's YouTube moments (for editing)
+app.get('/my-youtube-moments', authenticateToken, async (req, res) => {
+  try {
+    const moments = await Moment.find({
+      user: req.user.id,
+      mediaSource: 'youtube'
+    })
+      .sort({ createdAt: -1 })
+      .populate('user', 'displayName');
+
+    console.log(`🎬 Found ${moments.length} YouTube moments for user ${req.user.id}`);
+    res.json({ moments: moments.map(m => m.toObject({ virtuals: true })) });
+
+  } catch (err) {
+    console.error('❌ Fetch user YouTube moments error:', err);
+    res.status(500).json({ error: 'Failed to fetch your YouTube moments' });
   }
 });
 

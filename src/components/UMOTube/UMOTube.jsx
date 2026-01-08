@@ -1,6 +1,6 @@
 // src/components/UMOTube/UMOTube.jsx - YouTube linked clips feature
 import React, { useState, useEffect } from 'react';
-import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock } from 'lucide-react';
+import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock, Edit, X } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 
@@ -35,6 +35,12 @@ const UMOTube = ({ user }) => {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Edit mode state
+  const [myMoments, setMyMoments] = useState([]);
+  const [loadingMyMoments, setLoadingMyMoments] = useState(false);
+  const [showMyMoments, setShowMyMoments] = useState(false);
+  const [editingMoment, setEditingMoment] = useState(null);
 
   // Setlist generator state
   const [showSetlistGenerator, setShowSetlistGenerator] = useState(false);
@@ -93,6 +99,64 @@ const UMOTube = ({ user }) => {
     }
   };
 
+  // Fetch user's own YouTube moments for editing
+  const fetchMyMoments = async () => {
+    if (!user) return;
+    setLoadingMyMoments(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/my-youtube-moments`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      setMyMoments(data.moments || []);
+    } catch (err) {
+      console.error('Failed to fetch my moments:', err);
+    } finally {
+      setLoadingMyMoments(false);
+    }
+  };
+
+  // Start editing a moment
+  const startEditing = (moment) => {
+    setEditingMoment(moment);
+    setFormData({
+      youtubeUrl: `https://youtube.com/watch?v=${moment.externalVideoId}`,
+      performanceId: moment.performanceId || '',
+      performanceDate: moment.performanceDate || '',
+      venueName: moment.venueName || '',
+      venueCity: moment.venueCity || '',
+      venueCountry: moment.venueCountry || '',
+      songName: moment.songName || '',
+      setName: moment.setName || 'Main Set',
+      contentType: moment.contentType || 'song',
+      momentDescription: moment.momentDescription || '',
+      showInMoments: moment.showInMoments !== false
+    });
+    setShowAddForm(true);
+    setError('');
+    setSuccess('');
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingMoment(null);
+    setFormData({
+      youtubeUrl: '',
+      performanceId: '',
+      performanceDate: '',
+      venueName: '',
+      venueCity: '',
+      venueCountry: '',
+      songName: '',
+      setName: 'Main Set',
+      contentType: 'song',
+      momentDescription: '',
+      showInMoments: false
+    });
+    setShowAddForm(false);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -101,42 +165,82 @@ const UMOTube = ({ user }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/add-youtube-moment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
 
-      const data = await response.json();
-
-      if (data.success) {
-        setSuccess('YouTube video submitted for approval!');
-        fetchVideos();
-        setFormData({
-          youtubeUrl: '',
-          performanceId: '',
-          performanceDate: '',
-          venueName: '',
-          venueCity: '',
-          venueCountry: '',
-          songName: '',
-          setName: 'Main Set',
-          contentType: 'song',
-          momentDescription: '',
-          showInMoments: false
+      // If editing, use PUT endpoint
+      if (editingMoment) {
+        const response = await fetch(`${API_BASE_URL}/youtube-moment/${editingMoment._id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            performanceId: formData.performanceId,
+            performanceDate: formData.performanceDate,
+            venueName: formData.venueName,
+            venueCity: formData.venueCity,
+            venueCountry: formData.venueCountry,
+            songName: formData.songName,
+            setName: formData.setName,
+            contentType: formData.contentType,
+            momentDescription: formData.momentDescription,
+            showInMoments: formData.showInMoments
+          })
         });
-        setTimeout(() => {
-          setShowAddForm(false);
-          setSuccess('');
-        }, 2000);
+
+        const data = await response.json();
+
+        if (data.success) {
+          setSuccess('YouTube moment updated!');
+          fetchVideos();
+          fetchMyMoments();
+          setTimeout(() => {
+            cancelEditing();
+            setSuccess('');
+          }, 1500);
+        } else {
+          setError(data.error || 'Failed to update moment');
+        }
       } else {
-        setError(data.error || 'Failed to add video');
+        // Creating new moment
+        const response = await fetch(`${API_BASE_URL}/add-youtube-moment`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setSuccess('YouTube video submitted for approval!');
+          fetchVideos();
+          fetchMyMoments();
+          setFormData({
+            youtubeUrl: '',
+            performanceId: '',
+            performanceDate: '',
+            venueName: '',
+            venueCity: '',
+            venueCountry: '',
+            songName: '',
+            setName: 'Main Set',
+            contentType: 'song',
+            momentDescription: '',
+            showInMoments: false
+          });
+          setTimeout(() => {
+            setShowAddForm(false);
+            setSuccess('');
+          }, 2000);
+        } else {
+          setError(data.error || 'Failed to add video');
+        }
       }
     } catch (err) {
-      setError(`Failed to add video: ${err.message}`);
+      setError(`Failed to ${editingMoment ? 'update' : 'add'} video: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -260,22 +364,51 @@ const UMOTube = ({ user }) => {
             <p className="umo-text-secondary">YouTube performance clips from Unknown Mortal Orchestra</p>
           </div>
           {user && (
-            <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="umo-btn umo-btn--primary flex items-center gap-2"
-            >
-              <Plus size={18} />
-              Submit YouTube Clip
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowMyMoments(!showMyMoments);
+                  if (!showMyMoments) fetchMyMoments();
+                }}
+                className="umo-btn umo-btn--secondary flex items-center gap-2"
+              >
+                <Edit size={18} />
+                My Moments
+              </button>
+              <button
+                onClick={() => {
+                  cancelEditing();
+                  setShowAddForm(!showAddForm);
+                }}
+                className="umo-btn umo-btn--primary flex items-center gap-2"
+              >
+                <Plus size={18} />
+                Submit YouTube Clip
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Add Form */}
+        {/* Add/Edit Form */}
         {showAddForm && (
           <div className="umo-card mb-8 p-6">
-            <h2 className="umo-heading umo-heading--lg mb-4">Submit YouTube Clip</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="umo-heading umo-heading--lg">
+                {editingMoment ? 'Edit YouTube Moment' : 'Submit YouTube Clip'}
+              </h2>
+              {editingMoment && (
+                <button
+                  onClick={cancelEditing}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X size={24} />
+                </button>
+              )}
+            </div>
             <p className="umo-text-secondary text-sm mb-4">
-              Link a YouTube video to the UMO Archive. Submissions require moderator approval.
+              {editingMoment
+                ? 'Update the details for this YouTube moment.'
+                : 'Link a YouTube video to the UMO Archive. Submissions require moderator approval.'}
             </p>
 
             {error && (
@@ -299,9 +432,13 @@ const UMOTube = ({ user }) => {
                   value={formData.youtubeUrl}
                   onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
                   placeholder="https://youtu.be/... or https://youtube.com/watch?v=..."
-                  className="umo-input w-full"
-                  required
+                  className={`umo-input w-full ${editingMoment ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  required={!editingMoment}
+                  disabled={!!editingMoment}
                 />
+                {editingMoment && (
+                  <p className="text-xs umo-text-muted mt-1">YouTube URL cannot be changed when editing</p>
+                )}
               </div>
 
               {/* Performance Details */}
@@ -436,17 +573,97 @@ const UMOTube = ({ user }) => {
                   disabled={loading}
                   className="umo-btn umo-btn--primary"
                 >
-                  {loading ? 'Submitting...' : 'Submit for Approval'}
+                  {loading
+                    ? (editingMoment ? 'Saving...' : 'Submitting...')
+                    : (editingMoment ? 'Save Changes' : 'Submit for Approval')}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowAddForm(false)}
+                  onClick={editingMoment ? cancelEditing : () => setShowAddForm(false)}
                   className="umo-btn umo-btn--secondary"
                 >
                   Cancel
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* My YouTube Moments Section */}
+        {showMyMoments && (
+          <div className="umo-card mb-8 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="umo-heading umo-heading--lg flex items-center gap-2">
+                <Edit size={20} />
+                My YouTube Moments
+              </h2>
+              <button
+                onClick={() => setShowMyMoments(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {loadingMyMoments ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto mb-2"></div>
+                <p className="umo-text-secondary text-sm">Loading your moments...</p>
+              </div>
+            ) : myMoments.length === 0 ? (
+              <div className="text-center py-8">
+                <Youtube className="w-12 h-12 text-gray-600 mx-auto mb-2" />
+                <p className="umo-text-secondary">You haven't submitted any YouTube moments yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {myMoments.map(moment => (
+                  <div
+                    key={moment._id}
+                    className="flex items-center gap-4 p-3 bg-gray-800/50 rounded hover:bg-gray-800 transition-colors"
+                  >
+                    {/* Thumbnail */}
+                    <img
+                      src={`https://img.youtube.com/vi/${moment.externalVideoId}/default.jpg`}
+                      alt={moment.songName}
+                      className="w-20 h-14 object-cover rounded"
+                    />
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="umo-text-primary font-medium truncate">{moment.songName}</h3>
+                      <p className="umo-text-secondary text-sm truncate">
+                        {moment.venueName} - {moment.venueCity}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs umo-text-muted">{moment.performanceDate}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          moment.approvalStatus === 'approved'
+                            ? 'bg-green-600/20 text-green-400'
+                            : moment.approvalStatus === 'pending'
+                            ? 'bg-yellow-600/20 text-yellow-400'
+                            : 'bg-red-600/20 text-red-400'
+                        }`}>
+                          {moment.approvalStatus}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Edit button */}
+                    <button
+                      onClick={() => {
+                        startEditing(moment);
+                        setShowMyMoments(false);
+                      }}
+                      className="umo-btn umo-btn--secondary flex items-center gap-1 text-sm"
+                    >
+                      <Edit size={14} />
+                      Edit
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

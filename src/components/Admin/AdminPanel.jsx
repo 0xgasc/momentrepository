@@ -406,6 +406,52 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
   const [editedMetadata, setEditedMetadata] = useState({});
   const { token } = useAuth();
 
+  // YouTube core fields editing
+  const [editingYouTubeMoment, setEditingYouTubeMoment] = useState(null);
+  const [youtubeEditData, setYoutubeEditData] = useState({});
+  const [savingYouTube, setSavingYouTube] = useState(false);
+
+  const startYouTubeEdit = (moment) => {
+    setEditingYouTubeMoment(moment._id);
+    setYoutubeEditData({
+      performanceDate: moment.performanceDate || '',
+      venueName: moment.venueName || '',
+      venueCity: moment.venueCity || '',
+      venueCountry: moment.venueCountry || '',
+      songName: moment.songName || '',
+      setName: moment.setName || 'Main Set',
+      contentType: moment.contentType || 'song',
+      momentDescription: moment.momentDescription || '',
+      showInMoments: moment.showInMoments !== false
+    });
+  };
+
+  const saveYouTubeEdit = async (momentId) => {
+    setSavingYouTube(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/youtube-moment/${momentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(youtubeEditData)
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert('YouTube moment updated!');
+        window.location.reload();
+      } else {
+        alert(data.error || 'Failed to update');
+      }
+    } catch (err) {
+      alert('Failed to update: ' + err.message);
+    } finally {
+      setSavingYouTube(false);
+      setEditingYouTubeMoment(null);
+    }
+  };
+
   const handleReject = (momentId) => {
     if (!rejectionReason.trim()) {
       alert('Please provide a rejection reason');
@@ -700,22 +746,133 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
                     </div>
                   )}
                   
+                  {/* YouTube Edit Form */}
+                  {editingYouTubeMoment === moment._id && (
+                    <div className="mt-3 p-4 bg-purple-50 rounded border border-purple-200">
+                      <h4 className="font-medium text-gray-900 mb-3">Edit Core Fields (YouTube Moment)</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Performance Date:</label>
+                          <input
+                            type="date"
+                            value={youtubeEditData.performanceDate}
+                            onChange={(e) => setYoutubeEditData({...youtubeEditData, performanceDate: e.target.value})}
+                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Song Name:</label>
+                          <input
+                            type="text"
+                            value={youtubeEditData.songName}
+                            onChange={(e) => setYoutubeEditData({...youtubeEditData, songName: e.target.value})}
+                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Venue Name:</label>
+                          <input
+                            type="text"
+                            value={youtubeEditData.venueName}
+                            onChange={(e) => setYoutubeEditData({...youtubeEditData, venueName: e.target.value})}
+                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">City:</label>
+                          <input
+                            type="text"
+                            value={youtubeEditData.venueCity}
+                            onChange={(e) => setYoutubeEditData({...youtubeEditData, venueCity: e.target.value})}
+                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Country:</label>
+                          <input
+                            type="text"
+                            value={youtubeEditData.venueCountry}
+                            onChange={(e) => setYoutubeEditData({...youtubeEditData, venueCountry: e.target.value})}
+                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Content Type:</label>
+                          <select
+                            value={youtubeEditData.contentType}
+                            onChange={(e) => setYoutubeEditData({...youtubeEditData, contentType: e.target.value})}
+                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                          >
+                            <option value="song">Song</option>
+                            <option value="jam">Jam</option>
+                            <option value="other">Full Performance / Other</option>
+                          </select>
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Description:</label>
+                          <textarea
+                            value={youtubeEditData.momentDescription}
+                            onChange={(e) => setYoutubeEditData({...youtubeEditData, momentDescription: e.target.value})}
+                            className="w-full p-2 border border-gray-300 rounded text-sm"
+                            rows="2"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={youtubeEditData.showInMoments}
+                              onChange={(e) => setYoutubeEditData({...youtubeEditData, showInMoments: e.target.checked})}
+                            />
+                            Show in main Moments feed
+                          </label>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-3 pt-3 border-t">
+                        <button
+                          onClick={() => saveYouTubeEdit(moment._id)}
+                          disabled={savingYouTube}
+                          className="bg-purple-600 text-white px-3 py-1 rounded text-sm hover:bg-purple-700"
+                        >
+                          {savingYouTube ? 'Saving...' : 'Save Changes'}
+                        </button>
+                        <button
+                          onClick={() => setEditingYouTubeMoment(null)}
+                          className="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-2 mt-3">
                     <button
                       onClick={() => approveMoment(moment._id)}
                       className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 flex items-center gap-1"
-                      disabled={editingMoment === moment._id}
+                      disabled={editingMoment === moment._id || editingYouTubeMoment === moment._id}
                     >
                       ✅ Approve
                     </button>
-                    
+
                     <button
                       onClick={() => setRejectingMoment(moment._id)}
                       className="bg-red-600 text-white px-4 py-2 rounded text-sm hover:bg-red-700 flex items-center gap-1"
-                      disabled={editingMoment === moment._id}
+                      disabled={editingMoment === moment._id || editingYouTubeMoment === moment._id}
                     >
                       ❌ Reject
                     </button>
+
+                    {/* Edit Core Fields button for YouTube moments */}
+                    {moment.mediaSource === 'youtube' && !editingYouTubeMoment && (
+                      <button
+                        onClick={() => startYouTubeEdit(moment)}
+                        className="bg-purple-600 text-white px-4 py-2 rounded text-sm hover:bg-purple-700 flex items-center gap-1"
+                        disabled={editingMoment === moment._id}
+                      >
+                        ✏️ Edit Core Fields
+                      </button>
+                    )}
                   </div>
                   
                   {rejectingMoment === moment._id && (

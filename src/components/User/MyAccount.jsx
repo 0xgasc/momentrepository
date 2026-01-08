@@ -351,7 +351,7 @@ const FavoritesTab = memo(() => {
       <div className="bg-gray-50 rounded-sm p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb' }}>
         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
           <Heart size={18} className="text-red-500" />
-          Favorited Moments ({filteredFavorites.length})
+          Favorite Moments ({filteredFavorites.length})
         </h3>
 
         {filteredFavorites.length === 0 ? (
@@ -360,7 +360,7 @@ const FavoritesTab = memo(() => {
             <p className="text-sm">
               {selectedCollection
                 ? 'No moments in this collection yet'
-                : 'No favorited moments yet. Click the heart on any moment to add it here!'}
+                : 'No favorite moments yet. Click the heart on any moment to add it here!'}
             </p>
           </div>
         ) : (
@@ -368,7 +368,17 @@ const FavoritesTab = memo(() => {
             {filteredFavorites.map(fav => (
               <div key={fav._id} className="relative group bg-white rounded border overflow-hidden">
                 <div className="aspect-video bg-gray-800 flex items-center justify-center">
-                  {fav.moment?.thumbnailUrl || fav.moment?.mediaUrl ? (
+                  {fav.moment?.mediaType === 'video' && fav.moment?.mediaUrl ? (
+                    <video
+                      src={transformMediaUrl(fav.moment.mediaUrl)}
+                      className="w-full h-full object-cover"
+                      muted
+                      loop
+                      playsInline
+                      onMouseEnter={(e) => e.target.play()}
+                      onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+                    />
+                  ) : fav.moment?.mediaUrl ? (
                     <img
                       src={transformMediaUrl(fav.moment.thumbnailUrl || fav.moment.mediaUrl)}
                       alt={fav.moment.songName}
