@@ -2,8 +2,9 @@
 // Utility to transform media URLs with fallback support
 
 /**
- * Transform Irys devnet URLs to working gateway URLs
- * devnet.irys.xyz is frequently down, so we fallback to gateway.irys.xyz
+ * Transform Irys URLs to Arweave gateway
+ * Irys gateways (devnet.irys.xyz, gateway.irys.xyz) are unreliable
+ * Since Irys stores on Arweave, use arweave.net directly
  *
  * @param {string} url - The original media URL
  * @returns {string} - Transformed URL with working gateway
@@ -11,9 +12,13 @@
 export const transformMediaUrl = (url) => {
   if (!url) return url;
 
-  // Transform devnet.irys.xyz to gateway.irys.xyz
+  // Transform any Irys gateway to arweave.net
   if (url.includes('devnet.irys.xyz')) {
-    return url.replace('devnet.irys.xyz', 'gateway.irys.xyz');
+    return url.replace('https://devnet.irys.xyz/', 'https://arweave.net/');
+  }
+
+  if (url.includes('gateway.irys.xyz')) {
+    return url.replace('https://gateway.irys.xyz/', 'https://arweave.net/');
   }
 
   return url;
