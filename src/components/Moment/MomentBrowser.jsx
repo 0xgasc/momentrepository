@@ -447,45 +447,37 @@ const MomentHeader = memo(({
   onToggleSortDirection
 }) => (
   <div className="mb-6">
-    {/* Title Row */}
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2">
-        <h2 className="text-2xl font-bold text-gray-800">
-          Recent Moments
-        </h2>
-        <button
-          onClick={onShowHelp}
-          className="text-gray-400 hover:text-blue-600 transition-colors p-1"
-          title="How to upload moments"
-        >
-          <HelpCircle size={18} />
-        </button>
+    {/* NFT Legend (only if Web3 enabled) */}
+    {isWeb3Enabled() && (
+      <div className="flex items-center justify-end mb-2 text-xs text-gray-400 space-x-3">
+        <div className="flex items-center">
+          <div className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+          <span>minting now</span>
+        </div>
+        <div className="flex items-center">
+          <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-1"></div>
+          <span>tokenized</span>
+        </div>
       </div>
-      <div className="text-right">
-        {/* Only show NFT legend if Web3 is enabled */}
-        {isWeb3Enabled() && (
-          <div className="flex items-center justify-end mt-2 text-xs text-gray-400 space-x-3">
-            <div className="flex items-center">
-              <div className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1 animate-pulse"></div>
-              <span>minting now</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-1"></div>
-              <span>tokenized</span>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    )}
 
     {/* Search and Sort Controls */}
     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
       {/* Left side - Results count */}
-      <div className="text-sm text-gray-600">
+      <div className="text-sm text-gray-600 flex items-center gap-1">
         {searchQuery.trim() ? (
           <>Showing {showingCount} of {filteredCount} matches ({totalMoments} total)</>
         ) : (
-          <>Latest uploads from UMO fans around the world</>
+          <>
+            Uploads from UMO fans around the world
+            <button
+              onClick={onShowHelp}
+              className="text-gray-400 hover:text-blue-600 transition-colors p-0.5"
+              title="How to upload moments"
+            >
+              <HelpCircle size={14} />
+            </button>
+          </>
         )}
       </div>
 
