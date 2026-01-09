@@ -58,6 +58,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
   const frameSkipRef = useRef(0);
   const ytPlayerRef = useRef(null);
   const ytProgressIntervalRef = useRef(null);
+  const handleNextRef = useRef(null);
 
   // Mobile detection for performance optimization
   useEffect(() => {
@@ -95,7 +96,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
             if (ytProgressIntervalRef.current) {
               clearInterval(ytProgressIntervalRef.current);
             }
-            handleNext();
+            handleNextRef.current?.();
           }
         }
       } catch (e) {
@@ -108,7 +109,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
         clearInterval(ytProgressIntervalRef.current);
       }
     };
-  }, [isYouTube, youtubeKey, moment?.endTime, handleNext]);
+  }, [isYouTube, youtubeKey, moment?.endTime]);
 
   // Cleanup YT player on moment change
   useEffect(() => {
@@ -533,6 +534,11 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
       }
     }
   }, [filteredMoments, moment, selectRandomMoment, isPlayingFromQueue, playNextInQueue]);
+
+  // Keep ref in sync for use in early useEffect
+  useEffect(() => {
+    handleNextRef.current = handleNext;
+  }, [handleNext]);
 
   // Add to queue
   const handleAddToQueue = useCallback(() => {
