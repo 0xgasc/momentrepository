@@ -65,9 +65,9 @@ const getMediaIcon = (mediaType) => {
   }
 };
 
-// Check if this is a YouTube moment
+// Check if this is a YouTube moment (requires externalVideoId for thumbnail)
 const isYouTubeMoment = (moment) => {
-  return moment.mediaSource === 'youtube' || moment.externalVideoId;
+  return !!(moment.externalVideoId && (moment.mediaSource === 'youtube' || moment.mediaSource === 'upload'));
 };
 
 // Get YouTube thumbnail URL

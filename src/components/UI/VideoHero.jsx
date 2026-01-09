@@ -1,6 +1,6 @@
 // src/components/UI/VideoHero.jsx - Hero player for random video/audio clips
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
-import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2, Droplet, MessageSquare } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2, Droplet, MessageSquare, Monitor, Sun, Sunset, Film, Camera } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import UMOEffect from './UMOEffect';
@@ -12,13 +12,14 @@ import { transformMediaUrl } from '../../utils/mediaUrl';
 // ASCII character map - from darkest to brightest
 const ASCII_CHARS = ' .:-=+*#%@';
 
-// Video filter presets for YouTube/linked content
+// Video filter presets for YouTube/linked content - ordered for cycling
+const VIDEO_FILTER_ORDER = ['none', 'warm', 'lofi', 'retro', 'vhs'];
 const VIDEO_FILTER_PRESETS = {
-  none: { label: 'Off', filter: 'none' },
-  warm: { label: 'Warm', filter: 'sepia(30%) saturate(120%) brightness(105%) contrast(105%)' },
-  lofi: { label: 'Lo-Fi', filter: 'grayscale(30%) contrast(120%) brightness(95%) saturate(80%)' },
-  retro: { label: 'Retro', filter: 'sepia(50%) hue-rotate(-10deg) saturate(150%) contrast(110%)' },
-  vhs: { label: 'VHS', filter: 'saturate(130%) contrast(95%) brightness(105%) blur(0.5px)' }
+  none: { label: 'Off', filter: 'none', Icon: Monitor },
+  warm: { label: 'Warm', filter: 'sepia(30%) saturate(120%) brightness(105%) contrast(105%)', Icon: Sun },
+  lofi: { label: 'Lo-Fi', filter: 'grayscale(30%) contrast(120%) brightness(95%) saturate(80%)', Icon: Sunset },
+  retro: { label: 'Retro', filter: 'sepia(50%) hue-rotate(-10deg) saturate(150%) contrast(110%)', Icon: Film },
+  vhs: { label: 'VHS', filter: 'saturate(130%) contrast(95%) brightness(105%) blur(0.5px)', Icon: Camera }
 };
 
 const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
@@ -906,28 +907,34 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
               </>
             )}
 
-            {/* YouTube: Filter presets + trippy effect */}
+            {/* YouTube: Filter cycle toggle + trippy effect */}
             {isYouTube && (
               <>
-                {/* Filter selector */}
-                <div className="flex items-center gap-0.5 bg-black/40 rounded-full px-1">
-                  {Object.entries(VIDEO_FILTER_PRESETS).map(([key, { label }]) => (
+                {/* Filter toggle - cycles through presets */}
+                {(() => {
+                  const currentPreset = VIDEO_FILTER_PRESETS[videoFilterMode];
+                  const FilterIcon = currentPreset?.Icon || Monitor;
+                  const cycleFilter = (e) => {
+                    e.stopPropagation();
+                    const currentIndex = VIDEO_FILTER_ORDER.indexOf(videoFilterMode);
+                    const nextIndex = (currentIndex + 1) % VIDEO_FILTER_ORDER.length;
+                    setVideoFilterMode(VIDEO_FILTER_ORDER[nextIndex]);
+                  };
+                  return (
                     <button
-                      key={key}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setVideoFilterMode(key);
-                      }}
-                      className={`px-2 py-1 text-xs transition-colors rounded-full ${
-                        videoFilterMode === key
-                          ? 'bg-white/90 text-black'
-                          : 'text-gray-300 hover:text-white'
+                      onClick={cycleFilter}
+                      className={`rounded-full p-2 transition-colors flex items-center gap-1.5 ${
+                        videoFilterMode !== 'none'
+                          ? 'bg-amber-600/70 hover:bg-amber-600/90'
+                          : 'bg-white/20 hover:bg-white/30'
                       }`}
+                      style={{ minWidth: '36px', minHeight: '36px' }}
+                      title={`Filter: ${currentPreset?.label || 'Off'}`}
                     >
-                      {label}
+                      <FilterIcon size={16} className="text-white" />
                     </button>
-                  ))}
-                </div>
+                  );
+                })()}
                 {/* Trippy effect toggle */}
                 <button
                   onClick={(e) => {
