@@ -1,7 +1,8 @@
 // src/components/UMOTube/PerformancePicker.jsx
 // Performance picker for linking YouTube videos to setlist.fm shows
 import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
-import { Calendar, MapPin, Search, X, Link2, ChevronDown, ChevronUp, Music, List } from 'lucide-react';
+import { Calendar, MapPin, Search, X, Link2, ChevronDown, ChevronUp, Music, List, Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '../Auth/AuthProvider';
 
 const PerformancePicker = memo(({
   value,
@@ -16,6 +17,8 @@ const PerformancePicker = memo(({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [displayCount, setDisplayCount] = useState(20);
   const [expandedId, setExpandedId] = useState(null);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
 
@@ -45,14 +48,55 @@ const PerformancePicker = memo(({
     setExpandedId(null);
   }, [searchQuery]);
 
+  // Server-side search with debounce
+  useEffect(() => {
+    const query = searchQuery.trim();
+
+    // If query is too short, clear results and use local performances
+    if (query.length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+
+    const debounceTimer = setTimeout(async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/cached/performances/search?query=${encodeURIComponent(query)}&limit=100`);
+        const data = await response.json();
+        if (data.success) {
+          setSearchResults(data.results);
+        }
+      } catch (err) {
+        console.error('Search error:', err);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery]);
+
   // Filter performances based on search query
+  // Use server-side results when searching, local performances when not
   const { filteredPerformances, totalMatches } = useMemo(() => {
-    const query = searchQuery.toLowerCase().trim();
+    const query = searchQuery.trim();
 
     let matches;
     if (!query) {
+      // No search - show all local performances
       matches = performances;
+    } else if (query.length >= 2 && searchResults.length > 0) {
+      // Use server-side search results
+      matches = searchResults;
+    } else if (query.length >= 2) {
+      // Searching but no results yet - show empty (loading state handles this)
+      matches = [];
     } else {
+      // Query too short - filter locally
+      const queryLower = query.toLowerCase();
       matches = performances.filter(perf => {
         const venue = perf.venue?.name?.toLowerCase() || '';
         const city = perf.venue?.city?.name?.toLowerCase() || '';
@@ -61,11 +105,11 @@ const PerformancePicker = memo(({
         const year = date.split('-')[2] || '';
 
         return (
-          venue.includes(query) ||
-          city.includes(query) ||
-          country.includes(query) ||
-          date.includes(query) ||
-          year.includes(query)
+          venue.includes(queryLower) ||
+          city.includes(queryLower) ||
+          country.includes(queryLower) ||
+          date.includes(queryLower) ||
+          year.includes(queryLower)
         );
       });
     }
@@ -74,7 +118,7 @@ const PerformancePicker = memo(({
       filteredPerformances: matches.slice(0, displayCount),
       totalMatches: matches.length
     };
-  }, [searchQuery, performances, displayCount]);
+  }, [searchQuery, performances, searchResults, displayCount]);
 
   // Reset highlight when filtered results change
   useEffect(() => {
@@ -311,7 +355,16 @@ const PerformancePicker = memo(({
             </>
           ) : (
             <div className="p-3 text-center text-gray-500 text-sm">
-              {searchQuery ? 'No matching shows found' : 'No performances loaded'}
+              {isSearching ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Searching...</span>
+                </div>
+              ) : searchQuery ? (
+                'No matching shows found'
+              ) : (
+                'No performances loaded'
+              )}
             </div>
           )}
         </div>

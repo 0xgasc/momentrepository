@@ -1873,6 +1873,54 @@ app.get('/cached/performances', async (req, res) => {
   }
 });
 
+// Search performances by text query (venue, city, date, etc.)
+app.get('/cached/performances/search', async (req, res) => {
+  try {
+    const { query, limit = 50 } = req.query;
+
+    if (!query || query.length < 2) {
+      return res.json({ success: true, results: [] });
+    }
+
+    let performances = await umoCache.getPerformances();
+    const queryLower = query.toLowerCase();
+
+    // Filter by general text query (searches venue, city, country, date, tour name)
+    performances = performances.filter(p =>
+      p.venue?.name?.toLowerCase().includes(queryLower) ||
+      p.venue?.city?.name?.toLowerCase().includes(queryLower) ||
+      p.venue?.city?.country?.name?.toLowerCase().includes(queryLower) ||
+      p.eventDate?.includes(query) ||
+      p.tour?.name?.toLowerCase().includes(queryLower)
+    );
+
+    // Sort by date (most recent first)
+    performances.sort((a, b) => {
+      const parseDate = (dateStr) => {
+        if (!dateStr) return new Date(0);
+        const [d, m, y] = dateStr.split('-');
+        return new Date(`${y}-${m}-${d}`);
+      };
+      return parseDate(b.eventDate) - parseDate(a.eventDate);
+    });
+
+    // Limit results
+    const limitedResults = performances.slice(0, parseInt(limit));
+
+    console.log(`🔍 Performance search "${query}": ${limitedResults.length} results`);
+
+    res.json({
+      success: true,
+      results: limitedResults,
+      total: performances.length
+    });
+
+  } catch (err) {
+    console.error('❌ Error searching performances:', err);
+    res.status(500).json({ success: false, error: 'Failed to search performances' });
+  }
+});
+
 app.get('/cached/performance/:performanceId', async (req, res) => {
   try {
     const { performanceId } = req.params;
