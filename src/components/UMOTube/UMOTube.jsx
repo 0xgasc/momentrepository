@@ -1,4 +1,4 @@
-// src/components/UMOTube/UMOTube.jsx - YouTube linked clips feature
+// src/components/UMOTube/UMOTube.jsx - Linked Media (YouTube clips linked to performances)
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock, Edit, X, AlertTriangle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
@@ -136,7 +136,7 @@ const UMOTube = ({ user }) => {
           <Youtube className="w-16 h-16 text-gray-600 mx-auto mb-4" />
           <h2 className="umo-heading umo-heading--lg mb-4">Admin Only</h2>
           <p className="umo-text-secondary">
-            UMOTube is currently available to administrators only.
+            Linked Media is currently available to administrators only.
           </p>
         </div>
       </div>
@@ -530,9 +530,9 @@ const UMOTube = ({ user }) => {
           <div>
             <div className="flex items-center gap-3 mb-2">
               <Youtube className="w-8 h-8 text-red-500" />
-              <h1 className="umo-heading umo-heading--xl">UMOTube</h1>
+              <h1 className="umo-heading umo-heading--xl">Linked Media</h1>
             </div>
-            <p className="umo-text-secondary">YouTube performance clips from Unknown Mortal Orchestra</p>
+            <p className="umo-text-secondary">YouTube and external media linked to performances</p>
           </div>
           {user && (
             <div className="flex gap-2">

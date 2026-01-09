@@ -388,7 +388,7 @@ const Header = memo(({
                       }`}
                       style={{ minHeight: '44px' }}
                     >
-                      UMOTube
+                      Linked Media
                     </button>
                   )}
                 </div>
@@ -692,7 +692,7 @@ const MainContent = memo(({
               }`}
               style={{ minHeight: '44px' }}
             >
-              UMOTube
+              Linked Media
             </button>
           )}
         </div>
