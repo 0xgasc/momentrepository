@@ -316,7 +316,46 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
 
   // Optimized media component
   const getMediaComponent = () => {
-    // Check for YouTube content FIRST (before regular video check)
+    // Check for Archive.org content FIRST
+    const isArchive = moment.mediaSource === 'archive';
+
+    if (isArchive) {
+      // Individual track with direct audio URL -> AudioPlayer
+      if (moment.mediaUrl && !moment.mediaUrl.includes('/embed/')) {
+        return (
+          <div className="media-container audio-player-container">
+            <AudioPlayer
+              src={moment.mediaUrl}
+              title={moment.songName || 'Archive.org Recording'}
+              sourceType="archive"
+              momentId={moment._id}
+              onDownload={handleDownload}
+            />
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              Archive.org Recording
+              {moment.performanceDate && ` • ${moment.performanceDate}`}
+            </p>
+          </div>
+        );
+      }
+
+      // Parent recording -> archive.org embed iframe
+      return (
+        <div className="media-container relative" style={{ paddingBottom: '56.25%' }}>
+          <iframe
+            src={`https://archive.org/embed/${moment.externalVideoId}`}
+            className="absolute top-0 left-0 w-full h-full rounded-lg"
+            frameBorder="0"
+            webkitallowfullscreen="true"
+            mozallowfullscreen="true"
+            allowFullScreen
+            title={moment.songName || 'Archive.org Recording'}
+          />
+        </div>
+      );
+    }
+
+    // Check for YouTube content (before regular video check)
     const isYouTube = moment.mediaSource === 'youtube' ||
                       moment.externalVideoId ||
                       moment.mediaUrl?.includes('youtube.com') ||

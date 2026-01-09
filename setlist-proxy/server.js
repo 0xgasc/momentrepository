@@ -4037,9 +4037,9 @@ app.delete('/admin/moments/:momentId', authenticateToken, requireAdmin, async (r
 // Get UMOTube videos (parent videos for browsing)
 app.get('/umotube/videos', async (req, res) => {
   try {
-    // Get all YouTube moments
+    // Get all YouTube and Archive.org moments
     const videos = await Moment.find({
-      mediaSource: 'youtube',
+      mediaSource: { $in: ['youtube', 'archive'] },
       approvalStatus: 'approved'
     })
       .sort({ createdAt: -1 })
@@ -4066,11 +4066,11 @@ app.get('/umotube/videos', async (req, res) => {
       .map(v => v.toObject({ virtuals: true }))
       .slice(0, 100);
 
-    console.log(`🎬 Returning ${uniqueVideos.length} UMOTube videos (prioritizing parents)`);
+    console.log(`🎬 Returning ${uniqueVideos.length} Linked Media items (YouTube + Archive.org)`);
     res.json({ videos: uniqueVideos });
   } catch (err) {
-    console.error('❌ Fetch UMOTube videos error:', err);
-    res.status(500).json({ error: 'Failed to fetch UMOTube videos' });
+    console.error('❌ Fetch Linked Media error:', err);
+    res.status(500).json({ error: 'Failed to fetch linked media' });
   }
 });
 
@@ -4091,6 +4091,234 @@ app.get('/umotube/video/:videoId/moments', async (req, res) => {
   } catch (err) {
     console.error('❌ Fetch video moments error:', err);
     res.status(500).json({ error: 'Failed to fetch video moments' });
+  }
+});
+
+// =====================================================
+// ARCHIVE.ORG INTEGRATION
+// =====================================================
+
+// Helper function: Parse song name from archive.org filename
+function parseSongNameFromFilename(filename) {
+  if (!filename) return 'Unknown Track';
+
+  // Remove file extension
+  let name = filename.replace(/\.(mp3|flac|ogg|wav|m4a)$/i, '');
+
+  // Remove track numbers (e.g., "01 - ", "1. ", "01_", "01+")
+  name = name.replace(/^\d{1,2}[\s\-_.+]+/, '');
+
+  // Replace underscores and plus signs with spaces
+  name = name.replace(/[+_]/g, ' ');
+
+  // Clean up multiple spaces
+  name = name.replace(/\s+/g, ' ').trim();
+
+  return name || 'Unknown Track';
+}
+
+// Parse tracks from archive.org item
+app.get('/archive/parse-tracks/:archiveId', authenticateToken, requireMod, async (req, res) => {
+  try {
+    const { archiveId } = req.params;
+
+    // Validate archiveId format
+    if (!/^[a-zA-Z0-9._-]+$/.test(archiveId)) {
+      return res.status(400).json({ error: 'Invalid archive.org identifier format' });
+    }
+
+    console.log(`📂 Fetching archive.org metadata for: ${archiveId}`);
+
+    // Fetch metadata from archive.org
+    const response = await fetch(`https://archive.org/metadata/${archiveId}`);
+    if (!response.ok) {
+      console.log(`❌ Archive.org item not found: ${archiveId}`);
+      return res.status(404).json({ error: 'Archive.org item not found' });
+    }
+
+    const data = await response.json();
+
+    // Filter for audio files (exclude derivatives like _spectrogram.png)
+    const audioExtensions = ['mp3', 'flac', 'ogg', 'wav', 'm4a'];
+    const audioFiles = (data.files || []).filter(file => {
+      const ext = file.name?.split('.').pop()?.toLowerCase();
+      // Also check source - exclude derivatives
+      return audioExtensions.includes(ext) && file.source !== 'derivative';
+    });
+
+    if (audioFiles.length === 0) {
+      return res.status(400).json({
+        error: 'No audio files found in this archive.org item',
+        hint: 'Make sure the item contains MP3, FLAC, OGG, WAV, or M4A files'
+      });
+    }
+
+    // Sort by filename (typically includes track numbers)
+    audioFiles.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true }));
+
+    // Parse track information from filenames
+    const tracks = audioFiles.map((file, index) => {
+      const songName = parseSongNameFromFilename(file.name);
+      return {
+        index: index + 1,
+        filename: file.name,
+        songName,
+        fileUrl: `https://archive.org/download/${archiveId}/${encodeURIComponent(file.name)}`,
+        duration: file.length ? parseFloat(file.length) : null,
+        fileSize: file.size ? parseInt(file.size) : null,
+        format: file.format || file.name?.split('.').pop()?.toUpperCase()
+      };
+    });
+
+    console.log(`✅ Parsed ${tracks.length} tracks from archive.org: ${archiveId}`);
+
+    res.json({
+      success: true,
+      archiveId,
+      title: data.metadata?.title || archiveId,
+      date: data.metadata?.date,
+      venue: data.metadata?.venue,
+      coverage: data.metadata?.coverage,
+      creator: data.metadata?.creator,
+      description: data.metadata?.description,
+      thumbnailUrl: `https://archive.org/services/img/${archiveId}`,
+      embedUrl: `https://archive.org/embed/${archiveId}`,
+      tracks,
+      totalTracks: tracks.length
+    });
+  } catch (error) {
+    console.error('❌ Archive.org track parsing error:', error);
+    res.status(500).json({ error: 'Failed to parse archive.org tracks' });
+  }
+});
+
+// Import tracks from archive.org as moments
+app.post('/archive/import-tracks', authenticateToken, requireMod, async (req, res) => {
+  try {
+    const {
+      archiveId,
+      performanceId,
+      performanceDate,
+      venueName,
+      venueCity,
+      venueCountry,
+      setName,
+      tracks,
+      createParent = true
+    } = req.body;
+
+    // Validate required fields
+    if (!archiveId || !performanceId || !tracks || !Array.isArray(tracks)) {
+      return res.status(400).json({
+        error: 'archiveId, performanceId, and tracks array are required'
+      });
+    }
+
+    // Validate archiveId format
+    if (!/^[a-zA-Z0-9._-]+$/.test(archiveId)) {
+      return res.status(400).json({ error: 'Invalid archive.org identifier format' });
+    }
+
+    // Validate performanceId is a real setlist.fm ID (not the archiveId)
+    if (performanceId === archiveId || performanceId.length > 12) {
+      return res.status(400).json({
+        error: 'Must link to setlist.fm performance before importing',
+        details: 'Please link the Archive.org recording to a setlist.fm performance first'
+      });
+    }
+
+    console.log(`📂 Importing ${tracks.length} tracks from archive.org: ${archiveId}`);
+
+    const createdMoments = [];
+    const errors = [];
+    let parentMoment = null;
+
+    // Create parent "full recording" moment (hidden from Moments tab)
+    if (createParent) {
+      try {
+        parentMoment = new Moment({
+          user: req.user.userId,
+          performanceId,
+          performanceDate,
+          venueName,
+          venueCity,
+          venueCountry: venueCountry || '',
+          songName: `Full Recording - ${venueName || 'Archive Recording'}`,
+          setName: setName || 'Main Set',
+          contentType: 'full-show',
+          mediaSource: 'archive',
+          mediaUrl: `https://archive.org/embed/${archiveId}`,
+          externalVideoId: archiveId,
+          mediaType: 'audio',
+          showInMoments: false,
+          approvalStatus: 'approved',
+          reviewedBy: req.user.userId,
+          reviewedAt: new Date()
+        });
+
+        await parentMoment.save();
+        console.log(`✅ Created parent archive recording: ${parentMoment._id}`);
+      } catch (err) {
+        console.error('❌ Failed to create parent moment:', err);
+        errors.push({ track: 'parent', error: err.message });
+      }
+    }
+
+    // Create individual track moments
+    for (const track of tracks) {
+      try {
+        if (!track.songName || !track.fileUrl) {
+          errors.push({ track: track.songName || 'unknown', error: 'Missing songName or fileUrl' });
+          continue;
+        }
+
+        const moment = new Moment({
+          user: req.user.userId,
+          performanceId,
+          performanceDate,
+          venueName,
+          venueCity,
+          venueCountry: venueCountry || '',
+          songName: track.songName,
+          setName: setName || 'Main Set',
+          songPosition: track.index,
+          contentType: track.contentType || 'song',
+          mediaSource: 'archive',
+          mediaUrl: track.fileUrl,
+          externalVideoId: archiveId,
+          mediaType: 'audio',
+          duration: track.duration || null,
+          fileSize: track.fileSize || null,
+          fileName: track.filename,
+          showInMoments: true,
+          approvalStatus: 'approved',
+          reviewedBy: req.user.userId,
+          reviewedAt: new Date()
+        });
+
+        await moment.save();
+        createdMoments.push(moment);
+        console.log(`✅ Created track moment: ${track.songName}`);
+      } catch (err) {
+        console.error(`❌ Failed to create track ${track.songName}:`, err);
+        errors.push({ track: track.songName, error: err.message });
+      }
+    }
+
+    console.log(`📂 Archive import complete: ${createdMoments.length} tracks created, ${errors.length} errors`);
+
+    res.json({
+      success: true,
+      archiveId,
+      parentId: parentMoment?._id,
+      created: createdMoments.length,
+      failed: errors.length,
+      moments: createdMoments.map(m => m.toObject({ virtuals: true })),
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    console.error('❌ Archive.org import error:', error);
+    res.status(500).json({ error: 'Failed to import archive.org tracks' });
   }
 });
 

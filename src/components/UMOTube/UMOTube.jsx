@@ -1,6 +1,6 @@
-// src/components/UMOTube/UMOTube.jsx - Linked Media (YouTube clips linked to performances)
+// src/components/UMOTube/UMOTube.jsx - Linked Media (YouTube & Archive.org linked to performances)
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock, Edit, X, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Eye, Music } from 'lucide-react';
+import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock, Edit, X, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Eye, Music, Archive, Loader2, Check } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import SongAutocomplete from './SongAutocomplete';
@@ -69,6 +69,19 @@ const UMOTube = ({ user }) => {
   const [linkedPerformance, setLinkedPerformance] = useState(null);
   const [selectedPerformanceDisplay, setSelectedPerformanceDisplay] = useState('');
 
+  // Archive.org integration state
+  const [mediaSourceTab, setMediaSourceTab] = useState('youtube');
+  const [showArchiveImport, setShowArchiveImport] = useState(false);
+  const [archiveUrl, setArchiveUrl] = useState('');
+  const [archiveMetadata, setArchiveMetadata] = useState(null);
+  const [archiveTracks, setArchiveTracks] = useState([]);
+  const [loadingArchive, setLoadingArchive] = useState(false);
+  const [importingArchive, setImportingArchive] = useState(false);
+  const [archiveError, setArchiveError] = useState('');
+  const [archiveSuccess, setArchiveSuccess] = useState('');
+  const [archivePerformanceDisplay, setArchivePerformanceDisplay] = useState('');
+  const [archivePerformance, setArchivePerformance] = useState(null);
+
   const [formData, setFormData] = useState({
     youtubeUrl: '',
     performanceId: '',
@@ -135,6 +148,174 @@ const UMOTube = ({ user }) => {
       .flatMap(set => set.song?.map(s => s.name) || [])
       .flatMap(name => splitMedley(name)); // Split medleys into individual songs
   }, [linkedPerformance]);
+
+  // Archive.org URL parser
+  const parseArchiveUrl = (url) => {
+    if (!url) return null;
+    // Match archive.org URLs: details, download, embed
+    const match = url.match(/archive\.org\/(?:details|download|embed)\/([a-zA-Z0-9._-]+)/);
+    if (match) return match[1];
+    // Accept raw identifiers
+    if (/^[a-zA-Z0-9._-]+$/.test(url.trim())) return url.trim();
+    return null;
+  };
+
+  // Fetch archive.org tracks
+  const fetchArchiveTracks = async () => {
+    const archiveId = parseArchiveUrl(archiveUrl);
+    if (!archiveId) {
+      setArchiveError('Invalid archive.org URL or identifier');
+      return;
+    }
+
+    setLoadingArchive(true);
+    setArchiveError('');
+    setArchiveMetadata(null);
+    setArchiveTracks([]);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/archive/parse-tracks/${archiveId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setArchiveError(data.error || 'Failed to fetch archive');
+        return;
+      }
+
+      setArchiveMetadata({
+        archiveId: data.archiveId,
+        title: data.title,
+        date: data.date,
+        venue: data.venue,
+        thumbnailUrl: data.thumbnailUrl,
+        totalTracks: data.totalTracks
+      });
+
+      // Initialize tracks with selected: true
+      setArchiveTracks(data.tracks.map(t => ({ ...t, selected: true })));
+    } catch (err) {
+      console.error('Archive fetch error:', err);
+      setArchiveError('Failed to fetch archive metadata');
+    } finally {
+      setLoadingArchive(false);
+    }
+  };
+
+  // Handle archive performance selection
+  const handleArchivePerformanceSelect = async (performance) => {
+    if (performance) {
+      const venue = performance.venue?.name || '';
+      const city = performance.venue?.city?.name || '';
+      const date = performance.eventDate || '';
+      setArchivePerformanceDisplay(`${venue} - ${city} (${date})`);
+      setArchivePerformance(performance);
+    } else {
+      setArchivePerformanceDisplay('');
+      setArchivePerformance(null);
+    }
+  };
+
+  // Import archive tracks as moments
+  const handleArchiveImport = async () => {
+    if (!archivePerformance) {
+      setArchiveError('Please select a performance to link');
+      return;
+    }
+
+    const selectedTracks = archiveTracks.filter(t => t.selected);
+    if (selectedTracks.length === 0) {
+      setArchiveError('Please select at least one track');
+      return;
+    }
+
+    setImportingArchive(true);
+    setArchiveError('');
+    setArchiveSuccess('');
+
+    try {
+      const token = localStorage.getItem('token');
+
+      // Convert DD-MM-YYYY to YYYY-MM-DD
+      const dateParts = archivePerformance.eventDate?.split('-');
+      const isoDate = dateParts?.length === 3
+        ? `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`
+        : '';
+
+      const response = await fetch(`${API_BASE_URL}/archive/import-tracks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          archiveId: archiveMetadata.archiveId,
+          performanceId: archivePerformance.id,
+          performanceDate: isoDate,
+          venueName: archivePerformance.venue?.name || '',
+          venueCity: archivePerformance.venue?.city?.name || '',
+          venueCountry: archivePerformance.venue?.city?.country?.name || '',
+          setName: 'Main Set',
+          tracks: selectedTracks.map(t => ({
+            songName: t.songName,
+            fileUrl: t.fileUrl,
+            contentType: 'song',
+            duration: t.duration
+          })),
+          createParent: true
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setArchiveError(data.error || 'Failed to import tracks');
+        return;
+      }
+
+      setArchiveSuccess(`Imported ${data.created} tracks!`);
+      fetchVideos(); // Refresh video list
+
+      setTimeout(() => {
+        setShowArchiveImport(false);
+        setArchiveUrl('');
+        setArchiveMetadata(null);
+        setArchiveTracks([]);
+        setArchivePerformance(null);
+        setArchivePerformanceDisplay('');
+        setArchiveSuccess('');
+      }, 2000);
+    } catch (err) {
+      console.error('Archive import error:', err);
+      setArchiveError('Failed to import tracks');
+    } finally {
+      setImportingArchive(false);
+    }
+  };
+
+  // Toggle track selection
+  const toggleTrackSelection = (index) => {
+    setArchiveTracks(prev => prev.map((t, i) =>
+      i === index ? { ...t, selected: !t.selected } : t
+    ));
+  };
+
+  // Update track song name
+  const updateTrackName = (index, name) => {
+    setArchiveTracks(prev => prev.map((t, i) =>
+      i === index ? { ...t, songName: name } : t
+    ));
+  };
+
+  // Get filtered videos based on media source tab
+  const filteredVideos = videos.filter(v => {
+    if (mediaSourceTab === 'youtube') return v.mediaSource === 'youtube' || !v.mediaSource;
+    if (mediaSourceTab === 'archive') return v.mediaSource === 'archive';
+    return true;
+  });
 
   // Guard: only admins can access
   if (!isAdmin) {
@@ -627,7 +808,7 @@ const UMOTube = ({ user }) => {
               <Youtube className="w-8 h-8 text-red-500" />
               <h1 className="umo-heading umo-heading--xl">Linked Media</h1>
             </div>
-            <p className="umo-text-secondary">YouTube and external media linked to performances</p>
+            <p className="umo-text-secondary">YouTube and archive.org media linked to performances</p>
           </div>
           {user && (
             <div className="flex gap-2">
@@ -641,18 +822,56 @@ const UMOTube = ({ user }) => {
                 <Edit size={18} />
                 My Moments
               </button>
-              <button
-                onClick={() => {
-                  cancelEditing();
-                  setShowAddForm(!showAddForm);
-                }}
-                className="umo-btn umo-btn--primary flex items-center gap-2"
-              >
-                <Plus size={18} />
-                Submit YouTube Clip
-              </button>
+              {mediaSourceTab === 'youtube' && (
+                <button
+                  onClick={() => {
+                    cancelEditing();
+                    setShowAddForm(!showAddForm);
+                  }}
+                  className="umo-btn umo-btn--primary flex items-center gap-2"
+                >
+                  <Plus size={18} />
+                  Submit YouTube Clip
+                </button>
+              )}
+              {mediaSourceTab === 'archive' && (
+                <button
+                  onClick={() => setShowArchiveImport(true)}
+                  className="umo-btn umo-btn--primary flex items-center gap-2"
+                  style={{ backgroundColor: '#f59e0b' }}
+                >
+                  <Archive size={18} />
+                  Import from Archive.org
+                </button>
+              )}
             </div>
           )}
+        </div>
+
+        {/* Media Source Tab Switcher */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setMediaSourceTab('youtube')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-sm font-medium transition-colors ${
+              mediaSourceTab === 'youtube'
+                ? 'bg-red-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+          >
+            <Youtube size={18} />
+            YouTube
+          </button>
+          <button
+            onClick={() => setMediaSourceTab('archive')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-sm font-medium transition-colors ${
+              mediaSourceTab === 'archive'
+                ? 'bg-orange-500 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+          >
+            <Archive size={18} />
+            Archive.org
+          </button>
         </div>
 
         {/* Data Error Display */}
@@ -977,19 +1196,27 @@ const UMOTube = ({ user }) => {
         {loadingVideos ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
-            <p className="umo-text-secondary">Loading videos...</p>
+            <p className="umo-text-secondary">Loading media...</p>
           </div>
-        ) : videos.length === 0 ? (
+        ) : filteredVideos.length === 0 ? (
           <div className="text-center py-12">
-            <Youtube className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <h2 className="umo-heading umo-heading--lg mb-4">No videos yet</h2>
+            {mediaSourceTab === 'youtube' ? (
+              <Youtube className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            ) : (
+              <Archive className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            )}
+            <h2 className="umo-heading umo-heading--lg mb-4">
+              {mediaSourceTab === 'youtube' ? 'No YouTube videos yet' : 'No Archive.org recordings yet'}
+            </h2>
             <p className="umo-text-secondary">
-              {user ? 'Submit YouTube clips above to get started.' : 'Check back soon for videos!'}
+              {mediaSourceTab === 'youtube'
+                ? (user ? 'Submit YouTube clips above to get started.' : 'Check back soon for videos!')
+                : (user ? 'Import archive.org recordings above to get started.' : 'Check back soon for recordings!')}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {videos.map(video => {
+            {filteredVideos.map(video => {
               const isExpanded = expandedVideoId === video.externalVideoId;
               const moments = childMoments[video.externalVideoId] || [];
               const isLoading = loadingChildMoments === video.externalVideoId;
@@ -1006,9 +1233,16 @@ const UMOTube = ({ user }) => {
                       onClick={() => setSelectedVideo(video)}
                     >
                       <img
-                        src={getYouTubeThumbnail(video.externalVideoId)}
+                        src={video.mediaSource === 'archive'
+                          ? `https://archive.org/services/img/${video.externalVideoId}`
+                          : getYouTubeThumbnail(video.externalVideoId)}
                         alt={video.songName}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.src = video.mediaSource === 'archive'
+                            ? 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23374151" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="%239ca3af" font-size="12">Archive.org</text></svg>'
+                            : 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23374151" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="%239ca3af" font-size="12">YouTube</text></svg>';
+                        }}
                       />
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <div className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center">
@@ -1016,8 +1250,10 @@ const UMOTube = ({ user }) => {
                         </div>
                       </div>
                       <div className="absolute top-2 right-2">
-                        <span className="bg-red-600 text-white text-xs px-2 py-1 rounded font-medium">
-                          YouTube
+                        <span className={`text-white text-xs px-2 py-1 rounded font-medium ${
+                          video.mediaSource === 'archive' ? 'bg-orange-500' : 'bg-red-600'
+                        }`}>
+                          {video.mediaSource === 'archive' ? 'Archive.org' : 'YouTube'}
                         </span>
                       </div>
                     </div>
@@ -1377,6 +1613,225 @@ const UMOTube = ({ user }) => {
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Archive.org Import Modal */}
+      {showArchiveImport && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="umo-card max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <Archive className="w-6 h-6 text-orange-500" />
+                  <h2 className="umo-heading umo-heading--lg">Import from Archive.org</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowArchiveImport(false);
+                    setArchiveUrl('');
+                    setArchiveMetadata(null);
+                    setArchiveTracks([]);
+                    setArchiveError('');
+                    setArchiveSuccess('');
+                    setArchivePerformance(null);
+                    setArchivePerformanceDisplay('');
+                  }}
+                  className="text-gray-400 hover:text-white text-2xl"
+                >
+                  &times;
+                </button>
+              </div>
+
+              {archiveError && (
+                <div className="bg-red-900/20 border border-red-500/30 p-3 rounded mb-4">
+                  <p className="text-red-400 text-sm">{archiveError}</p>
+                </div>
+              )}
+
+              {archiveSuccess && (
+                <div className="bg-green-900/20 border border-green-500/30 p-3 rounded mb-4 flex items-center gap-2">
+                  <Check size={18} className="text-green-400" />
+                  <p className="text-green-400 text-sm">{archiveSuccess}</p>
+                </div>
+              )}
+
+              {/* Step 1: Enter Archive.org URL */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium umo-text-primary mb-2">
+                  Archive.org URL or Identifier
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={archiveUrl}
+                    onChange={(e) => setArchiveUrl(e.target.value)}
+                    placeholder="https://archive.org/details/umo2024-01-01 or umo2024-01-01"
+                    className="umo-input flex-1"
+                    disabled={loadingArchive}
+                  />
+                  <button
+                    onClick={fetchArchiveTracks}
+                    disabled={loadingArchive || !archiveUrl.trim()}
+                    className="umo-btn umo-btn--primary flex items-center gap-2"
+                  >
+                    {loadingArchive ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      'Fetch Tracks'
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs umo-text-muted mt-1">
+                  Enter the archive.org URL or just the identifier (e.g., "umo2024-01-01")
+                </p>
+              </div>
+
+              {/* Step 2: Show metadata preview */}
+              {archiveMetadata && (
+                <>
+                  <div className="bg-gray-800 p-4 rounded mb-4">
+                    <div className="flex items-start gap-4">
+                      <img
+                        src={archiveMetadata.thumbnailUrl}
+                        alt={archiveMetadata.title}
+                        className="w-24 h-24 object-cover rounded"
+                        onError={(e) => {
+                          e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23374151" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="%239ca3af" font-size="10">Archive.org</text></svg>';
+                        }}
+                      />
+                      <div className="flex-1">
+                        <h3 className="umo-heading umo-heading--sm mb-1">{archiveMetadata.title}</h3>
+                        <p className="text-xs umo-text-muted mb-2">ID: {archiveMetadata.archiveId}</p>
+                        {archiveMetadata.date && (
+                          <p className="text-sm umo-text-secondary">Date: {archiveMetadata.date}</p>
+                        )}
+                        {archiveMetadata.venue && (
+                          <p className="text-sm umo-text-secondary">Venue: {archiveMetadata.venue}</p>
+                        )}
+                        <p className="text-sm text-orange-400 mt-2">
+                          {archiveMetadata.totalTracks} audio tracks found
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Link to Performance */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium umo-text-primary mb-2">
+                      Link to Performance (Required) *
+                    </label>
+                    <PerformancePicker
+                      value={archivePerformanceDisplay}
+                      onChange={setArchivePerformanceDisplay}
+                      onSelect={handleArchivePerformanceSelect}
+                      performances={allPerformances}
+                      placeholder="Search shows by venue, city, or date..."
+                    />
+                    {!archivePerformance && (
+                      <div className="flex items-center gap-2 mt-2 text-yellow-400 text-xs">
+                        <AlertTriangle size={14} />
+                        You must link this recording to a setlist.fm performance
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Step 4: Track list with checkboxes and editable names */}
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium umo-text-primary">
+                        Tracks ({archiveTracks.filter(t => t.selected).length} of {archiveTracks.length} selected)
+                      </h4>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setArchiveTracks(prev => prev.map(t => ({ ...t, selected: true })))}
+                          className="text-xs text-blue-400 hover:text-blue-300"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          onClick={() => setArchiveTracks(prev => prev.map(t => ({ ...t, selected: false })))}
+                          className="text-xs text-gray-400 hover:text-gray-300"
+                        >
+                          Deselect All
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {archiveTracks.map((track, index) => (
+                        <div
+                          key={index}
+                          className={`flex items-center gap-3 p-3 rounded transition-colors ${
+                            track.selected ? 'bg-orange-900/20 border border-orange-500/30' : 'bg-gray-800/50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={track.selected}
+                            onChange={() => toggleTrackSelection(index)}
+                            className="w-4 h-4 rounded"
+                          />
+                          <span className="text-gray-500 text-sm w-6">{track.index}.</span>
+                          <SongAutocomplete
+                            value={track.songName}
+                            onChange={(value) => updateTrackName(index, value)}
+                            allSongs={allSongs}
+                            performanceSongs={[]}
+                            placeholder="Song name"
+                          />
+                          {track.duration && (
+                            <span className="text-xs text-gray-500 flex-shrink-0">
+                              {Math.floor(track.duration / 60)}:{String(Math.floor(track.duration % 60)).padStart(2, '0')}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Import button */}
+                  <div className="flex gap-4">
+                    <button
+                      onClick={handleArchiveImport}
+                      disabled={importingArchive || !archivePerformance || archiveTracks.filter(t => t.selected).length === 0}
+                      className="umo-btn umo-btn--primary flex-1 flex items-center justify-center gap-2"
+                      style={{ backgroundColor: '#f59e0b' }}
+                    >
+                      {importingArchive ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Importing...
+                        </>
+                      ) : (
+                        <>
+                          <Archive size={16} />
+                          Import {archiveTracks.filter(t => t.selected).length} Tracks
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowArchiveImport(false);
+                        setArchiveUrl('');
+                        setArchiveMetadata(null);
+                        setArchiveTracks([]);
+                        setArchiveError('');
+                        setArchivePerformance(null);
+                        setArchivePerformanceDisplay('');
+                      }}
+                      className="umo-btn umo-btn--secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
