@@ -826,40 +826,42 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
       ) : isYouTube && youtubeId ? (
         /* YouTube Mode with API control */
         <div className="relative w-full cursor-pointer" style={{ paddingBottom: '56.25%' }} onClick={togglePlayPause}>
-          <div
-            id="yt-player-container"
-            key={youtubeKey}
-            ref={(el) => {
-              if (el && window.YT && window.YT.Player && !ytPlayerRef.current) {
-                ytPlayerRef.current = new window.YT.Player(el, {
-                  videoId: youtubeId,
-                  playerVars: {
-                    autoplay: 1,
-                    mute: 1,
-                    controls: 0,
-                    modestbranding: 1,
-                    rel: 0,
-                    enablejsapi: 1,
-                    start: startTime,
-                    playsinline: 1
-                  },
-                  events: {
-                    onReady: (e) => {
-                      setIsYtLoading(false);
-                      if (!isMuted) e.target.unMute();
+          {/* Stable wrapper to prevent React removeChild errors when YouTube replaces DOM */}
+          <div key={youtubeKey} className="absolute inset-0">
+            <div
+              id="yt-player-container"
+              ref={(el) => {
+                if (el && window.YT && window.YT.Player && !ytPlayerRef.current) {
+                  ytPlayerRef.current = new window.YT.Player(el, {
+                    videoId: youtubeId,
+                    playerVars: {
+                      autoplay: 1,
+                      mute: 1,
+                      controls: 0,
+                      modestbranding: 1,
+                      rel: 0,
+                      enablejsapi: 1,
+                      start: startTime,
+                      playsinline: 1
                     },
-                    onStateChange: (e) => {
-                      if (e.data === window.YT.PlayerState.ENDED) handleNext();
-                      // Also mark as loaded once video starts playing
-                      if (e.data === window.YT.PlayerState.PLAYING) setIsYtLoading(false);
+                    events: {
+                      onReady: (e) => {
+                        setIsYtLoading(false);
+                        if (!isMuted) e.target.unMute();
+                      },
+                      onStateChange: (e) => {
+                        if (e.data === window.YT.PlayerState.ENDED) handleNext();
+                        // Also mark as loaded once video starts playing
+                        if (e.data === window.YT.PlayerState.PLAYING) setIsYtLoading(false);
+                      }
                     }
-                  }
-                });
-              }
-            }}
-            className="absolute top-0 left-0 w-full h-full transition-all duration-300"
-            style={{ filter: VIDEO_FILTER_PRESETS[videoFilterMode]?.filter || 'none' }}
-          />
+                  });
+                }
+              }}
+              className="w-full h-full transition-all duration-300"
+              style={{ filter: VIDEO_FILTER_PRESETS[videoFilterMode]?.filter || 'none' }}
+            />
+          </div>
 
           {/* Top info banner - glassy */}
           <div className="absolute top-0 left-0 right-0 z-25 bg-black/30 backdrop-blur-xl pointer-events-none border-b border-white/10">
