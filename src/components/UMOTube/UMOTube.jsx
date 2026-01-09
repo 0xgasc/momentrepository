@@ -97,7 +97,7 @@ const UMOTube = ({ user }) => {
     try {
       const [songsRes, performancesRes] = await Promise.all([
         fetch(`${API_BASE_URL}/cached/songs`),
-        fetch(`${API_BASE_URL}/cached/performances`)
+        fetch(`${API_BASE_URL}/cached/performances?limit=1000`)
       ]);
 
       if (songsRes.ok) {
