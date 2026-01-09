@@ -26,7 +26,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
   const { user, token } = useAuth();
   const videoRef = useRef(null);
   const audioRef = useRef(null);
-  const iframeRef = useRef(null);
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const hideTimerRef = useRef(null);
@@ -54,7 +53,10 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
   const [showCommentsPanel, setShowCommentsPanel] = useState(false);
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [ytProgress, setYtProgress] = useState({ currentTime: 0, duration: 0 });
   const frameSkipRef = useRef(0);
+  const ytPlayerRef = useRef(null);
+  const ytProgressIntervalRef = useRef(null);
 
   // Mobile detection for performance optimization
   useEffect(() => {
@@ -63,6 +65,54 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // YouTube IFrame API loader
+  useEffect(() => {
+    if (window.YT) return; // Already loaded
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    const firstScript = document.getElementsByTagName('script')[0];
+    firstScript.parentNode.insertBefore(tag, firstScript);
+  }, []);
+
+  // YouTube progress tracking
+  useEffect(() => {
+    if (!isYouTube) return;
+
+    // Start progress tracking interval
+    ytProgressIntervalRef.current = setInterval(() => {
+      try {
+        if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === 'function') {
+          const currentTime = ytPlayerRef.current.getCurrentTime() || 0;
+          const duration = ytPlayerRef.current.getDuration() || 0;
+          setYtProgress({ currentTime, duration });
+        }
+      } catch (e) {
+        // Player not ready
+      }
+    }, 500);
+
+    return () => {
+      if (ytProgressIntervalRef.current) {
+        clearInterval(ytProgressIntervalRef.current);
+      }
+    };
+  }, [isYouTube, youtubeKey]);
+
+  // Cleanup YT player on moment change
+  useEffect(() => {
+    return () => {
+      if (ytPlayerRef.current) {
+        try {
+          ytPlayerRef.current.destroy();
+        } catch (e) {
+          // Player might already be destroyed
+        }
+        ytPlayerRef.current = null;
+      }
+      setYtProgress({ currentTime: 0, duration: 0 });
+    };
+  }, [moment?._id]);
 
   // Theater queue context
   const {
@@ -483,9 +533,17 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
       } else {
         audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
       }
-    } else if (isYouTube && iframeRef.current) {
-      setIsPlaying(!isPlaying);
-      setYoutubeKey(prev => prev + 1);
+    } else if (isYouTube && ytPlayerRef.current) {
+      try {
+        if (isPlaying) {
+          ytPlayerRef.current.pauseVideo();
+        } else {
+          ytPlayerRef.current.playVideo();
+        }
+        setIsPlaying(!isPlaying);
+      } catch (e) {
+        console.log('YT play/pause error:', e);
+      }
     } else if (videoRef.current) {
       if (isPlaying) {
         videoRef.current.pause();
@@ -503,16 +561,34 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
 
     if (isAudio && audioRef.current) {
       audioRef.current.muted = newMuted;
-    } else if (isYouTube && iframeRef.current) {
-      iframeRef.current.contentWindow.postMessage(JSON.stringify({
-        event: 'command',
-        func: newMuted ? 'mute' : 'unMute',
-        args: []
-      }), '*');
+    } else if (isYouTube && ytPlayerRef.current) {
+      try {
+        if (newMuted) {
+          ytPlayerRef.current.mute();
+        } else {
+          ytPlayerRef.current.unMute();
+        }
+      } catch (e) {
+        console.log('YT mute error:', e);
+      }
     } else if (videoRef.current) {
       videoRef.current.muted = newMuted;
     }
   };
+
+  // Handle YouTube seek
+  const handleYtSeek = useCallback((e) => {
+    if (!ytPlayerRef.current || !ytProgress.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = clickX / rect.width;
+    const seekTime = percentage * ytProgress.duration;
+    try {
+      ytPlayerRef.current.seekTo(seekTime, true);
+    } catch (err) {
+      console.log('YT seek error:', err);
+    }
+  }, [ytProgress.duration]);
 
   // Handle info click - pause playback before opening modal
   const handleInfoClick = (e) => {
@@ -521,9 +597,12 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
       // Pause media when opening info modal
       if (isAudio && audioRef.current) {
         audioRef.current.pause();
-      } else if (isYouTube) {
-        setIsPlaying(false);
-        setYoutubeKey(prev => prev + 1);
+      } else if (isYouTube && ytPlayerRef.current) {
+        try {
+          ytPlayerRef.current.pauseVideo();
+        } catch (e) {
+          // Player might not be ready
+        }
       } else if (videoRef.current) {
         videoRef.current.pause();
       }
@@ -575,9 +654,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
   // YouTube setup
   const youtubeId = isYouTube ? (moment?.externalVideoId || getYouTubeId(moment?.mediaUrl)) : null;
   const startTime = moment?.startTime || 0;
-  const youtubeUrl = youtubeId
-    ? `https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&modestbranding=1&rel=0&enablejsapi=1&start=${startTime}`
-    : null;
 
   // Minimized view - mobile optimized
   if (isMinimized) {
@@ -714,17 +790,37 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
           {/* No effects for audio */}
         </div>
       ) : isYouTube && youtubeId ? (
-        /* YouTube Mode */
+        /* YouTube Mode with API control */
         <div className="relative w-full cursor-pointer" style={{ paddingBottom: '56.25%' }} onClick={togglePlayPause}>
-          <iframe
+          <div
+            id="yt-player-container"
             key={youtubeKey}
-            ref={iframeRef}
+            ref={(el) => {
+              if (el && window.YT && window.YT.Player && !ytPlayerRef.current) {
+                ytPlayerRef.current = new window.YT.Player(el, {
+                  videoId: youtubeId,
+                  playerVars: {
+                    autoplay: 1,
+                    mute: 1,
+                    controls: 0,
+                    modestbranding: 1,
+                    rel: 0,
+                    enablejsapi: 1,
+                    start: startTime,
+                    playsinline: 1
+                  },
+                  events: {
+                    onReady: (e) => {
+                      if (!isMuted) e.target.unMute();
+                    },
+                    onStateChange: (e) => {
+                      if (e.data === window.YT.PlayerState.ENDED) handleNext();
+                    }
+                  }
+                });
+              }
+            }}
             className="absolute top-0 left-0 w-full h-full transition-all duration-300"
-            src={youtubeUrl}
-            title={moment?.songName || 'Video'}
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
             style={{ filter: VIDEO_FILTER_PRESETS[videoFilterMode]?.filter || 'none' }}
           />
 
@@ -843,6 +939,34 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
               isVideo={!isAudio}
               simple={!isAudio}
             />
+          </div>
+        )}
+
+        {/* YouTube progress bar / seeker */}
+        {isYouTube && ytProgress.duration > 0 && (
+          <div className="mb-2">
+            <div
+              className="relative h-1.5 bg-gray-700/50 rounded-full cursor-pointer group"
+              onClick={handleYtSeek}
+            >
+              {/* Progress fill */}
+              <div
+                className="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all duration-150"
+                style={{ width: `${(ytProgress.currentTime / ytProgress.duration) * 100}%` }}
+              />
+              {/* Hover indicator */}
+              <div className="absolute top-0 left-0 h-full w-full opacity-0 group-hover:opacity-100 bg-white/10 rounded-full" />
+              {/* Playhead */}
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{ left: `calc(${(ytProgress.currentTime / ytProgress.duration) * 100}% - 6px)` }}
+              />
+            </div>
+            {/* Time display */}
+            <div className="flex justify-between text-xs text-gray-400 mt-1 font-mono">
+              <span>{Math.floor(ytProgress.currentTime / 60)}:{String(Math.floor(ytProgress.currentTime % 60)).padStart(2, '0')}</span>
+              <span>{Math.floor(ytProgress.duration / 60)}:{String(Math.floor(ytProgress.duration % 60)).padStart(2, '0')}</span>
+            </div>
           </div>
         )}
 

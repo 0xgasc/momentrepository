@@ -279,10 +279,10 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
         <div className="media-container relative" style={{ paddingBottom: '56.25%' }}>
           <iframe
             className="absolute top-0 left-0 w-full h-full rounded-lg"
-            src={`https://www.youtube.com/embed/${youtubeId}?start=${startTime}&rel=0&modestbranding=1&autoplay=1&mute=1`}
+            src={`https://www.youtube.com/embed/${youtubeId}?start=${startTime}&rel=0&modestbranding=1&autoplay=1&mute=1&playsinline=1`}
             title={moment.songName || 'YouTube Video'}
             frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
           />
         </div>

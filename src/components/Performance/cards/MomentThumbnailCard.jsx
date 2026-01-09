@@ -129,15 +129,14 @@ const MomentThumbnailCard = memo(({
       {/* Thumbnail / Preview area */}
       <div className="relative aspect-video bg-gray-900/50 flex items-center justify-center overflow-hidden">
         {isYouTubeMoment(moment) ? (
-          /* YouTube thumbnail */
-          <img
-            src={getYouTubeThumbnail(moment.externalVideoId)}
-            alt={moment.songName}
-            className="absolute inset-0 w-full h-full object-cover"
-            onError={(e) => {
-              e.target.style.display = 'none';
-              e.target.nextSibling.style.display = 'flex';
-            }}
+          /* YouTube embed preview - autoplay muted */
+          <iframe
+            src={`https://www.youtube.com/embed/${moment.externalVideoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${moment.externalVideoId}&start=${moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            title={moment.songName}
+            frameBorder="0"
+            allow="autoplay; encrypted-media"
+            loading="lazy"
           />
         ) : moment.mediaType === 'video' && moment.mediaUrl ? (
           <video
