@@ -63,10 +63,10 @@ const momentSchema = new mongoose.Schema({
   }],
 
   // ✅ CRITICAL FIX: Added contentType field
-  contentType: { 
-    type: String, 
-    enum: ['song', 'intro', 'outro', 'jam', 'crowd', 'other'], 
-    default: 'song' 
+  contentType: {
+    type: String,
+    enum: ['song', 'intro', 'outro', 'jam', 'crowd', 'other', 'full-show'],
+    default: 'song'
   },
   
   // Enhanced metadata for NFT
