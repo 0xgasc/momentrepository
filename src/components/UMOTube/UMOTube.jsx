@@ -181,6 +181,21 @@ const UMOTube = ({ user }) => {
       momentDescription: moment.momentDescription || '',
       showInMoments: moment.showInMoments !== false
     });
+    // Set the performance picker display to show current linked performance
+    if (moment.performanceId && allPerformances.length > 0) {
+      const linkedPerf = allPerformances.find(p => p.id === moment.performanceId);
+      if (linkedPerf) {
+        const venue = linkedPerf.venue?.name || '';
+        const city = linkedPerf.venue?.city?.name || '';
+        const date = linkedPerf.eventDate || '';
+        setSelectedPerformanceDisplay(`${venue} - ${city} (${date})`);
+      } else {
+        // Performance not in cache, show ID
+        setSelectedPerformanceDisplay(`Performance ID: ${moment.performanceId}`);
+      }
+    } else {
+      setSelectedPerformanceDisplay('');
+    }
     setShowAddForm(true);
     setError('');
     setSuccess('');
@@ -567,10 +582,11 @@ const UMOTube = ({ user }) => {
                   onSelect={handlePerformanceSelect}
                   performances={allPerformances}
                   placeholder="Search shows by venue, city, or date..."
-                  disabled={!!editingMoment}
                 />
                 {editingMoment && formData.performanceId && (
-                  <p className="text-xs umo-text-muted mt-1">Performance linked: {formData.performanceId}</p>
+                  <p className="text-xs umo-text-muted mt-1">
+                    Currently linked to: {formData.performanceId} (select a different show above to change)
+                  </p>
                 )}
               </div>
 
