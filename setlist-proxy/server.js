@@ -3864,6 +3864,7 @@ app.put('/youtube-moment/:momentId', authenticateToken, async (req, res) => {
   try {
     const { momentId } = req.params;
     const {
+      performanceId,
       performanceDate,
       venueName,
       venueCity,
@@ -3882,8 +3883,8 @@ app.put('/youtube-moment/:momentId', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Moment not found' });
     }
 
-    // Only owner or admin can edit
-    const isOwner = moment.user.toString() === req.user.id;
+    // Only owner or admin can edit (null check for moment.user)
+    const isOwner = moment.user && moment.user.toString() === req.user.id;
     const isAdmin = req.user.role === 'admin' || req.user.role === 'moderator';
 
     if (!isOwner && !isAdmin) {
@@ -3891,6 +3892,7 @@ app.put('/youtube-moment/:momentId', authenticateToken, async (req, res) => {
     }
 
     // Update fields if provided
+    if (performanceId !== undefined) moment.performanceId = performanceId;
     if (performanceDate !== undefined) moment.performanceDate = performanceDate;
     if (venueName !== undefined) moment.venueName = venueName;
     if (venueCity !== undefined) moment.venueCity = venueCity;
@@ -3910,7 +3912,7 @@ app.put('/youtube-moment/:momentId', authenticateToken, async (req, res) => {
 
   } catch (err) {
     console.error('❌ Update YouTube moment error:', err);
-    res.status(500).json({ error: 'Failed to update YouTube moment' });
+    res.status(500).json({ error: 'Failed to update YouTube moment', details: err.message });
   }
 });
 
