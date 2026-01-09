@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { createTimeoutSignal, formatShortDate } from '../../utils';
-import { Play, Calendar, MapPin, User, Clock, HelpCircle, X, ListPlus, Check, Music } from 'lucide-react';
+import { Play, Calendar, MapPin, User, Clock, HelpCircle, X, ListPlus, Check, Music, Loader2 } from 'lucide-react';
 import MomentDetailModal from './MomentDetailModal';
 import PullToRefresh from '../UI/PullToRefresh';
 import { transformMediaUrl } from '../../utils/mediaUrl';
@@ -536,6 +536,8 @@ MomentHeader.displayName = 'MomentHeader';
 
 // Individual Moment Card Component
 const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSelect, isWeb3Enabled, addToQueue, isInQueue }) => {
+  const [isLoading, setIsLoading] = useState(true);
+
   // Check if this moment is already in queue
   const momentInQueue = isInQueue ? isInQueue(moment._id) : false;
 
@@ -553,6 +555,7 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
   };
 
   const youtubeId = isYouTube ? (moment.externalVideoId || getYouTubeId(moment.mediaUrl)) : null;
+  const hasVideoMedia = isYouTube || moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/);
 
   const handleAddToQueue = (e) => {
     e.stopPropagation();
@@ -583,6 +586,13 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
             {momentInQueue ? <Check size={16} /> : <ListPlus size={16} />}
           </button>
 
+          {/* Loading spinner */}
+          {hasVideoMedia && isLoading && (
+            <div className="absolute inset-0 bg-gray-200 flex items-center justify-center z-10">
+              <Loader2 size={24} className="text-gray-500 animate-spin" />
+            </div>
+          )}
+
           {/* YouTube/Linked video preview */}
           {isYouTube && youtubeId ? (
             <div className="relative w-full h-full">
@@ -593,6 +603,7 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
                 frameBorder="0"
                 allow="autoplay; encrypted-media"
                 loading="lazy"
+                onLoad={() => setIsLoading(false)}
               />
               {/* YouTube badge */}
               <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded">
@@ -609,6 +620,8 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
                 loop
                 playsInline
                 preload="metadata"
+                onLoadedData={() => setIsLoading(false)}
+                onError={() => setIsLoading(false)}
               >
                 Your browser does not support the video tag.
               </video>

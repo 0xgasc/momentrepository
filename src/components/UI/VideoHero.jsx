@@ -113,8 +113,10 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
 
   // Cleanup YT player on moment change
   useEffect(() => {
-    // Reset loading state for new moment
+    // Reset loading and progress state for new moment
     setIsYtLoading(true);
+    setYtProgress({ currentTime: 0, duration: 0 });
+
     return () => {
       if (ytPlayerRef.current) {
         try {
@@ -124,7 +126,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
         }
         ytPlayerRef.current = null;
       }
-      setYtProgress({ currentTime: 0, duration: 0 });
     };
   }, [moment?._id]);
 
