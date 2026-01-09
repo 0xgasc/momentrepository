@@ -736,19 +736,17 @@ const UMOTube = ({ user }) => {
                       </span>
                     )}
                   </div>
-                  {(video.contentType === 'other' || video.contentType === 'full-show' || !video.contentType) && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openSetlistGenerator(video);
-                      }}
-                      className="flex items-center gap-1 text-xs px-2 py-1 bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/40 rounded transition-colors"
-                      title="Generate song moments from this video"
-                    >
-                      <ListMusic size={12} />
-                      Setlist
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openSetlistGenerator(video);
+                    }}
+                    className="flex items-center gap-1 text-xs px-2 py-1 bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/40 rounded transition-colors"
+                    title="Generate song moments from this video"
+                  >
+                    <ListMusic size={12} />
+                    Setlist
+                  </button>
                 </div>
                 </div>
               </div>
