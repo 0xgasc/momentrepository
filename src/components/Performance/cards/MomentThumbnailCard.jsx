@@ -1,6 +1,6 @@
 // src/components/Performance/cards/MomentThumbnailCard.jsx
-import React, { memo } from 'react';
-import { Clock, Play, Music, Film, Mic, Youtube } from 'lucide-react';
+import React, { memo, useState } from 'react';
+import { Clock, Play, Music, Film, Mic, Youtube, Loader2 } from 'lucide-react';
 import { transformMediaUrl } from '../../../utils/mediaUrl';
 
 // Format seconds to MM:SS or HH:MM:SS
@@ -95,9 +95,11 @@ const MomentThumbnailCard = memo(({
   showSongName = true,
   compact = false
 }) => {
+  const [isLoading, setIsLoading] = useState(true);
   const rarity = rarityConfig[moment.rarityTier] || rarityConfig.basic;
   const duration = formatDuration(moment.duration);
   const MediaIcon = getMediaIcon(moment.mediaType);
+  const hasMedia = isYouTubeMoment(moment) || (moment.mediaType === 'video' && moment.mediaUrl);
 
   if (compact) {
     // Compact version for inline song lists
@@ -154,6 +156,7 @@ const MomentThumbnailCard = memo(({
                 frameBorder="0"
                 allow="autoplay; encrypted-media"
                 loading="lazy"
+                onLoad={() => setIsLoading(false)}
               />
             ) : null;
           })()
@@ -165,7 +168,9 @@ const MomentThumbnailCard = memo(({
             muted
             playsInline
             className="absolute inset-0 w-full h-full object-cover"
+            onLoadedData={() => setIsLoading(false)}
             onError={(e) => {
+              setIsLoading(false);
               e.target.style.display = 'none';
               e.target.nextSibling.style.display = 'flex';
             }}
@@ -178,6 +183,13 @@ const MomentThumbnailCard = memo(({
         >
           <MediaIcon size={24} className="text-gray-500" />
         </div>
+
+        {/* Loading spinner */}
+        {hasMedia && isLoading && (
+          <div className="absolute inset-0 bg-gray-900/80 flex items-center justify-center z-10">
+            <Loader2 size={20} className="text-white animate-spin" />
+          </div>
+        )}
 
         {/* Duration badge */}
         {duration && (
