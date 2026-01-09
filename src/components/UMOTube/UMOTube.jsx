@@ -55,6 +55,7 @@ const UMOTube = ({ user }) => {
   const [setlistError, setSetlistError] = useState('');
   const [setlistSuccess, setSetlistSuccess] = useState('');
   const [showLinkedSetlist, setShowLinkedSetlist] = useState(false);
+  const [setlistPerformanceDisplay, setSetlistPerformanceDisplay] = useState('');
 
   // Song autocomplete & performance picker data
   const [allSongs, setAllSongs] = useState([]);
@@ -333,18 +334,31 @@ const UMOTube = ({ user }) => {
     setSetlistError('');
     setSetlistSuccess('');
     setLinkedPerformance(null);
+    setShowLinkedSetlist(false);
 
     // If video has a performanceId, fetch the linked performance for song suggestions
     if (video.performanceId) {
+      // Set display from video data initially
+      setSetlistPerformanceDisplay(`${video.venueName || ''} - ${video.venueCity || ''} (${video.performanceDate || ''})`);
+
       try {
         const res = await fetch(`${API_BASE_URL}/cached/performance/${video.performanceId}`);
         if (res.ok) {
           const data = await res.json();
           setLinkedPerformance(data.performance);
+          // Update display with better data from performance
+          if (data.performance) {
+            const venue = data.performance.venue?.name || video.venueName || '';
+            const city = data.performance.venue?.city?.name || video.venueCity || '';
+            const date = data.performance.eventDate || video.performanceDate || '';
+            setSetlistPerformanceDisplay(`${venue} - ${city} (${date})`);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch linked performance:', err);
       }
+    } else {
+      setSetlistPerformanceDisplay('');
     }
   };
 
@@ -375,6 +389,33 @@ const UMOTube = ({ user }) => {
         venueCity: '',
         venueCountry: ''
       }));
+    }
+  };
+
+  // Handler for changing performance in setlist generator modal
+  const handleSetlistPerformanceSelect = async (performance) => {
+    if (performance) {
+      // Update display
+      const venue = performance.venue?.name || '';
+      const city = performance.venue?.city?.name || '';
+      const date = performance.eventDate || '';
+      setSetlistPerformanceDisplay(`${venue} - ${city} (${date})`);
+
+      // Update the selectedVideoForSetlist with new performance data
+      setSelectedVideoForSetlist(prev => ({
+        ...prev,
+        performanceId: performance.id,
+        venueName: venue,
+        venueCity: city,
+        performanceDate: date
+      }));
+
+      // Fetch full performance data for setlist
+      setLinkedPerformance(performance);
+
+      // Clear existing rows when changing performance
+      setSetlistRows([{ songName: '', startTime: '0:00', contentType: 'song' }]);
+      setShowLinkedSetlist(false);
     }
   };
 
@@ -910,7 +951,7 @@ const UMOTube = ({ user }) => {
               </div>
 
               {/* Video info */}
-              <div className="bg-gray-800 p-4 rounded mb-6">
+              <div className="bg-gray-800 p-4 rounded mb-4">
                 <div className="flex items-center gap-4">
                   <img
                     src={getYouTubeThumbnail(selectedVideoForSetlist.externalVideoId)}
@@ -919,12 +960,26 @@ const UMOTube = ({ user }) => {
                   />
                   <div>
                     <h3 className="umo-heading umo-heading--sm">{selectedVideoForSetlist.songName}</h3>
-                    <p className="umo-text-secondary text-sm">
-                      {selectedVideoForSetlist.venueName} - {selectedVideoForSetlist.venueCity}
-                    </p>
-                    <p className="umo-text-muted text-xs">{selectedVideoForSetlist.performanceDate}</p>
+                    <p className="umo-text-muted text-xs">Video ID: {selectedVideoForSetlist.externalVideoId}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Performance Picker - change which show this is linked to */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium umo-text-primary mb-2">
+                  Link to Performance (setlist.fm)
+                </label>
+                <PerformancePicker
+                  value={setlistPerformanceDisplay}
+                  onChange={setSetlistPerformanceDisplay}
+                  onSelect={handleSetlistPerformanceSelect}
+                  performances={allPerformances}
+                  placeholder="Search shows by venue, city, or date..."
+                />
+                <p className="text-xs umo-text-muted mt-1">
+                  Select a different show if the current one is incorrect
+                </p>
               </div>
 
               {/* Warning if no performance linked */}
