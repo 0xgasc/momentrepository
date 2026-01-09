@@ -1,6 +1,6 @@
 // src/components/Performance/cards/MomentThumbnailCard.jsx
 import React, { memo } from 'react';
-import { Clock, Play, Music, Film, Mic } from 'lucide-react';
+import { Clock, Play, Music, Film, Mic, Youtube } from 'lucide-react';
 import { transformMediaUrl } from '../../../utils/mediaUrl';
 
 // Format seconds to MM:SS or HH:MM:SS
@@ -65,6 +65,16 @@ const getMediaIcon = (mediaType) => {
   }
 };
 
+// Check if this is a YouTube moment
+const isYouTubeMoment = (moment) => {
+  return moment.mediaSource === 'youtube' || moment.externalVideoId;
+};
+
+// Get YouTube thumbnail URL
+const getYouTubeThumbnail = (videoId) => {
+  return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+};
+
 const MomentThumbnailCard = memo(({
   moment,
   onClick,
@@ -88,6 +98,9 @@ const MomentThumbnailCard = memo(({
         `}
       >
         <div className={`w-2 h-2 rounded-full ${rarity.dot}`} />
+        {isYouTubeMoment(moment) && (
+          <Youtube size={12} className="text-red-500" />
+        )}
         {duration ? (
           <span className="text-gray-300 flex items-center gap-1">
             <Clock size={12} />
@@ -115,7 +128,18 @@ const MomentThumbnailCard = memo(({
     >
       {/* Thumbnail / Preview area */}
       <div className="relative aspect-video bg-gray-900/50 flex items-center justify-center overflow-hidden">
-        {moment.mediaType === 'video' && moment.mediaUrl ? (
+        {isYouTubeMoment(moment) ? (
+          /* YouTube thumbnail */
+          <img
+            src={getYouTubeThumbnail(moment.externalVideoId)}
+            alt={moment.songName}
+            className="absolute inset-0 w-full h-full object-cover"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+        ) : moment.mediaType === 'video' && moment.mediaUrl ? (
           <video
             src={transformMediaUrl(moment.mediaUrl)}
             autoPlay
@@ -132,7 +156,7 @@ const MomentThumbnailCard = memo(({
         {/* Fallback play icon */}
         <div
           className="absolute inset-0 bg-gray-800 items-center justify-center"
-          style={{ display: moment.mediaType === 'video' && moment.mediaUrl ? 'none' : 'flex' }}
+          style={{ display: (isYouTubeMoment(moment) || (moment.mediaType === 'video' && moment.mediaUrl)) ? 'none' : 'flex' }}
         >
           <MediaIcon size={24} className="text-gray-500" />
         </div>
@@ -146,6 +170,22 @@ const MomentThumbnailCard = memo(({
 
         {/* Rarity dot */}
         <div className={`absolute top-2 left-2 w-2.5 h-2.5 rounded-full ${rarity.dot} shadow-lg`} />
+
+        {/* YouTube badge */}
+        {isYouTubeMoment(moment) && (
+          <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-red-600 text-white text-[8px] font-bold rounded">
+            YT
+          </div>
+        )}
+
+        {/* Play button overlay for YouTube */}
+        {isYouTubeMoment(moment) && (
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="w-10 h-10 bg-red-600/90 rounded-full flex items-center justify-center">
+              <Play size={18} className="text-white ml-0.5" fill="white" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Info */}
