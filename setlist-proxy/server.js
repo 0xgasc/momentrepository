@@ -2662,6 +2662,12 @@ app.post('/admin/moments/batch', authenticateToken, requireAdmin, async (req, re
           continue;
         }
 
+        // Validate performanceId is provided - moments must be linked to a performance
+        if (!momentData.performanceId) {
+          errors.push({ songName: momentData.songName, error: 'Missing performanceId - moments must be linked to a performance' });
+          continue;
+        }
+
         // Build YouTube mediaUrl with timestamp
         const startParam = momentData.startTime ? `&start=${momentData.startTime}` : '';
         const mediaUrl = `https://www.youtube.com/watch?v=${momentData.externalVideoId}${startParam}`;
@@ -3609,29 +3615,34 @@ app.get('/moments/song/:songName', async (req, res) => {
   try {
     const { songName } = req.params;
     const decodedSongName = decodeURIComponent(songName);
-    
+
     console.log(`🎵 Fetching moments for song: "${decodedSongName}"`);
-    
-    const moments = await Moment.find({ 
-      songName: decodedSongName,
+
+    // Escape special regex characters for safe case-insensitive matching
+    const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedName = escapeRegExp(decodedSongName);
+
+    // Use case-insensitive regex for matching (fixes issue where "Hunnybee" != "hunnybee")
+    const moments = await Moment.find({
+      songName: { $regex: new RegExp(`^${escapedName}$`, 'i') },
       approvalStatus: 'approved'
     })
     .sort({ createdAt: -1 })
     .populate('user', 'displayName');
-    
-    console.log(`✅ Found ${moments.length} moments for "${decodedSongName}"`);
-    
-    res.json({ 
+
+    console.log(`✅ Found ${moments.length} moments for "${decodedSongName}" (case-insensitive)`);
+
+    res.json({
       moments,
       songName: decodedSongName,
       count: moments.length
     });
-    
+
   } catch (err) {
     console.error(`❌ Error fetching moments for song:`, err);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch song moments',
-      details: err.message 
+      details: err.message
     });
   }
 });

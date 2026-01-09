@@ -37,6 +37,7 @@ const UMOTube = ({ user }) => {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [dataError, setDataError] = useState('');
 
   // Edit mode state
   const [myMoments, setMyMoments] = useState([]);
@@ -106,6 +107,7 @@ const UMOTube = ({ user }) => {
       }
     } catch (err) {
       console.error('Failed to fetch songs/performances:', err);
+      setDataError('Failed to load performance data. Try refreshing the page.');
     }
   };
 
@@ -138,6 +140,7 @@ const UMOTube = ({ user }) => {
       setVideos(data.videos || []);
     } catch (err) {
       console.error('Failed to fetch videos:', err);
+      setDataError('Failed to load videos. Try refreshing the page.');
     } finally {
       setLoadingVideos(false);
     }
@@ -491,6 +494,16 @@ const UMOTube = ({ user }) => {
             </div>
           )}
         </div>
+
+        {/* Data Error Display */}
+        {dataError && (
+          <div className="bg-red-900/20 border border-red-500/30 p-4 rounded-lg mb-6">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={18} className="text-red-400" />
+              <p className="text-red-400">{dataError}</p>
+            </div>
+          </div>
+        )}
 
         {/* Add/Edit Form */}
         {showAddForm && (
