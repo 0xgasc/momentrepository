@@ -539,6 +539,21 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
   // Check if this moment is already in queue
   const momentInQueue = isInQueue ? isInQueue(moment._id) : false;
 
+  // Check if this is a YouTube/linked moment
+  const isYouTube = moment.mediaSource === 'youtube' ||
+    moment.mediaUrl?.includes('youtube.com') ||
+    moment.mediaUrl?.includes('youtu.be') ||
+    moment.externalVideoId;
+
+  // Get YouTube video ID
+  const getYouTubeId = (url) => {
+    if (!url) return null;
+    const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+    return match ? match[1] : null;
+  };
+
+  const youtubeId = isYouTube ? (moment.externalVideoId || getYouTubeId(moment.mediaUrl)) : null;
+
   const handleAddToQueue = (e) => {
     e.stopPropagation();
     if (addToQueue && !momentInQueue) {
@@ -568,8 +583,23 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
             {momentInQueue ? <Check size={16} /> : <ListPlus size={16} />}
           </button>
 
-          {/* Show auto-playing video for all video moments */}
-          {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
+          {/* YouTube/Linked video preview */}
+          {isYouTube && youtubeId ? (
+            <div className="relative w-full h-full">
+              <iframe
+                src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${youtubeId}&start=${moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                title={moment.songName}
+                frameBorder="0"
+                allow="autoplay; encrypted-media"
+                loading="lazy"
+              />
+              {/* YouTube badge */}
+              <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded">
+                YT
+              </div>
+            </div>
+          ) : (moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
             <div className="relative w-full h-full">
               <video
                 src={transformMediaUrl(moment.mediaUrl)}
@@ -579,15 +609,6 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
                 loop
                 playsInline
                 preload="metadata"
-                onError={(e) => {
-                  console.log('Video error for', moment.songName, ':', {
-                    error: e.target.error,
-                    networkState: e.target.networkState,
-                    readyState: e.target.readyState,
-                    src: e.target.src,
-                    mediaType: moment.mediaType
-                  });
-                }}
               >
                 Your browser does not support the video tag.
               </video>

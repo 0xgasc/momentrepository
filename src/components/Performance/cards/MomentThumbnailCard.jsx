@@ -65,9 +65,23 @@ const getMediaIcon = (mediaType) => {
   }
 };
 
-// Check if this is a YouTube moment (requires externalVideoId for thumbnail)
+// Check if this is a YouTube moment
 const isYouTubeMoment = (moment) => {
-  return !!(moment.externalVideoId && (moment.mediaSource === 'youtube' || moment.mediaSource === 'upload'));
+  // Check for externalVideoId first
+  if (moment.externalVideoId) return true;
+  // Check for YouTube URLs in mediaUrl
+  if (moment.mediaUrl?.includes('youtube.com') || moment.mediaUrl?.includes('youtu.be')) return true;
+  // Check mediaSource
+  if (moment.mediaSource === 'youtube') return true;
+  return false;
+};
+
+// Extract YouTube video ID from URL or externalVideoId
+const getYouTubeId = (moment) => {
+  if (moment.externalVideoId) return moment.externalVideoId;
+  if (!moment.mediaUrl) return null;
+  const match = moment.mediaUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
 };
 
 // Get YouTube thumbnail URL
@@ -130,15 +144,20 @@ const MomentThumbnailCard = memo(({
       <div className="relative aspect-video bg-gray-900/50 flex items-center justify-center overflow-hidden">
         {isYouTubeMoment(moment) ? (
           /* YouTube embed preview - autoplay muted */
-          <iframe
-            src={`https://www.youtube.com/embed/${moment.externalVideoId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${moment.externalVideoId}&start=${moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            title={moment.songName}
-            frameBorder="0"
-            allow="autoplay; encrypted-media"
-            loading="lazy"
-          />
-        ) : moment.mediaType === 'video' && moment.mediaUrl ? (
+          (() => {
+            const ytId = getYouTubeId(moment);
+            return ytId ? (
+              <iframe
+                src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&start=${moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                title={moment.songName}
+                frameBorder="0"
+                allow="autoplay; encrypted-media"
+                loading="lazy"
+              />
+            ) : null;
+          })()
+        ) : moment.mediaType === 'video' && moment.mediaUrl && !isYouTubeMoment(moment) ? (
           <video
             src={transformMediaUrl(moment.mediaUrl)}
             autoPlay
@@ -188,25 +207,12 @@ const MomentThumbnailCard = memo(({
       </div>
 
       {/* Info */}
-      <div className="p-2.5 flex-1 flex flex-col gap-1">
+      <div className="p-2.5 flex-1 flex flex-col justify-center">
         {showSongName && (
           <span className="text-white text-sm font-medium truncate">
             {moment.songName}
           </span>
         )}
-
-        <div className="flex items-center justify-between text-xs text-gray-400">
-          <span className="flex items-center gap-1">
-            <MediaIcon size={10} />
-            {moment.mediaType || 'video'}
-          </span>
-          {!duration && (
-            <span className="flex items-center gap-1">
-              <Clock size={10} />
-              --:--
-            </span>
-          )}
-        </div>
       </div>
     </button>
   );

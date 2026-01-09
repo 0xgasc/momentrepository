@@ -1,6 +1,6 @@
 // src/components/UI/VideoHero.jsx - Hero player for random video/audio clips
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
-import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2, Droplet, MessageSquare, Monitor, Sun, Sunset, Film, Camera } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2, Droplet, MessageSquare, Monitor, Sun, Sunset, Film, Camera, Loader2 } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import UMOEffect from './UMOEffect';
@@ -54,6 +54,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [ytProgress, setYtProgress] = useState({ currentTime: 0, duration: 0 });
+  const [isYtLoading, setIsYtLoading] = useState(true);
   const frameSkipRef = useRef(0);
   const ytPlayerRef = useRef(null);
   const ytProgressIntervalRef = useRef(null);
@@ -75,7 +76,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
     firstScript.parentNode.insertBefore(tag, firstScript);
   }, []);
 
-  // YouTube progress tracking
+  // YouTube progress tracking with end time enforcement
   useEffect(() => {
     if (!isYouTube) return;
 
@@ -86,6 +87,16 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
           const currentTime = ytPlayerRef.current.getCurrentTime() || 0;
           const duration = ytPlayerRef.current.getDuration() || 0;
           setYtProgress({ currentTime, duration });
+
+          // Check if we've reached the moment's end time
+          if (moment?.endTime && currentTime >= moment.endTime) {
+            console.log('VideoHero: Reached end time', moment.endTime, 'at', currentTime);
+            // Skip to next moment
+            if (ytProgressIntervalRef.current) {
+              clearInterval(ytProgressIntervalRef.current);
+            }
+            handleNext();
+          }
         }
       } catch (e) {
         // Player not ready
@@ -97,10 +108,12 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
         clearInterval(ytProgressIntervalRef.current);
       }
     };
-  }, [isYouTube, youtubeKey]);
+  }, [isYouTube, youtubeKey, moment?.endTime, handleNext]);
 
   // Cleanup YT player on moment change
   useEffect(() => {
+    // Reset loading state for new moment
+    setIsYtLoading(true);
     return () => {
       if (ytPlayerRef.current) {
         try {
@@ -409,10 +422,14 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
     animationRef.current = requestAnimationFrame(processFrame);
   }, [getAsciiChar, effectIntensity, isAsciiMode, isMobile]);
 
-  // Reset ASCII when moment changes (fixes back-to-back video issue)
+  // Reset ASCII and loading state when moment changes (fixes back-to-back video issue)
   useEffect(() => {
     setAsciiOutput([]);
     setIsVerticalVideo(false);
+    // Reset loading state for new content
+    if (moment && !moment._isYouTube) {
+      setIsLoading(true);
+    }
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
@@ -734,6 +751,16 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
         <Minimize2 size={14} className="text-white" />
       </button>
 
+      {/* Loading spinner overlay */}
+      {((isYouTube && isYtLoading) || (!isYouTube && !isAudio && isLoading)) && (
+        <div className="absolute inset-0 z-20 bg-black/60 flex items-center justify-center pointer-events-none">
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 size={32} className="text-white animate-spin" />
+            <span className="text-gray-300 text-sm">Loading...</span>
+          </div>
+        </div>
+      )}
+
       {/* Audio Mode */}
       {isAudio && moment ? (
         <div className="relative w-full" style={{ paddingBottom: '45%', minHeight: '200px' }}>
@@ -811,10 +838,13 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
                   },
                   events: {
                     onReady: (e) => {
+                      setIsYtLoading(false);
                       if (!isMuted) e.target.unMute();
                     },
                     onStateChange: (e) => {
                       if (e.data === window.YT.PlayerState.ENDED) handleNext();
+                      // Also mark as loaded once video starts playing
+                      if (e.data === window.YT.PlayerState.PLAYING) setIsYtLoading(false);
                     }
                   }
                 });
@@ -942,31 +972,55 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
           </div>
         )}
 
-        {/* YouTube progress bar / seeker */}
+        {/* YouTube progress bar / seeker - scoped to moment's start/end time */}
         {isYouTube && ytProgress.duration > 0 && (
           <div className="mb-2">
-            <div
-              className="relative h-1.5 bg-gray-700/50 rounded-full cursor-pointer group"
-              onClick={handleYtSeek}
-            >
-              {/* Progress fill */}
-              <div
-                className="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all duration-150"
-                style={{ width: `${(ytProgress.currentTime / ytProgress.duration) * 100}%` }}
-              />
-              {/* Hover indicator */}
-              <div className="absolute top-0 left-0 h-full w-full opacity-0 group-hover:opacity-100 bg-white/10 rounded-full" />
-              {/* Playhead */}
-              <div
-                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{ left: `calc(${(ytProgress.currentTime / ytProgress.duration) * 100}% - 6px)` }}
-              />
-            </div>
-            {/* Time display */}
-            <div className="flex justify-between text-xs text-gray-400 mt-1 font-mono">
-              <span>{Math.floor(ytProgress.currentTime / 60)}:{String(Math.floor(ytProgress.currentTime % 60)).padStart(2, '0')}</span>
-              <span>{Math.floor(ytProgress.duration / 60)}:{String(Math.floor(ytProgress.duration % 60)).padStart(2, '0')}</span>
-            </div>
+            {(() => {
+              // Calculate moment-scoped progress
+              const segmentStart = moment?.startTime || 0;
+              const segmentEnd = moment?.endTime || ytProgress.duration;
+              const segmentDuration = segmentEnd - segmentStart;
+              const relativeTime = Math.max(0, ytProgress.currentTime - segmentStart);
+              const progressPercent = segmentDuration > 0 ? Math.min(100, (relativeTime / segmentDuration) * 100) : 0;
+
+              return (
+                <>
+                  <div
+                    className="relative h-1.5 bg-gray-700/50 rounded-full cursor-pointer group"
+                    onClick={(e) => {
+                      // Seek within segment bounds
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const clickX = e.clientX - rect.left;
+                      const percentage = clickX / rect.width;
+                      const seekTime = segmentStart + (percentage * segmentDuration);
+                      try {
+                        ytPlayerRef.current?.seekTo(seekTime, true);
+                      } catch (err) {
+                        console.log('YT seek error:', err);
+                      }
+                    }}
+                  >
+                    {/* Progress fill */}
+                    <div
+                      className="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all duration-150"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                    {/* Hover indicator */}
+                    <div className="absolute top-0 left-0 h-full w-full opacity-0 group-hover:opacity-100 bg-white/10 rounded-full" />
+                    {/* Playhead */}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ left: `calc(${progressPercent}% - 6px)` }}
+                    />
+                  </div>
+                  {/* Time display - relative to segment */}
+                  <div className="flex justify-between text-xs text-gray-400 mt-1 font-mono">
+                    <span>{Math.floor(relativeTime / 60)}:{String(Math.floor(relativeTime % 60)).padStart(2, '0')}</span>
+                    <span>{Math.floor(segmentDuration / 60)}:{String(Math.floor(segmentDuration % 60)).padStart(2, '0')}</span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
 
