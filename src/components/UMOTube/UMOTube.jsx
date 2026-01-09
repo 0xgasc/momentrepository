@@ -1,6 +1,6 @@
 // src/components/UMOTube/UMOTube.jsx - Linked Media (YouTube clips linked to performances)
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock, Edit, X, AlertTriangle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock, Edit, X, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Eye, Music } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import SongAutocomplete from './SongAutocomplete';
@@ -45,6 +45,12 @@ const UMOTube = ({ user }) => {
   const [showMyMoments, setShowMyMoments] = useState(false);
   const [editingMoment, setEditingMoment] = useState(null);
 
+  // Expanded video / child moments state
+  const [expandedVideoId, setExpandedVideoId] = useState(null);
+  const [childMoments, setChildMoments] = useState({});
+  const [loadingChildMoments, setLoadingChildMoments] = useState(null);
+  const [deletingMomentId, setDeletingMomentId] = useState(null);
+
   // Setlist generator state
   const [showSetlistGenerator, setShowSetlistGenerator] = useState(false);
   const [selectedVideoForSetlist, setSelectedVideoForSetlist] = useState(null);
@@ -74,7 +80,9 @@ const UMOTube = ({ user }) => {
     setName: 'Main Set',
     contentType: 'song',
     momentDescription: '',
-    showInMoments: false
+    showInMoments: false,
+    startTime: '',
+    endTime: ''
   });
 
   useEffect(() => {
@@ -188,7 +196,9 @@ const UMOTube = ({ user }) => {
       setName: moment.setName || 'Main Set',
       contentType: moment.contentType || 'song',
       momentDescription: moment.momentDescription || '',
-      showInMoments: moment.showInMoments !== false
+      showInMoments: moment.showInMoments !== false,
+      startTime: moment.startTime ? formatSecondsToTime(moment.startTime) : '',
+      endTime: moment.endTime ? formatSecondsToTime(moment.endTime) : ''
     });
     // Set the performance picker display to show current linked performance
     if (moment.performanceId && allPerformances.length > 0) {
@@ -224,7 +234,9 @@ const UMOTube = ({ user }) => {
       setName: 'Main Set',
       contentType: 'song',
       momentDescription: '',
-      showInMoments: false
+      showInMoments: false,
+      startTime: '',
+      endTime: ''
     });
     setShowAddForm(false);
   };
@@ -256,7 +268,9 @@ const UMOTube = ({ user }) => {
             setName: formData.setName,
             contentType: formData.contentType,
             momentDescription: formData.momentDescription,
-            showInMoments: formData.showInMoments
+            showInMoments: formData.showInMoments,
+            startTime: formData.startTime ? parseTimeToSeconds(formData.startTime) : undefined,
+            endTime: formData.endTime ? parseTimeToSeconds(formData.endTime) : undefined
           })
         });
 
@@ -266,6 +280,10 @@ const UMOTube = ({ user }) => {
           setSuccess('YouTube moment updated!');
           fetchVideos();
           fetchMyMoments();
+          // Refresh child moments if this was from expanded view
+          if (editingMoment.externalVideoId) {
+            setChildMoments(prev => ({ ...prev, [editingMoment.externalVideoId]: undefined }));
+          }
           setTimeout(() => {
             cancelEditing();
             setSuccess('');
@@ -301,7 +319,9 @@ const UMOTube = ({ user }) => {
             setName: 'Main Set',
             contentType: 'song',
             momentDescription: '',
-            showInMoments: false
+            showInMoments: false,
+            startTime: '',
+            endTime: ''
           });
           setTimeout(() => {
             setShowAddForm(false);
@@ -522,6 +542,81 @@ const UMOTube = ({ user }) => {
     return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
   };
 
+  // Fetch child moments for a video
+  const fetchChildMoments = async (videoId) => {
+    if (childMoments[videoId]) return; // Already loaded
+
+    setLoadingChildMoments(videoId);
+    try {
+      const response = await fetch(`${API_BASE_URL}/umotube/video/${videoId}/moments`);
+      const data = await response.json();
+      setChildMoments(prev => ({
+        ...prev,
+        [videoId]: data.moments || []
+      }));
+    } catch (err) {
+      console.error('Failed to fetch child moments:', err);
+    } finally {
+      setLoadingChildMoments(null);
+    }
+  };
+
+  // Toggle video expansion
+  const toggleVideoExpand = (video) => {
+    const videoId = video.externalVideoId;
+    if (expandedVideoId === videoId) {
+      setExpandedVideoId(null);
+    } else {
+      setExpandedVideoId(videoId);
+      fetchChildMoments(videoId);
+    }
+  };
+
+  // Delete a child moment
+  const deleteChildMoment = async (momentId, videoId) => {
+    if (!window.confirm('Delete this moment? This cannot be undone.')) return;
+
+    setDeletingMomentId(momentId);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/admin/moments/${momentId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        // Remove from local state
+        setChildMoments(prev => ({
+          ...prev,
+          [videoId]: prev[videoId].filter(m => m._id !== momentId)
+        }));
+        setSuccess('Moment deleted');
+        setTimeout(() => setSuccess(''), 2000);
+      } else {
+        setError(data.error || 'Failed to delete moment');
+      }
+    } catch (err) {
+      setError(`Failed to delete moment: ${err.message}`);
+    } finally {
+      setDeletingMomentId(null);
+    }
+  };
+
+  // Edit a child moment
+  const editChildMoment = (moment) => {
+    startEditing(moment);
+    setExpandedVideoId(null);
+  };
+
+  // Format start time
+  const formatStartTime = (seconds) => {
+    if (!seconds && seconds !== 0) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="umo-container py-8">
       <div className="max-w-6xl mx-auto px-4">
@@ -723,6 +818,32 @@ const UMOTube = ({ user }) => {
                     <option value="Encore">Encore</option>
                   </select>
                 </div>
+
+                {/* Start/End Time - shown when editing */}
+                {editingMoment && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium umo-text-primary mb-2">Start Time (MM:SS)</label>
+                      <input
+                        type="text"
+                        value={formData.startTime}
+                        onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                        placeholder="0:00"
+                        className="umo-input w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium umo-text-primary mb-2">End Time (MM:SS)</label>
+                      <input
+                        type="text"
+                        value={formData.endTime}
+                        onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                        placeholder="Optional"
+                        className="umo-input w-full"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Description */}
@@ -868,74 +989,193 @@ const UMOTube = ({ user }) => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {videos.map(video => (
-              <div
-                key={video._id}
-                className="umo-card overflow-hidden cursor-pointer hover:border-yellow-500/50 transition-all group"
-                onClick={() => setSelectedVideo(video)}
-              >
-                {/* Thumbnail with play overlay */}
-                <div className="relative aspect-video bg-black">
-                  <img
-                    src={getYouTubeThumbnail(video.externalVideoId)}
-                    alt={video.songName}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center">
-                      <Play size={32} className="text-black ml-1" />
+            {videos.map(video => {
+              const isExpanded = expandedVideoId === video.externalVideoId;
+              const moments = childMoments[video.externalVideoId] || [];
+              const isLoading = loadingChildMoments === video.externalVideoId;
+
+              return (
+                <div
+                  key={video._id}
+                  className={`umo-card overflow-hidden transition-all ${isExpanded ? 'col-span-1 md:col-span-2 lg:col-span-3' : ''}`}
+                >
+                  {/* Main card content */}
+                  <div className={`${isExpanded ? 'flex flex-col md:flex-row' : ''}`}>
+                    {/* Thumbnail with play overlay */}
+                    <div className={`relative ${isExpanded ? 'md:w-1/3' : ''} aspect-video bg-black group cursor-pointer`}
+                      onClick={() => setSelectedVideo(video)}
+                    >
+                      <img
+                        src={getYouTubeThumbnail(video.externalVideoId)}
+                        alt={video.songName}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center">
+                          <Play size={32} className="text-black ml-1" />
+                        </div>
+                      </div>
+                      <div className="absolute top-2 right-2">
+                        <span className="bg-red-600 text-white text-xs px-2 py-1 rounded font-medium">
+                          YouTube
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Video Info */}
+                    <div className={`p-4 ${isExpanded ? 'md:w-2/3' : ''}`}>
+                      <h3 className="umo-heading umo-heading--sm mb-2 line-clamp-1">{video.songName}</h3>
+                      <div className="flex items-center gap-2 text-sm umo-text-secondary mb-1">
+                        <MapPin size={14} />
+                        <span className="line-clamp-1">{video.venueName} • {video.venueCity}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs umo-text-muted">
+                        <Calendar size={12} />
+                        <span>{video.performanceDate}</span>
+                      </div>
+                      {video.momentDescription && (
+                        <p className="umo-text-secondary text-sm mt-2 line-clamp-2">
+                          {video.momentDescription}
+                        </p>
+                      )}
+                      <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs px-2 py-1 bg-gray-700 rounded">
+                            {video.contentType === 'song' ? 'Song' :
+                             video.contentType === 'jam' ? 'Jam' : 'Full Performance'}
+                          </span>
+                          {video.user?.displayName && (
+                            <span className="text-xs umo-text-muted">
+                              by {video.user.displayName}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleVideoExpand(video);
+                            }}
+                            className={`flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors ${
+                              isExpanded
+                                ? 'bg-blue-600/30 text-blue-300 hover:bg-blue-600/50'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                            title="Manage child moments"
+                          >
+                            <Music size={12} />
+                            Moments
+                            {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openSetlistGenerator(video);
+                            }}
+                            className="flex items-center gap-1 text-xs px-2 py-1 bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/40 rounded transition-colors"
+                            title="Generate song moments from this video"
+                          >
+                            <ListMusic size={12} />
+                            Setlist
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="absolute top-2 right-2">
-                    <span className="bg-red-600 text-white text-xs px-2 py-1 rounded font-medium">
-                      YouTube
-                    </span>
-                  </div>
-                </div>
 
-                {/* Video Info */}
-                <div className="p-4">
-                  <h3 className="umo-heading umo-heading--sm mb-2 line-clamp-1">{video.songName}</h3>
-                  <div className="flex items-center gap-2 text-sm umo-text-secondary mb-1">
-                    <MapPin size={14} />
-                    <span className="line-clamp-1">{video.venueName} • {video.venueCity}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs umo-text-muted">
-                    <Calendar size={12} />
-                    <span>{video.performanceDate}</span>
-                  </div>
-                  {video.momentDescription && (
-                    <p className="umo-text-secondary text-sm mt-2 line-clamp-2">
-                      {video.momentDescription}
-                    </p>
+                  {/* Expanded child moments section */}
+                  {isExpanded && (
+                    <div className="border-t border-gray-700 p-4 bg-gray-800/30">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-sm font-medium text-gray-300 flex items-center gap-2">
+                          <Music size={16} />
+                          Child Moments ({moments.length})
+                        </h4>
+                        <button
+                          onClick={() => setChildMoments(prev => ({ ...prev, [video.externalVideoId]: undefined }))}
+                          className="text-xs text-gray-500 hover:text-gray-300"
+                          title="Refresh"
+                          onMouseUp={() => fetchChildMoments(video.externalVideoId)}
+                        >
+                          Refresh
+                        </button>
+                      </div>
+
+                      {isLoading ? (
+                        <div className="text-center py-4">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-500 mx-auto"></div>
+                        </div>
+                      ) : moments.length === 0 ? (
+                        <div className="text-center py-4 text-gray-500 text-sm">
+                          No child moments yet. Use "Setlist" to generate them.
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-80 overflow-y-auto">
+                          {moments.map((moment) => (
+                            <div
+                              key={moment._id}
+                              className="flex items-center gap-3 p-3 bg-gray-900/50 rounded hover:bg-gray-900 transition-colors"
+                            >
+                              {/* Song info */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-gray-200 truncate">{moment.songName}</span>
+                                  {moment.contentType !== 'song' && (
+                                    <span className="text-xs px-1.5 py-0.5 bg-gray-700 rounded text-gray-400">
+                                      {moment.contentType}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                                  <span className="flex items-center gap-1">
+                                    <Clock size={10} />
+                                    {formatStartTime(moment.startTime)}
+                                    {moment.endTime && ` - ${formatStartTime(moment.endTime)}`}
+                                  </span>
+                                  {moment.showInMoments !== false && (
+                                    <span className="text-green-500">In Moments</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Actions */}
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => setSelectedVideo(moment)}
+                                  className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-blue-900/30 rounded transition-colors"
+                                  title="Watch"
+                                >
+                                  <Eye size={14} />
+                                </button>
+                                <button
+                                  onClick={() => editChildMoment(moment)}
+                                  className="p-1.5 text-gray-400 hover:text-yellow-400 hover:bg-yellow-900/30 rounded transition-colors"
+                                  title="Edit"
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                <button
+                                  onClick={() => deleteChildMoment(moment._id, video.externalVideoId)}
+                                  disabled={deletingMomentId === moment._id}
+                                  className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-900/30 rounded transition-colors disabled:opacity-50"
+                                  title="Delete"
+                                >
+                                  {deletingMomentId === moment._id ? (
+                                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-red-500"></div>
+                                  ) : (
+                                    <Trash2 size={14} />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
-                  <div className="mt-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-1 bg-gray-700 rounded">
-                      {video.contentType === 'song' ? 'Song' :
-                       video.contentType === 'jam' ? 'Jam' : 'Full Performance'}
-                    </span>
-                    {video.user?.displayName && (
-                      <span className="text-xs umo-text-muted">
-                        by {video.user.displayName}
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openSetlistGenerator(video);
-                    }}
-                    className="flex items-center gap-1 text-xs px-2 py-1 bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600/40 rounded transition-colors"
-                    title="Generate song moments from this video"
-                  >
-                    <ListMusic size={12} />
-                    Setlist
-                  </button>
                 </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

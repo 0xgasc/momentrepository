@@ -3965,6 +3965,27 @@ app.get('/admin/youtube-moments', authenticateToken, requireAdmin, async (req, r
   }
 });
 
+// Admin: Delete a YouTube moment (including approved ones)
+app.delete('/admin/moments/:momentId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+
+    const moment = await Moment.findById(momentId);
+    if (!moment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    await Moment.findByIdAndDelete(momentId);
+
+    console.log(`🗑️ Admin ${req.authenticatedUser.email} deleted moment ${momentId} (${moment.songName})`);
+    res.json({ success: true, message: 'Moment deleted successfully' });
+
+  } catch (error) {
+    console.error('❌ Admin delete moment error:', error);
+    res.status(500).json({ error: 'Failed to delete moment' });
+  }
+});
+
 // Get UMOTube videos (parent videos for browsing)
 app.get('/umotube/videos', async (req, res) => {
   try {
