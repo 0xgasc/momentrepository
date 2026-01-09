@@ -1,8 +1,10 @@
 // src/components/UMOTube/UMOTube.jsx - YouTube linked clips feature
-import React, { useState, useEffect } from 'react';
-import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock, Edit, X } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock, Edit, X, AlertTriangle, CheckCircle } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import MomentDetailModal from '../Moment/MomentDetailModal';
+import SongAutocomplete from './SongAutocomplete';
+import PerformancePicker from './PerformancePicker';
 
 // Helper to parse MM:SS to seconds
 const parseTimeToSeconds = (timeStr) => {
@@ -52,6 +54,12 @@ const UMOTube = ({ user }) => {
   const [setlistError, setSetlistError] = useState('');
   const [setlistSuccess, setSetlistSuccess] = useState('');
 
+  // Song autocomplete & performance picker data
+  const [allSongs, setAllSongs] = useState([]);
+  const [allPerformances, setAllPerformances] = useState([]);
+  const [linkedPerformance, setLinkedPerformance] = useState(null);
+  const [selectedPerformanceDisplay, setSelectedPerformanceDisplay] = useState('');
+
   const [formData, setFormData] = useState({
     youtubeUrl: '',
     performanceId: '',
@@ -69,8 +77,44 @@ const UMOTube = ({ user }) => {
   useEffect(() => {
     if (isAdmin) {
       fetchVideos();
+      fetchSongsAndPerformances();
     }
   }, [isAdmin]);
+
+  // Fetch songs and performances for autocomplete
+  const fetchSongsAndPerformances = async () => {
+    try {
+      const [songsRes, performancesRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/cached/songs`),
+        fetch(`${API_BASE_URL}/cached/performances`)
+      ]);
+
+      if (songsRes.ok) {
+        const songsData = await songsRes.json();
+        setAllSongs(songsData.songs || []);
+      }
+
+      if (performancesRes.ok) {
+        const performancesData = await performancesRes.json();
+        // Sort by date descending (most recent first)
+        const sorted = (performancesData.performances || []).sort((a, b) => {
+          const dateA = a.eventDate?.split('-').reverse().join('-') || '';
+          const dateB = b.eventDate?.split('-').reverse().join('-') || '';
+          return dateB.localeCompare(dateA);
+        });
+        setAllPerformances(sorted);
+      }
+    } catch (err) {
+      console.error('Failed to fetch songs/performances:', err);
+    }
+  };
+
+  // Extract songs from linked performance setlist (must be before conditional return)
+  const getPerformanceSongs = useCallback(() => {
+    if (!linkedPerformance?.sets?.set) return [];
+    return linkedPerformance.sets.set
+      .flatMap(set => set.song?.map(s => s.name) || []);
+  }, [linkedPerformance]);
 
   // Guard: only admins can access
   if (!isAdmin) {
@@ -263,12 +307,71 @@ const UMOTube = ({ user }) => {
     setSetlistRows(updated);
   };
 
-  const openSetlistGenerator = (video) => {
+  const openSetlistGenerator = async (video) => {
     setSelectedVideoForSetlist(video);
     setSetlistRows([{ songName: '', startTime: '0:00', contentType: 'song' }]);
     setShowSetlistGenerator(true);
     setSetlistError('');
     setSetlistSuccess('');
+    setLinkedPerformance(null);
+
+    // If video has a performanceId, fetch the linked performance for song suggestions
+    if (video.performanceId) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/cached/performance/${video.performanceId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setLinkedPerformance(data.performance);
+        }
+      } catch (err) {
+        console.error('Failed to fetch linked performance:', err);
+      }
+    }
+  };
+
+  // Handler for when a performance is selected from PerformancePicker
+  const handlePerformanceSelect = (performance) => {
+    if (performance) {
+      // Convert DD-MM-YYYY to YYYY-MM-DD for the date input
+      const dateParts = performance.eventDate?.split('-');
+      const isoDate = dateParts?.length === 3
+        ? `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`
+        : '';
+
+      setFormData(prev => ({
+        ...prev,
+        performanceId: performance.id,
+        performanceDate: isoDate,
+        venueName: performance.venue?.name || '',
+        venueCity: performance.venue?.city?.name || '',
+        venueCountry: performance.venue?.city?.country?.name || ''
+      }));
+    } else {
+      // Clear performance fields
+      setFormData(prev => ({
+        ...prev,
+        performanceId: '',
+        performanceDate: '',
+        venueName: '',
+        venueCity: '',
+        venueCountry: ''
+      }));
+    }
+  };
+
+  // Pre-fill setlist from linked performance
+  const populateFromSetlist = () => {
+    const songs = getPerformanceSongs();
+    if (songs.length === 0) return;
+
+    // Create rows for each song (without times - user fills those in)
+    const newRows = songs.map((name, index) => ({
+      songName: name,
+      startTime: '',
+      contentType: 'song'
+    }));
+
+    setSetlistRows(newRows);
   };
 
   const generateSetlist = async () => {
@@ -441,21 +544,24 @@ const UMOTube = ({ user }) => {
                 )}
               </div>
 
-              {/* Performance Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium umo-text-primary mb-2">Performance ID *</label>
-                  <input
-                    type="text"
-                    value={formData.performanceId}
-                    onChange={(e) => setFormData({ ...formData, performanceId: e.target.value })}
-                    placeholder="e.g., 73b69823 (from setlist.fm URL)"
-                    className="umo-input w-full"
-                    required
-                  />
-                  <p className="text-xs umo-text-muted mt-1">Find this in the setlist.fm URL for this show</p>
-                </div>
+              {/* Performance Picker - links to setlist.fm */}
+              <div className="mb-2">
+                <label className="block text-sm font-medium umo-text-primary mb-2">Link to Performance *</label>
+                <PerformancePicker
+                  value={selectedPerformanceDisplay}
+                  onChange={setSelectedPerformanceDisplay}
+                  onSelect={handlePerformanceSelect}
+                  performances={allPerformances}
+                  placeholder="Search shows by venue, city, or date..."
+                  disabled={!!editingMoment}
+                />
+                {editingMoment && formData.performanceId && (
+                  <p className="text-xs umo-text-muted mt-1">Performance linked: {formData.performanceId}</p>
+                )}
+              </div>
 
+              {/* Auto-filled Performance Details (read-only when picker used) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium umo-text-primary mb-2">Performance Date *</label>
                   <input
@@ -791,6 +897,34 @@ const UMOTube = ({ user }) => {
                 </div>
               </div>
 
+              {/* Warning if no performance linked */}
+              {!selectedVideoForSetlist?.performanceId && (
+                <div className="flex items-center gap-2 p-3 bg-yellow-900/20 border border-yellow-500/30 rounded mb-4">
+                  <AlertTriangle size={18} className="text-yellow-500 flex-shrink-0" />
+                  <p className="text-yellow-400 text-sm">
+                    No performance linked - moments may not appear in show pages. Link a performance first.
+                  </p>
+                </div>
+              )}
+
+              {/* Performance linked indicator */}
+              {linkedPerformance && (
+                <div className="flex items-center justify-between p-3 bg-green-900/20 border border-green-500/30 rounded mb-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle size={18} className="text-green-500" />
+                    <p className="text-green-400 text-sm">
+                      Linked to setlist.fm - {getPerformanceSongs().length} songs in setlist
+                    </p>
+                  </div>
+                  <button
+                    onClick={populateFromSetlist}
+                    className="text-xs px-3 py-1 bg-green-600/30 hover:bg-green-600/50 text-green-300 rounded transition-colors"
+                  >
+                    Pre-fill songs
+                  </button>
+                </div>
+              )}
+
               <p className="umo-text-secondary text-sm mb-4">
                 Add songs with their start times (MM:SS). End times will be calculated automatically.
               </p>
@@ -813,12 +947,12 @@ const UMOTube = ({ user }) => {
                   <div key={index} className="flex items-center gap-3 bg-gray-800/50 p-3 rounded">
                     <span className="text-gray-500 text-sm w-6">{index + 1}.</span>
 
-                    <input
-                      type="text"
+                    <SongAutocomplete
                       value={row.songName}
-                      onChange={(e) => updateSetlistRow(index, 'songName', e.target.value)}
+                      onChange={(value) => updateSetlistRow(index, 'songName', value)}
+                      allSongs={allSongs}
+                      performanceSongs={getPerformanceSongs()}
                       placeholder="Song name"
-                      className="umo-input flex-1"
                     />
 
                     <div className="flex items-center gap-1">
