@@ -113,11 +113,19 @@ const UMOTube = ({ user }) => {
     }
   };
 
-  // Extract songs from linked performance setlist (must be before conditional return)
+  // Split medley songs by " / " delimiter
+  const splitMedley = (songName) => {
+    if (!songName) return [songName];
+    const parts = songName.split(' / ').map(s => s.trim()).filter(Boolean);
+    return parts.length > 0 ? parts : [songName];
+  };
+
+  // Extract songs from linked performance setlist, splitting medleys
   const getPerformanceSongs = useCallback(() => {
     if (!linkedPerformance?.sets?.set) return [];
     return linkedPerformance.sets.set
-      .flatMap(set => set.song?.map(s => s.name) || []);
+      .flatMap(set => set.song?.map(s => s.name) || [])
+      .flatMap(name => splitMedley(name)); // Split medleys into individual songs
   }, [linkedPerformance]);
 
   // Guard: only admins can access
