@@ -3989,27 +3989,36 @@ app.delete('/admin/moments/:momentId', authenticateToken, requireAdmin, async (r
 // Get UMOTube videos (parent videos for browsing)
 app.get('/umotube/videos', async (req, res) => {
   try {
-    // Get unique YouTube videos (distinct by externalVideoId)
+    // Get all YouTube moments
     const videos = await Moment.find({
       mediaSource: 'youtube',
       approvalStatus: 'approved'
     })
       .sort({ createdAt: -1 })
-      .limit(100)
       .populate('user', 'displayName');
 
-    // Group by externalVideoId to show unique videos
-    const uniqueVideos = [];
-    const seenIds = new Set();
+    // Group by externalVideoId, prioritizing parent videos (showInMoments: false)
+    const videoMap = new Map();
 
     for (const video of videos) {
-      if (!seenIds.has(video.externalVideoId)) {
-        seenIds.add(video.externalVideoId);
-        uniqueVideos.push(video.toObject({ virtuals: true }));
+      const videoId = video.externalVideoId;
+      const existing = videoMap.get(videoId);
+
+      if (!existing) {
+        // First video for this ID
+        videoMap.set(videoId, video);
+      } else if (video.showInMoments === false && existing.showInMoments !== false) {
+        // Replace child with parent (parent has showInMoments: false)
+        videoMap.set(videoId, video);
       }
+      // Otherwise keep existing (already a parent, or both are children)
     }
 
-    console.log(`🎬 Returning ${uniqueVideos.length} UMOTube videos`);
+    const uniqueVideos = Array.from(videoMap.values())
+      .map(v => v.toObject({ virtuals: true }))
+      .slice(0, 100);
+
+    console.log(`🎬 Returning ${uniqueVideos.length} UMOTube videos (prioritizing parents)`);
     res.json({ videos: uniqueVideos });
   } catch (err) {
     console.error('❌ Fetch UMOTube videos error:', err);
