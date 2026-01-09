@@ -40,8 +40,11 @@ const SongRow = memo(({
         </span>
 
         {/* Song name */}
-        <span className="flex-1 font-medium text-gray-100 truncate">
+        <span className="flex-1 font-medium text-gray-100 truncate flex items-center gap-2">
           {song.name}
+          {song.isPartOfMedley && (
+            <span className="text-xs text-gray-500 font-normal">(medley)</span>
+          )}
         </span>
 
         {/* Moment indicator */}

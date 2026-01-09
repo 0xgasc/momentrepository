@@ -3548,9 +3548,10 @@ app.get('/moments/performance/:performanceId', async (req, res) => {
   try {
     const { performanceId } = req.params;
     
-    const moments = await Moment.find({ 
+    const moments = await Moment.find({
       performanceId,
-      approvalStatus: 'approved'
+      approvalStatus: 'approved',
+      showInMoments: { $ne: false }  // Exclude parent videos (full-show)
     })
       .sort({ songPosition: 1, createdAt: -1 })
       .populate('user', 'displayName');

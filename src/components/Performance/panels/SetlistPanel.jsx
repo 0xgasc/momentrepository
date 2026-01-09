@@ -1,5 +1,5 @@
 // src/components/Performance/panels/SetlistPanel.jsx
-import React, { memo, useState } from 'react';
+import React, { memo, useState, useMemo } from 'react';
 import { ListMusic, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import SongRow from '../cards/SongRow';
 
@@ -15,6 +15,13 @@ const isActualSong = (songName) => {
   return !nonSongPatterns.some(pattern => name.includes(pattern));
 };
 
+// Split medley songs by " / " delimiter
+const splitMedley = (songName) => {
+  if (!songName) return [songName];
+  const parts = songName.split(' / ').map(s => s.trim()).filter(Boolean);
+  return parts.length > 0 ? parts : [songName];
+};
+
 const SetlistPanel = memo(({
   performance,
   moments = [],
@@ -25,25 +32,52 @@ const SetlistPanel = memo(({
   // Extract sets from performance data
   const sets = performance?.sets?.set || [];
 
-  // Group moments by song name for quick lookup
-  const momentsBySong = moments.reduce((acc, moment) => {
-    const key = moment.songName?.toLowerCase() || '';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(moment);
-    return acc;
-  }, {});
+  // Group moments by song name AND medley components for quick lookup
+  const momentsBySong = useMemo(() => {
+    const map = {};
+    moments.forEach(moment => {
+      const songName = moment.songName || '';
+      const key = songName.toLowerCase();
 
-  // Get all actual songs from all sets
-  const allSongs = sets.flatMap((set, setIndex) => {
-    const songs = set.song || [];
-    return songs
-      .filter(song => isActualSong(song.name))
-      .map((song, songIndex) => ({
-        ...song,
-        setName: set.name || `Set ${setIndex + 1}`,
-        globalIndex: songIndex
-      }));
-  });
+      // Add to exact match
+      if (!map[key]) map[key] = [];
+      map[key].push(moment);
+
+      // Also add to each medley component (if this moment is for a medley)
+      const parts = splitMedley(songName);
+      if (parts.length > 1) {
+        parts.forEach(part => {
+          const partKey = part.toLowerCase();
+          if (!map[partKey]) map[partKey] = [];
+          // Avoid duplicates
+          if (!map[partKey].includes(moment)) {
+            map[partKey].push(moment);
+          }
+        });
+      }
+    });
+    return map;
+  }, [moments]);
+
+  // Get all actual songs from all sets, splitting medleys
+  const allSongs = useMemo(() => {
+    return sets.flatMap((set, setIndex) => {
+      const songs = set.song || [];
+      return songs
+        .filter(song => isActualSong(song.name))
+        .flatMap((song) => {
+          const parts = splitMedley(song.name);
+          return parts.map((partName, partIdx) => ({
+            ...song,
+            name: partName,
+            originalName: song.name,
+            isPartOfMedley: parts.length > 1,
+            medleyIndex: partIdx,
+            setName: set.name || `Set ${setIndex + 1}`
+          }));
+        });
+    });
+  }, [sets]);
 
   const totalSongs = allSongs.length;
 
@@ -97,39 +131,39 @@ const SetlistPanel = memo(({
       {/* Song list */}
       {isExpanded && (
         <div className="border-t border-gray-800/50">
-          {sets.map((set, setIndex) => {
-            const songs = (set.song || []).filter(song => isActualSong(song.name));
-            if (songs.length === 0) return null;
+          {(() => {
+            let currentSet = null;
+            let trackNumber = 0;
 
-            return (
-              <div key={setIndex}>
-                {/* Set header */}
-                {sets.length > 1 && (
-                  <div className="px-4 py-2 bg-gray-800/30 border-b border-gray-800/50">
-                    <span className="text-sm font-medium text-gray-400">
-                      {set.name || `Set ${setIndex + 1}`}
-                    </span>
-                  </div>
-                )}
+            return allSongs.map((song, idx) => {
+              const showSetHeader = sets.length > 1 && song.setName !== currentSet;
+              if (song.setName !== currentSet) {
+                currentSet = song.setName;
+              }
+              trackNumber++;
 
-                {/* Songs */}
-                <div>
-                  {songs.map((song, songIndex) => {
-                    const songMoments = momentsBySong[song.name?.toLowerCase()] || [];
-                    return (
-                      <SongRow
-                        key={`${setIndex}-${songIndex}`}
-                        song={song}
-                        index={songIndex}
-                        moments={songMoments}
-                        onSelectMoment={onSelectMoment}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
+              const songMoments = momentsBySong[song.name?.toLowerCase()] || [];
+
+              return (
+                <React.Fragment key={`${idx}-${song.name}`}>
+                  {/* Set header when set changes */}
+                  {showSetHeader && (
+                    <div className="px-4 py-2 bg-gray-800/30 border-b border-gray-800/50">
+                      <span className="text-sm font-medium text-gray-400">
+                        {song.setName}
+                      </span>
+                    </div>
+                  )}
+                  <SongRow
+                    song={song}
+                    index={trackNumber - 1}
+                    moments={songMoments}
+                    onSelectMoment={onSelectMoment}
+                  />
+                </React.Fragment>
+              );
+            });
+          })()}
         </div>
       )}
     </div>
