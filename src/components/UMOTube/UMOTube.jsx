@@ -1,6 +1,6 @@
 // src/components/UMOTube/UMOTube.jsx - YouTube linked clips feature
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock, Edit, X, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock, Edit, X, AlertTriangle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import SongAutocomplete from './SongAutocomplete';
@@ -54,6 +54,7 @@ const UMOTube = ({ user }) => {
   const [generatingSetlist, setGeneratingSetlist] = useState(false);
   const [setlistError, setSetlistError] = useState('');
   const [setlistSuccess, setSetlistSuccess] = useState('');
+  const [showLinkedSetlist, setShowLinkedSetlist] = useState(false);
 
   // Song autocomplete & performance picker data
   const [allSongs, setAllSongs] = useState([]);
@@ -920,21 +921,55 @@ const UMOTube = ({ user }) => {
                 </div>
               )}
 
-              {/* Performance linked indicator */}
+              {/* Performance linked indicator with expandable setlist */}
               {linkedPerformance && (
-                <div className="flex items-center justify-between p-3 bg-green-900/20 border border-green-500/30 rounded mb-4">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle size={18} className="text-green-500" />
-                    <p className="text-green-400 text-sm">
-                      Linked to setlist.fm - {getPerformanceSongs().length} songs in setlist
-                    </p>
+                <div className="bg-green-900/20 border border-green-500/30 rounded mb-4">
+                  <div className="flex items-center justify-between p-3">
+                    <button
+                      onClick={() => setShowLinkedSetlist(!showLinkedSetlist)}
+                      className="flex items-center gap-2 hover:text-green-300 transition-colors"
+                    >
+                      <CheckCircle size={18} className="text-green-500" />
+                      <p className="text-green-400 text-sm">
+                        Linked to setlist.fm - {getPerformanceSongs().length} songs
+                      </p>
+                      {showLinkedSetlist ? (
+                        <ChevronUp size={16} className="text-green-500" />
+                      ) : (
+                        <ChevronDown size={16} className="text-green-500" />
+                      )}
+                    </button>
+                    <button
+                      onClick={populateFromSetlist}
+                      className="text-xs px-3 py-1 bg-green-600/30 hover:bg-green-600/50 text-green-300 rounded transition-colors"
+                    >
+                      Pre-fill songs
+                    </button>
                   </div>
-                  <button
-                    onClick={populateFromSetlist}
-                    className="text-xs px-3 py-1 bg-green-600/30 hover:bg-green-600/50 text-green-300 rounded transition-colors"
-                  >
-                    Pre-fill songs
-                  </button>
+
+                  {/* Expandable setlist preview */}
+                  {showLinkedSetlist && (
+                    <div className="px-3 pb-3 border-t border-green-500/20 pt-2">
+                      <p className="text-xs text-gray-400 mb-2">
+                        Setlist from setlist.fm (click "Pre-fill" to use, or enter manually if incorrect):
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {getPerformanceSongs().map((song, idx) => (
+                          <span
+                            key={idx}
+                            className="text-xs px-2 py-1 bg-gray-800/50 text-gray-300 rounded"
+                          >
+                            {idx + 1}. {song}
+                          </span>
+                        ))}
+                      </div>
+                      {getPerformanceSongs().length === 0 && (
+                        <p className="text-xs text-yellow-400">
+                          No songs found in setlist - enter them manually below.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
