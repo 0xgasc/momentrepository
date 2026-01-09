@@ -1,11 +1,24 @@
 // src/components/UI/TheaterQueue.jsx - Theater queue playlist component
 import React, { useState } from 'react';
-import { ListMusic, Play, X, Trash2, GripVertical, ChevronUp, ChevronDown, Shuffle } from 'lucide-react';
+import { ListMusic, Play, X, Trash2, GripVertical, ChevronUp, ChevronDown, Shuffle, Save, Check, Loader2 } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
+import { useAuth } from '../Auth/AuthProvider';
+import { useFavorites } from '../../hooks/useFavorites';
 
 const TheaterQueue = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
+
+  // Save as collection state
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [collectionName, setCollectionName] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  const { token, user } = useAuth();
+  const { createCollection, addToCollection } = useFavorites(token);
 
   const {
     theaterQueue,
@@ -49,6 +62,45 @@ const TheaterQueue = () => {
   const handleCloseModal = () => {
     // Auto-advance to next in queue
     playNextInQueue();
+  };
+
+  // Handle save as collection
+  const handleSaveAsCollection = async () => {
+    if (!collectionName.trim() || theaterQueue.length === 0) return;
+
+    setIsSaving(true);
+    setSaveError('');
+    setSaveSuccess(false);
+
+    try {
+      // Create collection
+      const result = await createCollection(collectionName.trim(), '', isPublic);
+
+      if (result.success && result.collection) {
+        // Add all queue moments to collection
+        let successCount = 0;
+        for (const moment of theaterQueue) {
+          const addResult = await addToCollection(result.collection._id, moment._id);
+          if (addResult.success) successCount++;
+        }
+
+        setSaveSuccess(true);
+        setCollectionName('');
+
+        // Close modal after short delay
+        setTimeout(() => {
+          setShowSaveModal(false);
+          setSaveSuccess(false);
+        }, 1500);
+      } else {
+        setSaveError(result.error || 'Failed to create collection');
+      }
+    } catch (err) {
+      console.error('Save collection error:', err);
+      setSaveError('Something went wrong');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // If no queue, don't render anything
@@ -187,29 +239,123 @@ const TheaterQueue = () => {
               ))}
             </div>
 
-            {/* Footer with shuffle and clear buttons */}
-            <div className="px-3 py-3 bg-gray-800/30 border-t border-gray-700/50 flex items-center justify-between">
+            {/* Footer with shuffle, save, and clear buttons */}
+            <div className="px-3 py-3 bg-gray-800/30 border-t border-gray-700/50 flex items-center justify-between gap-2">
               {/* Shuffle button */}
               <button
                 onClick={shuffleQueue}
-                className="flex items-center gap-2 text-sm text-gray-500 hover:text-yellow-400 transition-colors px-3 py-2"
-                style={{ minHeight: '40px' }}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-yellow-400 transition-colors px-2 py-2"
+                style={{ minHeight: '36px' }}
                 title="Shuffle queue"
                 disabled={theaterQueue.length < 2}
               >
-                <Shuffle size={14} />
-                Shuffle
+                <Shuffle size={12} />
+                <span className="hidden sm:inline">Shuffle</span>
               </button>
+
+              {/* Save as Collection button - only show if logged in */}
+              {user && (
+                <button
+                  onClick={() => setShowSaveModal(true)}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-green-400 transition-colors px-2 py-2"
+                  style={{ minHeight: '36px' }}
+                  title="Save as collection"
+                >
+                  <Save size={12} />
+                  <span className="hidden sm:inline">Save</span>
+                </button>
+              )}
+
               {/* Clear button */}
               <button
                 onClick={clearQueue}
-                className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-400 transition-colors px-3 py-2"
-                style={{ minHeight: '40px' }}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-400 transition-colors px-2 py-2"
+                style={{ minHeight: '36px' }}
               >
-                <Trash2 size={14} />
-                Clear
+                <Trash2 size={12} />
+                <span className="hidden sm:inline">Clear</span>
               </button>
             </div>
+
+            {/* Save as Collection Modal */}
+            {showSaveModal && (
+              <div className="absolute bottom-full left-0 right-0 mb-2 bg-gray-900 border border-gray-700 rounded-sm p-4 shadow-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-white font-medium text-sm">Save Queue as Collection</h4>
+                  <button
+                    onClick={() => {
+                      setShowSaveModal(false);
+                      setSaveError('');
+                      setSaveSuccess(false);
+                    }}
+                    className="text-gray-500 hover:text-white"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                {saveSuccess ? (
+                  <div className="flex items-center justify-center gap-2 py-4 text-green-400">
+                    <Check size={20} />
+                    <span>Collection saved!</span>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      value={collectionName}
+                      onChange={(e) => setCollectionName(e.target.value)}
+                      placeholder="Collection name..."
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm mb-3 focus:border-yellow-500 focus:outline-none"
+                      autoFocus
+                    />
+
+                    <label className="flex items-center gap-2 text-xs text-gray-300 mb-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isPublic}
+                        onChange={(e) => setIsPublic(e.target.checked)}
+                        className="rounded border-gray-600 bg-gray-800"
+                      />
+                      Make public (shareable link)
+                    </label>
+
+                    {saveError && (
+                      <div className="text-red-400 text-xs mb-3">{saveError}</div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setShowSaveModal(false);
+                          setSaveError('');
+                        }}
+                        className="flex-1 px-3 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 rounded transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveAsCollection}
+                        disabled={isSaving || !collectionName.trim()}
+                        className="flex-1 px-3 py-2 text-sm bg-yellow-600 hover:bg-yellow-500 text-black font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {isSaving ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save size={14} />
+                            Save ({theaterQueue.length})
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 

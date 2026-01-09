@@ -1,9 +1,10 @@
 // src/components/User/MyAccount.jsx
 import React, { useState, useEffect, memo, useCallback } from 'react';
-import { Upload, Eye, MessageCircle, Star, Heart, Folder, Plus, Trash2 } from 'lucide-react';
+import { Upload, Eye, MessageCircle, Star, Heart, Folder, Plus, Trash2, Play, Loader2, Globe, Lock } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useUserStats } from '../../hooks/useUserStats';
 import { useFavorites } from '../../hooks/useFavorites';
+import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { transformMediaUrl } from '../../utils/mediaUrl';
 
 const MyAccount = memo(({ onClose }) => {
@@ -229,9 +230,11 @@ const FavoritesTab = memo(() => {
     deleteCollection,
     fetchFavorites
   } = useFavorites(token);
+  const { addManyToQueue, clearQueue, playQueue } = useTheaterQueue();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [selectedCollection, setSelectedCollection] = useState(null);
+  const [loadingCollection, setLoadingCollection] = useState(null);
 
   const handleCreateCollection = async () => {
     if (!newCollectionName.trim()) return;
@@ -249,6 +252,55 @@ const FavoritesTab = memo(() => {
 
   const handleRemoveFavorite = async (momentId) => {
     await toggleFavorite(momentId);
+  };
+
+  // Play all moments in a collection
+  const handlePlayCollection = async (collectionId) => {
+    setLoadingCollection(collectionId);
+    try {
+      // Fetch collection moments
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/favorites?collection=${collectionId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const moments = (data.favorites || [])
+          .map(f => f.moment)
+          .filter(m => m && m._id);
+
+        if (moments.length > 0) {
+          // Clear queue and add all moments
+          clearQueue();
+          addManyToQueue(moments);
+          // Start playing from first item
+          playQueue(0);
+        } else {
+          alert('No playable moments in this collection');
+        }
+      }
+    } catch (err) {
+      console.error('Error loading collection:', err);
+      alert('Failed to load collection');
+    } finally {
+      setLoadingCollection(null);
+    }
+  };
+
+  // Play all favorites (no collection filter)
+  const handlePlayAllFavorites = async () => {
+    const moments = favorites
+      .map(f => f.moment)
+      .filter(m => m && m._id);
+
+    if (moments.length > 0) {
+      clearQueue();
+      addManyToQueue(moments);
+      playQueue(0);
+    } else {
+      alert('No playable moments in favorites');
+    }
   };
 
   const filteredFavorites = selectedCollection
@@ -285,31 +337,64 @@ const FavoritesTab = memo(() => {
           <p className="text-sm text-gray-500">No collections yet. Create one to organize your favorites!</p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setSelectedCollection(null)}
-              className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-                !selectedCollection
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              All ({favorites.length})
-            </button>
+            {/* All favorites button with Play All */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setSelectedCollection(null)}
+                className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                  !selectedCollection
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                All ({favorites.length})
+              </button>
+              {favorites.length > 0 && (
+                <button
+                  onClick={handlePlayAllFavorites}
+                  className="p-1.5 bg-yellow-500 hover:bg-yellow-400 text-black rounded-full transition-colors"
+                  title="Play all favorites"
+                >
+                  <Play size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* Collection buttons with Play All */}
             {collections.map(col => (
-              <div key={col._id} className="relative group">
+              <div key={col._id} className="relative group flex items-center gap-1">
                 <button
                   onClick={() => setSelectedCollection(col._id)}
-                  className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                  className={`px-3 py-1.5 rounded-full text-sm transition-colors flex items-center gap-1 ${
                     selectedCollection === col._id
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
+                  {col.isPublic && <Globe size={12} className="opacity-70" />}
                   {col.name} ({col.momentCount})
                 </button>
+
+                {/* Play All button for collection */}
+                {col.momentCount > 0 && (
+                  <button
+                    onClick={() => handlePlayCollection(col._id)}
+                    disabled={loadingCollection === col._id}
+                    className="p-1.5 bg-yellow-500 hover:bg-yellow-400 text-black rounded-full transition-colors disabled:opacity-50"
+                    title={`Play all ${col.momentCount} moments`}
+                  >
+                    {loadingCollection === col._id ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Play size={12} />
+                    )}
+                  </button>
+                )}
+
+                {/* Delete button */}
                 <button
                   onClick={() => handleDeleteCollection(col._id)}
-                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10"
                 >
                   <Trash2 size={10} />
                 </button>

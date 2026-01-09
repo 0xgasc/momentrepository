@@ -1,4 +1,4 @@
-import React, { useState, memo } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
 import { Menu, X, Info, ChevronDown, ChevronUp } from 'lucide-react';
@@ -18,6 +18,7 @@ import AdminPanel from './components/Admin/AdminPanel';
 import UMOTube from './components/UMOTube/UMOTube';
 import TheaterQueue from './components/UI/TheaterQueue';
 import VideoHero from './components/UI/VideoHero';
+import PublicCollectionView from './components/Collection/PublicCollectionView';
 import { TheaterQueueProvider } from './contexts/TheaterQueueContext';
 import { useNotifications } from './hooks';
 import { API_BASE_URL } from './components/Auth/AuthProvider';
@@ -69,10 +70,23 @@ const MainApp = memo(() => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showHowToGuide, setShowHowToGuide] = useState(false);
 
+  // Public collection state (for shared collection URLs)
+  const [publicCollectionId, setPublicCollectionId] = useState(null);
+
   // Global media filter (affects hero + moments grid)
   const [mediaFilter, setMediaFilter] = useState('all');
 
   const { user, logout, loading } = useAuth();
+
+  // Check URL for collection parameter on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const collectionId = params.get('collection');
+    if (collectionId) {
+      setPublicCollectionId(collectionId);
+      setCurrentView('collection');
+    }
+  }, []);
   
   // Notifications hook
   const { getBadgeInfo, refreshNotifications } = useNotifications(API_BASE_URL);
@@ -101,6 +115,9 @@ const MainApp = memo(() => {
     setCurrentView('home');
     setSelectedSong(null);
     setSelectedPerformance(null);
+    setPublicCollectionId(null);
+    // Clear URL params when going back to home
+    window.history.replaceState({}, '', window.location.pathname);
   };
 
   const switchBrowseMode = (mode) => {
@@ -172,7 +189,16 @@ const MainApp = memo(() => {
         {/* Cache Status */}
         <CacheStatusDisplay />
 
+        {/* Public Collection View (for shared collection URLs) */}
+        {currentView === 'collection' && publicCollectionId && (
+          <PublicCollectionView
+            collectionId={publicCollectionId}
+            onBack={handleBackToHome}
+          />
+        )}
+
         {/* Main Content */}
+        {currentView !== 'collection' && (
         <MainContent
           currentView={currentView}
           browseMode={browseMode}
@@ -186,6 +212,7 @@ const MainApp = memo(() => {
           mediaFilter={mediaFilter}
           setMediaFilter={setMediaFilter}
         />
+        )}
 
         {/* Credits Footer */}
         <CreditsFooter />

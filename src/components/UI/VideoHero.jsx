@@ -438,6 +438,23 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
     }
   }, [moment?._id]);
 
+  // Fix: Reset play state when moment or media type changes (prevents stuck play icon)
+  useEffect(() => {
+    if (!moment) return;
+
+    // Reset all playback-related state
+    setIsPlaying(false);
+    setIsLoading(true);
+    setIsYtLoading(true);
+
+    // Small delay then auto-play to ensure state is clean
+    const timer = setTimeout(() => {
+      setIsPlaying(true);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [moment?._id, isYouTube, isAudio]);
+
   // Start/stop ASCII processing
   useEffect(() => {
     if (isAsciiMode && !isYouTube && !isAudio && videoRef.current && moment) {

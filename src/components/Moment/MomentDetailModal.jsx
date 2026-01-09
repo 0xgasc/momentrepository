@@ -1,5 +1,5 @@
 // src/components/Moment/MomentDetailModal.jsx - OPTIMIZED & FIXED
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { X, Download, Calendar, MapPin, User, FileText, Zap, ChevronDown, ChevronUp, Clock, ListPlus, Check } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
@@ -73,7 +73,67 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [mediaError, setMediaError] = useState(false);
   const [showNftPanel, setShowNftPanel] = useState(false);
-  
+  const [ytLoaded, setYtLoaded] = useState(false);
+
+  // YouTube IFrame API refs for end-time enforcement
+  const ytPlayerRef = useRef(null);
+  const ytProgressIntervalRef = useRef(null);
+
+  // Memoize onClose for use in effects
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  // Load YouTube IFrame API
+  useEffect(() => {
+    if (window.YT) return;
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    const firstScript = document.getElementsByTagName('script')[0];
+    firstScript.parentNode.insertBefore(tag, firstScript);
+  }, []);
+
+  // YouTube end-time enforcement - auto-close modal when endTime is reached
+  useEffect(() => {
+    if (!ytLoaded || !moment?.endTime) return;
+
+    ytProgressIntervalRef.current = setInterval(() => {
+      try {
+        const currentTime = ytPlayerRef.current?.getCurrentTime?.() || 0;
+        if (currentTime >= moment.endTime) {
+          clearInterval(ytProgressIntervalRef.current);
+          handleClose(); // Auto-close modal
+        }
+      } catch (e) {
+        // Player not ready
+      }
+    }, 500);
+
+    return () => {
+      if (ytProgressIntervalRef.current) {
+        clearInterval(ytProgressIntervalRef.current);
+      }
+    };
+  }, [ytLoaded, moment?.endTime, handleClose]);
+
+  // Cleanup YouTube player on unmount or moment change
+  useEffect(() => {
+    setYtLoaded(false);
+    return () => {
+      if (ytPlayerRef.current) {
+        try {
+          ytPlayerRef.current.destroy();
+        } catch (e) {
+          // Player might already be destroyed
+        }
+        ytPlayerRef.current = null;
+      }
+      if (ytProgressIntervalRef.current) {
+        clearInterval(ytProgressIntervalRef.current);
+      }
+    };
+  }, [moment?._id]);
+
   useEffect(() => {
     const fetchNftStatus = async () => {
       if (!moment?._id || !isWeb3Enabled()) {
@@ -277,13 +337,33 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
 
       return (
         <div className="media-container relative" style={{ paddingBottom: '56.25%' }}>
-          <iframe
-            className="absolute top-0 left-0 w-full h-full rounded-lg"
-            src={`https://www.youtube.com/embed/${youtubeId}?start=${startTime}&rel=0&modestbranding=1&autoplay=1&mute=1&playsinline=1`}
-            title={moment.songName || 'YouTube Video'}
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowFullScreen
+          <div
+            className="absolute top-0 left-0 w-full h-full rounded-lg overflow-hidden"
+            ref={(el) => {
+              if (el && window.YT && window.YT.Player && !ytPlayerRef.current) {
+                ytPlayerRef.current = new window.YT.Player(el, {
+                  videoId: youtubeId,
+                  playerVars: {
+                    autoplay: 1,
+                    mute: 0,
+                    controls: 1,
+                    modestbranding: 1,
+                    rel: 0,
+                    start: startTime,
+                    playsinline: 1,
+                    enablejsapi: 1
+                  },
+                  events: {
+                    onReady: () => setYtLoaded(true),
+                    onStateChange: (e) => {
+                      if (e.data === window.YT.PlayerState.ENDED) {
+                        handleClose();
+                      }
+                    }
+                  }
+                });
+              }
+            }}
           />
         </div>
       );

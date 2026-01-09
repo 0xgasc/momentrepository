@@ -1184,4 +1184,53 @@ router.delete('/collections/:collectionId/moments/:momentId', async (req, res) =
   }
 });
 
+// ============================================
+// PUBLIC COLLECTIONS - Share collections publicly
+// ============================================
+
+// Get public collection by ID (no auth required)
+router.get('/collections/:collectionId/public', async (req, res) => {
+  try {
+    const { collectionId } = req.params;
+
+    // Validate ObjectId format
+    if (!isValidObjectId(collectionId)) {
+      return res.status(400).json({ error: 'Invalid collection ID' });
+    }
+
+    // Find collection that is public
+    const collection = await Collection.findOne({
+      _id: collectionId,
+      isPublic: true
+    })
+      .populate('user', 'displayName')
+      .populate('coverMoment', 'mediaUrl thumbnailUrl')
+      .lean();
+
+    if (!collection) {
+      return res.status(404).json({ error: 'Collection not found or not public' });
+    }
+
+    // Get all favorites in this collection with moment data
+    const favorites = await Favorite.find({ collectionRef: collectionId })
+      .populate({
+        path: 'moment',
+        select: 'songName venueName venueCity performanceDate mediaUrl mediaType thumbnailUrl rarityTier duration externalVideoId startTime endTime'
+      })
+      .sort({ addedAt: -1 })
+      .lean();
+
+    // Filter out deleted moments and map to just moment data
+    const moments = favorites
+      .filter(f => f.moment)
+      .map(f => f.moment);
+
+    console.log(`📂 Public collection ${collectionId} accessed - ${moments.length} moments`);
+    res.json({ collection, moments });
+  } catch (err) {
+    console.error('❌ Get public collection error:', err);
+    res.status(500).json({ error: 'Failed to fetch collection' });
+  }
+});
+
 module.exports = router;

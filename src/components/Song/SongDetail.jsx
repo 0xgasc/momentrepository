@@ -6,7 +6,8 @@ import { formatDate, formatShortDate } from '../../utils';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import UploadModal from '../Moment/UploadModal';
 import LazyMedia from '../UI/LazyMedia';
-import { Play } from 'lucide-react';
+import { Play, ListPlus, Check } from 'lucide-react';
+import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { transformMediaUrl } from '../../utils/mediaUrl';
 
 const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
@@ -17,8 +18,10 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
   const [expandedPerformances, setExpandedPerformances] = useState(new Set());
   const [showNonSongMoments, setShowNonSongMoments] = useState(false); // ✅ NEW: Toggle for non-song moments
   const [showOnlyWithMoments, setShowOnlyWithMoments] = useState(false); // ✅ NEW: Toggle to show only performances with moments
+  const [momentDisplayCount, setMomentDisplayCount] = useState(8); // For horizontal scroll load more
   const { user } = useAuth();
   const { refreshNotifications } = useNotifications(API_BASE_URL);
+  const { addToQueue, isInQueue } = useTheaterQueue();
   
   const { moments, loadingMomentDetails: loading, loadMomentDetails } = useMoments(API_BASE_URL);
 
@@ -194,54 +197,110 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
         />
       )}
 
-      {/* Controls */}
-      {/* Video Preview Section - Hidden if no moments */}
+      {/* Song Moments - Horizontal scroll with load more */}
       {songMoments.length > 0 && (
         <div className="bg-white/60 backdrop-blur-sm rounded-sm border border-gray-200/50 p-4 mb-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">🎬 Song Moments ({songMoments.length})</h3>
+            <h3 className="text-lg font-semibold text-gray-800">Song Moments ({songMoments.length})</h3>
+            <span className="text-xs text-gray-500">
+              Showing {Math.min(momentDisplayCount, songMoments.length)} of {songMoments.length}
+            </span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {songMoments.slice(0, 4).map((moment) => (
-              <div 
-                key={moment._id}
-                className="bg-white/70 rounded-sm border border-gray-200/50 overflow-hidden hover:shadow-lg transition-shadow duration-200 cursor-pointer aspect-video"
-                onClick={() => setSelectedMoment(moment)}
-              >
-                {moment.mediaUrl && (
-                  <div className="relative w-full h-full">
-                    {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
-                      <video
-                        src={transformMediaUrl(moment.mediaUrl)}
-                        className="w-full h-full object-cover"
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                        preload="metadata"
-                      />
-                    ) : (
-                      <img
-                        src={transformMediaUrl(moment.mediaUrl)}
-                        alt={moment.songName}
-                        className="w-full h-full object-cover"
-                      />
+
+          {/* Horizontal scroll container */}
+          <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+            {songMoments.slice(0, momentDisplayCount).map((moment) => {
+              const inQueue = isInQueue(moment._id);
+              return (
+                <div
+                  key={moment._id}
+                  className="flex-shrink-0 w-[180px] bg-white/70 rounded-sm border border-gray-200/50 overflow-hidden hover:shadow-lg transition-all duration-200 group"
+                >
+                  {/* Thumbnail */}
+                  <div
+                    className="relative aspect-video cursor-pointer"
+                    onClick={() => setSelectedMoment(moment)}
+                  >
+                    {moment.mediaUrl && (
+                      <>
+                        {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
+                          <video
+                            src={transformMediaUrl(moment.mediaUrl)}
+                            className="w-full h-full object-cover"
+                            muted
+                            playsInline
+                            preload="metadata"
+                            onMouseEnter={(e) => e.target.play()}
+                            onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+                          />
+                        ) : (
+                          <img
+                            src={transformMediaUrl(moment.mediaUrl)}
+                            alt={moment.songName}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <div className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center">
+                            <Play className="w-4 h-4 text-gray-800 ml-0.5" fill="currentColor" />
+                          </div>
+                        </div>
+                      </>
                     )}
-                    <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <div className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center">
-                        <svg className="w-4 h-4 text-gray-800" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M8 5v10l8-5-8-5z"/>
-                        </svg>
+                    {!moment.mediaUrl && (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-2xl">🎵</span>
                       </div>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {/* Info + Add to Queue */}
+                  <div className="p-2">
+                    <div className="text-xs text-gray-600 truncate mb-1">
+                      {moment.venueName}
+                    </div>
+                    <div className="text-xs text-gray-400 truncate mb-2">
+                      {moment.user?.displayName || 'Unknown'}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!inQueue) addToQueue(moment);
+                      }}
+                      disabled={inQueue}
+                      className={`w-full px-2 py-1 text-xs rounded flex items-center justify-center gap-1 transition-colors ${
+                        inQueue
+                          ? 'bg-green-100 text-green-700 cursor-default'
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                      }`}
+                    >
+                      {inQueue ? (
+                        <>
+                          <Check size={12} />
+                          In Queue
+                        </>
+                      ) : (
+                        <>
+                          <ListPlus size={12} />
+                          Add to Queue
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          {songMoments.length > 4 && (
+
+          {/* Load More button */}
+          {songMoments.length > momentDisplayCount && (
             <div className="text-center mt-3">
-              <span className="text-xs text-gray-500">+{songMoments.length - 4} more moments</span>
+              <button
+                onClick={() => setMomentDisplayCount(prev => prev + 8)}
+                className="px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+              >
+                Load More ({songMoments.length - momentDisplayCount} remaining)
+              </button>
             </div>
           )}
         </div>
