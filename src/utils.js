@@ -65,17 +65,29 @@ export const formatDate = (dateString) => {
 
 export const formatShortDate = (dateString) => {
   if (!dateString) return 'Unknown date';
-  
+
   try {
-    // Handle DD-MM-YYYY format
+    // Handle date formats with dashes
     if (dateString.includes('-')) {
       const parts = dateString.split('-');
       if (parts.length === 3) {
-        const day = parseInt(parts[0]);
-        const month = parseInt(parts[1]) - 1;
-        const year = parseInt(parts[2]);
+        let day, month, year;
+
+        // Detect format: YYYY-MM-DD (first part is 4 digits) vs DD-MM-YYYY
+        if (parts[0].length === 4) {
+          // YYYY-MM-DD format
+          year = parseInt(parts[0]);
+          month = parseInt(parts[1]) - 1;
+          day = parseInt(parts[2]);
+        } else {
+          // DD-MM-YYYY format (setlist.fm)
+          day = parseInt(parts[0]);
+          month = parseInt(parts[1]) - 1;
+          year = parseInt(parts[2]);
+        }
+
         const date = new Date(year, month, day);
-        
+
         // Always show year for concert archive clarity
         return date.toLocaleDateString('en-US', {
           month: 'short',
