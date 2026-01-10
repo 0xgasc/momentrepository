@@ -4864,6 +4864,90 @@ const scheduleDailyRefresh = () => {
   console.log(`⏰ Next cache refresh scheduled for ${tomorrow.toLocaleString()}`);
 };
 
+// =====================================================
+// DATABASE MIGRATION ENDPOINTS
+// =====================================================
+
+// Fix archive.org moments that don't have mediaSource set correctly
+app.post('/admin/migrate-archive-moments', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    console.log('🔧 Starting archive.org moments migration...');
+
+    // Fix moments where mediaUrl contains archive.org but mediaSource is not 'archive'
+    const urlResult = await Moment.updateMany(
+      {
+        mediaUrl: { $regex: /archive\.org/i },
+        mediaSource: { $ne: 'archive' }
+      },
+      {
+        $set: { mediaSource: 'archive' }
+      }
+    );
+
+    console.log(`📦 Fixed ${urlResult.modifiedCount} moments by mediaUrl`);
+
+    // Fix moments with externalVideoId that looks like archive.org ID
+    // Archive IDs are like "umo2013-03-18.skm140.flac24", not 11-char YouTube IDs
+    const idResult = await Moment.updateMany(
+      {
+        externalVideoId: { $regex: /^umo\d{4}/ },
+        mediaSource: { $ne: 'archive' }
+      },
+      {
+        $set: { mediaSource: 'archive' }
+      }
+    );
+
+    console.log(`📦 Fixed ${idResult.modifiedCount} moments by externalVideoId pattern`);
+
+    // Count total archive moments now
+    const totalArchive = await Moment.countDocuments({ mediaSource: 'archive' });
+
+    res.json({
+      success: true,
+      message: 'Archive moments migration complete',
+      fixed: {
+        byMediaUrl: urlResult.modifiedCount,
+        byExternalVideoId: idResult.modifiedCount,
+        total: urlResult.modifiedCount + idResult.modifiedCount
+      },
+      totalArchiveMoments: totalArchive
+    });
+
+  } catch (error) {
+    console.error('❌ Archive migration error:', error);
+    res.status(500).json({ error: 'Migration failed', details: error.message });
+  }
+});
+
+// Check archive.org moments status (diagnostic endpoint)
+app.get('/admin/archive-moments-status', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const withArchiveSource = await Moment.countDocuments({ mediaSource: 'archive' });
+    const withArchiveUrl = await Moment.countDocuments({ mediaUrl: { $regex: /archive\.org/i } });
+    const withArchiveIdPattern = await Moment.countDocuments({ externalVideoId: { $regex: /^umo\d{4}/ } });
+    const needsMigration = await Moment.countDocuments({
+      $or: [
+        { mediaUrl: { $regex: /archive\.org/i } },
+        { externalVideoId: { $regex: /^umo\d{4}/ } }
+      ],
+      mediaSource: { $ne: 'archive' }
+    });
+
+    res.json({
+      counts: {
+        withArchiveSource,
+        withArchiveUrl,
+        withArchiveIdPattern,
+        needsMigration
+      }
+    });
+  } catch (error) {
+    console.error('❌ Archive status check error:', error);
+    res.status(500).json({ error: 'Status check failed' });
+  }
+});
+
 // API proxy for cache rebuild
 app.use(
   '/api',
