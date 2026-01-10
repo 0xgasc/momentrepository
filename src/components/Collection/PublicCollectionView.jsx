@@ -8,6 +8,30 @@ import { transformMediaUrl } from '../../utils/mediaUrl';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import VideoHero from '../UI/VideoHero';
 
+// Helper functions for YouTube detection
+const isYouTubeMoment = (m) => {
+  // Exclude archive.org content
+  if (m.mediaSource === 'archive' || m.mediaUrl?.includes('archive.org') ||
+      m.externalVideoId?.match(/^umo\d{4}/i)) return false;
+
+  return m.mediaSource === 'youtube' ||
+    m.mediaUrl?.includes('youtube.com') ||
+    m.mediaUrl?.includes('youtu.be') ||
+    (m.externalVideoId && m.mediaSource !== 'archive');
+};
+
+const getYouTubeId = (moment) => {
+  // Check externalVideoId first (11 char YouTube ID)
+  if (moment.externalVideoId && moment.externalVideoId.match(/^[a-zA-Z0-9_-]{11}$/)) {
+    return moment.externalVideoId;
+  }
+  // Extract from URL
+  const url = moment.mediaUrl;
+  if (!url) return null;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+};
+
 const PublicCollectionView = memo(({ collectionId, onBack }) => {
   const [collection, setCollection] = useState(null);
   const [moments, setMoments] = useState([]);
@@ -167,7 +191,34 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
                 >
                   {moment.mediaUrl && (
                     <>
-                      {moment.mediaType === 'video' ? (
+                      {isYouTubeMoment(moment) ? (
+                        // YouTube iframe preview with autoplay
+                        (() => {
+                          const ytId = getYouTubeId(moment);
+                          return ytId ? (
+                            <>
+                              <iframe
+                                src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&start=${moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
+                                className="absolute inset-0 w-full h-full pointer-events-none"
+                                title={moment.songName}
+                                frameBorder="0"
+                                allow="autoplay; encrypted-media"
+                                loading="lazy"
+                              />
+                              {/* YouTube badge */}
+                              <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded z-10">
+                                YT
+                              </div>
+                            </>
+                          ) : (
+                            <img
+                              src={moment.thumbnailUrl || `https://img.youtube.com/vi/${moment.externalVideoId}/hqdefault.jpg`}
+                              alt={moment.songName}
+                              className="w-full h-full object-cover"
+                            />
+                          );
+                        })()
+                      ) : moment.mediaType === 'video' ? (
                         <video
                           src={transformMediaUrl(moment.thumbnailUrl || moment.mediaUrl)}
                           className="w-full h-full object-cover"
@@ -184,7 +235,7 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
                           className="w-full h-full object-cover"
                         />
                       )}
-                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
                         <div className="w-10 h-10 bg-white/90 rounded-full flex items-center justify-center">
                           <Play size={18} className="text-gray-800 ml-0.5" fill="currentColor" />
                         </div>

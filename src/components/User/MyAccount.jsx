@@ -218,6 +218,32 @@ const StatCard = memo(({ label, value, icon: Icon, color = 'blue' }) => {
 
 StatCard.displayName = 'StatCard';
 
+// Helper functions for YouTube detection
+const isYouTubeMoment = (m) => {
+  if (!m) return false;
+  // Exclude archive.org content
+  if (m.mediaSource === 'archive' || m.mediaUrl?.includes('archive.org') ||
+      m.externalVideoId?.match(/^umo\d{4}/i)) return false;
+
+  return m.mediaSource === 'youtube' ||
+    m.mediaUrl?.includes('youtube.com') ||
+    m.mediaUrl?.includes('youtu.be') ||
+    (m.externalVideoId && m.mediaSource !== 'archive');
+};
+
+const getYouTubeId = (moment) => {
+  if (!moment) return null;
+  // Check externalVideoId first (11 char YouTube ID)
+  if (moment.externalVideoId && moment.externalVideoId.match(/^[a-zA-Z0-9_-]{11}$/)) {
+    return moment.externalVideoId;
+  }
+  // Extract from URL
+  const url = moment.mediaUrl;
+  if (!url) return null;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : null;
+};
+
 // Favorites tab component
 const FavoritesTab = memo(() => {
   const { token } = useAuth();
@@ -538,8 +564,35 @@ const FavoritesTab = memo(() => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {filteredFavorites.map(fav => (
               <div key={fav._id} className="relative group bg-white rounded border overflow-hidden">
-                <div className="aspect-video bg-gray-800 flex items-center justify-center">
-                  {fav.moment?.mediaType === 'video' && fav.moment?.mediaUrl ? (
+                <div className="aspect-video bg-gray-800 flex items-center justify-center relative">
+                  {isYouTubeMoment(fav.moment) ? (
+                    // YouTube iframe preview with autoplay
+                    (() => {
+                      const ytId = getYouTubeId(fav.moment);
+                      return ytId ? (
+                        <>
+                          <iframe
+                            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&start=${fav.moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
+                            className="absolute inset-0 w-full h-full pointer-events-none"
+                            title={fav.moment.songName}
+                            frameBorder="0"
+                            allow="autoplay; encrypted-media"
+                            loading="lazy"
+                          />
+                          {/* YouTube badge */}
+                          <div className="absolute top-1 left-1 px-1 py-0.5 bg-red-600 text-white text-[9px] font-bold rounded z-10">
+                            YT
+                          </div>
+                        </>
+                      ) : (
+                        <img
+                          src={fav.moment.thumbnailUrl || `https://img.youtube.com/vi/${fav.moment.externalVideoId}/hqdefault.jpg`}
+                          alt={fav.moment.songName}
+                          className="w-full h-full object-cover"
+                        />
+                      );
+                    })()
+                  ) : fav.moment?.mediaType === 'video' && fav.moment?.mediaUrl ? (
                     <video
                       src={transformMediaUrl(fav.moment.mediaUrl)}
                       className="w-full h-full object-cover"
