@@ -572,7 +572,7 @@ const FavoritesTab = memo(() => {
                       return ytId ? (
                         <>
                           <iframe
-                            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&start=${fav.moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
+                            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&start=${Math.floor(fav.moment.startTime || 0)}&playsinline=1&modestbranding=1&rel=0`}
                             className="absolute inset-0 w-full h-full pointer-events-none"
                             title={fav.moment.songName}
                             frameBorder="0"
