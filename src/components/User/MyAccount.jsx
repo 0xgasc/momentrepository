@@ -263,6 +263,7 @@ const FavoritesTab = memo(() => {
   const [newCollectionName, setNewCollectionName] = useState('');
   const [selectedCollection, setSelectedCollection] = useState(null);
   const [loadingCollection, setLoadingCollection] = useState(null);
+  const [loadingAllFavorites, setLoadingAllFavorites] = useState(false);
   const [copiedCollectionId, setCopiedCollectionId] = useState(null);
   const [collectionMoments, setCollectionMoments] = useState([]);
   const [loadingCollectionMoments, setLoadingCollectionMoments] = useState(false);
@@ -367,16 +368,21 @@ const FavoritesTab = memo(() => {
 
   // Play all favorites (no collection filter)
   const handlePlayAllFavorites = async () => {
-    const moments = favorites
-      .map(f => f.moment)
-      .filter(m => m && m._id);
+    setLoadingAllFavorites(true);
+    try {
+      const moments = favorites
+        .map(f => f.moment)
+        .filter(m => m && m._id);
 
-    if (moments.length > 0) {
-      clearQueue();
-      addManyToQueue(moments);
-      playQueue(0);
-    } else {
-      alert('No playable moments in favorites');
+      if (moments.length > 0) {
+        clearQueue();
+        addManyToQueue(moments);
+        playQueue(0);
+      } else {
+        alert('No playable moments in favorites');
+      }
+    } finally {
+      setLoadingAllFavorites(false);
     }
   };
 
@@ -513,11 +519,11 @@ const FavoritesTab = memo(() => {
               {/* Play All button */}
               <button
                 onClick={() => selectedCollection ? handlePlayCollection(selectedCollection) : handlePlayAllFavorites()}
-                disabled={loadingCollection === selectedCollection}
+                disabled={selectedCollection ? loadingCollection === selectedCollection : loadingAllFavorites}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-black text-sm font-medium rounded-sm transition-colors disabled:opacity-50"
                 title={selectedCollection ? 'Play collection' : 'Play all favorites'}
               >
-                {loadingCollection === selectedCollection ? (
+                {(selectedCollection ? loadingCollection === selectedCollection : loadingAllFavorites) ? (
                   <Loader2 size={14} className="animate-spin" />
                 ) : (
                   <Play size={14} />
@@ -605,11 +611,15 @@ const FavoritesTab = memo(() => {
                       className="w-full h-full object-cover"
                       muted
                       playsInline
-                      preload="metadata"
-                      onLoadedMetadata={(e) => {
+                      preload="auto"
+                      onLoadedData={(e) => {
                         if (fav.moment.startTime) e.target.currentTime = fav.moment.startTime;
                       }}
-                      onMouseEnter={(e) => e.target.play()}
+                      onMouseEnter={(e) => {
+                        // Set time before playing to ensure correct start position
+                        if (fav.moment.startTime) e.target.currentTime = fav.moment.startTime;
+                        e.target.play().catch(() => {});
+                      }}
                       onMouseLeave={(e) => {
                         e.target.pause();
                         e.target.currentTime = fav.moment.startTime || 0;

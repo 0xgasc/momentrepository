@@ -4499,6 +4499,14 @@ app.put('/archive/moments/:momentId/thumbnail', authenticateToken, requireMod, a
     if (pushToChildren && parentMoment.externalVideoId) {
       // Query children using same externalVideoId
       // No additional archive detection needed - same externalVideoId IS the archive identifier
+      console.log(`🖼️ Looking for children with externalVideoId: "${parentMoment.externalVideoId}"`);
+
+      // First, count potential matches for debugging
+      const potentialMatches = await Moment.countDocuments({
+        externalVideoId: parentMoment.externalVideoId
+      });
+      console.log(`🖼️ Total moments with this externalVideoId: ${potentialMatches}`);
+
       const result = await Moment.updateMany(
         {
           externalVideoId: parentMoment.externalVideoId,
@@ -4507,7 +4515,9 @@ app.put('/archive/moments/:momentId/thumbnail', authenticateToken, requireMod, a
         { $set: { thumbnailUrl: thumbnailUrl } }
       );
       childrenUpdated = result.modifiedCount;
-      console.log(`🖼️ Cascade query found ${result.matchedCount} children, updated ${childrenUpdated}`);
+      console.log(`🖼️ Cascade query matched ${result.matchedCount}, updated ${childrenUpdated} children`);
+    } else if (pushToChildren) {
+      console.log(`🖼️ Parent moment has no externalVideoId, cannot cascade`);
     }
 
     console.log(`🖼️ Updated thumbnail for archive moment ${momentId}${pushToChildren ? ` (+ ${childrenUpdated} children)` : ''}`);

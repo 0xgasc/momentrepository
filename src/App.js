@@ -333,7 +333,7 @@ const Header = memo(({
                 onClick={() => toggleFilter('type', 'audio')}
                 className={`px-2 py-1 text-xs font-medium rounded transition-all ${
                   mediaFilters.audio
-                    ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                    ? 'bg-blue-600 text-white border border-blue-600'
                     : 'bg-gray-100 text-gray-400 border border-gray-200'
                 }`}
               >
@@ -343,7 +343,7 @@ const Header = memo(({
                 onClick={() => toggleFilter('type', 'video')}
                 className={`px-2 py-1 text-xs font-medium rounded transition-all ${
                   mediaFilters.video
-                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                    ? 'bg-blue-600 text-white border border-blue-600'
                     : 'bg-gray-100 text-gray-400 border border-gray-200'
                 }`}
               >
@@ -356,7 +356,7 @@ const Header = memo(({
                 onClick={() => toggleFilter('source', 'linked')}
                 className={`px-2 py-1 text-xs font-medium rounded transition-all ${
                   mediaFilters.linked
-                    ? 'bg-red-100 text-red-700 border border-red-300'
+                    ? 'bg-blue-600 text-white border border-blue-600'
                     : 'bg-gray-100 text-gray-400 border border-gray-200'
                 }`}
               >
@@ -366,7 +366,7 @@ const Header = memo(({
                 onClick={() => toggleFilter('source', 'uploads')}
                 className={`px-2 py-1 text-xs font-medium rounded transition-all ${
                   mediaFilters.uploads
-                    ? 'bg-green-100 text-green-700 border border-green-300'
+                    ? 'bg-blue-600 text-white border border-blue-600'
                     : 'bg-gray-100 text-gray-400 border border-gray-200'
                 }`}
               >
@@ -574,7 +574,7 @@ const Header = memo(({
                     onClick={() => toggleFilter('type', 'audio')}
                     className={`px-2 py-1 text-xs font-medium rounded transition-all ${
                       mediaFilters.audio
-                        ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                        ? 'bg-blue-600 text-white border border-blue-600'
                         : 'bg-gray-100 text-gray-400 border border-gray-200'
                     }`}
                   >
@@ -584,7 +584,7 @@ const Header = memo(({
                     onClick={() => toggleFilter('type', 'video')}
                     className={`px-2 py-1 text-xs font-medium rounded transition-all ${
                       mediaFilters.video
-                        ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                        ? 'bg-blue-600 text-white border border-blue-600'
                         : 'bg-gray-100 text-gray-400 border border-gray-200'
                     }`}
                   >
@@ -597,7 +597,7 @@ const Header = memo(({
                     onClick={() => toggleFilter('source', 'linked')}
                     className={`px-2 py-1 text-xs font-medium rounded transition-all ${
                       mediaFilters.linked
-                        ? 'bg-red-100 text-red-700 border border-red-300'
+                        ? 'bg-blue-600 text-white border border-blue-600'
                         : 'bg-gray-100 text-gray-400 border border-gray-200'
                     }`}
                   >
@@ -607,7 +607,7 @@ const Header = memo(({
                     onClick={() => toggleFilter('source', 'uploads')}
                     className={`px-2 py-1 text-xs font-medium rounded transition-all ${
                       mediaFilters.uploads
-                        ? 'bg-green-100 text-green-700 border border-green-300'
+                        ? 'bg-blue-600 text-white border border-blue-600'
                         : 'bg-gray-100 text-gray-400 border border-gray-200'
                     }`}
                   >
