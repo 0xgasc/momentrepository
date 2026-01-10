@@ -99,6 +99,14 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
         Back to Archive
       </button>
 
+      {/* Video Hero Player - plays collection moments */}
+      {moments.length > 0 && (
+        <VideoHero
+          customMoments={moments}
+          onMomentClick={(m) => setSelectedMoment(m)}
+        />
+      )}
+
       {/* Collection Header */}
       <div className="bg-white/80 backdrop-blur-sm rounded-sm border border-gray-200/50 p-6 mb-6 shadow-sm">
         <div className="flex items-start justify-between mb-4">
@@ -136,14 +144,6 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
           </div>
         </div>
       </div>
-
-      {/* Video Hero Player - plays collection moments */}
-      {moments.length > 0 && (
-        <VideoHero
-          customMoments={moments}
-          onMomentClick={(m) => setSelectedMoment(m)}
-        />
-      )}
 
       {/* Moments Grid */}
       {moments.length === 0 ? (
