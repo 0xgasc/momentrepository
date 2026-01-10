@@ -1211,7 +1211,9 @@ const UMOTube = ({ user }) => {
                   >
                     {/* Thumbnail */}
                     <img
-                      src={`https://img.youtube.com/vi/${moment.externalVideoId}/default.jpg`}
+                      src={moment.thumbnailUrl || (moment.mediaSource === 'archive'
+                        ? `https://archive.org/services/img/${moment.externalVideoId}`
+                        : `https://img.youtube.com/vi/${moment.externalVideoId}/default.jpg`)}
                       alt={moment.songName}
                       className="w-20 h-14 object-cover rounded"
                     />

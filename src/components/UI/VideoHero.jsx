@@ -160,15 +160,19 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
 
   // Detect content type from moment data
   const detectContentType = useCallback((m) => {
-    if (!m || !m.mediaUrl) return { isYouTube: false, isAudio: false };
+    if (!m || !m.mediaUrl) return { isYouTube: false, isAudio: false, isArchive: false };
 
-    // Check for YouTube
+    // Check for archive.org first
+    const isArchive = m.mediaSource === 'archive' || m.mediaUrl?.includes('archive.org');
+    if (isArchive) return { isYouTube: false, isAudio: true, isArchive: true };
+
+    // Check for YouTube (exclude archive.org)
     const isYT = m.mediaSource === 'youtube' ||
       m.mediaUrl?.includes('youtube.com') ||
       m.mediaUrl?.includes('youtu.be') ||
-      m.externalVideoId;
+      (m.externalVideoId && m.mediaSource !== 'archive');
 
-    if (isYT) return { isYouTube: true, isAudio: false };
+    if (isYT) return { isYouTube: true, isAudio: false, isArchive: false };
 
     // Check file extension and content type
     const url = (m.mediaUrl || '').toLowerCase();
@@ -206,8 +210,8 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
   const filterMoments = useCallback((moments, filter) => {
     if (filter === 'all') return moments;
     if (filter === 'clips') return moments.filter(m => m.mediaSource === 'upload' && !m._isAudio);
-    if (filter === 'audio') return moments.filter(m => m._isAudio);
-    if (filter === 'linked') return moments.filter(m => m._isYouTube || m.mediaSource === 'vimeo');
+    if (filter === 'audio') return moments.filter(m => m._isAudio || m._isArchive);
+    if (filter === 'linked') return moments.filter(m => m._isYouTube || m._isArchive || m.mediaSource === 'vimeo');
     return moments;
   }, []);
 
@@ -241,14 +245,15 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
 
         // Add type flags to each moment
         const withTypes = playable.map(m => {
-          const { isYouTube: isYT, isAudio: isAud } = detectContentType(m);
-          return { ...m, _isYouTube: isYT, _isAudio: isAud };
+          const { isYouTube: isYT, isAudio: isAud, isArchive } = detectContentType(m);
+          return { ...m, _isYouTube: isYT, _isAudio: isAud, _isArchive: isArchive };
         });
 
         console.log('VideoHero: Playable moments:', withTypes.length);
-        console.log('VideoHero: Videos:', withTypes.filter(m => !m._isYouTube && !m._isAudio).length);
+        console.log('VideoHero: Videos:', withTypes.filter(m => !m._isYouTube && !m._isAudio && !m._isArchive).length);
         console.log('VideoHero: YouTube:', withTypes.filter(m => m._isYouTube).length);
         console.log('VideoHero: Audio:', withTypes.filter(m => m._isAudio).length);
+        console.log('VideoHero: Archive:', withTypes.filter(m => m._isArchive).length);
 
         setAllMoments(withTypes);
 
@@ -321,8 +326,8 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
   // Sync with queue playback
   useEffect(() => {
     if (isPlayingFromQueue && queueMoment) {
-      const { isYouTube: isYT, isAudio: isAud } = detectContentType(queueMoment);
-      setMoment({ ...queueMoment, _isYouTube: isYT, _isAudio: isAud });
+      const { isYouTube: isYT, isAudio: isAud, isArchive } = detectContentType(queueMoment);
+      setMoment({ ...queueMoment, _isYouTube: isYT, _isAudio: isAud, _isArchive: isArchive });
       setIsYouTube(isYT);
       setIsAudio(isAud);
       setIsPlaying(true);
