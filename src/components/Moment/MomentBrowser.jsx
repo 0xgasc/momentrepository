@@ -479,44 +479,41 @@ const MomentHeader = memo(({
     {/* Search and Sort Controls */}
     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
       {/* Left side - Results count */}
-      <div className="text-sm text-gray-600 flex items-center gap-1">
+      <div className="text-sm text-gray-600">
         {searchQuery.trim() ? (
           <>Showing {showingCount} of {filteredCount} matches ({totalMoments} total)</>
         ) : (
-          <>
-            Uploads from UMO fans around the world
-            <button
-              onClick={onShowHelp}
-              className="text-gray-400 hover:text-blue-600 transition-colors p-0.5"
-              title="How to upload moments"
-            >
-              <HelpCircle size={14} />
-            </button>
-          </>
+          <>{totalMoments} moments</>
         )}
       </div>
 
       {/* Center - Search Bar */}
-      <div className="relative w-full max-w-md">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={onSearchChange}
-          placeholder="Search songs, venues, cities, or uploaders..."
-          className="w-full px-4 py-2 text-sm border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-        />
-        <div className="absolute right-3 top-2 flex items-center gap-1">
+      <div className="relative w-full max-w-md flex items-center gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={onSearchChange}
+            placeholder="Search songs, venues, cities, or uploaders..."
+            className="w-full px-4 py-2 text-sm border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+          />
           {searchQuery && (
             <button
               onClick={onClearSearch}
-              className="text-gray-400 hover:text-gray-600"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               title="Clear search"
-              style={{ minWidth: '32px', minHeight: '32px', padding: '6px', fontSize: '18px' }}
             >
               ×
             </button>
           )}
         </div>
+        <button
+          onClick={onShowHelp}
+          className="text-gray-400 hover:text-blue-600 transition-colors p-1.5 flex-shrink-0"
+          title="How to upload moments"
+        >
+          <HelpCircle size={18} />
+        </button>
       </div>
 
       {/* Right side - Sort Controls */}
