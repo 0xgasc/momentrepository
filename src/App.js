@@ -100,22 +100,15 @@ const MainApp = memo(() => {
   // Notifications hook
   const { getBadgeInfo, refreshNotifications } = useNotifications(API_BASE_URL);
   
-  // Temporary debugging 
-  console.log('🔍 App.js - Auth state:', { user, loading, hasUser: !!user });
-  console.log('🔍 User email:', user?.email);
-  console.log('🔍 User role:', user?.role);
-  console.log('🔍 Admin button should show:', (user?.role === 'admin' || user?.role === 'mod' || user?.email === 'solo@solo.solo'));
 
 
   // Navigation handlers
   const handleSongBrowseSelect = (songData) => {
-    console.log('Selected song data:', songData);
     setSelectedSong(songData);
     setCurrentView('song');
   };
 
   const handlePerformanceSelect = (performance) => {
-    console.log('Selected performance:', performance);
     setSelectedPerformance(performance);
     setCurrentView('performance');
   };
@@ -414,7 +407,7 @@ const Header = memo(({
                     Browse Songs
                   </button>
 
-                  {user && (user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') && (
+                  {user && (user.role === 'admin' || user.role === 'mod') && (
                     <button
                       onClick={() => { onBrowseModeChange('umotube'); closeMobileMenu(); }}
                       className={`umo-btn w-full text-left ${
@@ -455,13 +448,13 @@ const Header = memo(({
                         )}
                       </button>
                       
-{(user.role === 'admin' || user.role === 'mod' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') && (
+{(user.role === 'admin' || user.role === 'mod') && (
                         <button
                           onClick={() => { onAdminPanelClick(); closeMobileMenu(); }}
                           className="umo-btn umo-btn--primary w-full text-left relative"
                           style={{ minHeight: '44px' }}
                         >
-                          {(user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') ? 'Admin Panel' : 'Moderation Panel'}
+                          {user.role === 'admin' ? 'Admin Panel' : 'Moderation Panel'}
                           {badgeInfo.show && badgeInfo.isModOrAdmin && (
                             <div 
                               className={`absolute top-2 right-2 w-3 h-3 ${badgeInfo.color === 'red' ? 'bg-red-500' : 'bg-red-500'} rounded-full border border-white`}
@@ -595,13 +588,13 @@ const Header = memo(({
                       />
                     )}
                   </button>
-{(user.role === 'admin' || user.role === 'mod' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') && (
+{(user.role === 'admin' || user.role === 'mod') && (
                     <button
                       onClick={onAdminPanelClick}
                       className="umo-btn umo-btn--primary text-xs whitespace-nowrap relative"
                       style={{ minHeight: '32px' }}
                     >
-                      {(user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') ? 'Admin' : 'Mod'}
+                      {user.role === 'admin' ? 'Admin' : 'Mod'}
                       {badgeInfo.show && badgeInfo.isModOrAdmin && (
                         <div 
                           className={`absolute -top-1 -right-1 w-3 h-3 ${badgeInfo.color === 'red' ? 'bg-red-500' : 'bg-red-500'} rounded-full border border-white`}
@@ -718,7 +711,7 @@ const MainContent = memo(({
           >
             Songs
           </button>
-          {user && (user.role === 'admin' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo') && (
+          {user && (user.role === 'admin' || user.role === 'mod') && (
             <button
               onClick={() => onBrowseModeChange('umotube')}
               className={`umo-btn flex-1 ${

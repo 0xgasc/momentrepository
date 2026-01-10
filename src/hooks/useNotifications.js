@@ -65,15 +65,8 @@ export const useNotifications = (API_BASE_URL) => {
 
   // Get badge info based on user type
   const getBadgeInfo = useCallback(() => {
-    const isModOrAdmin = user?.role === 'admin' || user?.role === 'mod' || user?.email === 'solo@solo.solo' || user?.email === 'solo2@solo.solo';
-    
-    console.log('🔔 Badge calculation:', { 
-      user: user?.email, 
-      role: user?.role,
-      isModOrAdmin, 
-      notifications 
-    });
-    
+    const isModOrAdmin = user?.role === 'admin' || user?.role === 'mod';
+
     if (isModOrAdmin) {
       // Admin/Mod: red dot for pending review
       if (notifications.pendingReview > 0) {

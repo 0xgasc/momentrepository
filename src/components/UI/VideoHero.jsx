@@ -160,17 +160,23 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
 
   // Detect content type from moment data
   const detectContentType = useCallback((m) => {
-    if (!m || !m.mediaUrl) return { isYouTube: false, isAudio: false, isArchive: false };
+    if (!m) return { isYouTube: false, isAudio: false, isArchive: false };
 
     // Check for archive.org first
-    const isArchive = m.mediaSource === 'archive' || m.mediaUrl?.includes('archive.org');
+    // Archive identifiers start with "umo" followed by date (e.g., umo2013-03-18.skm140.flac24)
+    const isArchive = m.mediaSource === 'archive' ||
+      m.mediaUrl?.includes('archive.org') ||
+      m.externalVideoId?.match(/^umo\d{4}/);
     if (isArchive) return { isYouTube: false, isAudio: true, isArchive: true };
 
-    // Check for YouTube (exclude archive.org)
+    // Need mediaUrl for other checks
+    if (!m.mediaUrl) return { isYouTube: false, isAudio: false, isArchive: false };
+
+    // Check for YouTube (exclude archive.org - already checked above)
     const isYT = m.mediaSource === 'youtube' ||
       m.mediaUrl?.includes('youtube.com') ||
       m.mediaUrl?.includes('youtu.be') ||
-      (m.externalVideoId && m.mediaSource !== 'archive');
+      m.externalVideoId;
 
     if (isYT) return { isYouTube: true, isAudio: false, isArchive: false };
 

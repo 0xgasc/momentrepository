@@ -372,10 +372,13 @@ const UMOTube = ({ user }) => {
     setShowCoverArtModal(true);
   };
 
+  // Helper to detect archive.org content
+  const isArchiveVideo = (v) => v.mediaSource === 'archive' || v.externalVideoId?.match(/^umo\d{4}/);
+
   // Get filtered videos based on media source tab
   const filteredVideos = videos.filter(v => {
-    if (mediaSourceTab === 'youtube') return v.mediaSource === 'youtube' || !v.mediaSource;
-    if (mediaSourceTab === 'archive') return v.mediaSource === 'archive';
+    if (mediaSourceTab === 'youtube') return v.mediaSource === 'youtube' || (!v.mediaSource && !isArchiveVideo(v));
+    if (mediaSourceTab === 'archive') return isArchiveVideo(v);
     return true;
   });
 
@@ -1211,7 +1214,7 @@ const UMOTube = ({ user }) => {
                   >
                     {/* Thumbnail */}
                     <img
-                      src={moment.thumbnailUrl || (moment.mediaSource === 'archive'
+                      src={moment.thumbnailUrl || (isArchiveVideo(moment)
                         ? `https://archive.org/services/img/${moment.externalVideoId}`
                         : `https://img.youtube.com/vi/${moment.externalVideoId}/default.jpg`)}
                       alt={moment.songName}
@@ -1297,13 +1300,13 @@ const UMOTube = ({ user }) => {
                       onClick={() => setSelectedVideo(video)}
                     >
                       <img
-                        src={video.thumbnailUrl || (video.mediaSource === 'archive'
+                        src={video.thumbnailUrl || (isArchiveVideo(video)
                           ? `https://archive.org/services/img/${video.externalVideoId}`
                           : getYouTubeThumbnail(video.externalVideoId))}
                         alt={video.songName}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          e.target.src = video.mediaSource === 'archive'
+                          e.target.src = isArchiveVideo(video)
                             ? 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23374151" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="%239ca3af" font-size="12">Archive.org</text></svg>'
                             : 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23374151" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="%239ca3af" font-size="12">YouTube</text></svg>';
                         }}
@@ -1315,9 +1318,9 @@ const UMOTube = ({ user }) => {
                       </div>
                       <div className="absolute top-2 right-2">
                         <span className={`text-white text-xs px-2 py-1 rounded font-medium ${
-                          video.mediaSource === 'archive' ? 'bg-orange-500' : 'bg-red-600'
+                          isArchiveVideo(video) ? 'bg-orange-500' : 'bg-red-600'
                         }`}>
-                          {video.mediaSource === 'archive' ? 'Archive.org' : 'YouTube'}
+                          {isArchiveVideo(video) ? 'Archive.org' : 'YouTube'}
                         </span>
                       </div>
                     </div>
@@ -1378,7 +1381,7 @@ const UMOTube = ({ user }) => {
                             <ListMusic size={12} />
                             Setlist
                           </button>
-                          {video.mediaSource === 'archive' && (
+                          {isArchiveVideo(video) && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

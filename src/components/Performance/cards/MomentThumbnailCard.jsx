@@ -66,8 +66,11 @@ const getMediaIcon = (mediaType) => {
 };
 
 // Check if this is an archive.org moment
+// Archive identifiers start with "umo" followed by date (e.g., umo2013-03-18.skm140.flac24)
 const isArchiveMoment = (moment) => {
-  return moment.mediaSource === 'archive' || moment.mediaUrl?.includes('archive.org');
+  return moment.mediaSource === 'archive' ||
+         moment.mediaUrl?.includes('archive.org') ||
+         moment.externalVideoId?.match(/^umo\d{4}/);
 };
 
 // Check if this is a YouTube moment

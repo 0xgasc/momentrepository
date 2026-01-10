@@ -70,8 +70,11 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilter = '
   }, []);
 
   // Helper to detect if moment is archive.org
+  // Archive identifiers start with "umo" followed by date (e.g., umo2013-03-18.skm140.flac24)
   const isArchiveMoment = useCallback((m) => {
-    return m.mediaSource === 'archive' || m.mediaUrl?.includes('archive.org');
+    return m.mediaSource === 'archive' ||
+           m.mediaUrl?.includes('archive.org') ||
+           m.externalVideoId?.match(/^umo\d{4}/);
   }, []);
 
   // Helper to detect if moment is YouTube/linked
