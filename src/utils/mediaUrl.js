@@ -3,7 +3,8 @@
 
 /**
  * Transform Irys URLs to working gateway
- * irys.xyz is having DNS issues - use official mirror irysnetwork.com
+ * Normalize between irys.xyz and irysnetwork.com (both are legitimate)
+ * irys.xyz is primary, irysnetwork.com is the mirror
  *
  * @param {string} url - The original media URL
  * @returns {string} - Transformed URL with working gateway
@@ -11,13 +12,10 @@
 export const transformMediaUrl = (url) => {
   if (!url) return url;
 
-  // Transform irys.xyz domains to irysnetwork.com (official mirror)
-  if (url.includes('devnet.irys.xyz')) {
-    return url.replace('devnet.irys.xyz', 'devnet.irysnetwork.com');
-  }
-
-  if (url.includes('gateway.irys.xyz')) {
-    return url.replace('gateway.irys.xyz', 'gateway.irysnetwork.com');
+  // Normalize irysnetwork.com to irys.xyz (primary domain is back online)
+  // Both are identical, but irys.xyz is the primary
+  if (url.includes('irysnetwork.com')) {
+    return url.replace('irysnetwork.com', 'irys.xyz');
   }
 
   return url;
