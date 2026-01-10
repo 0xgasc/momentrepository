@@ -36,14 +36,11 @@ export const useNotifications = (API_BASE_URL) => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('🔔 Notifications data:', data);
         setNotifications(data);
       } else {
-        console.error('Failed to fetch notifications:', response.status);
         setError('Failed to load notifications');
       }
     } catch (err) {
-      console.error('Error fetching notifications:', err);
       setError('Error loading notifications');
     } finally {
       setLoading(false);
@@ -76,7 +73,6 @@ export const useNotifications = (API_BASE_URL) => {
     } else {
       // Regular user: blue for pending approval, red for needs revision
       if (notifications.needsRevision > 0) {
-        console.log('🔔 User badge: RED (needs revision)');
         return { color: 'red', show: true, isModOrAdmin };
       }
       if (notifications.pendingApproval > 0) {

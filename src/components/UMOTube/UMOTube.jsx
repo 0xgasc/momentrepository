@@ -28,8 +28,8 @@ const formatSecondsToTime = (seconds) => {
 };
 
 const UMOTube = ({ user }) => {
-  // Admin-only access
-  const isAdmin = user && (user.role === 'admin' || user.role === 'mod' || user.email === 'solo@solo.solo' || user.email === 'solo2@solo.solo');
+  // Admin/Mod access only
+  const isAdmin = user && (user.role === 'admin' || user.role === 'mod');
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [loading, setLoading] = useState(false);

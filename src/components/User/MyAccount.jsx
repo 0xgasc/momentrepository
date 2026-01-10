@@ -341,10 +341,10 @@ const FavoritesTab = memo(() => {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setSelectedCollection(null)}
-                className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                className={`px-3 py-1.5 rounded-sm text-sm font-medium transition-colors border ${
                   !selectedCollection
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    ? 'bg-yellow-500 text-black border-yellow-500'
+                    : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
                 }`}
               >
                 All ({favorites.length})
@@ -352,7 +352,7 @@ const FavoritesTab = memo(() => {
               {favorites.length > 0 && (
                 <button
                   onClick={handlePlayAllFavorites}
-                  className="p-1.5 bg-yellow-500 hover:bg-yellow-400 text-black rounded-full transition-colors"
+                  className="p-1.5 bg-yellow-500 hover:bg-yellow-400 text-black rounded-sm transition-colors"
                   title="Play all favorites"
                 >
                   <Play size={12} />
@@ -365,14 +365,21 @@ const FavoritesTab = memo(() => {
               <div key={col._id} className="relative group flex items-center gap-1">
                 <button
                   onClick={() => setSelectedCollection(col._id)}
-                  className={`px-3 py-1.5 rounded-full text-sm transition-colors flex items-center gap-1 ${
+                  className={`px-3 py-1.5 rounded-sm text-sm font-medium transition-colors border flex items-center gap-1.5 ${
                     selectedCollection === col._id
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      ? 'bg-yellow-500 text-black border-yellow-500'
+                      : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
                   }`}
                 >
-                  {col.isPublic && <Globe size={12} className="opacity-70" />}
-                  {col.name} ({col.momentCount})
+                  {col.isPublic ? (
+                    <Globe size={12} className={selectedCollection === col._id ? 'text-black/60' : 'text-gray-500'} />
+                  ) : (
+                    <Lock size={12} className={selectedCollection === col._id ? 'text-black/60' : 'text-gray-500'} />
+                  )}
+                  {col.name}
+                  <span className={`text-xs ${selectedCollection === col._id ? 'text-black/70' : 'text-gray-500'}`}>
+                    {col.momentCount}
+                  </span>
                 </button>
 
                 {/* Play All button for collection */}
@@ -380,7 +387,7 @@ const FavoritesTab = memo(() => {
                   <button
                     onClick={() => handlePlayCollection(col._id)}
                     disabled={loadingCollection === col._id}
-                    className="p-1.5 bg-yellow-500 hover:bg-yellow-400 text-black rounded-full transition-colors disabled:opacity-50"
+                    className="p-1.5 bg-yellow-500 hover:bg-yellow-400 text-black rounded-sm transition-colors disabled:opacity-50"
                     title={`Play all ${col.momentCount} moments`}
                   >
                     {loadingCollection === col._id ? (
@@ -394,7 +401,7 @@ const FavoritesTab = memo(() => {
                 {/* Delete button */}
                 <button
                   onClick={() => handleDeleteCollection(col._id)}
-                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-sm p-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10"
                 >
                   <Trash2 size={10} />
                 </button>

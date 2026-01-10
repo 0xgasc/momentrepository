@@ -7,6 +7,11 @@ const UpcomingShow = require('../models/UpcomingShow');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
+// Helper: Check if user has admin access
+const isAdmin = (req) => {
+  return req.user && (req.user.role === 'admin' || req.user.role === 'mod');
+};
+
 // Get all upcoming shows (public)
 router.get('/', async (req, res) => {
   try {
@@ -61,7 +66,7 @@ router.post('/',
   ],
   async (req, res) => {
     try {
-      if (!req.user || (req.user.role !== 'admin' && !['solo@solo.solo', 'solo2@solo.solo'].includes(req.user.email))) {
+      if (!isAdmin(req)) {
         return res.status(403).json({ error: 'Admin access required' });
       }
 
