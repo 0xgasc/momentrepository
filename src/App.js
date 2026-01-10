@@ -78,8 +78,17 @@ const MainApp = memo(() => {
 
   const { user, logout, loading } = useAuth();
 
-  // Check URL for collection parameter on mount
+  // Check URL for collection parameter on mount (supports both /collection/:id and ?collection=id)
   useEffect(() => {
+    // Check for /collection/:id path format
+    const pathMatch = window.location.pathname.match(/^\/collection\/([a-f0-9]+)$/i);
+    if (pathMatch) {
+      setPublicCollectionId(pathMatch[1]);
+      setCurrentView('collection');
+      return;
+    }
+
+    // Fallback to query parameter format
     const params = new URLSearchParams(window.location.search);
     const collectionId = params.get('collection');
     if (collectionId) {
