@@ -6,6 +6,7 @@ import { useUserStats } from '../../hooks/useUserStats';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { transformMediaUrl } from '../../utils/mediaUrl';
+import MomentDetailModal from '../Moment/MomentDetailModal';
 
 const MyAccount = memo(({ onClose }) => {
   // eslint-disable-next-line no-unused-vars
@@ -265,6 +266,7 @@ const FavoritesTab = memo(() => {
   const [copiedCollectionId, setCopiedCollectionId] = useState(null);
   const [collectionMoments, setCollectionMoments] = useState([]);
   const [loadingCollectionMoments, setLoadingCollectionMoments] = useState(false);
+  const [selectedMoment, setSelectedMoment] = useState(null);
 
   // Fetch moments for a specific collection
   const fetchCollectionMoments = useCallback(async (collectionId) => {
@@ -564,26 +566,31 @@ const FavoritesTab = memo(() => {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {filteredFavorites.map(fav => (
               <div key={fav._id} className="relative group bg-white rounded border overflow-hidden">
-                <div className="aspect-video bg-gray-800 flex items-center justify-center relative">
+                <div
+                  className="aspect-video bg-gray-800 flex items-center justify-center relative cursor-pointer"
+                  onClick={() => fav.moment && setSelectedMoment(fav.moment)}
+                >
                   {isYouTubeMoment(fav.moment) ? (
                     // YouTube iframe preview with autoplay
                     (() => {
                       const ytId = getYouTubeId(fav.moment);
                       return ytId ? (
-                        <>
+                        <div className="absolute inset-0">
                           <iframe
                             src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&start=${Math.floor(fav.moment.startTime || 0)}&playsinline=1&modestbranding=1&rel=0`}
-                            className="absolute inset-0 w-full h-full pointer-events-none"
+                            className="absolute inset-0 w-full h-full"
                             title={fav.moment.songName}
                             frameBorder="0"
                             allow="autoplay; encrypted-media"
                             loading="lazy"
                           />
+                          {/* Transparent click overlay */}
+                          <div className="absolute inset-0 z-10 cursor-pointer" />
                           {/* YouTube badge */}
-                          <div className="absolute top-1 left-1 px-1 py-0.5 bg-red-600 text-white text-[9px] font-bold rounded z-10">
+                          <div className="absolute top-1 left-1 px-1 py-0.5 bg-red-600 text-white text-[9px] font-bold rounded z-20">
                             YT
                           </div>
-                        </>
+                        </div>
                       ) : (
                         <img
                           src={fav.moment.thumbnailUrl || `https://img.youtube.com/vi/${fav.moment.externalVideoId}/hqdefault.jpg`}
@@ -628,6 +635,14 @@ const FavoritesTab = memo(() => {
           </div>
         )}
       </div>
+
+      {/* Moment Detail Modal */}
+      {selectedMoment && (
+        <MomentDetailModal
+          moment={selectedMoment}
+          onClose={() => setSelectedMoment(null)}
+        />
+      )}
     </div>
   );
 });

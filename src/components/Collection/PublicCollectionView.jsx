@@ -196,20 +196,22 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
                         (() => {
                           const ytId = getYouTubeId(moment);
                           return ytId ? (
-                            <>
+                            <div className="absolute inset-0">
                               <iframe
                                 src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&start=${Math.floor(moment.startTime || 0)}&playsinline=1&modestbranding=1&rel=0`}
-                                className="absolute inset-0 w-full h-full pointer-events-none"
+                                className="absolute inset-0 w-full h-full"
                                 title={moment.songName}
                                 frameBorder="0"
                                 allow="autoplay; encrypted-media"
                                 loading="lazy"
                               />
+                              {/* Transparent click overlay */}
+                              <div className="absolute inset-0 z-10 cursor-pointer" />
                               {/* YouTube badge */}
-                              <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded z-10">
+                              <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded z-20">
                                 YT
                               </div>
-                            </>
+                            </div>
                           ) : (
                             <img
                               src={moment.thumbnailUrl || `https://img.youtube.com/vi/${moment.externalVideoId}/hqdefault.jpg`}
