@@ -827,7 +827,7 @@ router.get('/favorites', async (req, res) => {
       .sort({ addedAt: -1 })
       .populate({
         path: 'moment',
-        select: 'songName venueName venueCity performanceDate mediaUrl mediaType thumbnailUrl rarityTier'
+        select: 'songName venueName venueCity performanceDate mediaUrl mediaType thumbnailUrl rarityTier duration externalVideoId startTime endTime'
       })
       .lean();
 
