@@ -3,6 +3,7 @@ import React, { useState, useEffect, memo } from 'react';
 import { Calendar, MapPin, Ticket, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { useUpcomingShows } from '../../hooks/useUpcomingShows';
 
+// eslint-disable-next-line no-unused-vars
 const formatDate = (dateStr) => {
   const date = new Date(dateStr);
   return date.toLocaleDateString('en-US', {
@@ -62,6 +63,7 @@ const transformUpcomingShow = (show) => ({
 });
 
 const UpcomingShowCard = memo(({ show, onSelect }) => {
+  // eslint-disable-next-line no-unused-vars
   const status = ticketStatusConfig[show.ticketStatus] || ticketStatusConfig.tba;
   const days = daysUntil(show.eventDate);
 

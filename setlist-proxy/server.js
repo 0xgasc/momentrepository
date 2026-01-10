@@ -4255,6 +4255,17 @@ app.get('/archive/parse-tracks/:archiveId', authenticateToken, requireMod, async
 
     console.log(`✅ Parsed ${tracks.length} tracks from archive.org: ${archiveId}`);
 
+    // Extract taper metadata from archive.org metadata
+    const taperMetadata = {
+      taperName: data.metadata?.taper || data.metadata?.creator || null,
+      source: data.metadata?.source || null,
+      lineage: data.metadata?.lineage || null,
+      transferNotes: data.metadata?.notes || null,
+      originalFormat: Array.isArray(data.metadata?.format)
+        ? data.metadata.format.join(', ')
+        : data.metadata?.format || null
+    };
+
     res.json({
       success: true,
       archiveId,
@@ -4267,7 +4278,8 @@ app.get('/archive/parse-tracks/:archiveId', authenticateToken, requireMod, async
       thumbnailUrl: `https://archive.org/services/img/${archiveId}`,
       embedUrl: `https://archive.org/embed/${archiveId}`,
       tracks,
-      totalTracks: tracks.length
+      totalTracks: tracks.length,
+      taperMetadata
     });
   } catch (error) {
     console.error('❌ Archive.org track parsing error:', error);
@@ -4287,8 +4299,19 @@ app.post('/archive/import-tracks', authenticateToken, requireMod, async (req, re
       venueCountry,
       setName,
       tracks,
-      createParent = true
+      createParent = true,
+      taperMetadata = {}
     } = req.body;
+
+    // Extract taper fields from metadata
+    const {
+      taperName,
+      source: taperSource,
+      signalChain,
+      lineage: lineageInfo,
+      transferNotes,
+      originalFormat
+    } = taperMetadata;
 
     // Validate required fields
     if (!archiveId || !performanceId || !tracks || !Array.isArray(tracks)) {
@@ -4356,7 +4379,15 @@ app.post('/archive/import-tracks', authenticateToken, requireMod, async (req, re
           showInMoments: false,
           approvalStatus: 'approved',
           reviewedBy: req.user.userId,
-          reviewedAt: new Date()
+          reviewedAt: new Date(),
+          // Taper metadata
+          taperName: taperName || null,
+          equipment: signalChain ? { signalChain } : undefined,
+          lineage: {
+            source: `archive.org/${archiveId}`,
+            transferNotes: transferNotes || lineageInfo || null,
+            originalFormat: originalFormat || null
+          }
         });
 
         await parentMoment.save();
@@ -4396,6 +4427,14 @@ app.post('/archive/import-tracks', authenticateToken, requireMod, async (req, re
           showInMoments: true,
           approvalStatus: 'approved',
           reviewedBy: req.user.userId,
+          // Taper metadata (same as parent)
+          taperName: taperName || null,
+          equipment: signalChain ? { signalChain } : undefined,
+          lineage: {
+            source: `archive.org/${archiveId}`,
+            transferNotes: transferNotes || lineageInfo || null,
+            originalFormat: originalFormat || null
+          },
           reviewedAt: new Date()
         });
 
@@ -4477,6 +4516,87 @@ app.put('/archive/moments/:momentId/thumbnail', authenticateToken, requireMod, a
   } catch (error) {
     console.error('❌ Update archive thumbnail error:', error);
     res.status(500).json({ error: 'Failed to update thumbnail' });
+  }
+});
+
+// Update taper metadata for archive.org moment (and optionally push to children)
+app.put('/archive/moments/:momentId/taper-metadata', authenticateToken, requireMod, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { pushToChildren = false, ...taperData } = req.body;
+
+    // Validate that at least some taper data is provided
+    const allowedFields = ['taperName', 'taperContact', 'taperNotes', 'equipment', 'lineage', 'sourceType', 'recordingDevice'];
+    const providedFields = Object.keys(taperData).filter(key => allowedFields.includes(key));
+
+    if (providedFields.length === 0) {
+      return res.status(400).json({
+        error: 'At least one taper metadata field is required',
+        allowedFields
+      });
+    }
+
+    const parentMoment = await Moment.findById(momentId);
+    if (!parentMoment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    // Build update object with provided fields
+    const updateFields = {};
+
+    if (taperData.taperName !== undefined) updateFields.taperName = taperData.taperName;
+    if (taperData.taperContact !== undefined) updateFields.taperContact = taperData.taperContact;
+    if (taperData.taperNotes !== undefined) updateFields.taperNotes = taperData.taperNotes;
+    if (taperData.sourceType !== undefined) updateFields.sourceType = taperData.sourceType;
+    if (taperData.recordingDevice !== undefined) updateFields.recordingDevice = taperData.recordingDevice;
+
+    // Handle nested equipment object
+    if (taperData.equipment) {
+      updateFields.equipment = {
+        ...parentMoment.equipment?.toObject?.() || parentMoment.equipment || {},
+        ...taperData.equipment
+      };
+    }
+
+    // Handle nested lineage object
+    if (taperData.lineage) {
+      updateFields.lineage = {
+        ...parentMoment.lineage?.toObject?.() || parentMoment.lineage || {},
+        ...taperData.lineage
+      };
+    }
+
+    // Update parent moment
+    Object.assign(parentMoment, updateFields);
+    await parentMoment.save();
+
+    let childrenUpdated = 0;
+
+    // If pushToChildren is true, update all child moments with same externalVideoId
+    if (pushToChildren && parentMoment.externalVideoId) {
+      const result = await Moment.updateMany(
+        {
+          externalVideoId: parentMoment.externalVideoId,
+          mediaSource: 'archive',
+          _id: { $ne: parentMoment._id } // Exclude parent
+        },
+        { $set: updateFields }
+      );
+      childrenUpdated = result.modifiedCount;
+    }
+
+    console.log(`🎤 Updated taper metadata for archive moment ${momentId}${pushToChildren ? ` (+ ${childrenUpdated} children)` : ''}`);
+
+    res.json({
+      success: true,
+      momentId,
+      updatedFields: providedFields,
+      childrenUpdated
+    });
+
+  } catch (error) {
+    console.error('❌ Update taper metadata error:', error);
+    res.status(500).json({ error: 'Failed to update taper metadata' });
   }
 });
 
@@ -4860,8 +4980,40 @@ const scheduleDailyRefresh = () => {
     
     scheduleDailyRefresh();
   }, msUntilRefresh);
-  
+
   console.log(`⏰ Next cache refresh scheduled for ${tomorrow.toLocaleString()}`);
+};
+
+// Schedule weekly Irys URL refresh (Sunday 4 AM)
+const scheduleWeeklyIrysRefresh = () => {
+  const now = new Date();
+  const nextSunday = new Date(now);
+
+  // Calculate days until next Sunday
+  const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
+  nextSunday.setDate(now.getDate() + daysUntilSunday);
+  nextSunday.setHours(4, 0, 0, 0); // 4 AM Sunday
+
+  const msUntilRefresh = nextSunday.getTime() - now.getTime();
+
+  setTimeout(async () => {
+    console.log('🔄 Weekly Irys URL refresh triggered');
+    try {
+      const irysRefreshService = require('./utils/irysRefreshService');
+      const results = await irysRefreshService.bulkRefreshIrysUrls({
+        validateFirst: true, // Only refresh expired URLs
+        batchSize: 5,        // Smaller batches for background task
+        delayBetweenBatches: 5000 // 5 second delay between batches
+      });
+      console.log(`✅ Irys refresh complete: ${results.updated} updated, ${results.skipped} skipped, ${results.failed} failed`);
+    } catch (err) {
+      console.error('❌ Weekly Irys refresh failed:', err);
+    }
+
+    scheduleWeeklyIrysRefresh(); // Schedule next week
+  }, msUntilRefresh);
+
+  console.log(`⏰ Next Irys URL refresh scheduled for ${nextSunday.toLocaleString()}`);
 };
 
 // =====================================================
@@ -4948,6 +5100,58 @@ app.get('/admin/archive-moments-status', authenticateToken, requireAdmin, async 
   }
 });
 
+// =====================================================
+// IRYS DEVNET URL REFRESH ENDPOINTS
+// =====================================================
+
+const irysRefreshService = require('./utils/irysRefreshService');
+
+// Check Irys URL status (admin diagnostic)
+app.get('/admin/irys/status', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    console.log('Checking Irys URL status...');
+    const status = await irysRefreshService.getIrysUrlStatus(10);
+    res.json({ success: true, ...status });
+  } catch (error) {
+    console.error('Irys status check error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Manual bulk refresh trigger
+app.post('/admin/irys/refresh', authenticateToken, requireAdmin, async (req, res) => {
+  const { dryRun = false, validateFirst = true, batchSize = 10 } = req.body;
+
+  try {
+    console.log(`Irys refresh triggered - dryRun: ${dryRun}, validateFirst: ${validateFirst}`);
+
+    // Check balance first (estimate for 100MB average file)
+    const balanceCheck = await require('./utils/irysUploader').checkBalance(100 * 1024 * 1024);
+    if (!balanceCheck.hasSufficientFunds && !dryRun) {
+      return res.status(400).json({
+        error: 'Insufficient Irys balance for refresh',
+        balance: balanceCheck.balance.toString(),
+        estimatedCost: balanceCheck.price.toString()
+      });
+    }
+
+    const results = await irysRefreshService.bulkRefreshIrysUrls({
+      dryRun,
+      validateFirst,
+      batchSize
+    });
+
+    res.json({
+      success: true,
+      message: dryRun ? 'Dry run complete' : 'Refresh complete',
+      results
+    });
+  } catch (error) {
+    console.error('Irys refresh error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // API proxy for cache rebuild
 app.use(
   '/api',
@@ -4995,4 +5199,5 @@ server.listen(PORT, '0.0.0.0', () => {
   // Initialize cache after server starts
   initializeCache();
   scheduleDailyRefresh();
+  scheduleWeeklyIrysRefresh();
 });

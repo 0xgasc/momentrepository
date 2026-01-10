@@ -1,5 +1,5 @@
 // src/components/Moment/UploadModal.jsx - SIMPLIFIED with removed fields
-import React, { useState, memo, useEffect, useRef } from 'react';
+import React, { useState, memo, useEffect } from 'react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import * as tus from 'tus-js-client';
 // Removed styles import - now using UMO design system
@@ -66,6 +66,22 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
     sourceType: 'unknown',
     taperNotes: '',
     recordingDevice: '',
+
+    // Enhanced taper metadata
+    taperName: '',
+    equipment: {
+      microphones: '',
+      preamp: '',
+      recorder: '',
+      micPosition: 'unknown',
+      signalChain: ''
+    },
+    lineage: {
+      source: '',
+      generation: 'unknown',
+      transferNotes: '',
+      originalFormat: ''
+    },
 
     // Coverage type: full song or clip
     coverageType: 'full'
@@ -354,7 +370,14 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
         // Audio-specific metadata
         sourceType: formData.sourceType,
         taperNotes: formData.taperNotes,
-        recordingDevice: formData.recordingDevice
+        recordingDevice: formData.recordingDevice,
+
+        // Enhanced taper metadata
+        taperName: formData.taperName || null,
+        equipment: formData.equipment.signalChain || formData.equipment.microphones
+          ? formData.equipment : undefined,
+        lineage: formData.lineage.source || formData.lineage.transferNotes
+          ? formData.lineage : undefined
       };
 
       console.log('🚀 Uploading moment with contentType:', formData.contentType);
@@ -981,6 +1004,126 @@ const SimplifiedUploadForm = memo(({
               rows={3}
             />
           </div>
+
+          {/* Advanced Recording Details (Collapsible) */}
+          <details className="mt-4 border-t border-blue-600/20 pt-4">
+            <summary className="cursor-pointer text-sm font-medium umo-text-secondary hover:umo-text-primary flex items-center gap-2">
+              <span>🎚️</span> Advanced Recording Details (Optional)
+            </summary>
+
+            <div className="mt-4 space-y-4">
+              {/* Taper Name */}
+              <div>
+                <label className="block text-sm font-medium umo-text-primary mb-2">
+                  Taper / Source Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.taperName}
+                  onChange={(e) => onInputChange('taperName', e.target.value)}
+                  className="umo-input"
+                  placeholder="e.g., Charlie Miller, SBD from band"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Mic Position */}
+                <div>
+                  <label className="block text-sm font-medium umo-text-primary mb-2">
+                    Mic Position
+                  </label>
+                  <select
+                    value={formData.equipment.micPosition}
+                    onChange={(e) => onInputChange('equipment', {
+                      ...formData.equipment,
+                      micPosition: e.target.value
+                    })}
+                    className="umo-select"
+                  >
+                    <option value="unknown">Unknown</option>
+                    <option value="FOB">FOB (Front of Board)</option>
+                    <option value="DFC">DFC (Dead Front Center)</option>
+                    <option value="ROC">ROC (Right of Center)</option>
+                    <option value="LOC">LOC (Left of Center)</option>
+                    <option value="SBD">SBD (Soundboard)</option>
+                    <option value="MATRIX">Matrix (AUD+SBD)</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                {/* Generation */}
+                <div>
+                  <label className="block text-sm font-medium umo-text-primary mb-2">
+                    Recording Generation
+                  </label>
+                  <select
+                    value={formData.lineage.generation}
+                    onChange={(e) => onInputChange('lineage', {
+                      ...formData.lineage,
+                      generation: e.target.value
+                    })}
+                    className="umo-select"
+                  >
+                    <option value="unknown">Unknown</option>
+                    <option value="master">Master (Original)</option>
+                    <option value="1st-gen">1st Generation</option>
+                    <option value="2nd-gen">2nd Generation+</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Signal Chain */}
+              <div>
+                <label className="block text-sm font-medium umo-text-primary mb-2">
+                  Signal Chain / Equipment
+                </label>
+                <input
+                  type="text"
+                  value={formData.equipment.signalChain}
+                  onChange={(e) => onInputChange('equipment', {
+                    ...formData.equipment,
+                    signalChain: e.target.value
+                  })}
+                  className="umo-input"
+                  placeholder="e.g., Schoeps MK4V > SD 302 > SD 744T @ 24/96"
+                />
+              </div>
+
+              {/* Lineage / Transfer Notes */}
+              <div>
+                <label className="block text-sm font-medium umo-text-primary mb-2">
+                  Lineage / Transfer Notes
+                </label>
+                <textarea
+                  value={formData.lineage.transferNotes}
+                  onChange={(e) => onInputChange('lineage', {
+                    ...formData.lineage,
+                    transferNotes: e.target.value
+                  })}
+                  className="umo-input umo-textarea"
+                  placeholder="e.g., DAT master > WAV > FLAC (traded on etree)"
+                  rows={2}
+                />
+              </div>
+
+              {/* Original Format */}
+              <div>
+                <label className="block text-sm font-medium umo-text-primary mb-2">
+                  Original Format
+                </label>
+                <input
+                  type="text"
+                  value={formData.lineage.originalFormat}
+                  onChange={(e) => onInputChange('lineage', {
+                    ...formData.lineage,
+                    originalFormat: e.target.value
+                  })}
+                  className="umo-input"
+                  placeholder="e.g., DAT 48kHz, FLAC 24/96, MP3 320kbps"
+                />
+              </div>
+            </div>
+          </details>
         </div>
       )}
 

@@ -1,6 +1,6 @@
 // src/components/Performance/panels/GuestbookSection.jsx
 import React, { useState, useEffect, memo } from 'react';
-import { PenLine, Clock, User, UserX } from 'lucide-react';
+import { PenLine, Clock, UserX } from 'lucide-react';
 import { useGuestbook } from '../../../hooks/useCommunity';
 
 const formatTimeAgo = (date) => {

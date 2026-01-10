@@ -303,3 +303,53 @@ html {
 .network-quality-low { color: #ef4444; }
 .network-quality-medium { color: #f59e0b; }
 .network-quality-high { color: #10b981; }
+
+/* Autoplay blocked overlay - mobile-optimized */
+.autoplay-blocked-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  z-index: 20;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.autoplay-blocked-overlay .play-button {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.autoplay-blocked-overlay .play-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.autoplay-blocked-overlay p {
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: 12px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Mobile touch optimization for autoplay overlay */
+@media (max-width: 768px) {
+  .autoplay-blocked-overlay {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .autoplay-blocked-overlay .play-button {
+    min-width: 64px;
+    min-height: 64px;
+    padding: 20px;
+  }
+}

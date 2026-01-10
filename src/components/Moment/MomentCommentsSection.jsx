@@ -1,7 +1,7 @@
 // src/components/Moment/MomentCommentsSection.jsx
 // Compact comments section for moment detail modal
 import React, { useState, useEffect, memo } from 'react';
-import { Heart, MessageSquare, Reply, Clock, User, Trash2 } from 'lucide-react';
+import { Heart, MessageSquare, Reply, Trash2 } from 'lucide-react';
 import { useMomentComments } from '../../hooks/useCommunity';
 
 const formatTimeAgo = (date) => {

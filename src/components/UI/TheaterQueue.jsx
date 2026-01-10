@@ -26,6 +26,7 @@ const TheaterQueue = () => {
     theaterQueue,
     currentQueueIndex,
     isPlayingFromQueue,
+    // eslint-disable-next-line no-unused-vars
     currentMoment,
     removeFromQueue,
     clearQueue,
@@ -33,6 +34,7 @@ const TheaterQueue = () => {
     reorderQueue,
     shuffleQueue,
     playNextInQueue,
+    // eslint-disable-next-line no-unused-vars
     stopQueue
   } = useTheaterQueue();
 
@@ -61,6 +63,7 @@ const TheaterQueue = () => {
   };
 
   // Handle closing the modal (auto-advance)
+  // eslint-disable-next-line no-unused-vars
   const handleCloseModal = () => {
     // Auto-advance to next in queue
     playNextInQueue();
@@ -81,10 +84,8 @@ const TheaterQueue = () => {
 
       if (result.success && result.collection) {
         // Add all queue moments to collection
-        let successCount = 0;
         for (const moment of theaterQueue) {
-          const addResult = await addToCollection(result.collection._id, moment._id);
-          if (addResult.success) successCount++;
+          await addToCollection(result.collection._id, moment._id);
         }
 
         setSaveSuccess(true);

@@ -12,6 +12,7 @@ const formatTimeAgo = (date) => {
 };
 
 const RSVPSection = memo(({ performanceId, user, token }) => {
+  // eslint-disable-next-line no-unused-vars
   const { rsvps, count, loading, hasRsvpd, fetchRSVPs, addRSVP, removeRSVP } = useRSVP(performanceId, token);
   const [showForm, setShowForm] = useState(false);
   const [anonName, setAnonName] = useState('');

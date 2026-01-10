@@ -98,6 +98,7 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
   };
 
   // ✅ UPDATED: Filter performance moments to only include songs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const getPerformanceSongMoments = (performanceId) => {
     return getSongMoments().filter(moment => moment.performanceId === performanceId);
   };

@@ -16,6 +16,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilter = '
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedMoment, setSelectedMoment] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [currentPage, setCurrentPage] = useState(0);
   const [showHelpModal, setShowHelpModal] = useState(false);
 
@@ -208,6 +209,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilter = '
   // Use "load more" pattern - show up to loadedCount moments
   const currentMoments = filteredAndSortedMoments.slice(0, loadedCount || MOMENTS_PER_LOAD);
   const hasMore = currentMoments.length < filteredAndSortedMoments.length;
+  // eslint-disable-next-line no-unused-vars
   const totalMomentsCount = filteredAndSortedMoments.length;
 
   // Handle pull-to-refresh

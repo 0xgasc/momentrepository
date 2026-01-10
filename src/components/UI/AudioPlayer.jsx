@@ -42,6 +42,7 @@ const AudioPlayer = memo(({
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
 
   // Timestamp comments state
   const [timestampComments, setTimestampComments] = useState([]);
@@ -109,13 +110,18 @@ const AudioPlayer = memo(({
 
     if (isPlaying) {
       audioRef.current.pause();
+      setIsPlaying(false);
     } else {
-      audioRef.current.play().catch(err => {
-        console.error('Audio play error:', err);
-        setError('Failed to play audio');
-      });
+      audioRef.current.play()
+        .then(() => {
+          setIsPlaying(true);
+          setAutoplayBlocked(false);
+        })
+        .catch(err => {
+          console.error('Audio play error:', err);
+          setError('Failed to play audio');
+        });
     }
-    setIsPlaying(!isPlaying);
   };
 
   const handleTimeUpdate = () => {
@@ -129,9 +135,15 @@ const AudioPlayer = memo(({
       setDuration(audioRef.current.duration);
       setIsLoading(false);
       if (autoPlay) {
-        audioRef.current.play().catch(err => {
-          console.error('Auto-play failed:', err);
-        });
+        audioRef.current.play()
+          .then(() => {
+            setIsPlaying(true);
+            setAutoplayBlocked(false);
+          })
+          .catch(err => {
+            console.error('Auto-play failed:', err);
+            setAutoplayBlocked(true);
+          });
       }
     }
   };
@@ -267,7 +279,22 @@ const AudioPlayer = memo(({
       />
 
       {/* Main horizontal player layout */}
-      <div className="flex items-center gap-3 bg-gray-900 rounded-sm p-3 border border-gray-700">
+      <div className="relative flex items-center gap-3 bg-gray-900 rounded-sm p-3 border border-gray-700">
+        {/* Autoplay blocked overlay */}
+        {autoplayBlocked && !isPlaying && (
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 rounded-sm cursor-pointer"
+            onClick={handlePlayPause}
+          >
+            <div className="flex items-center gap-3">
+              <div className="bg-yellow-500 rounded-full p-3 shadow-lg">
+                <Play size={20} className="text-black ml-0.5" />
+              </div>
+              <span className="text-white text-sm font-medium">Tap to play</span>
+            </div>
+          </div>
+        )}
+
         {/* Play button */}
         <button
           onClick={handlePlayPause}

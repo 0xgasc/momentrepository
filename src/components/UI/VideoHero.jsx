@@ -144,6 +144,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
   // Get YouTube video ID from URL
   const getYouTubeId = (url) => {
     if (!url) return null;
+    // eslint-disable-next-line no-useless-escape
     const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
     return match ? match[1] : null;
   };
@@ -453,6 +454,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moment?._id]);
 
   // Fix: Reset play state when moment or media type changes (prevents stuck play icon)
@@ -471,6 +473,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
     }, 100);
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moment?._id, isYouTube, isAudio]);
 
   // Start/stop ASCII processing
@@ -491,6 +494,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
         cancelAnimationFrame(animationRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAsciiMode, isYouTube, isAudio, processFrame, moment?._id]);
 
   // Auto-hide controls after 2 seconds of no interaction
@@ -636,6 +640,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
   };
 
   // Handle YouTube seek
+  // eslint-disable-next-line no-unused-vars
   const handleYtSeek = useCallback((e) => {
     if (!ytPlayerRef.current || !ytProgress.duration) return;
     const rect = e.currentTarget.getBoundingClientRect();

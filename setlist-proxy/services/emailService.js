@@ -1,5 +1,10 @@
-// Email Service - Skeleton for all user-moderator interactions
-// TODO: Configure actual email provider (SendGrid, AWS SES, etc.)
+// Email Service - SendGrid implementation for user-moderator interactions
+const sgMail = require('@sendgrid/mail');
+
+// Initialize SendGrid if API key is configured
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
 const emailService = {
   
@@ -359,62 +364,74 @@ const emailService = {
     );
   },
   
-  // Core email sending function - TO BE IMPLEMENTED WITH ACTUAL EMAIL PROVIDER
+  // Core email sending function with SendGrid
   async _sendEmail(to, subject, body) {
-    console.log(`📧 EMAIL SKELETON - Would send email:
-    To: ${to}
-    Subject: ${subject}
-    Body Preview: ${body.substring(0, 100)}...
-    
-    NOTE: Configure actual email provider in emailService.js
-    Recommended providers: SendGrid, AWS SES, Mailgun, NodeMailer
-    `);
-    
-    // TODO: Implement actual email sending
-    // Example with SendGrid:
-    // const msg = {
-    //   to: to,
-    //   from: process.env.FROM_EMAIL,
-    //   subject: subject,
-    //   text: body,
-    // };
-    // return sgMail.send(msg);
-    
-    return Promise.resolve({ 
-      success: true, 
-      message: 'Email skeleton executed (not actually sent)',
-      to,
-      subject 
-    });
+    // Check if SendGrid is configured
+    if (!process.env.SENDGRID_API_KEY) {
+      // Graceful fallback when SendGrid not configured
+      console.log(`📧 Email logged (SendGrid not configured): To: ${to}, Subject: ${subject}`);
+      return { success: true, message: 'Email logged (SendGrid not configured)', to, subject };
+    }
+
+    const msg = {
+      to: to,
+      from: {
+        email: process.env.FROM_EMAIL || 'noreply@umoarchive.com',
+        name: process.env.FROM_NAME || 'UMO Archive'
+      },
+      subject: subject,
+      text: body,
+      html: body.replace(/\n/g, '<br>').replace(/  /g, '&nbsp;&nbsp;')
+    };
+
+    try {
+      await sgMail.send(msg);
+      console.log(`📧 Email sent: To: ${to}, Subject: ${subject}`);
+      return { success: true, to, subject };
+    } catch (error) {
+      // Log error but don't throw - email failures shouldn't break main flow
+      console.error('📧 SendGrid error:', error.response?.body || error.message);
+      return { success: false, error: error.message, to, subject };
+    }
   },
   
   // Utility function to get moderator emails
   async getModeratorEmails() {
     try {
       const User = require('../models/User');
-      const moderators = await User.find({ 
+      const moderators = await User.find({
         role: { $in: ['mod', 'admin'] } // Include both mods and admins
       }).select('email');
       const emails = moderators.map(user => user.email);
-      console.log(`📧 Found ${emails.length} moderator/admin emails for notification`);
+      if (emails.length === 0) {
+        // Fallback to env var if no mods/admins in DB
+        const fallback = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
+        return fallback;
+      }
       return emails;
     } catch (error) {
-      console.error('📧 Error fetching moderator emails:', error);
-      return ['solo@solo.solo']; // Fallback to admin
+      // Fallback to env var on error
+      const fallback = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
+      return fallback;
     }
   },
-  
+
   // Utility function to get admin emails
   async getAdminEmails() {
     try {
       const User = require('../models/User');
       const admins = await User.find({ role: 'admin' }).select('email');
       const emails = admins.map(user => user.email);
-      console.log(`📧 Found ${emails.length} admin emails for notification`);
-      return emails.length > 0 ? emails : ['solo@solo.solo']; // Fallback
+      if (emails.length === 0) {
+        // Fallback to env var if no admins in DB
+        const fallback = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
+        return fallback;
+      }
+      return emails;
     } catch (error) {
-      console.error('📧 Error fetching admin emails:', error);
-      return ['solo@solo.solo']; // Fallback to default admin
+      // Fallback to env var on error
+      const fallback = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
+      return fallback;
     }
   }
 };

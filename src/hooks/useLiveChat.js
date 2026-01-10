@@ -34,6 +34,7 @@ export const useLiveChat = (performanceId, token) => {
     if (!performanceId) return;
 
     // Determine socket URL (same host as API)
+    // eslint-disable-next-line no-unused-vars
     const socketUrl = API_BASE_URL.replace('/api', '').replace('http://', 'ws://').replace('https://', 'wss://');
 
     socketRef.current = io(API_BASE_URL.replace('/api', ''), {

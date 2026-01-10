@@ -18,6 +18,7 @@ const isArchiveMoment = (moment) => {
 const AdminPanel = memo(({ onClose }) => {
   const { token, user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.email === 'solo@solo.solo' || user?.email === 'solo2@solo.solo';
+  // eslint-disable-next-line no-unused-vars
   const isMod = user?.role === 'mod';
   const [activeTab, setActiveTab] = useState(isAdmin ? 'users' : 'moderation');
   const [users, setUsers] = useState([]);
@@ -954,6 +955,7 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
 
 // Platform Settings Tab
 const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
+  // eslint-disable-next-line no-unused-vars
   const { cacheStatus, showDetails, refreshing, refreshStatus, handleRefresh, toggleDetails, checkRefreshStatus } = useCacheStatus(API_BASE_URL);
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');

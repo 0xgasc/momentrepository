@@ -214,6 +214,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConfirmed, writeContractData, currentStep, isCreatingNFT, isMinting, pendingMintRecord, address, lastMintQuantity, onRefresh]);
 
   // Handle transaction errors

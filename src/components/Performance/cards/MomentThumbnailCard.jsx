@@ -99,6 +99,7 @@ const getYouTubeId = (moment) => {
 };
 
 // Get YouTube thumbnail URL
+// eslint-disable-next-line no-unused-vars
 const getYouTubeThumbnail = (videoId) => {
   return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
 };

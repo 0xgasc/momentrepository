@@ -1,7 +1,7 @@
 // src/components/UI/WaveformPlayer.jsx
 // SoundCloud-style waveform player with timed comments
 import React, { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
-import { MessageCircle, Send, X } from 'lucide-react';
+import { Send, X } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 
 // Generate pseudo-random waveform data based on moment ID for consistency

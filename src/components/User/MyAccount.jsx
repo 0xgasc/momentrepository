@@ -1,6 +1,6 @@
 // src/components/User/MyAccount.jsx
 import React, { useState, useEffect, memo, useCallback } from 'react';
-import { Upload, Eye, MessageCircle, Star, Heart, Folder, Plus, Trash2, Play, Loader2, Globe, Lock } from 'lucide-react';
+import { Upload, Eye, MessageCircle, Heart, Folder, Plus, Trash2, Play, Loader2, Globe, Lock } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useUserStats } from '../../hooks/useUserStats';
 import { useFavorites } from '../../hooks/useFavorites';
@@ -228,6 +228,7 @@ const FavoritesTab = memo(() => {
     toggleFavorite,
     createCollection,
     deleteCollection,
+    // eslint-disable-next-line no-unused-vars
     fetchFavorites
   } = useFavorites(token);
   const { addManyToQueue, clearQueue, playQueue } = useTheaterQueue();

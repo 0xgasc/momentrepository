@@ -1,7 +1,7 @@
 import React, { useState, useEffect, memo } from 'react';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
-import { Menu, X, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { Menu, X, ChevronDown, ChevronUp } from 'lucide-react';
 import './styles/umo-theme.css';
 
 // Import the extracted components

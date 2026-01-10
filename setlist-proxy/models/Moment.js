@@ -55,6 +55,35 @@ const momentSchema = new mongoose.Schema({
   recordingDevice: { type: String },
   coverageType: { type: String, enum: ['full', 'clip'], default: 'full' },
 
+  // Enhanced Taper Metadata
+  taperName: { type: String },
+  taperContact: { type: String },
+
+  // Equipment Details
+  equipment: {
+    microphones: { type: String },  // e.g., "Schoeps MK4V > Sound Devices 702"
+    preamp: { type: String },
+    recorder: { type: String },
+    micPosition: {
+      type: String,
+      enum: ['FOB', 'DFC', 'ROC', 'LOC', 'SBD', 'MATRIX', 'other', 'unknown'],
+      default: 'unknown'
+    },
+    signalChain: { type: String }   // Full chain description
+  },
+
+  // Lineage/Provenance
+  lineage: {
+    source: { type: String },       // Where recording came from
+    generation: {
+      type: String,
+      enum: ['master', '1st-gen', '2nd-gen', 'unknown'],
+      default: 'unknown'
+    },
+    transferNotes: { type: String }, // Processing/transfer history
+    originalFormat: { type: String } // e.g., "DAT 48kHz", "FLAC 24/96"
+  },
+
   // Timestamp Comments (for audio waveform)
   timestampComments: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -179,6 +208,7 @@ momentSchema.index({ mediaSource: 1 }); // UMOTube queries
 momentSchema.index({ showInMoments: 1 }); // Filter visibility
 momentSchema.index({ viewCount: -1 }); // Popular moments
 momentSchema.index({ mediaSource: 1, approvalStatus: 1 }); // UMOTube approved videos
+momentSchema.index({ taperName: 1 }); // Taper name queries
 
 // Virtual for getting full venue name
 momentSchema.virtual('fullVenueName').get(function() {

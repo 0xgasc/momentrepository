@@ -1,6 +1,6 @@
 // src/components/Moment/MomentDetailModal.jsx - OPTIMIZED & FIXED
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { X, Download, Calendar, MapPin, User, FileText, Zap, ChevronDown, ChevronUp, Clock, ListPlus, Check, Archive, ExternalLink } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, ListPlus, Check, Archive, ExternalLink, User } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
@@ -802,6 +802,75 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
                       <span className="metadata-label">Filename:</span>
                       <span className="metadata-value">{moment.fileName || 'Unknown'}</span>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Recording Info - Show if any taper metadata exists */}
+              {(moment.taperName || moment.equipment?.signalChain || moment.lineage?.transferNotes || moment.sourceType !== 'unknown') && (
+                <div className="metadata-group mt-4 p-3 bg-gray-800/50 rounded-sm border border-gray-700">
+                  <h4 className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+                    <span>🎙️</span> Recording Info
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    {moment.taperName && (
+                      <div className="flex">
+                        <span className="text-gray-500 w-24 flex-shrink-0">Taper:</span>
+                        <span className="text-gray-300">{moment.taperName}</span>
+                      </div>
+                    )}
+                    {moment.sourceType && moment.sourceType !== 'unknown' && (
+                      <div className="flex">
+                        <span className="text-gray-500 w-24 flex-shrink-0">Source:</span>
+                        <span className="text-gray-300">
+                          {moment.sourceType === 'soundboard' ? 'Soundboard (SBD)' :
+                           moment.sourceType === 'audience' ? 'Audience Recording (AUD)' :
+                           moment.sourceType === 'matrix' ? 'Matrix (SBD+AUD)' :
+                           moment.sourceType}
+                        </span>
+                      </div>
+                    )}
+                    {moment.equipment?.micPosition && moment.equipment.micPosition !== 'unknown' && (
+                      <div className="flex">
+                        <span className="text-gray-500 w-24 flex-shrink-0">Position:</span>
+                        <span className="text-gray-300">{moment.equipment.micPosition}</span>
+                      </div>
+                    )}
+                    {moment.equipment?.signalChain && (
+                      <div className="flex">
+                        <span className="text-gray-500 w-24 flex-shrink-0">Equipment:</span>
+                        <span className="text-gray-300">{moment.equipment.signalChain}</span>
+                      </div>
+                    )}
+                    {moment.lineage?.generation && moment.lineage.generation !== 'unknown' && (
+                      <div className="flex">
+                        <span className="text-gray-500 w-24 flex-shrink-0">Generation:</span>
+                        <span className="text-gray-300">
+                          {moment.lineage.generation === 'master' ? 'Master (Original)' :
+                           moment.lineage.generation === '1st-gen' ? '1st Generation' :
+                           moment.lineage.generation === '2nd-gen' ? '2nd Generation+' :
+                           moment.lineage.generation}
+                        </span>
+                      </div>
+                    )}
+                    {moment.lineage?.originalFormat && (
+                      <div className="flex">
+                        <span className="text-gray-500 w-24 flex-shrink-0">Format:</span>
+                        <span className="text-gray-300">{moment.lineage.originalFormat}</span>
+                      </div>
+                    )}
+                    {moment.lineage?.transferNotes && (
+                      <div className="mt-2">
+                        <span className="text-gray-500 block mb-1">Lineage:</span>
+                        <p className="text-gray-400 text-xs bg-gray-900/50 p-2 rounded">{moment.lineage.transferNotes}</p>
+                      </div>
+                    )}
+                    {moment.lineage?.source && (
+                      <div className="flex">
+                        <span className="text-gray-500 w-24 flex-shrink-0">Source:</span>
+                        <span className="text-gray-400 text-xs">{moment.lineage.source}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

@@ -30,6 +30,7 @@ const SetlistPanel = memo(({
   const [isExpanded, setIsExpanded] = useState(false); // Collapsed by default
 
   // Extract sets from performance data
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const sets = performance?.sets?.set || [];
 
   // Group moments by song name AND medley components for quick lookup

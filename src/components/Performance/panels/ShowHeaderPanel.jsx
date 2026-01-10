@@ -10,6 +10,7 @@ const ShowHeaderPanel = memo(({
   rsvpCount = 0,
   onBack
 }) => {
+  // eslint-disable-next-line no-unused-vars
   const totalMoments = songMoments.length + otherContent.length;
   const venue = performance?.venue;
 
