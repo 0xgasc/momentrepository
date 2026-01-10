@@ -80,7 +80,7 @@ const MediaGalleryPanel = memo(({
             style={{ scrollSnapType: 'x mandatory' }}
           >
             {displayMoments.map((moment) => (
-              <div key={moment._id} style={{ scrollSnapAlign: 'start' }}>
+              <div key={moment._id} className="flex-shrink-0 w-[140px]" style={{ scrollSnapAlign: 'start' }}>
                 <MomentThumbnailCard
                   moment={moment}
                   onClick={onSelectMoment}

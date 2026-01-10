@@ -611,9 +611,12 @@ const FavoritesTab = memo(() => {
                       className="w-full h-full object-cover"
                       muted
                       playsInline
-                      preload="metadata"
-                      onLoadedMetadata={(e) => {
-                        if (fav.moment.startTime) e.target.currentTime = fav.moment.startTime;
+                      preload="auto"
+                      onCanPlay={(e) => {
+                        // Seek to startTime when video is ready to play
+                        if (fav.moment.startTime && e.target.currentTime === 0) {
+                          e.target.currentTime = fav.moment.startTime;
+                        }
                       }}
                       onMouseEnter={(e) => {
                         // Set time before playing to ensure correct start position

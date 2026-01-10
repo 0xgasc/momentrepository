@@ -325,63 +325,57 @@ const Header = memo(({
             </button>
           </div>
 
-          {/* Filter Pills - Mobile - Two Toggle Groups */}
-          <div className="flex gap-4 mt-2 flex-wrap items-center">
+          {/* Filter Pills - Mobile - Icons Only */}
+          <div className="flex gap-3 mt-2 items-center">
             {/* Media Type Group */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-gray-500 uppercase tracking-wide">Type</span>
-              <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
-                <button
-                  onClick={() => toggleFilter('type', 'audio')}
-                  className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
-                    mediaFilters.audio
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-gray-500 hover:bg-gray-200'
-                  }`}
-                >
-                  <Music size={12} />
-                  Audio
-                </button>
-                <button
-                  onClick={() => toggleFilter('type', 'video')}
-                  className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
-                    mediaFilters.video
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-gray-500 hover:bg-gray-200'
-                  }`}
-                >
-                  <Video size={12} />
-                  Video
-                </button>
-              </div>
+            <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
+              <button
+                onClick={() => toggleFilter('type', 'audio')}
+                title="Audio"
+                className={`p-1.5 rounded-md transition-all ${
+                  mediaFilters.audio
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                <Music size={16} />
+              </button>
+              <button
+                onClick={() => toggleFilter('type', 'video')}
+                title="Video"
+                className={`p-1.5 rounded-md transition-all ${
+                  mediaFilters.video
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                <Video size={16} />
+              </button>
             </div>
             {/* Source Group */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-gray-500 uppercase tracking-wide">Source</span>
-              <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
-                <button
-                  onClick={() => toggleFilter('source', 'linked')}
-                  className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
-                    mediaFilters.linked
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-gray-500 hover:bg-gray-200'
-                  }`}
-                >
-                  <Link2 size={12} />
-                  Linked
-                </button>
-                <button
-                  onClick={() => toggleFilter('source', 'uploads')}
-                  className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
-                    mediaFilters.uploads
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-gray-500 hover:bg-gray-200'
-                  }`}
-                >
-                  <Upload size={12} />
-                  Uploads
-                </button>
-              </div>
+            <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
+              <button
+                onClick={() => toggleFilter('source', 'linked')}
+                title="Linked"
+                className={`p-1.5 rounded-md transition-all ${
+                  mediaFilters.linked
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                <Link2 size={16} />
+              </button>
+              <button
+                onClick={() => toggleFilter('source', 'uploads')}
+                title="Uploads"
+                className={`p-1.5 rounded-md transition-all ${
+                  mediaFilters.uploads
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                <Upload size={16} />
+              </button>
             </div>
           </div>
         </div>
@@ -576,63 +570,57 @@ const Header = memo(({
                 {showHowToGuide ? <ChevronUp size={16} className="text-blue-600" /> : <ChevronDown size={16} className="text-blue-600" />}
               </button>
 
-              {/* Filter Pills - Desktop - Two Toggle Groups */}
-              <div className="flex gap-4 items-center">
+              {/* Filter Pills - Desktop - Icons Only */}
+              <div className="flex gap-3 items-center">
                 {/* Media Type Group */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wide">Type</span>
-                  <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
-                    <button
-                      onClick={() => toggleFilter('type', 'audio')}
-                      className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
-                        mediaFilters.audio
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'text-gray-500 hover:bg-gray-200'
-                      }`}
-                    >
-                      <Music size={12} />
-                      Audio
-                    </button>
-                    <button
-                      onClick={() => toggleFilter('type', 'video')}
-                      className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
-                        mediaFilters.video
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'text-gray-500 hover:bg-gray-200'
-                      }`}
-                    >
-                      <Video size={12} />
-                      Video
-                    </button>
-                  </div>
+                <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
+                  <button
+                    onClick={() => toggleFilter('type', 'audio')}
+                    title="Audio"
+                    className={`p-1.5 rounded-md transition-all ${
+                      mediaFilters.audio
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Music size={16} />
+                  </button>
+                  <button
+                    onClick={() => toggleFilter('type', 'video')}
+                    title="Video"
+                    className={`p-1.5 rounded-md transition-all ${
+                      mediaFilters.video
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Video size={16} />
+                  </button>
                 </div>
                 {/* Source Group */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wide">Source</span>
-                  <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
-                    <button
-                      onClick={() => toggleFilter('source', 'linked')}
-                      className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
-                        mediaFilters.linked
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'text-gray-500 hover:bg-gray-200'
-                      }`}
-                    >
-                      <Link2 size={12} />
-                      Linked
-                    </button>
-                    <button
-                      onClick={() => toggleFilter('source', 'uploads')}
-                      className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
-                        mediaFilters.uploads
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'text-gray-500 hover:bg-gray-200'
-                      }`}
-                    >
-                      <Upload size={12} />
-                      Uploads
-                    </button>
-                  </div>
+                <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
+                  <button
+                    onClick={() => toggleFilter('source', 'linked')}
+                    title="Linked"
+                    className={`p-1.5 rounded-md transition-all ${
+                      mediaFilters.linked
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Link2 size={16} />
+                  </button>
+                  <button
+                    onClick={() => toggleFilter('source', 'uploads')}
+                    title="Uploads"
+                    className={`p-1.5 rounded-md transition-all ${
+                      mediaFilters.uploads
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Upload size={16} />
+                  </button>
                 </div>
               </div>
             </div>
