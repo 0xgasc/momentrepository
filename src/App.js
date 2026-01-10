@@ -335,7 +335,7 @@ const Header = memo(({
                   onClick={() => toggleFilter('type', 'audio')}
                   className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
                     mediaFilters.audio
-                      ? 'bg-purple-500 text-white shadow-sm'
+                      ? 'bg-blue-600 text-white shadow-sm'
                       : 'text-gray-500 hover:bg-gray-200'
                   }`}
                 >
@@ -346,7 +346,7 @@ const Header = memo(({
                   onClick={() => toggleFilter('type', 'video')}
                   className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
                     mediaFilters.video
-                      ? 'bg-blue-500 text-white shadow-sm'
+                      ? 'bg-blue-600 text-white shadow-sm'
                       : 'text-gray-500 hover:bg-gray-200'
                   }`}
                 >
@@ -363,7 +363,7 @@ const Header = memo(({
                   onClick={() => toggleFilter('source', 'linked')}
                   className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
                     mediaFilters.linked
-                      ? 'bg-cyan-500 text-white shadow-sm'
+                      ? 'bg-blue-600 text-white shadow-sm'
                       : 'text-gray-500 hover:bg-gray-200'
                   }`}
                 >
@@ -374,7 +374,7 @@ const Header = memo(({
                   onClick={() => toggleFilter('source', 'uploads')}
                   className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
                     mediaFilters.uploads
-                      ? 'bg-green-500 text-white shadow-sm'
+                      ? 'bg-blue-600 text-white shadow-sm'
                       : 'text-gray-500 hover:bg-gray-200'
                   }`}
                 >
@@ -586,7 +586,7 @@ const Header = memo(({
                       onClick={() => toggleFilter('type', 'audio')}
                       className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
                         mediaFilters.audio
-                          ? 'bg-purple-500 text-white shadow-sm'
+                          ? 'bg-blue-600 text-white shadow-sm'
                           : 'text-gray-500 hover:bg-gray-200'
                       }`}
                     >
@@ -597,7 +597,7 @@ const Header = memo(({
                       onClick={() => toggleFilter('type', 'video')}
                       className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
                         mediaFilters.video
-                          ? 'bg-blue-500 text-white shadow-sm'
+                          ? 'bg-blue-600 text-white shadow-sm'
                           : 'text-gray-500 hover:bg-gray-200'
                       }`}
                     >
@@ -614,7 +614,7 @@ const Header = memo(({
                       onClick={() => toggleFilter('source', 'linked')}
                       className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
                         mediaFilters.linked
-                          ? 'bg-cyan-500 text-white shadow-sm'
+                          ? 'bg-blue-600 text-white shadow-sm'
                           : 'text-gray-500 hover:bg-gray-200'
                       }`}
                     >
@@ -625,7 +625,7 @@ const Header = memo(({
                       onClick={() => toggleFilter('source', 'uploads')}
                       className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition-all ${
                         mediaFilters.uploads
-                          ? 'bg-green-500 text-white shadow-sm'
+                          ? 'bg-blue-600 text-white shadow-sm'
                           : 'text-gray-500 hover:bg-gray-200'
                       }`}
                     >

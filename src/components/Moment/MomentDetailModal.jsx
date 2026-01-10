@@ -468,6 +468,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             muted={false}
             preload="metadata"
             playsInline={true}
+            startTime={moment.startTime || 0}
             onLoad={() => { setVideoLoaded(true); setMediaError(false); }}
             onError={() => { setMediaError(true); setVideoLoaded(false); }}
             placeholder={

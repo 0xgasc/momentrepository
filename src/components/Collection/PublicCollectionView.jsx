@@ -141,48 +141,48 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
       )}
 
       {/* Collection Header */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-sm border border-gray-200/50 p-6 mb-6 shadow-sm">
-        <div className="flex items-start justify-between mb-4">
-          <div>
+      <div className="bg-white/80 backdrop-blur-sm rounded-sm border border-gray-200/50 p-4 sm:p-6 mb-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <Globe size={18} className="text-green-600" />
-              <span className="text-sm text-green-600 font-medium">Public Collection</span>
+              <Globe size={16} className="text-green-600 flex-shrink-0" />
+              <span className="text-xs sm:text-sm text-green-600 font-medium">Public Collection</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">{collection?.name}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words">{collection?.name}</h1>
             {collection?.description && (
-              <p className="text-gray-600 mb-3">{collection.description}</p>
+              <p className="text-sm sm:text-base text-gray-600 mb-3 break-words">{collection.description}</p>
             )}
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <User size={14} />
-              <span>by {collection?.user?.displayName || 'Unknown'}</span>
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
+              <User size={14} className="flex-shrink-0" />
+              <span className="truncate">by {collection?.user?.displayName || 'Unknown'}</span>
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-shrink-0">
             {moments.length > 0 && (
               <button
                 onClick={handlePlayAll}
-                className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs sm:text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex-1 sm:flex-none"
               >
-                <Play size={16} />
-                Play All
+                <Play size={14} />
+                <span>Play All</span>
               </button>
             )}
             <button
               onClick={handleCopyLink}
-              className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors flex-1 sm:flex-none"
             >
-              {copied ? <Check size={16} className="text-green-600" /> : <Share2 size={16} />}
-              {copied ? 'Copied!' : 'Share'}
+              {copied ? <Check size={14} className="text-green-600" /> : <Share2 size={14} />}
+              <span>{copied ? 'Copied!' : 'Share'}</span>
             </button>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="flex items-center pt-4 border-t border-gray-200">
+        <div className="flex items-center pt-3 sm:pt-4 border-t border-gray-200">
           <div className="flex items-center gap-2 text-gray-600">
-            <ListMusic size={18} />
-            <span className="font-medium">{moments.length} moments</span>
+            <ListMusic size={16} />
+            <span className="text-sm font-medium">{moments.length} moments</span>
           </div>
         </div>
       </div>

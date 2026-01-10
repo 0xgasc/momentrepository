@@ -18,6 +18,7 @@ const LazyMedia = memo(({
   adaptiveQuality = true,
   mobileOptimized = true,
   hoverToPlay = false,
+  startTime = 0,
   ...props
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -274,6 +275,10 @@ const LazyMedia = memo(({
               }
             }}
             onCanPlay={() => {
+              // Set start time if specified
+              if (startTime && mediaRef.current) {
+                mediaRef.current.currentTime = startTime;
+              }
               // Video is ready to play - try autoplay
               if (autoPlay && !hoverToPlay) {
                 const playPromise = mediaRef.current?.play();
