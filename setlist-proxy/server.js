@@ -17,6 +17,7 @@ const User = require('./models/User');
 const Moment = require('./models/Moment');
 const Comment = require('./models/Comment');
 const PlatformSettings = require('./models/PlatformSettings');
+const LocalPerformance = require('./models/LocalPerformance');
 const emailService = require('./services/emailService');
 const { UMOCache } = require('./utils/umoCache');
 const { ethers } = require('ethers');
@@ -1882,8 +1883,42 @@ app.get('/cached/performances/search', async (req, res) => {
       return res.json({ success: true, results: [] });
     }
 
-    let performances = await umoCache.getPerformances();
     const queryLower = query.toLowerCase();
+
+    // Search local performances first
+    const localResults = await LocalPerformance.find({
+      $or: [
+        { 'venue.name': { $regex: query, $options: 'i' } },
+        { 'venue.city': { $regex: query, $options: 'i' } },
+        { 'venue.country': { $regex: query, $options: 'i' } },
+        { eventDate: { $regex: query } }
+      ]
+    }).lean();
+
+    // Transform local performances to setlist.fm format
+    const transformedLocal = localResults.map(p => ({
+      id: p.performanceId,
+      eventDate: p.eventDate.split('-').reverse().join('-'), // YYYY-MM-DD to DD-MM-YYYY
+      venue: {
+        name: p.venue.name,
+        city: {
+          name: p.venue.city,
+          state: p.venue.state,
+          stateCode: p.venue.state,
+          country: { name: p.venue.country }
+        }
+      },
+      sets: {
+        set: (p.sets || []).map(s => ({
+          name: s.name,
+          song: (s.songs || []).map(song => ({ name: song.name }))
+        }))
+      },
+      _isLocal: true
+    }));
+
+    // Search setlist.fm performances from cache
+    let performances = await umoCache.getPerformances();
 
     // Filter by general text query (searches venue, city, country, date, tour name)
     performances = performances.filter(p =>
@@ -1894,8 +1929,11 @@ app.get('/cached/performances/search', async (req, res) => {
       p.tour?.name?.toLowerCase().includes(queryLower)
     );
 
+    // Merge results: local first, then setlist.fm
+    const allResults = [...transformedLocal, ...performances];
+
     // Sort by date (most recent first)
-    performances.sort((a, b) => {
+    allResults.sort((a, b) => {
       const parseDate = (dateStr) => {
         if (!dateStr) return new Date(0);
         const [d, m, y] = dateStr.split('-');
@@ -1905,14 +1943,14 @@ app.get('/cached/performances/search', async (req, res) => {
     });
 
     // Limit results
-    const limitedResults = performances.slice(0, parseInt(limit));
+    const limitedResults = allResults.slice(0, parseInt(limit));
 
-    console.log(`🔍 Performance search "${query}": ${limitedResults.length} results`);
+    console.log(`🔍 Performance search "${query}": ${limitedResults.length} results (${transformedLocal.length} local, ${performances.length} setlist.fm)`);
 
     res.json({
       success: true,
       results: limitedResults,
-      total: performances.length
+      total: allResults.length
     });
 
   } catch (err) {
@@ -1924,36 +1962,81 @@ app.get('/cached/performances/search', async (req, res) => {
 app.get('/cached/performance/:performanceId', async (req, res) => {
   try {
     const { performanceId } = req.params;
-    
+
     console.log(`🎸 Looking for performance: ${performanceId}`);
-    
-    // Get all performances from cache
-    const performances = await umoCache.getPerformances();
-    
-    // Find the specific performance by ID
-    const performance = performances.find(p => p.id === performanceId);
-    
-    if (!performance) {
-      console.log(`❌ Performance ${performanceId} not found`);
-      return res.status(404).json({ 
-        error: 'Performance not found',
-        performanceId 
+
+    // Check if it's a local performance
+    if (performanceId.startsWith('local_')) {
+      const localPerf = await LocalPerformance.findOne({ performanceId })
+        .populate('createdBy', 'displayName email')
+        .lean();
+
+      if (!localPerf) {
+        console.log(`❌ Local performance ${performanceId} not found`);
+        return res.status(404).json({
+          error: 'Local performance not found',
+          performanceId
+        });
+      }
+
+      // Transform to setlist.fm format
+      const performance = {
+        id: localPerf.performanceId,
+        eventDate: localPerf.eventDate.split('-').reverse().join('-'),
+        venue: {
+          name: localPerf.venue.name,
+          city: {
+            name: localPerf.venue.city,
+            state: localPerf.venue.state,
+            stateCode: localPerf.venue.state,
+            country: { name: localPerf.venue.country }
+          }
+        },
+        sets: {
+          set: (localPerf.sets || []).map(s => ({
+            name: s.name,
+            song: (s.songs || []).map(song => ({ name: song.name }))
+          }))
+        },
+        _isLocal: true,
+        _raw: localPerf
+      };
+
+      console.log(`✅ Found local performance: ${localPerf.venue.name} - ${localPerf.eventDate}`);
+
+      return res.json({
+        performance,
+        fromLocal: true
       });
     }
-    
+
+    // Get all performances from cache (setlist.fm)
+    const performances = await umoCache.getPerformances();
+
+    // Find the specific performance by ID
+    const performance = performances.find(p => p.id === performanceId);
+
+    if (!performance) {
+      console.log(`❌ Performance ${performanceId} not found`);
+      return res.status(404).json({
+        error: 'Performance not found',
+        performanceId
+      });
+    }
+
     console.log(`✅ Found performance: ${performance.venue?.name} - ${performance.eventDate}`);
-    
+
     res.json({
       performance,
       fromCache: true,
       lastUpdated: umoCache.cache?.lastUpdated
     });
-    
+
   } catch (err) {
     console.error('❌ Error fetching single performance:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch performance',
-      details: err.message 
+      details: err.message
     });
   }
 });
@@ -4219,11 +4302,31 @@ app.post('/archive/import-tracks', authenticateToken, requireMod, async (req, re
       return res.status(400).json({ error: 'Invalid archive.org identifier format' });
     }
 
-    // Validate performanceId is a real setlist.fm ID (not the archiveId)
-    if (performanceId === archiveId || performanceId.length > 12) {
+    // Validate performanceId is either a setlist.fm ID or a local performance ID
+    const isLocalPerformance = performanceId.startsWith('local_');
+
+    if (performanceId === archiveId) {
       return res.status(400).json({
-        error: 'Must link to setlist.fm performance before importing',
-        details: 'Please link the Archive.org recording to a setlist.fm performance first'
+        error: 'Must link to a performance before importing',
+        details: 'Please link the Archive.org recording to a performance first'
+      });
+    }
+
+    // For local performances, verify it exists
+    if (isLocalPerformance) {
+      const localPerf = await LocalPerformance.findOne({ performanceId });
+      if (!localPerf) {
+        return res.status(400).json({
+          error: 'Local performance not found',
+          details: 'The specified local performance ID does not exist'
+        });
+      }
+      console.log(`📍 Importing to local performance: ${localPerf.venue.name}, ${localPerf.eventDate}`);
+    } else if (performanceId.length > 12) {
+      // Setlist.fm IDs are typically 8 hex characters
+      return res.status(400).json({
+        error: 'Invalid performance ID format',
+        details: 'Please link to a setlist.fm performance or create a local performance first'
       });
     }
 
@@ -4319,6 +4422,363 @@ app.post('/archive/import-tracks', authenticateToken, requireMod, async (req, re
   } catch (error) {
     console.error('❌ Archive.org import error:', error);
     res.status(500).json({ error: 'Failed to import archive.org tracks' });
+  }
+});
+
+// Update thumbnail/cover art for archive.org moment (and optionally push to children)
+app.put('/archive/moments/:momentId/thumbnail', authenticateToken, requireMod, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { thumbnailUrl, pushToChildren = false } = req.body;
+
+    if (!thumbnailUrl) {
+      return res.status(400).json({ error: 'thumbnailUrl is required' });
+    }
+
+    // Find the parent moment
+    const parentMoment = await Moment.findById(momentId);
+    if (!parentMoment) {
+      return res.status(404).json({ error: 'Moment not found' });
+    }
+
+    // Verify it's an archive moment
+    if (parentMoment.mediaSource !== 'archive') {
+      return res.status(400).json({ error: 'This endpoint is only for archive.org moments' });
+    }
+
+    // Update parent thumbnail
+    parentMoment.thumbnailUrl = thumbnailUrl;
+    await parentMoment.save();
+
+    let childrenUpdated = 0;
+
+    // If pushToChildren is true, update all child moments with same externalVideoId
+    if (pushToChildren && parentMoment.externalVideoId) {
+      const result = await Moment.updateMany(
+        {
+          externalVideoId: parentMoment.externalVideoId,
+          mediaSource: 'archive',
+          _id: { $ne: parentMoment._id } // Exclude parent
+        },
+        { $set: { thumbnailUrl: thumbnailUrl } }
+      );
+      childrenUpdated = result.modifiedCount;
+    }
+
+    console.log(`🖼️ Updated thumbnail for archive moment ${momentId}${pushToChildren ? ` (+ ${childrenUpdated} children)` : ''}`);
+
+    res.json({
+      success: true,
+      momentId,
+      thumbnailUrl,
+      childrenUpdated
+    });
+
+  } catch (error) {
+    console.error('❌ Update archive thumbnail error:', error);
+    res.status(500).json({ error: 'Failed to update thumbnail' });
+  }
+});
+
+// Get child moments for an archive.org parent (by externalVideoId)
+app.get('/archive/moments/:archiveId/children', async (req, res) => {
+  try {
+    const { archiveId } = req.params;
+
+    const children = await Moment.find({
+      externalVideoId: archiveId,
+      mediaSource: 'archive',
+      showInMoments: true // Only visible children
+    })
+      .sort({ songPosition: 1 })
+      .select('songName songPosition thumbnailUrl mediaUrl duration contentType')
+      .lean();
+
+    res.json({
+      archiveId,
+      count: children.length,
+      children
+    });
+
+  } catch (error) {
+    console.error('❌ Get archive children error:', error);
+    res.status(500).json({ error: 'Failed to fetch children' });
+  }
+});
+
+// =====================================================
+// LOCAL PERFORMANCES ROUTES
+// For shows not on setlist.fm (e.g., older archive.org recordings)
+// =====================================================
+
+// GET /local-performances - List all local performances
+app.get('/local-performances', async (req, res) => {
+  try {
+    const { limit = 50, offset = 0, search } = req.query;
+
+    let query = {};
+    if (search) {
+      query = {
+        $or: [
+          { 'venue.name': { $regex: search, $options: 'i' } },
+          { 'venue.city': { $regex: search, $options: 'i' } },
+          { eventDate: { $regex: search } }
+        ]
+      };
+    }
+
+    const [performances, total] = await Promise.all([
+      LocalPerformance.find(query)
+        .sort({ eventDate: -1 })
+        .skip(parseInt(offset))
+        .limit(parseInt(limit))
+        .populate('createdBy', 'displayName email')
+        .lean(),
+      LocalPerformance.countDocuments(query)
+    ]);
+
+    // Transform to setlist.fm format for compatibility
+    const transformed = performances.map(p => ({
+      id: p.performanceId,
+      eventDate: p.eventDate.split('-').reverse().join('-'), // YYYY-MM-DD to DD-MM-YYYY
+      venue: {
+        name: p.venue.name,
+        city: {
+          name: p.venue.city,
+          state: p.venue.state,
+          stateCode: p.venue.state,
+          country: { name: p.venue.country }
+        }
+      },
+      sets: {
+        set: (p.sets || []).map(s => ({
+          name: s.name,
+          song: (s.songs || []).map(song => ({ name: song.name }))
+        }))
+      },
+      _isLocal: true,
+      _raw: p
+    }));
+
+    res.json({
+      performances: transformed,
+      total,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('❌ Error fetching local performances:', error);
+    res.status(500).json({ error: 'Failed to fetch local performances' });
+  }
+});
+
+// GET /local-performances/:id - Get single local performance
+app.get('/local-performances/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const performance = await LocalPerformance.findOne({ performanceId: id })
+      .populate('createdBy', 'displayName email')
+      .lean();
+
+    if (!performance) {
+      return res.status(404).json({ error: 'Local performance not found' });
+    }
+
+    // Transform to setlist.fm format
+    const transformed = {
+      id: performance.performanceId,
+      eventDate: performance.eventDate.split('-').reverse().join('-'),
+      venue: {
+        name: performance.venue.name,
+        city: {
+          name: performance.venue.city,
+          state: performance.venue.state,
+          stateCode: performance.venue.state,
+          country: { name: performance.venue.country }
+        }
+      },
+      sets: {
+        set: (performance.sets || []).map(s => ({
+          name: s.name,
+          song: (s.songs || []).map(song => ({ name: song.name }))
+        }))
+      },
+      _isLocal: true,
+      _raw: performance
+    };
+
+    res.json(transformed);
+  } catch (error) {
+    console.error('❌ Error fetching local performance:', error);
+    res.status(500).json({ error: 'Failed to fetch local performance' });
+  }
+});
+
+// POST /local-performances - Create new local performance (admin/mod only)
+app.post('/local-performances', authenticateToken, requireMod, async (req, res) => {
+  try {
+    const {
+      eventDate,
+      venue,
+      sets,
+      archiveOrgId,
+      archiveOrgUrl,
+      notes
+    } = req.body;
+
+    // Validate required fields
+    if (!eventDate || !venue?.name || !venue?.city) {
+      return res.status(400).json({
+        error: 'eventDate, venue.name, and venue.city are required'
+      });
+    }
+
+    // Validate date format
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+      return res.status(400).json({
+        error: 'eventDate must be in YYYY-MM-DD format'
+      });
+    }
+
+    const performance = new LocalPerformance({
+      eventDate,
+      venue: {
+        name: venue.name,
+        city: venue.city,
+        state: venue.state || '',
+        country: venue.country || 'United States'
+      },
+      sets: sets || [],
+      archiveOrgId,
+      archiveOrgUrl,
+      notes,
+      createdBy: req.user.userId
+    });
+
+    await performance.save();
+
+    console.log(`✅ Created local performance: ${performance.performanceId} for ${eventDate}`);
+
+    // Transform to setlist.fm format
+    const transformed = {
+      id: performance.performanceId,
+      eventDate: eventDate.split('-').reverse().join('-'),
+      venue: {
+        name: venue.name,
+        city: {
+          name: venue.city,
+          state: venue.state,
+          stateCode: venue.state,
+          country: { name: venue.country || 'United States' }
+        }
+      },
+      sets: {
+        set: (sets || []).map(s => ({
+          name: s.name,
+          song: (s.songs || []).map(song => ({ name: song.name }))
+        }))
+      },
+      _isLocal: true,
+      _raw: performance.toObject()
+    };
+
+    res.status(201).json(transformed);
+  } catch (error) {
+    console.error('❌ Error creating local performance:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'A performance with this ID already exists' });
+    }
+    res.status(500).json({ error: 'Failed to create local performance' });
+  }
+});
+
+// PUT /local-performances/:id - Update local performance (admin/mod only)
+app.put('/local-performances/:id', authenticateToken, requireMod, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { eventDate, venue, sets, archiveOrgId, archiveOrgUrl, notes, isVerified } = req.body;
+
+    const performance = await LocalPerformance.findOne({ performanceId: id });
+    if (!performance) {
+      return res.status(404).json({ error: 'Local performance not found' });
+    }
+
+    // Update fields
+    if (eventDate) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+        return res.status(400).json({ error: 'eventDate must be in YYYY-MM-DD format' });
+      }
+      performance.eventDate = eventDate;
+    }
+    if (venue) {
+      performance.venue = {
+        name: venue.name || performance.venue.name,
+        city: venue.city || performance.venue.city,
+        state: venue.state !== undefined ? venue.state : performance.venue.state,
+        country: venue.country || performance.venue.country
+      };
+    }
+    if (sets !== undefined) performance.sets = sets;
+    if (archiveOrgId !== undefined) performance.archiveOrgId = archiveOrgId;
+    if (archiveOrgUrl !== undefined) performance.archiveOrgUrl = archiveOrgUrl;
+    if (notes !== undefined) performance.notes = notes;
+    if (typeof isVerified === 'boolean') performance.isVerified = isVerified;
+
+    await performance.save();
+
+    console.log(`✅ Updated local performance: ${id}`);
+
+    res.json({
+      id: performance.performanceId,
+      eventDate: performance.eventDate.split('-').reverse().join('-'),
+      venue: {
+        name: performance.venue.name,
+        city: {
+          name: performance.venue.city,
+          state: performance.venue.state,
+          stateCode: performance.venue.state,
+          country: { name: performance.venue.country }
+        }
+      },
+      sets: {
+        set: (performance.sets || []).map(s => ({
+          name: s.name,
+          song: (s.songs || []).map(song => ({ name: song.name }))
+        }))
+      },
+      _isLocal: true,
+      _raw: performance.toObject()
+    });
+  } catch (error) {
+    console.error('❌ Error updating local performance:', error);
+    res.status(500).json({ error: 'Failed to update local performance' });
+  }
+});
+
+// DELETE /local-performances/:id - Delete local performance (admin only)
+app.delete('/local-performances/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if any moments reference this performance
+    const momentCount = await Moment.countDocuments({ performanceId: id });
+    if (momentCount > 0) {
+      return res.status(400).json({
+        error: `Cannot delete: ${momentCount} moment(s) reference this performance`,
+        hint: 'Delete or reassign the moments first'
+      });
+    }
+
+    const result = await LocalPerformance.deleteOne({ performanceId: id });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Local performance not found' });
+    }
+
+    console.log(`🗑️ Deleted local performance: ${id}`);
+    res.json({ success: true, deleted: id });
+  } catch (error) {
+    console.error('❌ Error deleting local performance:', error);
+    res.status(500).json({ error: 'Failed to delete local performance' });
   }
 });
 

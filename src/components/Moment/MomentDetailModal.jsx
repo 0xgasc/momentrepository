@@ -1,6 +1,6 @@
 // src/components/Moment/MomentDetailModal.jsx - OPTIMIZED & FIXED
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { X, Download, Calendar, MapPin, User, FileText, Zap, ChevronDown, ChevronUp, Clock, ListPlus, Check } from 'lucide-react';
+import { X, Download, Calendar, MapPin, User, FileText, Zap, ChevronDown, ChevronUp, Clock, ListPlus, Check, Archive, ExternalLink } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
@@ -317,7 +317,8 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   // Optimized media component
   const getMediaComponent = () => {
     // Check for Archive.org content FIRST
-    const isArchive = moment.mediaSource === 'archive';
+    const isArchive = moment.mediaSource === 'archive' ||
+                      moment.mediaUrl?.includes('archive.org');
 
     if (isArchive) {
       // Individual track with direct audio URL -> AudioPlayer
@@ -335,29 +336,60 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
               Archive.org Recording
               {moment.performanceDate && ` • ${moment.performanceDate}`}
             </p>
+            {moment.externalVideoId && (
+              <div className="mt-3 text-center">
+                <a
+                  href={`https://archive.org/details/${moment.externalVideoId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-orange-400 hover:text-orange-300 transition-colors"
+                >
+                  <Archive size={14} />
+                  View full recording on Archive.org
+                  <ExternalLink size={12} />
+                </a>
+              </div>
+            )}
           </div>
         );
       }
 
       // Parent recording -> archive.org embed iframe
       return (
-        <div className="media-container relative" style={{ paddingBottom: '56.25%' }}>
-          <iframe
-            src={`https://archive.org/embed/${moment.externalVideoId}`}
-            className="absolute top-0 left-0 w-full h-full rounded-lg"
-            frameBorder="0"
-            webkitallowfullscreen="true"
-            mozallowfullscreen="true"
-            allowFullScreen
-            title={moment.songName || 'Archive.org Recording'}
-          />
+        <div className="media-container">
+          <div className="relative" style={{ paddingBottom: '56.25%' }}>
+            <iframe
+              src={`https://archive.org/embed/${moment.externalVideoId}`}
+              className="absolute top-0 left-0 w-full h-full rounded-lg"
+              frameBorder="0"
+              webkitallowfullscreen="true"
+              mozallowfullscreen="true"
+              allowFullScreen
+              title={moment.songName || 'Archive.org Recording'}
+            />
+          </div>
+          {moment.externalVideoId && (
+            <div className="mt-3 text-center">
+              <a
+                href={`https://archive.org/details/${moment.externalVideoId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-orange-400 hover:text-orange-300 transition-colors"
+              >
+                <Archive size={14} />
+                View full recording on Archive.org
+                <ExternalLink size={12} />
+              </a>
+            </div>
+          )}
         </div>
       );
     }
 
     // Check for YouTube content (before regular video check)
+    // Don't match archive.org content that also has externalVideoId
     const isYouTube = moment.mediaSource === 'youtube' ||
-                      moment.externalVideoId ||
+                      (moment.externalVideoId && moment.mediaSource !== 'archive') ||
                       moment.mediaUrl?.includes('youtube.com') ||
                       moment.mediaUrl?.includes('youtu.be');
 

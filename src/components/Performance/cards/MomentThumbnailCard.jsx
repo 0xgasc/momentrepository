@@ -65,14 +65,22 @@ const getMediaIcon = (mediaType) => {
   }
 };
 
+// Check if this is an archive.org moment
+const isArchiveMoment = (moment) => {
+  return moment.mediaSource === 'archive' || moment.mediaUrl?.includes('archive.org');
+};
+
 // Check if this is a YouTube moment
 const isYouTubeMoment = (moment) => {
-  // Check for externalVideoId first
-  if (moment.externalVideoId) return true;
+  // Exclude archive.org content first
+  if (isArchiveMoment(moment)) return false;
+
+  // Check mediaSource explicitly
+  if (moment.mediaSource === 'youtube') return true;
   // Check for YouTube URLs in mediaUrl
   if (moment.mediaUrl?.includes('youtube.com') || moment.mediaUrl?.includes('youtu.be')) return true;
-  // Check mediaSource
-  if (moment.mediaSource === 'youtube') return true;
+  // Check externalVideoId only if not archive
+  if (moment.externalVideoId && moment.mediaSource !== 'archive') return true;
   return false;
 };
 

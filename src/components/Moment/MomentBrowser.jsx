@@ -69,13 +69,21 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilter = '
     fetchMoments();
   }, []);
 
+  // Helper to detect if moment is archive.org
+  const isArchiveMoment = useCallback((m) => {
+    return m.mediaSource === 'archive' || m.mediaUrl?.includes('archive.org');
+  }, []);
+
   // Helper to detect if moment is YouTube/linked
   const isYouTubeMoment = useCallback((m) => {
+    // Exclude archive.org content
+    if (isArchiveMoment(m)) return false;
+
     return m.mediaSource === 'youtube' ||
       m.mediaUrl?.includes('youtube.com') ||
       m.mediaUrl?.includes('youtu.be') ||
-      m.externalVideoId;
-  }, []);
+      (m.externalVideoId && m.mediaSource !== 'archive');
+  }, [isArchiveMoment]);
 
   // Helper to detect if moment is audio
   const isAudioMoment = useCallback((m) => {
@@ -96,10 +104,11 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilter = '
       result = result.filter(m => {
         const isYT = isYouTubeMoment(m);
         const isAudio = isAudioMoment(m);
+        const isArchive = isArchiveMoment(m);
 
         if (mediaFilter === 'clips') return m.mediaSource === 'upload' && !isAudio;
         if (mediaFilter === 'audio') return isAudio;
-        if (mediaFilter === 'linked') return isYT || m.mediaSource === 'vimeo';
+        if (mediaFilter === 'linked') return isYT || isArchive || m.mediaSource === 'vimeo';
         return true;
       });
     }
@@ -151,7 +160,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilter = '
     }
 
     return result;
-  }, [moments, searchQuery, sortBy, sortDirection, randomSeed, mediaFilter, isYouTubeMoment, isAudioMoment]);
+  }, [moments, searchQuery, sortBy, sortDirection, randomSeed, mediaFilter, isYouTubeMoment, isAudioMoment, isArchiveMoment]);
 
   // Reset loaded count when search/sort/filter changes
   useEffect(() => {

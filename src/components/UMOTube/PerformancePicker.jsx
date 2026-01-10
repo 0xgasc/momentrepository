@@ -253,7 +253,7 @@ const PerformancePicker = memo(({
       {value && !isOpen && (
         <div className="mt-1 flex items-center gap-1 text-xs text-green-400">
           <Link2 size={12} />
-          <span>Linked to setlist.fm</span>
+          <span>Linked to performance</span>
         </div>
       )}
 
@@ -289,9 +289,14 @@ const PerformancePicker = memo(({
                       onMouseEnter={() => setHighlightedIndex(index)}
                     >
                       <div className="flex items-start gap-2">
-                        <Calendar size={14} className="text-yellow-500 flex-shrink-0 mt-0.5" />
+                        <Calendar size={14} className={`flex-shrink-0 mt-0.5 ${perf._isLocal ? 'text-purple-400' : 'text-yellow-500'}`} />
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">
+                          <div className="font-medium truncate flex items-center gap-2">
+                            {perf._isLocal && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-purple-600 text-white rounded font-medium">
+                                Local
+                              </span>
+                            )}
                             {perf.venue?.name || 'Unknown Venue'}
                           </div>
                           <div className="flex items-center gap-2 text-xs text-gray-500">

@@ -21,6 +21,7 @@ const momentSchema = new mongoose.Schema({
   // Media
   mediaUrl: { type: String, required: true }, // Arweave/IPFS link
   mediaType: { type: String }, // 'video', 'audio', 'image'
+  thumbnailUrl: { type: String }, // Custom thumbnail/cover art URL
   fileName: { type: String }, // Original filename
   fileSize: { type: Number }, // File size in bytes
   duration: { type: Number }, // Duration in seconds (for video/audio)

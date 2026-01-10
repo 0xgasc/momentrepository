@@ -1,10 +1,11 @@
 // src/components/UMOTube/UMOTube.jsx - Linked Media (YouTube & Archive.org linked to performances)
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock, Edit, X, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Eye, Music, Archive, Loader2, Check } from 'lucide-react';
+import { Plus, Youtube, Calendar, MapPin, Play, ListMusic, Trash2, Clock, Edit, X, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Eye, Music, Archive, Loader2, Check, Image } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import SongAutocomplete from './SongAutocomplete';
 import PerformancePicker from './PerformancePicker';
+import CreateLocalShowModal from './CreateLocalShowModal';
 
 // Helper to parse MM:SS to seconds
 const parseTimeToSeconds = (timeStr) => {
@@ -81,6 +82,14 @@ const UMOTube = ({ user }) => {
   const [archiveSuccess, setArchiveSuccess] = useState('');
   const [archivePerformanceDisplay, setArchivePerformanceDisplay] = useState('');
   const [archivePerformance, setArchivePerformance] = useState(null);
+  const [showCreateLocalModal, setShowCreateLocalModal] = useState(false);
+
+  // Cover art state
+  const [showCoverArtModal, setShowCoverArtModal] = useState(false);
+  const [coverArtVideo, setCoverArtVideo] = useState(null);
+  const [coverArtUrl, setCoverArtUrl] = useState('');
+  const [pushToChildren, setPushToChildren] = useState(true);
+  const [savingCoverArt, setSavingCoverArt] = useState(false);
 
   const [formData, setFormData] = useState({
     youtubeUrl: '',
@@ -308,6 +317,59 @@ const UMOTube = ({ user }) => {
     setArchiveTracks(prev => prev.map((t, i) =>
       i === index ? { ...t, songName: name } : t
     ));
+  };
+
+  // Save cover art for archive moment
+  const saveCoverArt = async () => {
+    if (!coverArtVideo || !coverArtUrl.trim()) return;
+
+    setSavingCoverArt(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/archive/moments/${coverArtVideo._id}/thumbnail`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          thumbnailUrl: coverArtUrl.trim(),
+          pushToChildren
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save cover art');
+      }
+
+      // Update the video in local state
+      setVideos(prev => prev.map(v =>
+        v._id === coverArtVideo._id ? { ...v, thumbnailUrl: coverArtUrl.trim() } : v
+      ));
+
+      setSuccess(`Cover art saved${data.childrenUpdated > 0 ? ` (+ ${data.childrenUpdated} child moments)` : ''}`);
+      setTimeout(() => setSuccess(''), 3000);
+
+      // Close modal
+      setShowCoverArtModal(false);
+      setCoverArtVideo(null);
+      setCoverArtUrl('');
+    } catch (err) {
+      console.error('Save cover art error:', err);
+      setError(err.message || 'Failed to save cover art');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setSavingCoverArt(false);
+    }
+  };
+
+  // Open cover art modal
+  const openCoverArtModal = (video) => {
+    setCoverArtVideo(video);
+    setCoverArtUrl(video.thumbnailUrl || '');
+    setPushToChildren(true);
+    setShowCoverArtModal(true);
   };
 
   // Get filtered videos based on media source tab
@@ -1233,9 +1295,9 @@ const UMOTube = ({ user }) => {
                       onClick={() => setSelectedVideo(video)}
                     >
                       <img
-                        src={video.mediaSource === 'archive'
+                        src={video.thumbnailUrl || (video.mediaSource === 'archive'
                           ? `https://archive.org/services/img/${video.externalVideoId}`
-                          : getYouTubeThumbnail(video.externalVideoId)}
+                          : getYouTubeThumbnail(video.externalVideoId))}
                         alt={video.songName}
                         className="w-full h-full object-cover"
                         onError={(e) => {
@@ -1314,6 +1376,19 @@ const UMOTube = ({ user }) => {
                             <ListMusic size={12} />
                             Setlist
                           </button>
+                          {video.mediaSource === 'archive' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openCoverArtModal(video);
+                              }}
+                              className="flex items-center gap-1 text-xs px-2 py-1 bg-purple-600/20 text-purple-400 hover:bg-purple-600/40 rounded transition-colors"
+                              title="Set custom cover art"
+                            >
+                              <Image size={12} />
+                              Cover
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1734,9 +1809,21 @@ const UMOTube = ({ user }) => {
                       placeholder="Search shows by venue, city, or date..."
                     />
                     {!archivePerformance && (
-                      <div className="flex items-center gap-2 mt-2 text-yellow-400 text-xs">
-                        <AlertTriangle size={14} />
-                        You must link this recording to a setlist.fm performance
+                      <div className="mt-2 space-y-2">
+                        <div className="flex items-center gap-2 text-yellow-400 text-xs">
+                          <AlertTriangle size={14} />
+                          You must link this recording to a performance
+                        </div>
+                        {archiveMetadata && (
+                          <button
+                            type="button"
+                            onClick={() => setShowCreateLocalModal(true)}
+                            className="flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300 transition-colors"
+                          >
+                            <Plus size={14} />
+                            Not on setlist.fm? Create Local Show
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1843,6 +1930,141 @@ const UMOTube = ({ user }) => {
           moment={selectedVideo}
           onClose={() => setSelectedVideo(null)}
         />
+      )}
+
+      {/* Create Local Show Modal */}
+      {showCreateLocalModal && (
+        <CreateLocalShowModal
+          defaultDate={archiveMetadata?.date || ''}
+          defaultVenue={archiveMetadata?.venue || ''}
+          archiveId={archiveMetadata?.archiveId || ''}
+          tracks={archiveTracks}
+          onCreated={(localPerf) => {
+            // Set the created local performance as the selected performance
+            setArchivePerformance(localPerf);
+            const displayValue = `${localPerf.venue?.name || ''}, ${localPerf.venue?.city?.name || ''} - ${localPerf.eventDate}`;
+            setArchivePerformanceDisplay(displayValue);
+            setShowCreateLocalModal(false);
+          }}
+          onClose={() => setShowCreateLocalModal(false)}
+        />
+      )}
+
+      {/* Cover Art Modal */}
+      {showCoverArtModal && coverArtVideo && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="umo-card max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <Image className="w-6 h-6 text-purple-500" />
+                  <h2 className="umo-heading umo-heading--lg">Set Cover Art</h2>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowCoverArtModal(false);
+                    setCoverArtVideo(null);
+                    setCoverArtUrl('');
+                  }}
+                  className="text-gray-400 hover:text-white text-2xl"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-sm umo-text-secondary mb-2">
+                  Recording: <span className="text-white">{coverArtVideo.songName}</span>
+                </p>
+                <p className="text-xs umo-text-muted">
+                  Archive ID: {coverArtVideo.externalVideoId}
+                </p>
+              </div>
+
+              {/* Preview */}
+              <div className="mb-4 aspect-video bg-gray-800 rounded overflow-hidden">
+                {coverArtUrl ? (
+                  <img
+                    src={coverArtUrl}
+                    alt="Cover preview"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23374151" width="100" height="100"/><text x="50" y="55" text-anchor="middle" fill="%23ef4444" font-size="8">Invalid URL</text></svg>';
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-500">
+                    <span>Enter URL to preview</span>
+                  </div>
+                )}
+              </div>
+
+              {/* URL Input */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium umo-text-primary mb-2">
+                  Cover Art URL
+                </label>
+                <input
+                  type="url"
+                  value={coverArtUrl}
+                  onChange={(e) => setCoverArtUrl(e.target.value)}
+                  placeholder="https://example.com/cover.jpg"
+                  className="umo-input w-full"
+                />
+                <p className="text-xs umo-text-muted mt-1">
+                  Enter a direct URL to an image (JPG, PNG, etc.)
+                </p>
+              </div>
+
+              {/* Push to children checkbox */}
+              <div className="mb-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={pushToChildren}
+                    onChange={(e) => setPushToChildren(e.target.checked)}
+                    className="w-4 h-4 rounded"
+                  />
+                  <span className="text-sm umo-text-secondary">
+                    Apply to all child moments (tracks)
+                  </span>
+                </label>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-4">
+                <button
+                  onClick={saveCoverArt}
+                  disabled={savingCoverArt || !coverArtUrl.trim()}
+                  className="umo-btn umo-btn--primary flex-1 flex items-center justify-center gap-2"
+                  style={{ backgroundColor: '#9333ea' }}
+                >
+                  {savingCoverArt ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      Save Cover Art
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCoverArtModal(false);
+                    setCoverArtVideo(null);
+                    setCoverArtUrl('');
+                  }}
+                  className="umo-btn umo-btn--secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
