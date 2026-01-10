@@ -256,7 +256,10 @@ const TheaterQueue = () => {
               {/* Save as Collection button - only show if logged in */}
               {user && (
                 <button
-                  onClick={() => setShowSaveModal(true)}
+                  onClick={() => {
+                    console.log('Save button clicked, showing modal');
+                    setShowSaveModal(true);
+                  }}
                   className="flex items-center gap-1 text-xs text-gray-500 hover:text-green-400 transition-colors px-2 py-2"
                   style={{ minHeight: '36px' }}
                   title="Save as collection"
@@ -277,85 +280,6 @@ const TheaterQueue = () => {
               </button>
             </div>
 
-            {/* Save as Collection Modal */}
-            {showSaveModal && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 bg-gray-900 border border-gray-700 rounded-sm p-4 shadow-xl">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-white font-medium text-sm">Save Queue as Collection</h4>
-                  <button
-                    onClick={() => {
-                      setShowSaveModal(false);
-                      setSaveError('');
-                      setSaveSuccess(false);
-                    }}
-                    className="text-gray-500 hover:text-white"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-
-                {saveSuccess ? (
-                  <div className="flex items-center justify-center gap-2 py-4 text-green-400">
-                    <Check size={20} />
-                    <span>Collection saved!</span>
-                  </div>
-                ) : (
-                  <>
-                    <input
-                      type="text"
-                      value={collectionName}
-                      onChange={(e) => setCollectionName(e.target.value)}
-                      placeholder="Collection name..."
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm mb-3 focus:border-yellow-500 focus:outline-none"
-                      autoFocus
-                    />
-
-                    <label className="flex items-center gap-2 text-xs text-gray-300 mb-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isPublic}
-                        onChange={(e) => setIsPublic(e.target.checked)}
-                        className="rounded border-gray-600 bg-gray-800"
-                      />
-                      Make public (shareable link)
-                    </label>
-
-                    {saveError && (
-                      <div className="text-red-400 text-xs mb-3">{saveError}</div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setShowSaveModal(false);
-                          setSaveError('');
-                        }}
-                        className="flex-1 px-3 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 rounded transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSaveAsCollection}
-                        disabled={isSaving || !collectionName.trim()}
-                        className="flex-1 px-3 py-2 text-sm bg-yellow-600 hover:bg-yellow-500 text-black font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                      >
-                        {isSaving ? (
-                          <>
-                            <Loader2 size={14} className="animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Save size={14} />
-                            Save ({theaterQueue.length})
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
           </div>
         )}
 
@@ -370,6 +294,87 @@ const TheaterQueue = () => {
         )}
       </div>
 
+      {/* Save as Collection Modal - positioned as fixed overlay */}
+      {showSaveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-700 rounded-sm p-6 shadow-2xl w-80 max-w-[90vw]">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-white font-medium">Save Queue as Collection</h4>
+              <button
+                onClick={() => {
+                  setShowSaveModal(false);
+                  setSaveError('');
+                  setSaveSuccess(false);
+                }}
+                className="text-gray-500 hover:text-white transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {saveSuccess ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-green-400">
+                <Check size={24} />
+                <span className="text-lg">Collection saved!</span>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  value={collectionName}
+                  onChange={(e) => setCollectionName(e.target.value)}
+                  placeholder="Collection name..."
+                  className="w-full px-3 py-3 bg-gray-800 border border-gray-700 rounded text-white mb-4 focus:border-yellow-500 focus:outline-none"
+                  autoFocus
+                />
+
+                <label className="flex items-center gap-2 text-sm text-gray-300 mb-4 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    className="rounded border-gray-600 bg-gray-800"
+                  />
+                  Make public (shareable link)
+                </label>
+
+                {saveError && (
+                  <div className="text-red-400 text-sm mb-4 p-2 bg-red-900/30 rounded">{saveError}</div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowSaveModal(false);
+                      setSaveError('');
+                    }}
+                    className="flex-1 px-4 py-3 text-gray-400 hover:text-white border border-gray-700 rounded transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveAsCollection}
+                    disabled={isSaving || !collectionName.trim()}
+                    className="flex-1 px-4 py-3 bg-yellow-600 hover:bg-yellow-500 text-black font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={16} />
+                        Save ({theaterQueue.length})
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 };
