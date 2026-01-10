@@ -12,16 +12,27 @@ export const formatFileSize = (bytes) => {
 
 export const formatDate = (dateString) => {
   if (!dateString) return 'Unknown date';
-  
-  // Handle DD-MM-YYYY format (common in setlist.fm)
+
+  // Handle date formats with dashes
   if (dateString.includes('-')) {
     const parts = dateString.split('-');
     if (parts.length === 3) {
-      const day = parseInt(parts[0]);
-      const month = parseInt(parts[1]) - 1; // JS months are 0-indexed
-      const year = parseInt(parts[2]);
-      
-      if (year >= 2020 && year <= 2025 && month >= 0 && month <= 11 && day >= 1 && day <= 31) {
+      let day, month, year;
+
+      // Detect format: YYYY-MM-DD (first part is 4 digits) vs DD-MM-YYYY (first part is 2 digits)
+      if (parts[0].length === 4) {
+        // YYYY-MM-DD format
+        year = parseInt(parts[0]);
+        month = parseInt(parts[1]) - 1; // JS months are 0-indexed
+        day = parseInt(parts[2]);
+      } else {
+        // DD-MM-YYYY format (setlist.fm)
+        day = parseInt(parts[0]);
+        month = parseInt(parts[1]) - 1;
+        year = parseInt(parts[2]);
+      }
+
+      if (year >= 1990 && year <= 2030 && month >= 0 && month <= 11 && day >= 1 && day <= 31) {
         const date = new Date(year, month, day);
         return date.toLocaleDateString('en-US', {
           year: 'numeric',

@@ -22,14 +22,28 @@ const PerformancePicker = memo(({
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
 
-  // Format date from DD-MM-YYYY to readable format
+  // Format date from DD-MM-YYYY or YYYY-MM-DD to readable format
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
     if (parts.length === 3) {
-      const [day, month, year] = parts;
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return `${months[parseInt(month, 10) - 1]} ${parseInt(day, 10)}, ${year}`;
+      let day, month, year;
+
+      // Detect format: YYYY-MM-DD (first part is 4 digits) vs DD-MM-YYYY
+      if (parts[0].length === 4) {
+        // YYYY-MM-DD format
+        year = parts[0];
+        month = parseInt(parts[1], 10);
+        day = parseInt(parts[2], 10);
+      } else {
+        // DD-MM-YYYY format (setlist.fm)
+        day = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10);
+        year = parts[2];
+      }
+
+      return `${months[month - 1]} ${day}, ${year}`;
     }
     return dateStr;
   };

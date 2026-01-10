@@ -167,6 +167,13 @@ const AdminPanel = memo(({ onClose }) => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
+    // Handle YYYY-MM-DD format
+    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const [year, month, day] = dateString.split('-');
+      return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric'
+      });
+    }
     // Handle DD-MM-YYYY format from setlist.fm
     if (typeof dateString === 'string' && /^\d{2}-\d{2}-\d{4}$/.test(dateString)) {
       const [day, month, year] = dateString.split('-');
@@ -1995,6 +2002,13 @@ const UpcomingShowsTab = memo(({ token }) => {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
+    // Handle YYYY-MM-DD format
+    if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const [year, month, day] = dateStr.split('-');
+      return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+      });
+    }
     // Handle DD-MM-YYYY format from setlist.fm
     if (typeof dateStr === 'string' && /^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
       const [day, month, year] = dateStr.split('-');
