@@ -22,7 +22,7 @@ const VIDEO_FILTER_PRESETS = {
   vhs: { label: 'VHS', filter: 'saturate(130%) contrast(95%) brightness(105%) blur(0.5px)', Icon: Camera }
 };
 
-const VideoHero = memo(({ onMomentClick, mediaFilter = 'all', customMoments = null }) => {
+const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: true, linked: true, uploads: true }, customMoments = null }) => {
   const { user, token } = useAuth();
   const videoRef = useRef(null);
   const audioRef = useRef(null);
@@ -33,8 +33,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all', customMoments = nu
 
   const [moment, setMoment] = useState(null);
   const [allMoments, setAllMoments] = useState([]);
-  // mediaFilter is controlled by parent
-  const activeFilter = mediaFilter || 'all';
+  // mediaFilters is controlled by parent (object with audio, video, linked, uploads)
   const [isYouTube, setIsYouTube] = useState(false);
   const [isAudio, setIsAudio] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -215,19 +214,27 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all', customMoments = nu
     return { isYouTube: false, isAudio: false };
   }, []);
 
-  // Filter moments based on media type
-  const filterMoments = useCallback((moments, filter) => {
-    if (filter === 'all') return moments;
-    if (filter === 'clips') return moments.filter(m => m.mediaSource === 'upload' && !m._isAudio);
-    if (filter === 'audio') return moments.filter(m => m._isAudio || m._isArchive);
-    if (filter === 'linked') return moments.filter(m => m._isYouTube || m._isArchive || m.mediaSource === 'vimeo');
-    return moments;
+  // Filter moments based on media type and source toggles
+  const filterMoments = useCallback((moments, filters) => {
+    return moments.filter(m => {
+      // Check media type (audio or video)
+      const isAudioMoment = m._isAudio || m._isArchive;
+      const isVideoMoment = !isAudioMoment;
+      const matchesType = (filters.audio && isAudioMoment) || (filters.video && isVideoMoment);
+
+      // Check source (linked or uploads)
+      const isLinked = m._isYouTube || m._isArchive || m.mediaSource === 'vimeo' || m.mediaSource === 'youtube' || m.mediaSource === 'archive';
+      const isUpload = m.mediaSource === 'upload' || (!m._isYouTube && !m._isArchive && m.mediaSource !== 'vimeo');
+      const matchesSource = (filters.linked && isLinked) || (filters.uploads && isUpload);
+
+      return matchesType && matchesSource;
+    });
   }, []);
 
   // Memoized filtered moments
   const filteredMoments = useMemo(() =>
-    filterMoments(allMoments, activeFilter),
-    [allMoments, activeFilter, filterMoments]
+    filterMoments(allMoments, mediaFilters),
+    [allMoments, mediaFilters, filterMoments]
   );
 
   // Fetch ALL moments and filter client-side (or use customMoments if provided)
@@ -346,7 +353,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all', customMoments = nu
         setYoutubeKey(prev => prev + 1);
       }
     }
-  }, [activeFilter, filteredMoments, moment, selectRandomMoment]);
+  }, [mediaFilters, filteredMoments, moment, selectRandomMoment]);
 
   // Reset effects when media type changes
   useEffect(() => {
@@ -728,23 +735,28 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all', customMoments = nu
   }
 
   // Empty state when filter has no content
-  const filterLabels = {
-    clips: 'video clips',
-    audio: 'audio clips',
-    linked: 'linked content'
-  };
+  // Check if any filters are off (not all enabled)
+  const allFiltersOn = mediaFilters.audio && mediaFilters.video && mediaFilters.linked && mediaFilters.uploads;
 
-  if (!isLoading && filteredMoments.length === 0 && activeFilter !== 'all') {
+  if (!isLoading && filteredMoments.length === 0 && !allFiltersOn) {
+    // Build description of active filters
+    const activeTypes = [];
+    if (mediaFilters.audio && !mediaFilters.video) activeTypes.push('audio');
+    if (mediaFilters.video && !mediaFilters.audio) activeTypes.push('video');
+    const activeSources = [];
+    if (mediaFilters.linked && !mediaFilters.uploads) activeSources.push('linked');
+    if (mediaFilters.uploads && !mediaFilters.linked) activeSources.push('uploaded');
+
+    const filterDesc = [...activeTypes, ...activeSources].join(' ') || 'matching';
+
     return (
       <div className="video-hero relative mb-4 sm:mb-6 overflow-hidden rounded-sm bg-gray-900/80 border border-gray-700/50">
         <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
           <div className="text-gray-500 mb-2">
-            {activeFilter === 'audio' && <Music size={48} className="mx-auto mb-3 opacity-50" />}
-            {activeFilter === 'clips' && <Play size={48} className="mx-auto mb-3 opacity-50" />}
-            {activeFilter === 'linked' && <Info size={48} className="mx-auto mb-3 opacity-50" />}
+            <Music size={48} className="mx-auto mb-3 opacity-50" />
           </div>
-          <p className="text-gray-400 text-lg">No {filterLabels[activeFilter]} yet</p>
-          <p className="text-gray-500 text-sm mt-1">Check back soon or try another filter</p>
+          <p className="text-gray-400 text-lg">No {filterDesc} content yet</p>
+          <p className="text-gray-500 text-sm mt-1">Try enabling more filters</p>
         </div>
       </div>
     );

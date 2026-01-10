@@ -9,7 +9,7 @@ import MomentDetailModal from './MomentDetailModal';
 import PullToRefresh from '../UI/PullToRefresh';
 import { transformMediaUrl } from '../../utils/mediaUrl';
 
-const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilter = 'all' }) => {
+const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilters = { audio: true, video: true, linked: true, uploads: true } }) => {
   const { isWeb3Enabled } = usePlatformSettings();
   const { addToQueue, isInQueue } = useTheaterQueue();
   const [moments, setMoments] = useState([]);
@@ -104,17 +104,25 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilter = '
   const filteredAndSortedMoments = useMemo(() => {
     let result = [...moments];
 
-    // Apply media type filter from hero
-    if (mediaFilter !== 'all') {
+    // Apply media type and source filters
+    const allFiltersOn = mediaFilters.audio && mediaFilters.video && mediaFilters.linked && mediaFilters.uploads;
+    if (!allFiltersOn) {
       result = result.filter(m => {
         const isYT = isYouTubeMoment(m);
-        const isAudio = isAudioMoment(m);
+        const isAudio = isAudioMoment(m) || isArchiveMoment(m);
         const isArchive = isArchiveMoment(m);
 
-        if (mediaFilter === 'clips') return m.mediaSource === 'upload' && !isAudio;
-        if (mediaFilter === 'audio') return isAudio;
-        if (mediaFilter === 'linked') return isYT || isArchive || m.mediaSource === 'vimeo';
-        return true;
+        // Check media type (audio or video)
+        const isAudioType = isAudio || isArchive;
+        const isVideoType = !isAudioType;
+        const matchesType = (mediaFilters.audio && isAudioType) || (mediaFilters.video && isVideoType);
+
+        // Check source (linked or uploads)
+        const isLinked = isYT || isArchive || m.mediaSource === 'vimeo' || m.mediaSource === 'youtube' || m.mediaSource === 'archive';
+        const isUpload = m.mediaSource === 'upload' || (!isYT && !isArchive && m.mediaSource !== 'vimeo');
+        const matchesSource = (mediaFilters.linked && isLinked) || (mediaFilters.uploads && isUpload);
+
+        return matchesType && matchesSource;
       });
     }
 
@@ -165,13 +173,13 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilter = '
     }
 
     return result;
-  }, [moments, searchQuery, sortBy, sortDirection, randomSeed, mediaFilter, isYouTubeMoment, isAudioMoment, isArchiveMoment]);
+  }, [moments, searchQuery, sortBy, sortDirection, randomSeed, mediaFilters, isYouTubeMoment, isAudioMoment, isArchiveMoment]);
 
   // Reset loaded count when search/sort/filter changes
   useEffect(() => {
     setLoadedCount(MOMENTS_PER_LOAD);
     setCurrentPage(0);
-  }, [searchQuery, sortBy, sortDirection, mediaFilter, MOMENTS_PER_LOAD]);
+  }, [searchQuery, sortBy, sortDirection, mediaFilters, MOMENTS_PER_LOAD]);
 
   // Search handlers
   const handleSearchChange = useCallback((e) => {

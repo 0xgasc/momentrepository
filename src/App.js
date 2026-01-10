@@ -73,8 +73,39 @@ const MainApp = memo(() => {
   // Public collection state (for shared collection URLs)
   const [publicCollectionId, setPublicCollectionId] = useState(null);
 
-  // Global media filter (affects hero + moments grid)
-  const [mediaFilter, setMediaFilter] = useState('all');
+  // Global media filters (affects hero + moments grid)
+  // Two toggle groups: Media Type (audio/video) and Source (linked/uploads)
+  const [mediaFilters, setMediaFilters] = useState({
+    audio: true,
+    video: true,
+    linked: true,
+    uploads: true
+  });
+
+  // Toggle filter with prevent-all-off logic
+  const toggleFilter = (group, key) => {
+    setMediaFilters(prev => {
+      // Define which keys belong to which group
+      const groups = {
+        type: ['audio', 'video'],
+        source: ['linked', 'uploads']
+      };
+
+      const groupKeys = groups[group];
+      const newValue = !prev[key];
+
+      // Check if turning off would leave group empty
+      if (!newValue) {
+        const otherActive = groupKeys.filter(k => k !== key && prev[k]);
+        if (otherActive.length === 0) {
+          // Don't allow - at least one must stay on
+          return prev;
+        }
+      }
+
+      return { ...prev, [key]: newValue };
+    });
+  };
 
   const { user, logout, loading } = useAuth();
 
@@ -183,8 +214,8 @@ const MainApp = memo(() => {
           badgeInfo={getBadgeInfo()}
           showHowToGuide={showHowToGuide}
           onToggleHowToGuide={() => setShowHowToGuide(!showHowToGuide)}
-          mediaFilter={mediaFilter}
-          setMediaFilter={setMediaFilter}
+          mediaFilters={mediaFilters}
+          toggleFilter={toggleFilter}
         />
 
 
@@ -211,8 +242,7 @@ const MainApp = memo(() => {
           onBack={handleBackToHome}
           onBrowseModeChange={switchBrowseMode}
           user={user}
-          mediaFilter={mediaFilter}
-          setMediaFilter={setMediaFilter}
+          mediaFilters={mediaFilters}
         />
         )}
 
@@ -257,8 +287,8 @@ const Header = memo(({
   badgeInfo,
   showHowToGuide,
   onToggleHowToGuide,
-  mediaFilter,
-  setMediaFilter
+  mediaFilters,
+  toggleFilter
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -295,21 +325,54 @@ const Header = memo(({
             </button>
           </div>
 
-          {/* Filter Pills - Mobile */}
-          <div className="flex gap-1 mt-2">
-            {['all', 'clips', 'audio', 'linked'].map(filter => (
+          {/* Filter Pills - Mobile - Two Toggle Groups */}
+          <div className="flex gap-3 mt-2 flex-wrap">
+            {/* Media Type Group */}
+            <div className="flex gap-1">
               <button
-                key={filter}
-                onClick={() => setMediaFilter(filter)}
-                className={`px-2 py-1 text-xs font-medium transition-all ${
-                  mediaFilter === filter
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
+                onClick={() => toggleFilter('type', 'audio')}
+                className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                  mediaFilters.audio
+                    ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                    : 'bg-gray-100 text-gray-400 border border-gray-200'
                 }`}
               >
-                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                Audio
               </button>
-            ))}
+              <button
+                onClick={() => toggleFilter('type', 'video')}
+                className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                  mediaFilters.video
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                    : 'bg-gray-100 text-gray-400 border border-gray-200'
+                }`}
+              >
+                Video
+              </button>
+            </div>
+            {/* Source Group */}
+            <div className="flex gap-1">
+              <button
+                onClick={() => toggleFilter('source', 'linked')}
+                className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                  mediaFilters.linked
+                    ? 'bg-red-100 text-red-700 border border-red-300'
+                    : 'bg-gray-100 text-gray-400 border border-gray-200'
+                }`}
+              >
+                Linked
+              </button>
+              <button
+                onClick={() => toggleFilter('source', 'uploads')}
+                className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                  mediaFilters.uploads
+                    ? 'bg-green-100 text-green-700 border border-green-300'
+                    : 'bg-gray-100 text-gray-400 border border-gray-200'
+                }`}
+              >
+                Uploads
+              </button>
+            </div>
           </div>
         </div>
 
@@ -503,21 +566,54 @@ const Header = memo(({
                 {showHowToGuide ? <ChevronUp size={16} className="text-blue-600" /> : <ChevronDown size={16} className="text-blue-600" />}
               </button>
 
-              {/* Filter Pills - Desktop */}
-              <div className="flex gap-1">
-                {['all', 'clips', 'audio', 'linked'].map(filter => (
+              {/* Filter Pills - Desktop - Two Toggle Groups */}
+              <div className="flex gap-3">
+                {/* Media Type Group */}
+                <div className="flex gap-1">
                   <button
-                    key={filter}
-                    onClick={() => setMediaFilter(filter)}
-                    className={`px-2 py-1 text-xs font-medium transition-all ${
-                      mediaFilter === filter
-                        ? 'text-blue-600 border-b-2 border-blue-600'
-                        : 'text-gray-500 hover:text-gray-700'
+                    onClick={() => toggleFilter('type', 'audio')}
+                    className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                      mediaFilters.audio
+                        ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                        : 'bg-gray-100 text-gray-400 border border-gray-200'
                     }`}
                   >
-                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                    Audio
                   </button>
-                ))}
+                  <button
+                    onClick={() => toggleFilter('type', 'video')}
+                    className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                      mediaFilters.video
+                        ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                        : 'bg-gray-100 text-gray-400 border border-gray-200'
+                    }`}
+                  >
+                    Video
+                  </button>
+                </div>
+                {/* Source Group */}
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => toggleFilter('source', 'linked')}
+                    className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                      mediaFilters.linked
+                        ? 'bg-red-100 text-red-700 border border-red-300'
+                        : 'bg-gray-100 text-gray-400 border border-gray-200'
+                    }`}
+                  >
+                    Linked
+                  </button>
+                  <button
+                    onClick={() => toggleFilter('source', 'uploads')}
+                    className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                      mediaFilters.uploads
+                        ? 'bg-green-100 text-green-700 border border-green-300'
+                        : 'bg-gray-100 text-gray-400 border border-gray-200'
+                    }`}
+                  >
+                    Uploads
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -643,8 +739,7 @@ const MainContent = memo(({
   onBack,
   onBrowseModeChange,
   user,
-  mediaFilter,
-  setMediaFilter
+  mediaFilters
 }) => {
   const [heroSelectedMoment, setHeroSelectedMoment] = useState(null);
 
@@ -672,7 +767,7 @@ const MainContent = memo(({
       {/* VideoHero - Big random clip player, persists across all home tabs */}
       <VideoHero
         onMomentClick={(moment) => setHeroSelectedMoment(moment)}
-        mediaFilter={mediaFilter}
+        mediaFilters={mediaFilters}
       />
 
       {/* Navigation Tabs - Below Hero */}
@@ -732,7 +827,7 @@ const MainContent = memo(({
         <MomentBrowser
           onSongSelect={onSongSelect}
           onPerformanceSelect={onPerformanceSelect}
-          mediaFilter={mediaFilter}
+          mediaFilters={mediaFilters}
         />
       )}
       {browseMode === 'performances' && (
