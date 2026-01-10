@@ -40,7 +40,16 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  const { isInQueue, addToQueue } = useTheaterQueue();
+  const { isInQueue, addToQueue, addManyToQueue, clearQueue, playQueue } = useTheaterQueue();
+
+  // Play all collection moments
+  const handlePlayAll = () => {
+    if (moments.length > 0) {
+      clearQueue();
+      addManyToQueue(moments);
+      playQueue(0);
+    }
+  };
 
   useEffect(() => {
     const fetchCollection = async () => {
@@ -150,6 +159,15 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
           </div>
 
           <div className="flex gap-2">
+            {moments.length > 0 && (
+              <button
+                onClick={handlePlayAll}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                <Play size={16} />
+                Play All
+              </button>
+            )}
             <button
               onClick={handleCopyLink}
               className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
@@ -227,8 +245,14 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
                           muted
                           playsInline
                           preload="metadata"
+                          onLoadedMetadata={(e) => {
+                            if (moment.startTime) e.target.currentTime = moment.startTime;
+                          }}
                           onMouseEnter={(e) => e.target.play()}
-                          onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+                          onMouseLeave={(e) => {
+                            e.target.pause();
+                            e.target.currentTime = moment.startTime || 0;
+                          }}
                         />
                       ) : (
                         <img

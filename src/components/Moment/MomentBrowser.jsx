@@ -478,12 +478,10 @@ const MomentHeader = memo(({
 
     {/* Search and Sort Controls */}
     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
-      {/* Left side - Results count */}
+      {/* Left side - Results count (only when searching) */}
       <div className="text-sm text-gray-600">
-        {searchQuery.trim() ? (
-          <>Showing {showingCount} of {filteredCount} matches ({totalMoments} total)</>
-        ) : (
-          <>{totalMoments} moments</>
+        {searchQuery.trim() && (
+          <>Showing {showingCount} of {filteredCount} matches</>
         )}
       </div>
 

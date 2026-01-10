@@ -1,7 +1,8 @@
 // src/components/Performance/cards/MomentThumbnailCard.jsx
 import React, { memo, useState } from 'react';
-import { Clock, Play, Music, Film, Mic, Youtube, Loader2 } from 'lucide-react';
+import { Clock, Play, Music, Film, Mic, Youtube, Loader2, ListPlus, Check } from 'lucide-react';
 import { transformMediaUrl } from '../../../utils/mediaUrl';
+import { useTheaterQueue } from '../../../contexts/TheaterQueueContext';
 
 // Format seconds to MM:SS or HH:MM:SS
 const formatDuration = (seconds) => {
@@ -111,6 +112,8 @@ const MomentThumbnailCard = memo(({
   compact = false
 }) => {
   const [isLoading, setIsLoading] = useState(true);
+  const { isInQueue, addToQueue } = useTheaterQueue();
+  const inQueue = isInQueue(moment._id);
   const rarity = rarityConfig[moment.rarityTier] || rarityConfig.basic;
   const duration = formatDuration(moment.duration);
   const MediaIcon = getMediaIcon(moment.mediaType);
@@ -225,12 +228,32 @@ const MomentThumbnailCard = memo(({
 
         {/* Play button overlay for YouTube */}
         {isYouTubeMoment(moment) && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
             <div className="w-10 h-10 bg-red-600/90 rounded-full flex items-center justify-center">
               <Play size={18} className="text-white ml-0.5" fill="white" />
             </div>
           </div>
         )}
+
+        {/* Add to Queue button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!inQueue) addToQueue(moment);
+          }}
+          className={`absolute bottom-1 left-1 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all z-20 ${
+            inQueue
+              ? 'bg-green-600/90 cursor-default'
+              : 'bg-blue-600/90 hover:bg-blue-700/90'
+          }`}
+          title={inQueue ? 'In queue' : 'Add to queue'}
+        >
+          {inQueue ? (
+            <Check size={12} className="text-white" />
+          ) : (
+            <ListPlus size={12} className="text-white" />
+          )}
+        </button>
       </div>
 
       {/* Info */}

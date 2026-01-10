@@ -606,8 +606,14 @@ const FavoritesTab = memo(() => {
                       muted
                       loop
                       playsInline
+                      onLoadedMetadata={(e) => {
+                        if (fav.moment.startTime) e.target.currentTime = fav.moment.startTime;
+                      }}
                       onMouseEnter={(e) => e.target.play()}
-                      onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+                      onMouseLeave={(e) => {
+                        e.target.pause();
+                        e.target.currentTime = fav.moment.startTime || 0;
+                      }}
                     />
                   ) : fav.moment?.mediaUrl ? (
                     <img
