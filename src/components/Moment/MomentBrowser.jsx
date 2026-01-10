@@ -554,11 +554,19 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
   // Check if this moment is already in queue
   const momentInQueue = isInQueue ? isInQueue(moment._id) : false;
 
-  // Check if this is a YouTube/linked moment
-  const isYouTube = moment.mediaSource === 'youtube' ||
+  // Check if this is an archive.org moment (exclude from YouTube)
+  // Archive identifiers start with "umo" followed by date (e.g., umo2013-03-18.skm140.flac24)
+  const isArchive = moment.mediaSource === 'archive' ||
+    moment.mediaUrl?.includes('archive.org') ||
+    moment.externalVideoId?.match(/^umo\d{4}/i);
+
+  // Check if this is a YouTube/linked moment (NOT archive)
+  const isYouTube = !isArchive && (
+    moment.mediaSource === 'youtube' ||
     moment.mediaUrl?.includes('youtube.com') ||
     moment.mediaUrl?.includes('youtu.be') ||
-    moment.externalVideoId;
+    (moment.externalVideoId && !moment.externalVideoId.match(/^umo\d{4}/i))
+  );
 
   // Get YouTube video ID
   const getYouTubeId = (url) => {
@@ -567,7 +575,12 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
     return match ? match[1] : null;
   };
 
-  const youtubeId = isYouTube ? (moment.externalVideoId || getYouTubeId(moment.mediaUrl)) : null;
+  // Only use externalVideoId for YouTube if it's NOT an archive pattern
+  const youtubeId = isYouTube ? (
+    (moment.externalVideoId && !moment.externalVideoId.match(/^umo\d{4}/i))
+      ? moment.externalVideoId
+      : getYouTubeId(moment.mediaUrl)
+  ) : null;
   const hasVideoMedia = isYouTube || moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/);
 
   const handleAddToQueue = (e) => {
