@@ -604,8 +604,8 @@ const FavoritesTab = memo(() => {
                       src={transformMediaUrl(fav.moment.mediaUrl)}
                       className="w-full h-full object-cover"
                       muted
-                      loop
                       playsInline
+                      preload="metadata"
                       onLoadedMetadata={(e) => {
                         if (fav.moment.startTime) e.target.currentTime = fav.moment.startTime;
                       }}

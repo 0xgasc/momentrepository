@@ -4497,19 +4497,17 @@ app.put('/archive/moments/:momentId/thumbnail', authenticateToken, requireMod, a
 
     // If pushToChildren is true, update all child moments with same externalVideoId
     if (pushToChildren && parentMoment.externalVideoId) {
-      // Query children using same externalVideoId (archive detection via pattern or mediaSource)
+      // Query children using same externalVideoId
+      // No additional archive detection needed - same externalVideoId IS the archive identifier
       const result = await Moment.updateMany(
         {
           externalVideoId: parentMoment.externalVideoId,
-          _id: { $ne: parentMoment._id }, // Exclude parent
-          $or: [
-            { mediaSource: 'archive' },
-            { mediaUrl: { $regex: /archive\.org/i } }
-          ]
+          _id: { $ne: parentMoment._id } // Exclude parent
         },
         { $set: { thumbnailUrl: thumbnailUrl } }
       );
       childrenUpdated = result.modifiedCount;
+      console.log(`🖼️ Cascade query found ${result.matchedCount} children, updated ${childrenUpdated}`);
     }
 
     console.log(`🖼️ Updated thumbnail for archive moment ${momentId}${pushToChildren ? ` (+ ${childrenUpdated} children)` : ''}`);
