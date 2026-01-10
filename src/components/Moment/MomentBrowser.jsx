@@ -674,15 +674,29 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
               className="w-full h-full object-cover"
             />
           ) : (moment.mediaType === 'audio' || moment.fileName?.toLowerCase().match(/\.(mp3|wav|ogg|flac)$/)) ? (
-            /* Audio Card Preview */
-            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-800 via-gray-900 to-black p-4">
-              <Music size={48} className="text-purple-400 mb-3" />
-              <div className="text-sm text-gray-300 font-medium truncate max-w-full px-2 text-center">
-                {moment.songName}
-              </div>
+            /* Audio Card Preview - use thumbnailUrl if available */
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-800 via-gray-900 to-black p-4 relative">
+              {moment.thumbnailUrl ? (
+                <img
+                  src={transformMediaUrl(moment.thumbnailUrl)}
+                  alt={moment.songName}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              ) : (
+                <>
+                  <Music size={48} className="text-purple-400 mb-3" />
+                  <div className="text-sm text-gray-300 font-medium truncate max-w-full px-2 text-center">
+                    {moment.songName}
+                  </div>
+                </>
+              )}
               {/* Play button overlay for audio */}
-              <div className="absolute bottom-3 left-3 w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
+              <div className="absolute bottom-3 left-3 w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-lg z-10">
                 <Play className="text-white ml-0.5" size={20} />
+              </div>
+              {/* Audio badge */}
+              <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-purple-600 text-white text-[10px] font-bold rounded z-10">
+                AUDIO
               </div>
             </div>
           ) : (

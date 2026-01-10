@@ -194,13 +194,27 @@ const MomentThumbnailCard = memo(({
             }}
           />
         ) : null}
-        {/* Fallback play icon */}
+        {/* Fallback - use thumbnailUrl if available, otherwise show icon */}
         <div
           className="absolute inset-0 bg-gray-800 items-center justify-center"
           style={{ display: (isYouTubeMoment(moment) || (moment.mediaType === 'video' && moment.mediaUrl)) ? 'none' : 'flex' }}
         >
-          <MediaIcon size={24} className="text-gray-500" />
+          {moment.thumbnailUrl ? (
+            <img
+              src={transformMediaUrl(moment.thumbnailUrl)}
+              alt={moment.songName}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <MediaIcon size={24} className="text-gray-500" />
+          )}
         </div>
+        {/* Audio badge for archive moments */}
+        {isArchiveMoment(moment) && (
+          <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-purple-600 text-white text-[8px] font-bold rounded z-10">
+            AUDIO
+          </div>
+        )}
 
         {/* Loading spinner */}
         {hasMedia && isLoading && (
