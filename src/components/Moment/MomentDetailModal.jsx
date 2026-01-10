@@ -328,6 +328,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
       if (moment.mediaUrl && !moment.mediaUrl.includes('/embed/')) {
         return (
           <div className="media-container audio-player-container">
+            {/* Audio Player - Full Width */}
             <AudioPlayer
               src={moment.mediaUrl}
               title={moment.songName || 'Archive.org Recording'}
@@ -335,24 +336,30 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
               momentId={moment._id}
               onDownload={handleDownload}
             />
-            <p className="text-xs text-gray-500 mt-2 text-center">
-              Archive.org Recording
-              {moment.performanceDate && ` • ${moment.performanceDate}`}
-            </p>
-            {moment.externalVideoId && (
-              <div className="mt-3 text-center">
-                <a
-                  href={`https://archive.org/details/${moment.externalVideoId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-orange-400 hover:text-orange-300 transition-colors"
-                >
-                  <Archive size={14} />
-                  View full recording on Archive.org
-                  <ExternalLink size={12} />
-                </a>
+
+            {/* Archive.org Attribution - Below Player */}
+            <div className="archive-info-section bg-gray-800/50 rounded-sm px-4 py-3 border border-gray-700/50">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <Archive size={16} className="text-orange-400" />
+                  <span>Archive.org Recording</span>
+                  {moment.performanceDate && (
+                    <span className="text-gray-500">• {moment.performanceDate}</span>
+                  )}
+                </div>
+                {moment.externalVideoId && (
+                  <a
+                    href={`https://archive.org/details/${moment.externalVideoId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm text-orange-400 hover:text-orange-300 transition-colors"
+                  >
+                    View full recording
+                    <ExternalLink size={12} />
+                  </a>
+                )}
               </div>
-            )}
+            </div>
           </div>
         );
       }
@@ -1543,7 +1550,14 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
             justify-content: center;
             align-items: center;
           }
-          
+
+          .media-container.audio-player-container {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 1rem;
+            padding: 0.5rem;
+          }
+
           .media-container video {
             max-width: 100%;
             height: auto;
