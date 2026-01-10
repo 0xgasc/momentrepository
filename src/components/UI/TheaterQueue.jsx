@@ -1,6 +1,6 @@
 // src/components/UI/TheaterQueue.jsx - Theater queue playlist component
 import React, { useState } from 'react';
-import { ListMusic, Play, X, Trash2, GripVertical, ChevronUp, ChevronDown, Shuffle, Save, Check, Loader2 } from 'lucide-react';
+import { ListMusic, Play, X, Trash2, GripVertical, ChevronUp, ChevronDown, Shuffle, Save, Check, Loader2, Link2, Copy } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { useAuth } from '../Auth/AuthProvider';
 import { useFavorites } from '../../hooks/useFavorites';
@@ -16,6 +16,8 @@ const TheaterQueue = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [savedCollection, setSavedCollection] = useState(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const { token, user } = useAuth();
   const { createCollection, addToCollection } = useFavorites(token);
@@ -71,6 +73,7 @@ const TheaterQueue = () => {
     setIsSaving(true);
     setSaveError('');
     setSaveSuccess(false);
+    setSavedCollection(null);
 
     try {
       // Create collection
@@ -85,13 +88,13 @@ const TheaterQueue = () => {
         }
 
         setSaveSuccess(true);
+        setSavedCollection(result.collection);
         setCollectionName('');
 
-        // Close modal after short delay
-        setTimeout(() => {
-          setShowSaveModal(false);
-          setSaveSuccess(false);
-        }, 1500);
+        // Auto-play if not already playing
+        if (!isPlayingFromQueue) {
+          playQueue(0);
+        }
       } else {
         setSaveError(result.error || 'Failed to create collection');
       }
@@ -101,6 +104,25 @@ const TheaterQueue = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Copy shareable link
+  const copyShareableLink = () => {
+    if (savedCollection) {
+      const link = `${window.location.origin}/collection/${savedCollection._id}`;
+      navigator.clipboard.writeText(link);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    }
+  };
+
+  // Close save modal and reset state
+  const closeSaveModal = () => {
+    setShowSaveModal(false);
+    setSaveError('');
+    setSaveSuccess(false);
+    setSavedCollection(null);
+    setLinkCopied(false);
   };
 
   // If no queue, don't render anything
@@ -301,11 +323,7 @@ const TheaterQueue = () => {
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-white font-medium">Save Queue as Collection</h4>
               <button
-                onClick={() => {
-                  setShowSaveModal(false);
-                  setSaveError('');
-                  setSaveSuccess(false);
-                }}
+                onClick={closeSaveModal}
                 className="text-gray-500 hover:text-white transition-colors"
               >
                 <X size={18} />
@@ -313,9 +331,44 @@ const TheaterQueue = () => {
             </div>
 
             {saveSuccess ? (
-              <div className="flex items-center justify-center gap-2 py-6 text-green-400">
-                <Check size={24} />
-                <span className="text-lg">Collection saved!</span>
+              <div className="py-4">
+                <div className="flex items-center justify-center gap-2 text-green-400 mb-4">
+                  <Check size={24} />
+                  <span className="text-lg">Collection saved!</span>
+                </div>
+
+                {/* Shareable link section for public collections */}
+                {savedCollection?.isPublic && (
+                  <div className="bg-gray-800 rounded p-3 mb-4">
+                    <p className="text-xs text-gray-400 mb-2 flex items-center gap-1">
+                      <Link2 size={12} />
+                      Shareable link:
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${window.location.origin}/collection/${savedCollection._id}`}
+                        className="flex-1 px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm font-mono"
+                        onClick={(e) => e.target.select()}
+                      />
+                      <button
+                        onClick={copyShareableLink}
+                        className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-black rounded transition-colors flex items-center gap-1"
+                      >
+                        {linkCopied ? <Check size={14} /> : <Copy size={14} />}
+                        {linkCopied ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={closeSaveModal}
+                  className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                >
+                  {isPlayingFromQueue ? 'Continue Playing' : 'Done'}
+                </button>
               </div>
             ) : (
               <>
@@ -344,10 +397,7 @@ const TheaterQueue = () => {
 
                 <div className="flex gap-3">
                   <button
-                    onClick={() => {
-                      setShowSaveModal(false);
-                      setSaveError('');
-                    }}
+                    onClick={closeSaveModal}
                     className="flex-1 px-4 py-3 text-gray-400 hover:text-white border border-gray-700 rounded transition-colors"
                   >
                     Cancel
