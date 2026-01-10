@@ -8,10 +8,11 @@ import { transformMediaUrl } from '../../utils/mediaUrl';
 const REFRESH_DELAY_MS = 1500;
 
 // Helper to detect archive.org content (same pattern as UMOTube)
+// Use case-insensitive match for UMO/umo
 const isArchiveMoment = (moment) => {
   return moment.mediaSource === 'archive' ||
          moment.mediaUrl?.includes('archive.org') ||
-         moment.externalVideoId?.match(/^umo\d{4}/);
+         moment.externalVideoId?.match(/^umo\d{4}/i);
 };
 
 const AdminPanel = memo(({ onClose }) => {

@@ -318,9 +318,10 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
   const getMediaComponent = () => {
     // Check for Archive.org content FIRST
     // Archive identifiers start with "umo" followed by date (e.g., umo2013-03-18.skm140.flac24)
+    // Use case-insensitive match for UMO/umo
     const isArchive = moment.mediaSource === 'archive' ||
                       moment.mediaUrl?.includes('archive.org') ||
-                      moment.externalVideoId?.match(/^umo\d{4}/);
+                      moment.externalVideoId?.match(/^umo\d{4}/i);
 
     if (isArchive) {
       // Individual track with direct audio URL -> AudioPlayer

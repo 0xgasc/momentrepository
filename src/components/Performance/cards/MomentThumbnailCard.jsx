@@ -67,10 +67,11 @@ const getMediaIcon = (mediaType) => {
 
 // Check if this is an archive.org moment
 // Archive identifiers start with "umo" followed by date (e.g., umo2013-03-18.skm140.flac24)
+// Use case-insensitive match for UMO/umo
 const isArchiveMoment = (moment) => {
   return moment.mediaSource === 'archive' ||
          moment.mediaUrl?.includes('archive.org') ||
-         moment.externalVideoId?.match(/^umo\d{4}/);
+         moment.externalVideoId?.match(/^umo\d{4}/i);
 };
 
 // Check if this is a YouTube moment
@@ -82,8 +83,10 @@ const isYouTubeMoment = (moment) => {
   if (moment.mediaSource === 'youtube') return true;
   // Check for YouTube URLs in mediaUrl
   if (moment.mediaUrl?.includes('youtube.com') || moment.mediaUrl?.includes('youtu.be')) return true;
-  // Check externalVideoId only if not archive
-  if (moment.externalVideoId && moment.mediaSource !== 'archive') return true;
+  // Check externalVideoId only if not archive pattern
+  if (moment.externalVideoId &&
+      !moment.externalVideoId.match(/^umo\d{4}/i) &&
+      moment.mediaSource !== 'archive') return true;
   return false;
 };
 

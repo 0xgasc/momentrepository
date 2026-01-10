@@ -373,7 +373,8 @@ const UMOTube = ({ user }) => {
   };
 
   // Helper to detect archive.org content
-  const isArchiveVideo = (v) => v.mediaSource === 'archive' || v.externalVideoId?.match(/^umo\d{4}/);
+  // Use case-insensitive match for UMO/umo
+  const isArchiveVideo = (v) => v.mediaSource === 'archive' || v.externalVideoId?.match(/^umo\d{4}/i);
 
   // Get filtered videos based on media source tab
   const filteredVideos = videos.filter(v => {

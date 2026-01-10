@@ -55,6 +55,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [ytProgress, setYtProgress] = useState({ currentTime: 0, duration: 0 });
   const [isYtLoading, setIsYtLoading] = useState(true);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const frameSkipRef = useRef(0);
   const ytPlayerRef = useRef(null);
   const ytProgressIntervalRef = useRef(null);
@@ -164,19 +165,20 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
 
     // Check for archive.org first
     // Archive identifiers start with "umo" followed by date (e.g., umo2013-03-18.skm140.flac24)
+    // Use case-insensitive match for UMO/umo
     const isArchive = m.mediaSource === 'archive' ||
       m.mediaUrl?.includes('archive.org') ||
-      m.externalVideoId?.match(/^umo\d{4}/);
+      m.externalVideoId?.match(/^umo\d{4}/i);
     if (isArchive) return { isYouTube: false, isAudio: true, isArchive: true };
 
     // Need mediaUrl for other checks
     if (!m.mediaUrl) return { isYouTube: false, isAudio: false, isArchive: false };
 
-    // Check for YouTube (exclude archive.org - already checked above)
+    // Check for YouTube (exclude archive.org patterns)
     const isYT = m.mediaSource === 'youtube' ||
       m.mediaUrl?.includes('youtube.com') ||
       m.mediaUrl?.includes('youtu.be') ||
-      m.externalVideoId;
+      (m.externalVideoId && !m.externalVideoId.match(/^umo\d{4}/i));
 
     if (isYT) return { isYouTube: true, isAudio: false, isArchive: false };
 
@@ -356,18 +358,22 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
         try {
           await audioRef.current.play();
           setIsPlaying(true);
+          setAutoplayBlocked(false);
         } catch (e) {
           console.log('VideoHero: Audio autoplay blocked');
           setIsPlaying(false);
+          setAutoplayBlocked(true);
         }
       } else if (videoRef.current) {
         videoRef.current.muted = isMuted;
         try {
           await videoRef.current.play();
           setIsPlaying(true);
+          setAutoplayBlocked(false);
         } catch (e) {
           console.log('VideoHero: Video autoplay blocked');
           setIsPlaying(false);
+          setAutoplayBlocked(true);
         }
       }
     };
@@ -457,6 +463,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
     setIsPlaying(false);
     setIsLoading(true);
     setIsYtLoading(true);
+    setAutoplayBlocked(false);
 
     // Small delay then auto-play to ensure state is clean
     const timer = setTimeout(() => {
@@ -671,8 +678,14 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
       setIsVerticalVideo(videoRef.current.videoHeight > videoRef.current.videoWidth);
       videoRef.current.muted = isMuted;
       videoRef.current.play()
-        .then(() => setIsPlaying(true))
-        .catch(() => setIsPlaying(false));
+        .then(() => {
+          setIsPlaying(true);
+          setAutoplayBlocked(false);
+        })
+        .catch(() => {
+          setIsPlaying(false);
+          setAutoplayBlocked(true);
+        });
     }
   };
 
@@ -811,8 +824,14 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
               if (audioRef.current) {
                 audioRef.current.muted = isMuted;
                 audioRef.current.play()
-                  .then(() => setIsPlaying(true))
-                  .catch(() => setIsPlaying(false));
+                  .then(() => {
+                    setIsPlaying(true);
+                    setAutoplayBlocked(false);
+                  })
+                  .catch(() => {
+                    setIsPlaying(false);
+                    setAutoplayBlocked(true);
+                  });
               }
             }}
             onEnded={handleNext}
@@ -837,6 +856,22 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
               <Play size={32} className="text-white ml-1" />
             )}
           </button>
+
+          {/* Autoplay blocked overlay */}
+          {autoplayBlocked && !isPlaying && (
+            <div
+              className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 cursor-pointer"
+              onClick={() => {
+                setAutoplayBlocked(false);
+                togglePlayPause();
+              }}
+            >
+              <div className="bg-white/90 rounded-full p-4 shadow-lg mb-3">
+                <Play size={32} className="text-gray-800 ml-1" />
+              </div>
+              <p className="text-white text-sm font-medium">Tap to play</p>
+            </div>
+          )}
 
           {/* Song info - glassy */}
           <div className="absolute bottom-0 left-0 right-0 bg-black/30 backdrop-blur-xl p-4 z-10 pointer-events-none border-t border-white/10">
@@ -983,9 +1018,26 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
           )}
 
           {/* Paused overlay */}
-          {!isPlaying && !isAsciiMode && (
+          {!isPlaying && !isAsciiMode && !autoplayBlocked && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center pointer-events-none z-10">
               <Play size={64} className="text-white opacity-80" />
+            </div>
+          )}
+
+          {/* Autoplay blocked overlay */}
+          {autoplayBlocked && !isPlaying && (
+            <div
+              className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAutoplayBlocked(false);
+                togglePlayPause();
+              }}
+            >
+              <div className="bg-white/90 rounded-full p-4 shadow-lg mb-3">
+                <Play size={32} className="text-gray-800 ml-1" />
+              </div>
+              <p className="text-white text-sm font-medium">Tap to play</p>
             </div>
           )}
         </div>
