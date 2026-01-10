@@ -47,8 +47,8 @@ const LoginModal = memo(({ onClose }) => {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       setLoading(false);
       return;
     }
@@ -179,9 +179,9 @@ const LoginModal = memo(({ onClose }) => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder={mode === 'login' ? 'Enter your password' : 'Create a password (min 6 characters)'}
+            placeholder={mode === 'login' ? 'Enter your password' : 'Create a password (min 8 characters)'}
             required
-            minLength={mode !== 'login' ? 6 : undefined}
+            minLength={mode !== 'login' ? 8 : undefined}
           />
         </div>
         

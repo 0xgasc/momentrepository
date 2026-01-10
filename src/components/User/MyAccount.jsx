@@ -1,6 +1,6 @@
 // src/components/User/MyAccount.jsx
 import React, { useState, useEffect, memo, useCallback } from 'react';
-import { Upload, Eye, MessageCircle, Heart, Folder, Plus, Trash2, Play, Loader2, Globe, Lock } from 'lucide-react';
+import { Upload, Eye, MessageCircle, Heart, Folder, Plus, Trash2, Play, Loader2, Globe, Lock, Share2, Check, Link } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useUserStats } from '../../hooks/useUserStats';
 import { useFavorites } from '../../hooks/useFavorites';
@@ -236,6 +236,54 @@ const FavoritesTab = memo(() => {
   const [newCollectionName, setNewCollectionName] = useState('');
   const [selectedCollection, setSelectedCollection] = useState(null);
   const [loadingCollection, setLoadingCollection] = useState(null);
+  const [copiedCollectionId, setCopiedCollectionId] = useState(null);
+  const [collectionMoments, setCollectionMoments] = useState([]);
+  const [loadingCollectionMoments, setLoadingCollectionMoments] = useState(false);
+
+  // Fetch moments for a specific collection
+  const fetchCollectionMoments = useCallback(async (collectionId) => {
+    if (!collectionId) {
+      setCollectionMoments([]);
+      return;
+    }
+    setLoadingCollectionMoments(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/favorites?collection=${collectionId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setCollectionMoments(data.favorites || []);
+      }
+    } catch (err) {
+      console.error('Error fetching collection moments:', err);
+    } finally {
+      setLoadingCollectionMoments(false);
+    }
+  }, [token]);
+
+  // Handle collection selection
+  const handleSelectCollection = (collectionId) => {
+    setSelectedCollection(collectionId);
+    if (collectionId) {
+      fetchCollectionMoments(collectionId);
+    }
+  };
+
+  // Copy collection share link
+  const handleCopyShareLink = async (collectionId) => {
+    const url = `${window.location.origin}/collection/${collectionId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedCollectionId(collectionId);
+      setTimeout(() => setCopiedCollectionId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      // Fallback: show alert with URL
+      alert(`Share link: ${url}`);
+    }
+  };
 
   const handleCreateCollection = async () => {
     if (!newCollectionName.trim()) return;
@@ -304,9 +352,8 @@ const FavoritesTab = memo(() => {
     }
   };
 
-  const filteredFavorites = selectedCollection
-    ? favorites.filter(f => f.collectionRef === selectedCollection)
-    : favorites;
+  // Use collectionMoments when a collection is selected, otherwise all favorites
+  const filteredFavorites = selectedCollection ? collectionMoments : favorites;
 
   if (loading) {
     return (
@@ -341,7 +388,7 @@ const FavoritesTab = memo(() => {
             {/* All favorites button with Play All */}
             <div className="flex items-center gap-1">
               <button
-                onClick={() => setSelectedCollection(null)}
+                onClick={() => handleSelectCollection(null)}
                 className={`px-3 py-1.5 rounded-sm text-sm font-medium transition-colors border ${
                   !selectedCollection
                     ? 'bg-yellow-500 text-black border-yellow-500'
@@ -365,7 +412,7 @@ const FavoritesTab = memo(() => {
             {collections.map(col => (
               <div key={col._id} className="relative group flex items-center gap-1">
                 <button
-                  onClick={() => setSelectedCollection(col._id)}
+                  onClick={() => handleSelectCollection(col._id)}
                   className={`px-3 py-1.5 rounded-sm text-sm font-medium transition-colors border flex items-center gap-1.5 ${
                     selectedCollection === col._id
                       ? 'bg-yellow-500 text-black border-yellow-500'
@@ -395,6 +442,25 @@ const FavoritesTab = memo(() => {
                       <Loader2 size={12} className="animate-spin" />
                     ) : (
                       <Play size={12} />
+                    )}
+                  </button>
+                )}
+
+                {/* Share button for public collections */}
+                {col.isPublic && (
+                  <button
+                    onClick={() => handleCopyShareLink(col._id)}
+                    className={`p-1.5 rounded-sm transition-colors ${
+                      copiedCollectionId === col._id
+                        ? 'bg-green-500 text-white'
+                        : 'bg-blue-500 hover:bg-blue-400 text-white'
+                    }`}
+                    title={copiedCollectionId === col._id ? 'Copied!' : 'Copy share link'}
+                  >
+                    {copiedCollectionId === col._id ? (
+                      <Check size={12} />
+                    ) : (
+                      <Link size={12} />
                     )}
                   </button>
                 )}
@@ -444,10 +510,15 @@ const FavoritesTab = memo(() => {
       <div className="bg-gray-50 rounded-sm p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb' }}>
         <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
           <Heart size={18} className="text-red-500" />
-          Favorite Moments ({filteredFavorites.length})
+          {selectedCollection ? 'Collection Moments' : 'Favorite Moments'} ({filteredFavorites.length})
         </h3>
 
-        {filteredFavorites.length === 0 ? (
+        {loadingCollectionMoments ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="animate-spin text-blue-600" size={24} />
+            <span className="ml-2 text-gray-600">Loading moments...</span>
+          </div>
+        ) : filteredFavorites.length === 0 ? (
           <div className="text-center py-6 text-gray-500">
             <Heart size={32} className="mx-auto mb-2 opacity-50" />
             <p className="text-sm">
