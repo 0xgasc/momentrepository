@@ -716,23 +716,13 @@ const FavoritesTab = memo(() => {
                     <video
                       src={transformMediaUrl(fav.moment.mediaUrl)}
                       className="w-full h-full object-cover"
+                      autoPlay
+                      loop
                       muted
                       playsInline
                       preload="auto"
-                      onCanPlay={(e) => {
-                        // Seek to startTime when video is ready to play
-                        if (fav.moment.startTime && e.target.currentTime === 0) {
-                          e.target.currentTime = fav.moment.startTime;
-                        }
-                      }}
-                      onMouseEnter={(e) => {
-                        // Set time before playing to ensure correct start position
+                      onLoadedMetadata={(e) => {
                         if (fav.moment.startTime) e.target.currentTime = fav.moment.startTime;
-                        e.target.play().catch(() => {});
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.pause();
-                        e.target.currentTime = fav.moment.startTime || 0;
                       }}
                     />
                   ) : fav.moment?.mediaUrl ? (

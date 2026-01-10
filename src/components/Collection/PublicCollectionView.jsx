@@ -242,16 +242,13 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
                         <video
                           src={transformMediaUrl(moment.thumbnailUrl || moment.mediaUrl)}
                           className="w-full h-full object-cover"
+                          autoPlay
+                          loop
                           muted
                           playsInline
                           preload="metadata"
                           onLoadedMetadata={(e) => {
                             if (moment.startTime) e.target.currentTime = moment.startTime;
-                          }}
-                          onMouseEnter={(e) => e.target.play()}
-                          onMouseLeave={(e) => {
-                            e.target.pause();
-                            e.target.currentTime = moment.startTime || 0;
                           }}
                         />
                       ) : (
