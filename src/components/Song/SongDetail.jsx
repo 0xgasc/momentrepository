@@ -219,40 +219,95 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
                 >
                   {/* Thumbnail */}
                   <div
-                    className="relative aspect-video cursor-pointer"
+                    className="relative aspect-video cursor-pointer bg-gray-900"
                     onClick={() => setSelectedMoment(moment)}
                   >
-                    {moment.mediaUrl && (
-                      <>
-                        {(moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
+                    {(() => {
+                      // Detect media type
+                      const isYouTube = moment.mediaSource === 'youtube' ||
+                        moment.mediaUrl?.includes('youtube.com') ||
+                        moment.mediaUrl?.includes('youtu.be') ||
+                        (moment.externalVideoId && !moment.externalVideoId.match(/^umo\d{4}/i));
+                      const isAudio = moment.mediaType === 'audio' ||
+                        moment.fileName?.toLowerCase().match(/\.(mp3|wav|ogg|flac)$/) ||
+                        moment.mediaSource === 'archive';
+                      const isVideo = moment.mediaType === 'video' ||
+                        moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/);
+
+                      // YouTube embed
+                      if (isYouTube) {
+                        const ytId = moment.externalVideoId ||
+                          moment.mediaUrl?.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([a-zA-Z0-9_-]{11})/)?.[1];
+                        return ytId ? (
+                          <>
+                            <iframe
+                              src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&start=${moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
+                              className="absolute inset-0 w-full h-full pointer-events-none"
+                              title={moment.songName}
+                              frameBorder="0"
+                              allow="autoplay; encrypted-media"
+                              loading="lazy"
+                            />
+                            <div className="absolute top-1 right-1 px-1 py-0.5 bg-red-600 text-white text-[8px] font-bold rounded z-10">YT</div>
+                          </>
+                        ) : null;
+                      }
+
+                      // Uploaded video clip
+                      if (isVideo && moment.mediaUrl) {
+                        return (
                           <video
                             src={transformMediaUrl(moment.mediaUrl)}
                             className="w-full h-full object-cover"
                             muted
                             playsInline
                             preload="metadata"
-                            onMouseEnter={(e) => e.target.play()}
-                            onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+                            onLoadedMetadata={(e) => {
+                              if (moment.startTime) e.target.currentTime = moment.startTime;
+                            }}
+                            onMouseEnter={(e) => {
+                              if (moment.startTime) e.target.currentTime = moment.startTime;
+                              e.target.play().catch(() => {});
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.pause();
+                              e.target.currentTime = moment.startTime || 0;
+                            }}
                           />
-                        ) : (
+                        );
+                      }
+
+                      // Audio moment - use thumbnailUrl or fallback
+                      if (isAudio || !moment.mediaUrl) {
+                        return moment.thumbnailUrl ? (
                           <img
-                            src={transformMediaUrl(moment.mediaUrl)}
+                            src={transformMediaUrl(moment.thumbnailUrl)}
                             alt={moment.songName}
                             className="w-full h-full object-cover"
                           />
-                        )}
-                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <div className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center">
-                            <Play className="w-4 h-4 text-gray-800 ml-0.5" fill="currentColor" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-gray-900">
+                            <span className="text-3xl">🎵</span>
                           </div>
-                        </div>
-                      </>
-                    )}
-                    {!moment.mediaUrl && (
-                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <span className="text-2xl">🎵</span>
+                        );
+                      }
+
+                      // Image or other
+                      return (
+                        <img
+                          src={transformMediaUrl(moment.mediaUrl)}
+                          alt={moment.songName}
+                          className="w-full h-full object-cover"
+                        />
+                      );
+                    })()}
+
+                    {/* Hover play overlay */}
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                      <div className="w-8 h-8 bg-white/90 rounded-full flex items-center justify-center">
+                        <Play className="w-4 h-4 text-gray-800 ml-0.5" fill="currentColor" />
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   {/* Info + Add to Queue */}

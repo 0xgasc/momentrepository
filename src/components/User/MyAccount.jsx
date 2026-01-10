@@ -1,6 +1,6 @@
 // src/components/User/MyAccount.jsx
 import React, { useState, useEffect, memo, useCallback } from 'react';
-import { Upload, Eye, MessageCircle, Heart, Folder, Plus, Trash2, Play, Loader2, Globe, Lock, Share2, Check, Link } from 'lucide-react';
+import { Upload, Eye, MessageCircle, Heart, Folder, Plus, Trash2, Play, Loader2, Globe, Lock, Share2, Check, Link, Edit3, Search, X } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useUserStats } from '../../hooks/useUserStats';
 import { useFavorites } from '../../hooks/useFavorites';
@@ -254,7 +254,9 @@ const FavoritesTab = memo(() => {
     loading,
     toggleFavorite,
     createCollection,
+    updateCollection,
     deleteCollection,
+    addToCollection,
     // eslint-disable-next-line no-unused-vars
     fetchFavorites
   } = useFavorites(token);
@@ -262,6 +264,12 @@ const FavoritesTab = memo(() => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [selectedCollection, setSelectedCollection] = useState(null);
+  const [editingCollection, setEditingCollection] = useState(null);
+  const [editCollectionName, setEditCollectionName] = useState('');
+  const [showMomentSearch, setShowMomentSearch] = useState(false);
+  const [momentSearchQuery, setMomentSearchQuery] = useState('');
+  const [momentSearchResults, setMomentSearchResults] = useState([]);
+  const [searchingMoments, setSearchingMoments] = useState(false);
   const [loadingCollection, setLoadingCollection] = useState(null);
   const [loadingAllFavorites, setLoadingAllFavorites] = useState(false);
   const [copiedCollectionId, setCopiedCollectionId] = useState(null);
@@ -328,8 +336,57 @@ const FavoritesTab = memo(() => {
     await deleteCollection(collectionId);
   };
 
+  const handleEditCollection = (collection) => {
+    setEditingCollection(collection._id);
+    setEditCollectionName(collection.name);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editCollectionName.trim() || !editingCollection) return;
+    const result = await updateCollection(editingCollection, { name: editCollectionName.trim() });
+    if (result.success) {
+      setEditingCollection(null);
+      setEditCollectionName('');
+    }
+  };
+
   const handleRemoveFavorite = async (momentId) => {
     await toggleFavorite(momentId);
+  };
+
+  // Search moments to add to collection
+  const handleSearchMoments = async (query) => {
+    if (!query.trim()) {
+      setMomentSearchResults([]);
+      return;
+    }
+    setSearchingMoments(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/moments/search?q=${encodeURIComponent(query)}&limit=20`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setMomentSearchResults(data.moments || []);
+      }
+    } catch (err) {
+      console.error('Search error:', err);
+    } finally {
+      setSearchingMoments(false);
+    }
+  };
+
+  // Add moment to selected collection
+  const handleAddToCollection = async (momentId) => {
+    if (!selectedCollection) return;
+    const result = await addToCollection(selectedCollection, momentId);
+    if (result.success) {
+      // Refresh collection moments
+      fetchCollectionMoments(selectedCollection);
+      // Remove from search results to show it's been added
+      setMomentSearchResults(prev => prev.filter(m => m._id !== momentId));
+    }
   };
 
   // Play all moments in a collection
@@ -464,6 +521,14 @@ const FavoritesTab = memo(() => {
                   </span>
                 </button>
 
+                {/* Edit button */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleEditCollection(col); }}
+                  className="absolute -top-1 right-4 bg-blue-500 text-white rounded-sm p-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  title="Edit name"
+                >
+                  <Edit3 size={10} />
+                </button>
                 {/* Delete button */}
                 <button
                   onClick={() => handleDeleteCollection(col._id)}
@@ -503,6 +568,36 @@ const FavoritesTab = memo(() => {
             </div>
           </div>
         )}
+
+        {/* Edit collection modal */}
+        {editingCollection && (
+          <div className="mt-3 p-3 bg-white border rounded">
+            <div className="text-xs text-gray-500 mb-1">Edit collection name</div>
+            <input
+              type="text"
+              value={editCollectionName}
+              onChange={(e) => setEditCollectionName(e.target.value)}
+              placeholder="Collection name..."
+              className="w-full p-2 border border-gray-300 rounded text-sm mb-2"
+              maxLength={100}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveEdit}
+                className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => { setEditingCollection(null); setEditCollectionName(''); }}
+                className="px-3 py-1.5 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Favorites Grid */}
@@ -513,10 +608,10 @@ const FavoritesTab = memo(() => {
             {selectedCollection ? 'Collection Moments' : 'Favorite Moments'} ({filteredFavorites.length})
           </h3>
 
-          {/* Play All and Share buttons */}
-          {filteredFavorites.length > 0 && (
-            <div className="flex items-center gap-2">
-              {/* Play All button */}
+          {/* Action buttons */}
+          <div className="flex items-center gap-2">
+            {/* Play All button */}
+            {filteredFavorites.length > 0 && (
               <button
                 onClick={() => selectedCollection ? handlePlayCollection(selectedCollection) : handlePlayAllFavorites()}
                 disabled={selectedCollection ? loadingCollection === selectedCollection : loadingAllFavorites}
@@ -530,28 +625,40 @@ const FavoritesTab = memo(() => {
                 )}
                 Play All
               </button>
+            )}
 
-              {/* Share button - only for public collections */}
-              {selectedCollection && collections.find(c => c._id === selectedCollection)?.isPublic && (
-                <button
-                  onClick={() => handleCopyShareLink(selectedCollection)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-sm transition-colors ${
-                    copiedCollectionId === selectedCollection
-                      ? 'bg-green-500 text-white'
-                      : 'bg-blue-500 hover:bg-blue-400 text-white'
-                  }`}
-                  title={copiedCollectionId === selectedCollection ? 'Copied!' : 'Copy share link'}
-                >
-                  {copiedCollectionId === selectedCollection ? (
-                    <Check size={14} />
-                  ) : (
-                    <Link size={14} />
-                  )}
-                  {copiedCollectionId === selectedCollection ? 'Copied!' : 'Share'}
-                </button>
-              )}
-            </div>
-          )}
+            {/* Add Moments button - only for collections */}
+            {selectedCollection && (
+              <button
+                onClick={() => setShowMomentSearch(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 hover:bg-green-400 text-white text-sm font-medium rounded-sm transition-colors"
+                title="Search and add moments"
+              >
+                <Search size={14} />
+                Add
+              </button>
+            )}
+
+            {/* Share button - only for public collections */}
+            {selectedCollection && collections.find(c => c._id === selectedCollection)?.isPublic && (
+              <button
+                onClick={() => handleCopyShareLink(selectedCollection)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-sm transition-colors ${
+                  copiedCollectionId === selectedCollection
+                    ? 'bg-green-500 text-white'
+                    : 'bg-blue-500 hover:bg-blue-400 text-white'
+                }`}
+                title={copiedCollectionId === selectedCollection ? 'Copied!' : 'Copy share link'}
+              >
+                {copiedCollectionId === selectedCollection ? (
+                  <Check size={14} />
+                ) : (
+                  <Link size={14} />
+                )}
+                {copiedCollectionId === selectedCollection ? 'Copied!' : 'Share'}
+              </button>
+            )}
+          </div>
         </div>
 
         {loadingCollectionMoments ? (
@@ -654,6 +761,87 @@ const FavoritesTab = memo(() => {
           </div>
         )}
       </div>
+
+      {/* Moment Search Modal */}
+      {showMomentSearch && selectedCollection && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-lg max-h-[80vh] flex flex-col">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900">Add Moments to Collection</h3>
+              <button
+                onClick={() => {
+                  setShowMomentSearch(false);
+                  setMomentSearchQuery('');
+                  setMomentSearchResults([]);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4 border-b">
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={momentSearchQuery}
+                  onChange={(e) => {
+                    setMomentSearchQuery(e.target.value);
+                    handleSearchMoments(e.target.value);
+                  }}
+                  placeholder="Search by song name, venue, date..."
+                  className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {searchingMoments ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="animate-spin text-blue-600" size={24} />
+                </div>
+              ) : momentSearchResults.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  {momentSearchQuery ? 'No moments found' : 'Start typing to search'}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {momentSearchResults.map(moment => (
+                    <div
+                      key={moment._id}
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 border border-gray-100"
+                    >
+                      <div className="w-16 h-10 bg-gray-200 rounded overflow-hidden flex-shrink-0">
+                        {moment.thumbnailUrl ? (
+                          <img
+                            src={transformMediaUrl(moment.thumbnailUrl)}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <Heart size={16} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 truncate">{moment.songName}</div>
+                        <div className="text-xs text-gray-500 truncate">{moment.venueName}</div>
+                      </div>
+                      <button
+                        onClick={() => handleAddToCollection(moment._id)}
+                        className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded transition-colors flex-shrink-0"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Moment Detail Modal */}
       {selectedMoment && (

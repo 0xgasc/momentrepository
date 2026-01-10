@@ -157,6 +157,37 @@ export const useFavorites = (token) => {
     }
   }, [token]);
 
+  // Update collection
+  const updateCollection = useCallback(async (collectionId, updates) => {
+    if (!token) return { error: 'Login required' };
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/collections/${collectionId}`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updates)
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setCollections(prev => prev.map(c =>
+          c._id === collectionId ? { ...c, ...data.collection } : c
+        ));
+        return { success: true, collection: data.collection };
+      }
+
+      return { error: 'Failed to update collection' };
+    } catch (err) {
+      return { error: 'Network error' };
+    }
+  }, [token]);
+
   // Delete collection
   const deleteCollection = useCallback(async (collectionId) => {
     if (!token) return { error: 'Login required' };
@@ -248,6 +279,7 @@ export const useFavorites = (token) => {
     fetchFavorites,
     fetchCollections,
     createCollection,
+    updateCollection,
     deleteCollection,
     addToCollection,
     removeFromCollection

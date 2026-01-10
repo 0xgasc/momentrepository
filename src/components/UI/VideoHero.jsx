@@ -717,6 +717,10 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     if (videoRef.current) {
       // Detect vertical video
       setIsVerticalVideo(videoRef.current.videoHeight > videoRef.current.videoWidth);
+      // Seek to startTime if defined
+      if (moment?.startTime && videoRef.current.currentTime === 0) {
+        videoRef.current.currentTime = moment.startTime;
+      }
       videoRef.current.muted = isMuted;
       videoRef.current.play()
         .then(() => {

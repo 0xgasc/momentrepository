@@ -651,6 +651,9 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
                 loop
                 playsInline
                 preload="metadata"
+                onLoadedMetadata={(e) => {
+                  if (moment.startTime) e.target.currentTime = moment.startTime;
+                }}
                 onLoadedData={() => setIsLoading(false)}
                 onError={() => setIsLoading(false)}
               >

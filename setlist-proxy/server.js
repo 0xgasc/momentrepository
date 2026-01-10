@@ -3400,6 +3400,35 @@ app.get('/moments/my', authenticateToken, async (req, res) => {
   }
 });
 
+// Search moments (for adding to collections)
+app.get('/api/moments/search', authenticateToken, async (req, res) => {
+  try {
+    const { q, limit = 20 } = req.query;
+    if (!q || q.length < 2) {
+      return res.json({ moments: [] });
+    }
+
+    const searchRegex = new RegExp(q, 'i');
+    const moments = await Moment.find({
+      approvalStatus: 'approved',
+      $or: [
+        { songName: searchRegex },
+        { venueName: searchRegex },
+        { venueCity: searchRegex }
+      ]
+    })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .select('_id songName venueName venueCity performanceDate mediaUrl mediaType thumbnailUrl startTime')
+      .lean();
+
+    res.json({ moments });
+  } catch (err) {
+    console.error('❌ Moment search error:', err);
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
 app.get('/moments', async (req, res) => {
   try {
     // Only show approved moments that should appear in feed (exclude parent YouTube videos)

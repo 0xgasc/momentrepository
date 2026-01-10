@@ -186,6 +186,9 @@ const MomentThumbnailCard = memo(({
             muted
             playsInline
             className="absolute inset-0 w-full h-full object-cover"
+            onLoadedMetadata={(e) => {
+              if (moment.startTime) e.target.currentTime = moment.startTime;
+            }}
             onLoadedData={() => setIsLoading(false)}
             onError={(e) => {
               setIsLoading(false);
