@@ -611,8 +611,8 @@ const FavoritesTab = memo(() => {
                       className="w-full h-full object-cover"
                       muted
                       playsInline
-                      preload="auto"
-                      onLoadedData={(e) => {
+                      preload="metadata"
+                      onLoadedMetadata={(e) => {
                         if (fav.moment.startTime) e.target.currentTime = fav.moment.startTime;
                       }}
                       onMouseEnter={(e) => {
