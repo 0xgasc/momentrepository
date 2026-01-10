@@ -7,6 +7,13 @@ import { transformMediaUrl } from '../../utils/mediaUrl';
 // Constants
 const REFRESH_DELAY_MS = 1500;
 
+// Helper to detect archive.org content (same pattern as UMOTube)
+const isArchiveMoment = (moment) => {
+  return moment.mediaSource === 'archive' ||
+         moment.mediaUrl?.includes('archive.org') ||
+         moment.externalVideoId?.match(/^umo\d{4}/);
+};
+
 const AdminPanel = memo(({ onClose }) => {
   const { token, user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.email === 'solo@solo.solo' || user?.email === 'solo2@solo.solo';
@@ -1784,7 +1791,7 @@ const YouTubeTab = memo(({ moments, setMoments, token }) => {
               <div className="flex gap-4">
                 {/* Thumbnail */}
                 <img
-                  src={moment.thumbnailUrl || (moment.mediaSource === 'archive'
+                  src={moment.thumbnailUrl || (isArchiveMoment(moment)
                     ? `https://archive.org/services/img/${moment.externalVideoId}`
                     : `https://img.youtube.com/vi/${moment.externalVideoId}/default.jpg`)}
                   alt={moment.songName}
