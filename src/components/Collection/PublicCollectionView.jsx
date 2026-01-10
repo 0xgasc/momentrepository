@@ -6,6 +6,7 @@ import { API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { transformMediaUrl } from '../../utils/mediaUrl';
 import MomentDetailModal from '../Moment/MomentDetailModal';
+import VideoHero from '../UI/VideoHero';
 
 const PublicCollectionView = memo(({ collectionId, onBack }) => {
   const [collection, setCollection] = useState(null);
@@ -15,7 +16,7 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  const { addManyToQueue, clearQueue, playQueue, isInQueue, addToQueue } = useTheaterQueue();
+  const { isInQueue, addToQueue } = useTheaterQueue();
 
   useEffect(() => {
     const fetchCollection = async () => {
@@ -49,13 +50,6 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
       fetchCollection();
     }
   }, [collectionId]);
-
-  const handlePlayAll = () => {
-    if (moments.length === 0) return;
-    clearQueue();
-    addManyToQueue(moments);
-    playQueue(0);
-  };
 
   const handleCopyLink = async () => {
     const url = `${window.location.origin}?collection=${collectionId}`;
@@ -134,24 +128,22 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
           </div>
         </div>
 
-        {/* Stats and Play All */}
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+        {/* Stats */}
+        <div className="flex items-center pt-4 border-t border-gray-200">
           <div className="flex items-center gap-2 text-gray-600">
             <ListMusic size={18} />
             <span className="font-medium">{moments.length} moments</span>
           </div>
-
-          {moments.length > 0 && (
-            <button
-              onClick={handlePlayAll}
-              className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-black font-medium rounded transition-colors"
-            >
-              <Play size={18} />
-              Play All
-            </button>
-          )}
         </div>
       </div>
+
+      {/* Video Hero Player - plays collection moments */}
+      {moments.length > 0 && (
+        <VideoHero
+          customMoments={moments}
+          onMomentClick={(m) => setSelectedMoment(m)}
+        />
+      )}
 
       {/* Moments Grid */}
       {moments.length === 0 ? (

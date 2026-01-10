@@ -408,9 +408,9 @@ const FavoritesTab = memo(() => {
               )}
             </div>
 
-            {/* Collection buttons with Play All */}
+            {/* Collection buttons */}
             {collections.map(col => (
-              <div key={col._id} className="relative group flex items-center gap-1">
+              <div key={col._id} className="relative group">
                 <button
                   onClick={() => handleSelectCollection(col._id)}
                   className={`px-3 py-1.5 rounded-sm text-sm font-medium transition-colors border flex items-center gap-1.5 ${
@@ -429,41 +429,6 @@ const FavoritesTab = memo(() => {
                     {col.momentCount}
                   </span>
                 </button>
-
-                {/* Play All button for collection */}
-                {col.momentCount > 0 && (
-                  <button
-                    onClick={() => handlePlayCollection(col._id)}
-                    disabled={loadingCollection === col._id}
-                    className="p-1.5 bg-yellow-500 hover:bg-yellow-400 text-black rounded-sm transition-colors disabled:opacity-50"
-                    title={`Play all ${col.momentCount} moments`}
-                  >
-                    {loadingCollection === col._id ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Play size={12} />
-                    )}
-                  </button>
-                )}
-
-                {/* Share button for public collections */}
-                {col.isPublic && (
-                  <button
-                    onClick={() => handleCopyShareLink(col._id)}
-                    className={`p-1.5 rounded-sm transition-colors ${
-                      copiedCollectionId === col._id
-                        ? 'bg-green-500 text-white'
-                        : 'bg-blue-500 hover:bg-blue-400 text-white'
-                    }`}
-                    title={copiedCollectionId === col._id ? 'Copied!' : 'Copy share link'}
-                  >
-                    {copiedCollectionId === col._id ? (
-                      <Check size={12} />
-                    ) : (
-                      <Link size={12} />
-                    )}
-                  </button>
-                )}
 
                 {/* Delete button */}
                 <button
@@ -508,10 +473,52 @@ const FavoritesTab = memo(() => {
 
       {/* Favorites Grid */}
       <div className="bg-gray-50 rounded-sm p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb' }}>
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
-          <Heart size={18} className="text-red-500" />
-          {selectedCollection ? 'Collection Moments' : 'Favorite Moments'} ({filteredFavorites.length})
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Heart size={18} className="text-red-500" />
+            {selectedCollection ? 'Collection Moments' : 'Favorite Moments'} ({filteredFavorites.length})
+          </h3>
+
+          {/* Play All and Share buttons */}
+          {filteredFavorites.length > 0 && (
+            <div className="flex items-center gap-2">
+              {/* Play All button */}
+              <button
+                onClick={() => selectedCollection ? handlePlayCollection(selectedCollection) : handlePlayAllFavorites()}
+                disabled={loadingCollection === selectedCollection}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-black text-sm font-medium rounded-sm transition-colors disabled:opacity-50"
+                title={selectedCollection ? 'Play collection' : 'Play all favorites'}
+              >
+                {loadingCollection === selectedCollection ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Play size={14} />
+                )}
+                Play All
+              </button>
+
+              {/* Share button - only for public collections */}
+              {selectedCollection && collections.find(c => c._id === selectedCollection)?.isPublic && (
+                <button
+                  onClick={() => handleCopyShareLink(selectedCollection)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-sm transition-colors ${
+                    copiedCollectionId === selectedCollection
+                      ? 'bg-green-500 text-white'
+                      : 'bg-blue-500 hover:bg-blue-400 text-white'
+                  }`}
+                  title={copiedCollectionId === selectedCollection ? 'Copied!' : 'Copy share link'}
+                >
+                  {copiedCollectionId === selectedCollection ? (
+                    <Check size={14} />
+                  ) : (
+                    <Link size={14} />
+                  )}
+                  {copiedCollectionId === selectedCollection ? 'Copied!' : 'Share'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {loadingCollectionMoments ? (
           <div className="flex items-center justify-center py-8">

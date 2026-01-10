@@ -22,7 +22,7 @@ const VIDEO_FILTER_PRESETS = {
   vhs: { label: 'VHS', filter: 'saturate(130%) contrast(95%) brightness(105%) blur(0.5px)', Icon: Camera }
 };
 
-const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
+const VideoHero = memo(({ onMomentClick, mediaFilter = 'all', customMoments = null }) => {
   const { user, token } = useAuth();
   const videoRef = useRef(null);
   const audioRef = useRef(null);
@@ -230,8 +230,37 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
     [allMoments, activeFilter, filterMoments]
   );
 
-  // Fetch ALL moments and filter client-side
+  // Fetch ALL moments and filter client-side (or use customMoments if provided)
   useEffect(() => {
+    // If customMoments provided, use those instead of fetching
+    if (customMoments && customMoments.length > 0) {
+      console.log('VideoHero: Using customMoments:', customMoments.length);
+
+      // Filter to only playable content (has mediaUrl)
+      const playable = customMoments.filter(m => m.mediaUrl);
+
+      // Add type flags to each moment
+      const withTypes = playable.map(m => {
+        const { isYouTube: isYT, isAudio: isAud, isArchive } = detectContentType(m);
+        return { ...m, _isYouTube: isYT, _isAudio: isAud, _isArchive: isArchive };
+      });
+
+      setAllMoments(withTypes);
+
+      if (withTypes.length > 0) {
+        const videos = withTypes.filter(m => !m._isAudio);
+        const toSelect = videos.length > 0 ? videos : withTypes;
+        const selected = selectRandomMoment(toSelect);
+        setMoment(selected);
+        setIsYouTube(selected._isYouTube);
+        setIsAudio(selected._isAudio);
+      } else {
+        setError('No content available');
+      }
+      setIsLoading(false);
+      return;
+    }
+
     const fetchAllMoments = async () => {
       try {
         setIsLoading(true);
@@ -287,7 +316,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilter = 'all' }) => {
     };
 
     fetchAllMoments();
-  }, [selectRandomMoment, detectContentType]);
+  }, [selectRandomMoment, detectContentType, customMoments]);
 
   // Handle filter change - select new moment if current doesn't match filter
   useEffect(() => {
