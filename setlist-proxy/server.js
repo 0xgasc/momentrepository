@@ -4480,8 +4480,12 @@ app.put('/archive/moments/:momentId/thumbnail', authenticateToken, requireMod, a
       return res.status(404).json({ error: 'Moment not found' });
     }
 
-    // Verify it's an archive moment
-    if (parentMoment.mediaSource !== 'archive') {
+    // Verify it's an archive moment (check mediaSource OR pattern match OR URL)
+    const isArchiveMoment = parentMoment.mediaSource === 'archive' ||
+      parentMoment.mediaUrl?.includes('archive.org') ||
+      parentMoment.externalVideoId?.match(/^umo\d{4}/i);
+
+    if (!isArchiveMoment) {
       return res.status(400).json({ error: 'This endpoint is only for archive.org moments' });
     }
 
@@ -4493,11 +4497,15 @@ app.put('/archive/moments/:momentId/thumbnail', authenticateToken, requireMod, a
 
     // If pushToChildren is true, update all child moments with same externalVideoId
     if (pushToChildren && parentMoment.externalVideoId) {
+      // Query children using same externalVideoId (archive detection via pattern or mediaSource)
       const result = await Moment.updateMany(
         {
           externalVideoId: parentMoment.externalVideoId,
-          mediaSource: 'archive',
-          _id: { $ne: parentMoment._id } // Exclude parent
+          _id: { $ne: parentMoment._id }, // Exclude parent
+          $or: [
+            { mediaSource: 'archive' },
+            { mediaUrl: { $regex: /archive\.org/i } }
+          ]
         },
         { $set: { thumbnailUrl: thumbnailUrl } }
       );
