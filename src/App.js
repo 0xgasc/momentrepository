@@ -211,8 +211,8 @@ const MainApp = memo(() => {
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
-      {/* Main content area - offset for sidebar on desktop */}
-      <div className={`umo-container-fluid transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56'}`}>
+      {/* Main content area - offset for sidebar on desktop, bottom padding for mobile nav */}
+      <div className={`umo-container-fluid overflow-x-hidden pb-20 sm:pb-0 transition-[margin] duration-300 ease-in-out ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56'}`}>
         {/* Header with Navigation */}
         <Header
           user={user}
