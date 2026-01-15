@@ -16,6 +16,7 @@ const Meetup = require('../models/Meetup');
 const Guestbook = require('../models/Guestbook');
 const Favorite = require('../models/Favorite');
 const Collection = require('../models/Collection');
+const Contact = require('../models/Contact');
 
 // Rate limiters
 const chatLimiter = rateLimit({
@@ -1230,6 +1231,151 @@ router.get('/collections/:collectionId/public', async (req, res) => {
   } catch (err) {
     console.error('❌ Get public collection error:', err);
     res.status(500).json({ error: 'Failed to fetch collection' });
+  }
+});
+
+// ============================================
+// CONTACT FORM
+// ============================================
+
+// Rate limiter for contact form
+const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // 5 submissions per hour
+  message: { error: 'Too many contact submissions. Please try again later.' }
+});
+
+// Submit contact form (public - no auth required)
+router.post('/contact',
+  contactLimiter,
+  [
+    body('name').trim().notEmpty().isLength({ max: 100 }),
+    body('email').trim().isEmail().normalizeEmail(),
+    body('category').isIn(['general', 'bug', 'feature', 'content', 'other']),
+    body('message').trim().notEmpty().isLength({ max: 5000 })
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ error: 'Invalid form data', details: errors.array() });
+      }
+
+      const { name, email, category, message } = req.body;
+
+      const contact = new Contact({
+        name,
+        email,
+        category,
+        message
+      });
+
+      await contact.save();
+      console.log(`📧 New contact submission from ${email} (${category})`);
+
+      res.status(201).json({ success: true, message: 'Contact submission received' });
+    } catch (err) {
+      console.error('❌ Contact submission error:', err);
+      res.status(500).json({ error: 'Failed to submit contact form' });
+    }
+  }
+);
+
+// Get all contact submissions (admin only)
+router.get('/contact', async (req, res) => {
+  try {
+    // Check for admin auth (passed via middleware in server.js)
+    if (!req.user || (req.user.role !== 'admin' && req.user.email !== 'solo@solo.solo')) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { status, limit = 50, offset = 0 } = req.query;
+
+    const query = {};
+    if (status && ['new', 'read', 'resolved'].includes(status)) {
+      query.status = status;
+    }
+
+    const contacts = await Contact.find(query)
+      .sort({ createdAt: -1 })
+      .skip(parseInt(offset))
+      .limit(parseInt(limit))
+      .lean();
+
+    const total = await Contact.countDocuments(query);
+    const newCount = await Contact.countDocuments({ status: 'new' });
+
+    res.json({ contacts, total, newCount });
+  } catch (err) {
+    console.error('❌ Get contacts error:', err);
+    res.status(500).json({ error: 'Failed to fetch contacts' });
+  }
+});
+
+// Update contact status (admin only)
+router.put('/contact/:contactId', async (req, res) => {
+  try {
+    if (!req.user || (req.user.role !== 'admin' && req.user.email !== 'solo@solo.solo')) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { contactId } = req.params;
+    const { status, adminNotes } = req.body;
+
+    if (!isValidObjectId(contactId)) {
+      return res.status(400).json({ error: 'Invalid contact ID' });
+    }
+
+    const updateData = {};
+    if (status && ['new', 'read', 'resolved'].includes(status)) {
+      updateData.status = status;
+    }
+    if (adminNotes !== undefined) {
+      updateData.adminNotes = adminNotes;
+    }
+
+    const contact = await Contact.findByIdAndUpdate(
+      contactId,
+      updateData,
+      { new: true }
+    ).lean();
+
+    if (!contact) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+
+    console.log(`📧 Contact ${contactId} updated to status: ${status}`);
+    res.json({ contact });
+  } catch (err) {
+    console.error('❌ Update contact error:', err);
+    res.status(500).json({ error: 'Failed to update contact' });
+  }
+});
+
+// Delete contact (admin only)
+router.delete('/contact/:contactId', async (req, res) => {
+  try {
+    if (!req.user || (req.user.role !== 'admin' && req.user.email !== 'solo@solo.solo')) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { contactId } = req.params;
+
+    if (!isValidObjectId(contactId)) {
+      return res.status(400).json({ error: 'Invalid contact ID' });
+    }
+
+    const contact = await Contact.findByIdAndDelete(contactId);
+
+    if (!contact) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+
+    console.log(`📧 Contact ${contactId} deleted`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Delete contact error:', err);
+    res.status(500).json({ error: 'Failed to delete contact' });
   }
 });
 

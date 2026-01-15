@@ -13,6 +13,7 @@ import PerformanceDetail from './components/Performance/PerformanceDetail';
 import MomentBrowser from './components/Moment/MomentBrowser';
 import LoginModal from './components/Auth/LoginModal';
 import CreditsFooter from './components/UI/CreditsFooter';
+import ContactForm from './components/Contact/ContactForm';
 import MyAccount from './components/User/MyAccount';
 import AdminPanel from './components/Admin/AdminPanel';
 import UMOTube from './components/UMOTube/UMOTube';
@@ -70,6 +71,7 @@ const MainApp = memo(() => {
   const [showMyAccount, setShowMyAccount] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showHowToGuide, setShowHowToGuide] = useState(false);
+  const [showContactForm, setShowContactForm] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Public collection state (for shared collection URLs)
@@ -271,7 +273,7 @@ const MainApp = memo(() => {
         )}
 
         {/* Credits Footer */}
-        <CreditsFooter />
+        <CreditsFooter onContactClick={() => setShowContactForm(true)} />
       </div>
       
       {/* Account Panels */}
@@ -287,6 +289,16 @@ const MainApp = memo(() => {
           setShowAdminPanel(false);
           refreshNotifications(); // Refresh when closing Admin Panel
         }} />
+      )}
+
+      {/* Contact Form */}
+      {showContactForm && (
+        <div className="fixed inset-0 z-50 overflow-auto">
+          <ContactForm
+            onBack={() => setShowContactForm(false)}
+            user={user}
+          />
+        </div>
       )}
 
       {/* Theater Queue (always rendered, shows when items in queue) */}

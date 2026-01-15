@@ -1,6 +1,6 @@
 // src/components/Admin/AdminPanel.jsx
 import React, { useState, useEffect, memo, useCallback } from 'react';
-import { CheckCircle, Globe, Ban, Upload, Wrench, BarChart3 } from 'lucide-react';
+import { CheckCircle, Globe, Ban, Upload, Wrench, BarChart3, Mail, Trash2 } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useCacheStatus } from '../../hooks';
 import { transformMediaUrl } from '../../utils/mediaUrl';
@@ -30,6 +30,8 @@ const AdminPanel = memo(({ onClose }) => {
   const [migrationMoments, setMigrationMoments] = useState([]);
   const [migrationTotal, setMigrationTotal] = useState(0);
   const [youtubeMoments, setYoutubeMoments] = useState([]);
+  const [contactMessages, setContactMessages] = useState([]);
+  const [contactNewCount, setContactNewCount] = useState(0);
 
   const fetchAdminData = useCallback(async () => {
     try {
@@ -79,6 +81,18 @@ const AdminPanel = memo(({ onClose }) => {
         if (youtubeResponse.ok) {
           const youtubeData = await youtubeResponse.json();
           setYoutubeMoments(youtubeData.moments || []);
+        }
+      }
+
+      // Fetch contact messages (admin only)
+      if (isAdmin) {
+        const contactResponse = await fetch(`${API_BASE_URL}/community/contact`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (contactResponse.ok) {
+          const contactData = await contactResponse.json();
+          setContactMessages(contactData.contacts || []);
+          setContactNewCount(contactData.newCount || 0);
         }
       }
 
@@ -267,6 +281,7 @@ const AdminPanel = memo(({ onClose }) => {
             ...(isAdmin ? [{ key: 'youtube', label: 'YouTube Moments', count: youtubeMoments.length || null }] : []),
             ...(isAdmin ? [{ key: 'shows', label: 'Upcoming Shows', count: null }] : []),
             ...(isAdmin ? [{ key: 'migration', label: 'Media Migration', count: migrationTotal || null }] : []),
+            ...(isAdmin ? [{ key: 'contacts', label: 'Contact Messages', count: contactNewCount || null }] : []),
             ...(isAdmin ? [{ key: 'settings', label: 'Settings', count: null }] : [])
           ].map(tab => (
             <button
@@ -334,6 +349,15 @@ const AdminPanel = memo(({ onClose }) => {
               setMoments={setMigrationMoments}
               total={migrationTotal}
               setTotal={setMigrationTotal}
+              token={token}
+            />
+          )}
+
+          {activeTab === 'contacts' && isAdmin && (
+            <ContactMessagesTab
+              contacts={contactMessages}
+              setContacts={setContactMessages}
+              setNewCount={setContactNewCount}
               token={token}
             />
           )}
@@ -2381,11 +2405,222 @@ tickets
   );
 });
 
+// Contact Messages Tab
+const ContactMessagesTab = memo(({ contacts, setContacts, setNewCount, token }) => {
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [expandedId, setExpandedId] = useState(null);
+
+  const filteredContacts = statusFilter === 'all'
+    ? contacts
+    : contacts.filter(c => c.status === statusFilter);
+
+  const updateStatus = async (contactId, newStatus) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/community/contact/${contactId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        setContacts(prev => prev.map(c =>
+          c._id === contactId ? { ...c, status: newStatus } : c
+        ));
+        // Update new count
+        const newCount = contacts.filter(c =>
+          c._id === contactId ? newStatus === 'new' : c.status === 'new'
+        ).length;
+        setNewCount(newCount);
+      }
+    } catch (error) {
+      console.error('Failed to update contact status:', error);
+    }
+  };
+
+  const deleteContact = async (contactId) => {
+    if (!window.confirm('Delete this contact message?')) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/community/contact/${contactId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        setContacts(prev => prev.filter(c => c._id !== contactId));
+        setNewCount(prev => {
+          const deleted = contacts.find(c => c._id === contactId);
+          return deleted?.status === 'new' ? prev - 1 : prev;
+        });
+      }
+    } catch (error) {
+      console.error('Failed to delete contact:', error);
+    }
+  };
+
+  const getCategoryLabel = (category) => {
+    const labels = {
+      general: 'General',
+      bug: 'Bug Report',
+      feature: 'Feature Request',
+      content: 'Content Issue',
+      other: 'Other'
+    };
+    return labels[category] || category;
+  };
+
+  const getCategoryColor = (category) => {
+    const colors = {
+      general: 'bg-gray-100 text-gray-700',
+      bug: 'bg-red-100 text-red-700',
+      feature: 'bg-blue-100 text-blue-700',
+      content: 'bg-yellow-100 text-yellow-700',
+      other: 'bg-purple-100 text-purple-700'
+    };
+    return colors[category] || colors.general;
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      new: 'bg-green-100 text-green-700',
+      read: 'bg-gray-100 text-gray-700',
+      resolved: 'bg-blue-100 text-blue-700'
+    };
+    return colors[status] || colors.new;
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-medium flex items-center gap-2">
+          <Mail size={20} />
+          Contact Messages ({contacts.length})
+        </h3>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-3 py-2 border rounded text-sm"
+        >
+          <option value="all">All Status</option>
+          <option value="new">New</option>
+          <option value="read">Read</option>
+          <option value="resolved">Resolved</option>
+        </select>
+      </div>
+
+      {filteredContacts.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          No contact messages {statusFilter !== 'all' && `with status "${statusFilter}"`}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredContacts.map(contact => (
+            <div
+              key={contact._id}
+              className={`border rounded-lg overflow-hidden ${
+                contact.status === 'new' ? 'border-green-300 bg-green-50' : 'border-gray-200'
+              }`}
+            >
+              {/* Header */}
+              <div
+                onClick={() => setExpandedId(expandedId === contact._id ? null : contact._id)}
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`px-2 py-1 text-xs rounded ${getStatusColor(contact.status)}`}>
+                    {contact.status}
+                  </span>
+                  <span className={`px-2 py-1 text-xs rounded ${getCategoryColor(contact.category)}`}>
+                    {getCategoryLabel(contact.category)}
+                  </span>
+                  <span className="font-medium">{contact.name}</span>
+                  <span className="text-gray-500 text-sm">{contact.email}</span>
+                </div>
+                <span className="text-sm text-gray-500">
+                  {formatDate(contact.createdAt)}
+                </span>
+              </div>
+
+              {/* Expanded Content */}
+              {expandedId === contact._id && (
+                <div className="border-t p-4 bg-white">
+                  <div className="mb-4">
+                    <label className="text-sm text-gray-500 block mb-1">Message:</label>
+                    <div className="whitespace-pre-wrap bg-gray-50 p-3 rounded text-sm">
+                      {contact.message}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Status:</span>
+                    <button
+                      onClick={() => updateStatus(contact._id, 'new')}
+                      className={`px-3 py-1 text-sm rounded ${
+                        contact.status === 'new'
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200'
+                      }`}
+                    >
+                      New
+                    </button>
+                    <button
+                      onClick={() => updateStatus(contact._id, 'read')}
+                      className={`px-3 py-1 text-sm rounded ${
+                        contact.status === 'read'
+                          ? 'bg-gray-500 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200'
+                      }`}
+                    >
+                      Read
+                    </button>
+                    <button
+                      onClick={() => updateStatus(contact._id, 'resolved')}
+                      className={`px-3 py-1 text-sm rounded ${
+                        contact.status === 'resolved'
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-100 hover:bg-gray-200'
+                      }`}
+                    >
+                      Resolved
+                    </button>
+                    <div className="flex-1" />
+                    <button
+                      onClick={() => deleteContact(contact._id)}
+                      className="px-3 py-1 text-sm bg-red-100 text-red-600 rounded hover:bg-red-200 flex items-center gap-1"
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
 UsersTab.displayName = 'UsersTab';
 ModerationTab.displayName = 'ModerationTab';
 SettingsTab.displayName = 'SettingsTab';
 MigrationTab.displayName = 'MigrationTab';
 UpcomingShowsTab.displayName = 'UpcomingShowsTab';
+ContactMessagesTab.displayName = 'ContactMessagesTab';
 AdminPanel.displayName = 'AdminPanel';
 
 export default AdminPanel;

@@ -8,4 +8,3 @@ export { default as GuestbookSection } from './GuestbookSection';
 export { default as CommentsSection } from './CommentsSection';
 export { default as LiveChatSection } from './LiveChatSection';
 export { default as RSVPSection } from './RSVPSection';
-export { default as MeetupSection } from './MeetupSection';

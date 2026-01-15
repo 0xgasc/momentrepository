@@ -1,10 +1,9 @@
 // src/components/Performance/panels/CommunityPanel.jsx
 import React, { useState, useEffect, memo } from 'react';
-import { PenLine, Users, Calendar, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { PenLine, Users, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import GuestbookSection from './GuestbookSection';
 import LiveChatSection from './LiveChatSection';
 import RSVPSection from './RSVPSection';
-import MeetupSection from './MeetupSection';
 
 // Check if a show is upcoming (future date) - handles DD-MM-YYYY format from setlist.fm
 const isUpcomingShow = (eventDate) => {
@@ -59,13 +58,6 @@ const CommunityPanel = memo(({ performance, user, token }) => {
       label: "I'm Going!",
       icon: Users,
       description: 'Let others know you\'ll be there',
-      available: isUpcoming
-    },
-    {
-      id: 'meetups',
-      label: 'Meetups',
-      icon: Calendar,
-      description: 'Coordinate pre-show hangouts',
       available: isUpcoming
     }
   ];
@@ -153,13 +145,6 @@ const CommunityPanel = memo(({ performance, user, token }) => {
             )}
             {activeTab === 'rsvp' && isUpcoming && (
               <RSVPSection
-                performanceId={performanceId}
-                user={user}
-                token={token}
-              />
-            )}
-            {activeTab === 'meetups' && isUpcoming && (
-              <MeetupSection
                 performanceId={performanceId}
                 user={user}
                 token={token}
