@@ -12,7 +12,7 @@ import MomentCommentsSection from './MomentCommentsSection';
 import FavoriteButton from '../UI/FavoriteButton';
 import { transformMediaUrl } from '../../utils/mediaUrl';
 
-const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
+const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProfile }) => {
   const { user, token } = useAuth();
   const { isWeb3Enabled } = usePlatformSettings();
   const { addToQueue, isInQueue } = useTheaterQueue();
@@ -894,6 +894,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
                   user={user}
                   token={token}
                   compact={true}
+                  onViewUserProfile={onViewUserProfile}
                 />
               </div>
             )}

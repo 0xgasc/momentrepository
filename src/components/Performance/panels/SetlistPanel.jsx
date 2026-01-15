@@ -25,7 +25,8 @@ const splitMedley = (songName) => {
 const SetlistPanel = memo(({
   performance,
   moments = [],
-  onSelectMoment
+  onSelectMoment,
+  onSongSelect
 }) => {
   const [isExpanded, setIsExpanded] = useState(false); // Collapsed by default
 
@@ -160,6 +161,7 @@ const SetlistPanel = memo(({
                     index={trackNumber - 1}
                     moments={songMoments}
                     onSelectMoment={onSelectMoment}
+                    onSongSelect={onSongSelect}
                   />
                 </React.Fragment>
               );

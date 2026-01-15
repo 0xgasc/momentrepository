@@ -12,7 +12,7 @@ const formatTimeAgo = (date) => {
   return `${Math.floor(seconds / 86400)}d ago`;
 };
 
-const CommentItem = memo(({ comment, onVote, onReply, onDelete, user, depth = 0 }) => {
+const CommentItem = memo(({ comment, onVote, onReply, onDelete, user, depth = 0, onViewUserProfile }) => {
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [replyText, setReplyText] = useState('');
 
@@ -70,9 +70,18 @@ const CommentItem = memo(({ comment, onVote, onReply, onDelete, user, depth = 0 
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-0.5">
-            <span className="font-medium text-gray-300">
-              {comment.user?.displayName || 'Anonymous'}
-            </span>
+            {comment.user?._id ? (
+              <button
+                onClick={() => onViewUserProfile?.(comment.user._id)}
+                className="font-medium text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+              >
+                {comment.user.displayName}
+              </button>
+            ) : (
+              <span className="font-medium text-gray-300">
+                {comment.user?.displayName || 'Anonymous'}
+              </span>
+            )}
             <span>·</span>
             <span>{formatTimeAgo(comment.createdAt)}</span>
             {comment.isEdited && <span className="italic">(edited)</span>}
@@ -145,6 +154,7 @@ const CommentItem = memo(({ comment, onVote, onReply, onDelete, user, depth = 0 
               onDelete={onDelete}
               user={user}
               depth={depth + 1}
+              onViewUserProfile={onViewUserProfile}
             />
           ))}
         </div>
@@ -155,7 +165,7 @@ const CommentItem = memo(({ comment, onVote, onReply, onDelete, user, depth = 0 
 
 CommentItem.displayName = 'CommentItem';
 
-const MomentCommentsSection = memo(({ momentId, user, token, compact = false }) => {
+const MomentCommentsSection = memo(({ momentId, user, token, compact = false, onViewUserProfile }) => {
   const { comments, count, loading, fetchComments, addComment, voteComment, deleteComment } = useMomentComments(momentId, token);
   const [newComment, setNewComment] = useState('');
   const [sort, setSort] = useState('top');
@@ -254,6 +264,7 @@ const MomentCommentsSection = memo(({ momentId, user, token, compact = false }) 
               onReply={handleReply}
               onDelete={deleteComment}
               user={user}
+              onViewUserProfile={onViewUserProfile}
             />
           ))
         )}

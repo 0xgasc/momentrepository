@@ -299,6 +299,15 @@ router.post('/moments/:momentId/comments',
       const { momentId } = req.params;
       const { text, parentId } = req.body;
 
+      // Content filter check
+      const filterResult = filterContent(text);
+      if (filterResult.blocked) {
+        return res.status(400).json({
+          error: 'Comment contains prohibited content',
+          severity: filterResult.severity
+        });
+      }
+
       // Verify parent exists if replying
       if (parentId) {
         const parent = await Comment.findById(parentId);

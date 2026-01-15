@@ -215,6 +215,10 @@ const MainApp = memo(() => {
         onLoginClick={() => setShowLogin(true)}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onViewUserProfile={(userId) => {
+          setSelectedUserId(userId);
+          setShowUserProfile(true);
+        }}
       />
 
       {/* Main content area - offset for sidebar on desktop, bottom padding for mobile nav */}
@@ -239,8 +243,6 @@ const MainApp = memo(() => {
           badgeInfo={getBadgeInfo()}
           showHowToGuide={showHowToGuide}
           onToggleHowToGuide={() => setShowHowToGuide(!showHowToGuide)}
-          mediaFilters={mediaFilters}
-          toggleFilter={toggleFilter}
         />
 
 
@@ -268,6 +270,7 @@ const MainApp = memo(() => {
           onBrowseModeChange={switchBrowseMode}
           user={user}
           mediaFilters={mediaFilters}
+          toggleFilter={toggleFilter}
           onShowAccount={() => {
             setShowMyAccount(true);
             refreshNotifications();
@@ -343,9 +346,7 @@ const Header = memo(({
   onHomeClick,
   badgeInfo,
   showHowToGuide,
-  onToggleHowToGuide,
-  mediaFilters,
-  toggleFilter
+  onToggleHowToGuide
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -380,60 +381,6 @@ const Header = memo(({
             >
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
-          </div>
-
-          {/* Filter Pills - Mobile - Icons Only */}
-          <div className="flex gap-3 mt-2 items-center">
-            {/* Media Type Group */}
-            <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
-              <button
-                onClick={() => toggleFilter('type', 'audio')}
-                title="Audio"
-                className={`p-1.5 rounded-md transition-all ${
-                  mediaFilters.audio
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-gray-500 hover:bg-gray-200'
-                }`}
-              >
-                <Music size={16} />
-              </button>
-              <button
-                onClick={() => toggleFilter('type', 'video')}
-                title="Video"
-                className={`p-1.5 rounded-md transition-all ${
-                  mediaFilters.video
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-gray-500 hover:bg-gray-200'
-                }`}
-              >
-                <Video size={16} />
-              </button>
-            </div>
-            {/* Source Group */}
-            <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
-              <button
-                onClick={() => toggleFilter('source', 'linked')}
-                title="Linked"
-                className={`p-1.5 rounded-md transition-all ${
-                  mediaFilters.linked
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-gray-500 hover:bg-gray-200'
-                }`}
-              >
-                <Link2 size={16} />
-              </button>
-              <button
-                onClick={() => toggleFilter('source', 'uploads')}
-                title="Uploads"
-                className={`p-1.5 rounded-md transition-all ${
-                  mediaFilters.uploads
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-gray-500 hover:bg-gray-200'
-                }`}
-              >
-                <Upload size={16} />
-              </button>
-            </div>
           </div>
         </div>
 
@@ -626,60 +573,6 @@ const Header = memo(({
                 </h1>
                 {showHowToGuide ? <ChevronUp size={16} className="text-blue-600" /> : <ChevronDown size={16} className="text-blue-600" />}
               </button>
-
-              {/* Filter Pills - Desktop - Icons Only - Hidden on lg (in sidebar) */}
-              <div className="flex gap-3 items-center lg:hidden">
-                {/* Media Type Group */}
-                <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
-                  <button
-                    onClick={() => toggleFilter('type', 'audio')}
-                    title="Audio"
-                    className={`p-1.5 rounded-md transition-all ${
-                      mediaFilters.audio
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-gray-500 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Music size={16} />
-                  </button>
-                  <button
-                    onClick={() => toggleFilter('type', 'video')}
-                    title="Video"
-                    className={`p-1.5 rounded-md transition-all ${
-                      mediaFilters.video
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-gray-500 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Video size={16} />
-                  </button>
-                </div>
-                {/* Source Group */}
-                <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
-                  <button
-                    onClick={() => toggleFilter('source', 'linked')}
-                    title="Linked"
-                    className={`p-1.5 rounded-md transition-all ${
-                      mediaFilters.linked
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-gray-500 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Link2 size={16} />
-                  </button>
-                  <button
-                    onClick={() => toggleFilter('source', 'uploads')}
-                    title="Uploads"
-                    className={`p-1.5 rounded-md transition-all ${
-                      mediaFilters.uploads
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-gray-500 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Upload size={16} />
-                  </button>
-                </div>
-              </div>
             </div>
             
             {showHowToGuide && (
@@ -805,6 +698,7 @@ const MainContent = memo(({
   onBrowseModeChange,
   user,
   mediaFilters,
+  toggleFilter,
   onShowAccount,
   onLoginClick,
   onViewUserProfile
@@ -826,12 +720,68 @@ const MainContent = memo(({
   }
 
   if (currentView === 'performance' && selectedPerformance) {
-    return <PerformanceDetail performance={selectedPerformance} onBack={onBack} onViewUserProfile={onViewUserProfile} />;
+    return <PerformanceDetail performance={selectedPerformance} onBack={onBack} onViewUserProfile={onViewUserProfile} onNavigateToSong={onSongSelect} />;
   }
 
   // Home view - Hero persists above navigation tabs
   return (
     <>
+      {/* Media Filter Pills - Above Hero (hidden on lg where sidebar has them) */}
+      <div className="flex justify-center mb-4 lg:hidden">
+        <div className="flex gap-3 items-center bg-white/90 backdrop-blur-sm p-2 rounded-lg">
+          {/* Media Type Group */}
+          <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
+            <button
+              onClick={() => toggleFilter('type', 'audio')}
+              title="Audio"
+              className={`p-1.5 rounded-md transition-all ${
+                mediaFilters.audio
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              <Music size={16} />
+            </button>
+            <button
+              onClick={() => toggleFilter('type', 'video')}
+              title="Video"
+              className={`p-1.5 rounded-md transition-all ${
+                mediaFilters.video
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              <Video size={16} />
+            </button>
+          </div>
+          {/* Source Group */}
+          <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
+            <button
+              onClick={() => toggleFilter('source', 'linked')}
+              title="Linked"
+              className={`p-1.5 rounded-md transition-all ${
+                mediaFilters.linked
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              <Link2 size={16} />
+            </button>
+            <button
+              onClick={() => toggleFilter('source', 'uploads')}
+              title="Uploads"
+              className={`p-1.5 rounded-md transition-all ${
+                mediaFilters.uploads
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              <Upload size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* VideoHero - Big random clip player, persists across all home tabs */}
       <VideoHero
         onMomentClick={(moment) => setHeroSelectedMoment(moment)}
@@ -892,17 +842,11 @@ const MainContent = memo(({
 
       {/* Tab Content */}
       {browseMode === 'moments' && (
-        <>
-          {/* Top Contributors - Collapsible leaderboard */}
-          <div className="mb-4">
-            <TopContributors onViewUserProfile={onViewUserProfile} />
-          </div>
-          <MomentBrowser
-            onSongSelect={onSongSelect}
-            onPerformanceSelect={onPerformanceSelect}
-            mediaFilters={mediaFilters}
-          />
-        </>
+        <MomentBrowser
+          onSongSelect={onSongSelect}
+          onPerformanceSelect={onPerformanceSelect}
+          mediaFilters={mediaFilters}
+        />
       )}
       {browseMode === 'performances' && (
         <PerformanceList onPerformanceSelect={onPerformanceSelect} />

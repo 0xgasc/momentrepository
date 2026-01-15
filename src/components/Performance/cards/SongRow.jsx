@@ -18,7 +18,8 @@ const SongRow = memo(({
   song,
   index,
   moments = [],
-  onSelectMoment
+  onSelectMoment,
+  onSongSelect
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasMoments = moments.length > 0;
@@ -39,13 +40,19 @@ const SongRow = memo(({
           {index + 1}
         </span>
 
-        {/* Song name */}
-        <span className="flex-1 font-medium text-gray-100 truncate flex items-center gap-2">
+        {/* Song name - clickable to navigate to song page */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onSongSelect?.(song.name);
+          }}
+          className="flex-1 font-medium text-gray-100 hover:text-blue-400 truncate flex items-center gap-2 text-left transition-colors"
+        >
           {song.name}
           {song.isPartOfMedley && (
             <span className="text-xs text-gray-500 font-normal">(medley)</span>
           )}
-        </span>
+        </button>
 
         {/* Moment indicator */}
         {hasMoments ? (

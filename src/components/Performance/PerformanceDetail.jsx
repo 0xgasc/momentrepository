@@ -8,7 +8,7 @@ import UploadModal from '../Moment/UploadModal';
 // Import new dashboard panels
 import { ShowHeaderPanel, MediaGalleryPanel, SetlistPanel, UploadPanel, CommunityPanel } from './panels';
 
-const PerformanceDetail = memo(({ performance, onBack, onViewUserProfile }) => {
+const PerformanceDetail = memo(({ performance, onBack, onViewUserProfile, onNavigateToSong }) => {
   const [uploadingMoment, setUploadingMoment] = useState(null);
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [fullPerformance, setFullPerformance] = useState(performance);
@@ -163,6 +163,7 @@ const PerformanceDetail = memo(({ performance, onBack, onViewUserProfile }) => {
             performance={fullPerformance}
             moments={songMoments}
             onSelectMoment={setSelectedMoment}
+            onSongSelect={onNavigateToSong}
           />
         </div>
 

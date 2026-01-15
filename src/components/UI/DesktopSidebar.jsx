@@ -1,12 +1,13 @@
 // src/components/UI/DesktopSidebar.jsx
 // Left sidebar for desktop - nav tabs, filters, queue preview
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import {
   Film, Calendar, Music, Video, Link2, Upload,
   ChevronLeft, ChevronRight, ListMusic, Play, User, LogIn,
-  Tv, Trash2
+  Tv, Trash2, Trophy, ChevronDown
 } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
+import TopContributors from '../Community/TopContributors';
 
 const DesktopSidebar = memo(({
   browseMode,
@@ -17,9 +18,11 @@ const DesktopSidebar = memo(({
   onShowAccount,
   onLoginClick,
   isCollapsed,
-  onToggleCollapse
+  onToggleCollapse,
+  onViewUserProfile
 }) => {
   const { theaterQueue, currentQueueIndex, isPlayingFromQueue, playQueue, clearQueue } = useTheaterQueue();
+  const [showContributors, setShowContributors] = useState(false);
 
   const navItems = [
     { id: 'moments', label: 'Moments', icon: Film },
@@ -55,6 +58,24 @@ const DesktopSidebar = memo(({
       {!isCollapsed && (
         <div className="p-4 border-b border-gray-700/50">
           <h2 className="text-blue-400 font-bold text-lg truncate">UMO Archive</h2>
+
+          {/* Collapsible Top Contributors */}
+          <button
+            onClick={() => setShowContributors(!showContributors)}
+            className="flex items-center gap-2 mt-3 text-xs text-gray-500 hover:text-gray-300 transition-colors w-full"
+          >
+            <Trophy size={12} className="text-yellow-400" />
+            <span>Top Contributors</span>
+            <ChevronDown
+              size={12}
+              className={`ml-auto transition-transform ${showContributors ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {showContributors && (
+            <div className="mt-2 max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700">
+              <TopContributors onViewUserProfile={onViewUserProfile} />
+            </div>
+          )}
         </div>
       )}
 
