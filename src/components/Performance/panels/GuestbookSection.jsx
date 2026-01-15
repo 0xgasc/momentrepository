@@ -12,11 +12,12 @@ const formatTimeAgo = (date) => {
   return new Date(date).toLocaleDateString();
 };
 
-const SignatureItem = memo(({ signature }) => {
+const SignatureItem = memo(({ signature, onViewUserProfile }) => {
   const isAnon = signature.isAnonymous || !signature.user;
   const displayName = isAnon
     ? (signature.displayName || 'Anonymous Fan')
     : (signature.user?.displayName || signature.displayName || 'Fan');
+  const canClickUser = !isAnon && signature.user?._id && onViewUserProfile;
 
   return (
     <div className="signature-item py-3 border-b border-gray-800/30 last:border-b-0">
@@ -25,16 +26,28 @@ const SignatureItem = memo(({ signature }) => {
         <div className={`
           w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
           ${isAnon ? 'bg-gray-700 text-gray-400' : 'bg-blue-600 text-white'}
-        `}>
+          ${canClickUser ? 'cursor-pointer hover:ring-2 hover:ring-blue-400' : ''}
+        `}
+          onClick={canClickUser ? () => onViewUserProfile(signature.user._id) : undefined}
+        >
           {isAnon ? <UserX size={14} /> : displayName.charAt(0).toUpperCase()}
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className={`font-medium text-sm ${isAnon ? 'text-gray-400 italic' : 'text-white'}`}>
-              {displayName}
-            </span>
+            {canClickUser ? (
+              <button
+                onClick={() => onViewUserProfile(signature.user._id)}
+                className="font-medium text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+              >
+                {displayName}
+              </button>
+            ) : (
+              <span className={`font-medium text-sm ${isAnon ? 'text-gray-400 italic' : 'text-white'}`}>
+                {displayName}
+              </span>
+            )}
             <span className="text-gray-600">signed</span>
             <span className="text-xs text-gray-500 flex items-center gap-1">
               <Clock size={10} />
@@ -55,7 +68,7 @@ const SignatureItem = memo(({ signature }) => {
 
 SignatureItem.displayName = 'SignatureItem';
 
-const GuestbookSection = memo(({ performanceId, user, token }) => {
+const GuestbookSection = memo(({ performanceId, user, token, onViewUserProfile }) => {
   const { signatures, loading, fetchSignatures, addSignature } = useGuestbook(performanceId, token);
   const [message, setMessage] = useState('');
   const [anonName, setAnonName] = useState('');
@@ -177,7 +190,7 @@ const GuestbookSection = memo(({ performanceId, user, token }) => {
               {signatures.length} {signatures.length === 1 ? 'signature' : 'signatures'}
             </p>
             {signatures.map(sig => (
-              <SignatureItem key={sig._id} signature={sig} />
+              <SignatureItem key={sig._id} signature={sig} onViewUserProfile={onViewUserProfile} />
             ))}
           </>
         )}

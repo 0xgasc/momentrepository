@@ -7,31 +7,45 @@ const formatTime = (date) => {
   return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-const ChatMessage = memo(({ message, isOwn }) => (
-  <div className={`flex gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
-    <div className={`
-      max-w-[80%] px-3 py-2 rounded-sm
-      ${isOwn
-        ? 'bg-blue-600 text-white rounded-br-sm'
-        : 'bg-gray-700/50 text-gray-200 rounded-bl-sm'
-      }
-    `}>
-      {!isOwn && (
-        <div className="text-xs text-gray-400 mb-1 font-medium">
-          {message.user?.displayName || message.displayName || 'Anonymous'}
+const ChatMessage = memo(({ message, isOwn, onViewUserProfile }) => {
+  const displayName = message.user?.displayName || message.displayName || 'Anonymous';
+  const canClickUser = message.user?._id && onViewUserProfile;
+
+  return (
+    <div className={`flex gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
+      <div className={`
+        max-w-[80%] px-3 py-2 rounded-sm
+        ${isOwn
+          ? 'bg-blue-600 text-white rounded-br-sm'
+          : 'bg-gray-700/50 text-gray-200 rounded-bl-sm'
+        }
+      `}>
+        {!isOwn && (
+          <div className="text-xs mb-1 font-medium">
+            {canClickUser ? (
+              <button
+                onClick={() => onViewUserProfile(message.user._id)}
+                className="text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+              >
+                {displayName}
+              </button>
+            ) : (
+              <span className="text-gray-400">{displayName}</span>
+            )}
+          </div>
+        )}
+        <p className="text-sm break-words">{message.text}</p>
+        <div className={`text-xs mt-1 ${isOwn ? 'text-blue-200' : 'text-gray-500'}`}>
+          {formatTime(message.createdAt)}
         </div>
-      )}
-      <p className="text-sm break-words">{message.text}</p>
-      <div className={`text-xs mt-1 ${isOwn ? 'text-blue-200' : 'text-gray-500'}`}>
-        {formatTime(message.createdAt)}
       </div>
     </div>
-  </div>
-));
+  );
+});
 
 ChatMessage.displayName = 'ChatMessage';
 
-const LiveChatSection = memo(({ performanceId, user, token }) => {
+const LiveChatSection = memo(({ performanceId, user, token, onViewUserProfile }) => {
   const { messages, connected, loading, sendMessage } = useLiveChat(performanceId, token);
   const [input, setInput] = useState('');
   const [anonName, setAnonName] = useState('');
@@ -128,6 +142,7 @@ const LiveChatSection = memo(({ performanceId, user, token }) => {
               key={message._id || idx}
               message={message}
               isOwn={user ? message.user?._id === user.userId : message.anonymousId === anonId}
+              onViewUserProfile={onViewUserProfile}
             />
           ))
         )}

@@ -8,7 +8,7 @@ import UploadModal from '../Moment/UploadModal';
 // Import new dashboard panels
 import { ShowHeaderPanel, MediaGalleryPanel, SetlistPanel, UploadPanel, CommunityPanel } from './panels';
 
-const PerformanceDetail = memo(({ performance, onBack }) => {
+const PerformanceDetail = memo(({ performance, onBack, onViewUserProfile }) => {
   const [uploadingMoment, setUploadingMoment] = useState(null);
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [fullPerformance, setFullPerformance] = useState(performance);
@@ -145,12 +145,13 @@ const PerformanceDetail = memo(({ performance, onBack }) => {
         />
       )}
 
-      {/* Community Panel - Guestbook, Chat (upcoming only), RSVP, Meetups */}
+      {/* Community Panel - Guestbook, Chat (upcoming only), RSVP */}
       <div className="mb-6">
         <CommunityPanel
           performance={fullPerformance}
           user={user}
           token={token}
+          onViewUserProfile={onViewUserProfile}
         />
       </div>
 

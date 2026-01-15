@@ -30,7 +30,7 @@ const isUpcomingShow = (eventDate) => {
   return showDate >= today;
 };
 
-const CommunityPanel = memo(({ performance, user, token }) => {
+const CommunityPanel = memo(({ performance, user, token, onViewUserProfile }) => {
   const performanceId = performance?.id;
   const isUpcoming = isUpcomingShow(performance?.eventDate);
 
@@ -134,6 +134,7 @@ const CommunityPanel = memo(({ performance, user, token }) => {
                 performanceId={performanceId}
                 user={user}
                 token={token}
+                onViewUserProfile={onViewUserProfile}
               />
             )}
             {activeTab === 'chat' && isUpcoming && (
@@ -141,6 +142,7 @@ const CommunityPanel = memo(({ performance, user, token }) => {
                 performanceId={performanceId}
                 user={user}
                 token={token}
+                onViewUserProfile={onViewUserProfile}
               />
             )}
             {activeTab === 'rsvp' && isUpcoming && (

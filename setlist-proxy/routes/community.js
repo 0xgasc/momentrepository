@@ -17,6 +17,8 @@ const Guestbook = require('../models/Guestbook');
 const Favorite = require('../models/Favorite');
 const Collection = require('../models/Collection');
 const Contact = require('../models/Contact');
+const Moment = require('../models/Moment');
+const { filterContent, sanitizeDisplayName } = require('../utils/contentFilter');
 
 // Rate limiters
 const chatLimiter = rateLimit({
@@ -367,12 +369,35 @@ router.post('/performances/:performanceId/chat',
       const { performanceId } = req.params;
       const { text, displayName, anonymousId } = req.body;
 
+      // Content filter - check message text
+      const filterResult = filterContent(text);
+      if (filterResult.blocked) {
+        return res.status(400).json({
+          error: filterResult.reason,
+          code: 'CONTENT_BLOCKED'
+        });
+      }
+
+      // Sanitize display name for anonymous users
+      let finalDisplayName = displayName || 'Anonymous';
+      if (!req.user && displayName) {
+        const nameResult = sanitizeDisplayName(displayName);
+        if (!nameResult.valid) {
+          return res.status(400).json({
+            error: nameResult.reason,
+            code: 'NAME_BLOCKED'
+          });
+        }
+        finalDisplayName = nameResult.sanitized;
+      }
+
       const message = new ChatMessage({
         performanceId,
         user: req.user?.userId || null,
         anonymousId: req.user ? null : anonymousId,
-        displayName: req.user ? null : (displayName || 'Anonymous'),
-        text
+        displayName: req.user ? null : finalDisplayName,
+        text,
+        flagged: filterResult.flagged || false
       });
 
       // If user is logged in, get their display name
@@ -443,12 +468,32 @@ router.post('/performances/:performanceId/guestbook',
       const { performanceId } = req.params;
       const { displayName, message, isAnonymous } = req.body;
 
-      // Get display name
+      // Content filter - check message if provided
+      if (message) {
+        const filterResult = filterContent(message);
+        if (filterResult.blocked) {
+          return res.status(400).json({
+            error: filterResult.reason,
+            code: 'CONTENT_BLOCKED'
+          });
+        }
+      }
+
+      // Get and sanitize display name
       let finalDisplayName = displayName || 'Anonymous Fan';
       if (req.user && !isAnonymous) {
         const User = require('../models/User');
         const user = await User.findById(req.user.userId);
         finalDisplayName = user?.displayName || 'Fan';
+      } else if (displayName) {
+        const nameResult = sanitizeDisplayName(displayName);
+        if (!nameResult.valid) {
+          return res.status(400).json({
+            error: nameResult.reason,
+            code: 'NAME_BLOCKED'
+          });
+        }
+        finalDisplayName = nameResult.sanitized;
       }
 
       const signature = new Guestbook({
@@ -1376,6 +1421,122 @@ router.delete('/contact/:contactId', async (req, res) => {
   } catch (err) {
     console.error('❌ Delete contact error:', err);
     res.status(500).json({ error: 'Failed to delete contact' });
+  }
+});
+
+// ============================================
+// TOP CONTRIBUTORS - Leaderboard with Badges
+// ============================================
+
+// Get top contributors (public)
+router.get('/top-contributors', async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    // Aggregate uploads by user, excluding admins
+    const contributors = await Moment.aggregate([
+      // Only count approved moments
+      { $match: { approvalStatus: 'approved' } },
+      // Group by user
+      {
+        $group: {
+          _id: '$user',
+          uploadCount: { $sum: 1 },
+          totalViews: { $sum: '$viewCount' },
+          firstCaptures: {
+            $sum: { $cond: ['$isFirstMomentForSong', 1, 0] }
+          },
+          rarityBreakdown: {
+            $push: '$rarityTier'
+          }
+        }
+      },
+      // Lookup user details
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'userInfo'
+        }
+      },
+      // Unwind user info
+      { $unwind: '$userInfo' },
+      // Filter out admins
+      {
+        $match: {
+          'userInfo.role': { $ne: 'admin' }
+        }
+      },
+      // Project fields
+      {
+        $project: {
+          _id: 1,
+          uploadCount: 1,
+          totalViews: 1,
+          firstCaptures: 1,
+          rarityBreakdown: 1,
+          displayName: '$userInfo.displayName',
+          memberSince: '$userInfo.createdAt',
+          role: '$userInfo.role'
+        }
+      },
+      // Sort by upload count
+      { $sort: { uploadCount: -1 } },
+      // Limit results
+      { $limit: parseInt(limit) }
+    ]);
+
+    // Add badges to each contributor
+    const contributorsWithBadges = contributors.map(c => {
+      const badges = [];
+
+      // Upload-based badges
+      if (c.uploadCount >= 100) {
+        badges.push({ id: 'archive_hero', icon: '🏆', label: 'Archive Hero', color: 'yellow' });
+      } else if (c.uploadCount >= 25) {
+        badges.push({ id: 'super_contributor', icon: '🌟', label: 'Super Contributor', color: 'purple' });
+      } else if (c.uploadCount >= 5) {
+        badges.push({ id: 'contributor', icon: '⭐', label: 'Contributor', color: 'blue' });
+      } else if (c.uploadCount >= 1) {
+        badges.push({ id: 'first_upload', icon: '🎬', label: 'First Upload', color: 'green' });
+      }
+
+      // First capture badge (pioneer)
+      if (c.firstCaptures >= 10) {
+        badges.push({ id: 'pioneer', icon: '🥇', label: 'Pioneer', color: 'orange' });
+      }
+
+      // OG Member badge (joined before 2025)
+      if (c.memberSince && new Date(c.memberSince) < new Date('2025-01-01')) {
+        badges.push({ id: 'og_member', icon: '👴', label: 'OG Member', color: 'gray' });
+      }
+
+      // Count rarity tiers
+      const rarityCount = {};
+      c.rarityBreakdown.forEach(tier => {
+        rarityCount[tier] = (rarityCount[tier] || 0) + 1;
+      });
+
+      return {
+        _id: c._id,
+        displayName: c.displayName,
+        uploadCount: c.uploadCount,
+        totalViews: c.totalViews,
+        firstCaptures: c.firstCaptures,
+        rarityCount,
+        badges,
+        memberSince: c.memberSince
+      };
+    });
+
+    res.json({
+      contributors: contributorsWithBadges,
+      totalContributors: contributors.length
+    });
+  } catch (err) {
+    console.error('❌ Top contributors error:', err);
+    res.status(500).json({ error: 'Failed to fetch top contributors' });
   }
 });
 

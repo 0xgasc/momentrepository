@@ -14,6 +14,7 @@ import MomentBrowser from './components/Moment/MomentBrowser';
 import LoginModal from './components/Auth/LoginModal';
 import CreditsFooter from './components/UI/CreditsFooter';
 import ContactForm from './components/Contact/ContactForm';
+import UserProfile from './components/User/UserProfile';
 import MyAccount from './components/User/MyAccount';
 import AdminPanel from './components/Admin/AdminPanel';
 import UMOTube from './components/UMOTube/UMOTube';
@@ -21,6 +22,7 @@ import TheaterQueue from './components/UI/TheaterQueue';
 import VideoHero from './components/UI/VideoHero';
 import PublicCollectionView from './components/Collection/PublicCollectionView';
 import DesktopSidebar from './components/UI/DesktopSidebar';
+import TopContributors from './components/Community/TopContributors';
 import { TheaterQueueProvider } from './contexts/TheaterQueueContext';
 import { useNotifications } from './hooks';
 import { API_BASE_URL } from './components/Auth/AuthProvider';
@@ -72,6 +74,8 @@ const MainApp = memo(() => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showHowToGuide, setShowHowToGuide] = useState(false);
   const [showContactForm, setShowContactForm] = useState(false);
+  const [showUserProfile, setShowUserProfile] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Public collection state (for shared collection URLs)
@@ -269,6 +273,10 @@ const MainApp = memo(() => {
             refreshNotifications();
           }}
           onLoginClick={() => setShowLogin(true)}
+          onViewUserProfile={(userId) => {
+            setSelectedUserId(userId);
+            setShowUserProfile(true);
+          }}
         />
         )}
 
@@ -297,6 +305,19 @@ const MainApp = memo(() => {
           <ContactForm
             onBack={() => setShowContactForm(false)}
             user={user}
+          />
+        </div>
+      )}
+
+      {/* User Profile */}
+      {showUserProfile && selectedUserId && (
+        <div className="fixed inset-0 z-50 overflow-auto">
+          <UserProfile
+            userId={selectedUserId}
+            onBack={() => {
+              setShowUserProfile(false);
+              setSelectedUserId(null);
+            }}
           />
         </div>
       )}
@@ -785,7 +806,8 @@ const MainContent = memo(({
   user,
   mediaFilters,
   onShowAccount,
-  onLoginClick
+  onLoginClick,
+  onViewUserProfile
 }) => {
   const [heroSelectedMoment, setHeroSelectedMoment] = useState(null);
 
@@ -804,7 +826,7 @@ const MainContent = memo(({
   }
 
   if (currentView === 'performance' && selectedPerformance) {
-    return <PerformanceDetail performance={selectedPerformance} onBack={onBack} />;
+    return <PerformanceDetail performance={selectedPerformance} onBack={onBack} onViewUserProfile={onViewUserProfile} />;
   }
 
   // Home view - Hero persists above navigation tabs
@@ -870,11 +892,17 @@ const MainContent = memo(({
 
       {/* Tab Content */}
       {browseMode === 'moments' && (
-        <MomentBrowser
-          onSongSelect={onSongSelect}
-          onPerformanceSelect={onPerformanceSelect}
-          mediaFilters={mediaFilters}
-        />
+        <>
+          {/* Top Contributors - Collapsible leaderboard */}
+          <div className="mb-4">
+            <TopContributors onViewUserProfile={onViewUserProfile} />
+          </div>
+          <MomentBrowser
+            onSongSelect={onSongSelect}
+            onPerformanceSelect={onPerformanceSelect}
+            mediaFilters={mediaFilters}
+          />
+        </>
       )}
       {browseMode === 'performances' && (
         <PerformanceList onPerformanceSelect={onPerformanceSelect} />
