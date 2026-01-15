@@ -131,10 +131,13 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
   };
 
   const groupedPerformances = useMemo(() => {
+    // Guard against missing performances array (when navigating from setlist)
+    const performances = songData.performances || [];
+
     // Filter performances based on whether they have moments (if toggle is enabled)
-    const filteredPerformances = showOnlyWithMoments 
-      ? songData.performances.filter(perf => getPerformanceSongMoments(perf.id).length > 0)
-      : songData.performances;
+    const filteredPerformances = showOnlyWithMoments
+      ? performances.filter(perf => getPerformanceSongMoments(perf.id).length > 0)
+      : performances;
 
     switch (viewMode) {
       case 'byVenue':
@@ -437,28 +440,30 @@ const SongDetailHeader = memo(({ songData, songMoments, nonSongMoments, onBack }
         </div>
       </div>
       
-      {/* Sleek Stats Row */}
-      <div className="flex items-center justify-between text-center bg-gray-50/80 rounded-sm p-4">
-        <div className="flex-1">
-          <div className="text-2xl font-bold text-blue-600">{songData.totalPerformances}</div>
-          <div className="text-xs text-gray-600">Performances</div>
+      {/* Sleek Stats Row - only show if we have full song data */}
+      {(songData.totalPerformances || songData.venues || songData.cities) && (
+        <div className="flex items-center justify-between text-center bg-gray-50/80 rounded-sm p-4">
+          <div className="flex-1">
+            <div className="text-2xl font-bold text-blue-600">{songData.totalPerformances || 0}</div>
+            <div className="text-xs text-gray-600">Performances</div>
+          </div>
+          <div className="w-px h-8 bg-gray-300 mx-4"></div>
+          <div className="flex-1">
+            <div className="text-2xl font-bold text-green-600">{(songData.venues || []).length}</div>
+            <div className="text-xs text-gray-600">Venues</div>
+          </div>
+          <div className="w-px h-8 bg-gray-300 mx-4"></div>
+          <div className="flex-1">
+            <div className="text-2xl font-bold text-purple-600">{(songData.cities || []).length}</div>
+            <div className="text-xs text-gray-600">Cities</div>
+          </div>
+          <div className="w-px h-8 bg-gray-300 mx-4"></div>
+          <div className="flex-1">
+            <div className="text-2xl font-bold text-orange-600">{songMoments.length}</div>
+            <div className="text-xs text-gray-600">Song Moments</div>
+          </div>
         </div>
-        <div className="w-px h-8 bg-gray-300 mx-4"></div>
-        <div className="flex-1">
-          <div className="text-2xl font-bold text-green-600">{songData.venues.length}</div>
-          <div className="text-xs text-gray-600">Venues</div>
-        </div>
-        <div className="w-px h-8 bg-gray-300 mx-4"></div>
-        <div className="flex-1">
-          <div className="text-2xl font-bold text-purple-600">{songData.cities.length}</div>
-          <div className="text-xs text-gray-600">Cities</div>
-        </div>
-        <div className="w-px h-8 bg-gray-300 mx-4"></div>
-        <div className="flex-1">
-          <div className="text-2xl font-bold text-orange-600">{songMoments.length}</div>
-          <div className="text-xs text-gray-600">Song Moments</div>
-        </div>
-      </div>
+      )}
       
       {/* ✅ NEW: Additional info for non-song moments */}
       {nonSongMoments.length > 0 && (
