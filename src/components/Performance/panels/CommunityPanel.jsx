@@ -6,12 +6,28 @@ import LiveChatSection from './LiveChatSection';
 import RSVPSection from './RSVPSection';
 import MeetupSection from './MeetupSection';
 
-// Check if a show is upcoming (future date)
+// Check if a show is upcoming (future date) - handles DD-MM-YYYY format from setlist.fm
 const isUpcomingShow = (eventDate) => {
   if (!eventDate) return false;
-  const showDate = new Date(eventDate);
+
+  // Parse date - handle both DD-MM-YYYY and YYYY-MM-DD formats
+  const parts = eventDate.split('-');
+  if (parts.length !== 3) return false;
+
+  let day, month, year;
+  if (parts[0].length === 4) {
+    // YYYY-MM-DD format
+    [year, month, day] = parts.map(Number);
+  } else {
+    // DD-MM-YYYY format (setlist.fm)
+    [day, month, year] = parts.map(Number);
+  }
+
+  const showDate = new Date(year, month - 1, day);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  showDate.setHours(0, 0, 0, 0);
+
   return showDate >= today;
 };
 
