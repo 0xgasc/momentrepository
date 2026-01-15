@@ -44,7 +44,7 @@ const SongRow = memo(({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onSongSelect?.(song.name);
+            onSongSelect?.({ songName: song.name });
           }}
           className="flex-1 font-medium text-gray-100 hover:text-blue-400 truncate flex items-center gap-2 text-left transition-colors"
         >
