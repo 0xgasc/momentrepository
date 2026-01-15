@@ -70,6 +70,7 @@ const MainApp = memo(() => {
   const [showMyAccount, setShowMyAccount] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showHowToGuide, setShowHowToGuide] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Public collection state (for shared collection URLs)
   const [publicCollectionId, setPublicCollectionId] = useState(null);
@@ -206,10 +207,12 @@ const MainApp = memo(() => {
           refreshNotifications();
         }}
         onLoginClick={() => setShowLogin(true)}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
       {/* Main content area - offset for sidebar on desktop */}
-      <div className="umo-container-fluid lg:ml-56">
+      <div className={`umo-container-fluid transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56'}`}>
         {/* Header with Navigation */}
         <Header
           user={user}

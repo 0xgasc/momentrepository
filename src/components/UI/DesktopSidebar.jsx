@@ -1,6 +1,6 @@
 // src/components/UI/DesktopSidebar.jsx
 // Left sidebar for desktop - nav tabs, filters, queue preview
-import React, { useState, memo } from 'react';
+import React, { memo } from 'react';
 import {
   Film, Calendar, Music, Video, Link2, Upload,
   ChevronLeft, ChevronRight, ListMusic, Play, User, LogIn,
@@ -15,9 +15,10 @@ const DesktopSidebar = memo(({
   toggleFilter,
   user,
   onShowAccount,
-  onLoginClick
+  onLoginClick,
+  isCollapsed,
+  onToggleCollapse
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const { theaterQueue, currentQueueIndex, isPlayingFromQueue, playQueue } = useTheaterQueue();
 
   const navItems = [
@@ -39,7 +40,7 @@ const DesktopSidebar = memo(({
     >
       {/* Toggle Button */}
       <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
+        onClick={onToggleCollapse}
         className="absolute -right-3 top-20 z-40 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-full p-1.5 transition-colors"
         title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
@@ -50,16 +51,12 @@ const DesktopSidebar = memo(({
         )}
       </button>
 
-      {/* Logo/Brand */}
-      <div className={`p-4 border-b border-gray-700/50 ${isCollapsed ? 'px-2' : ''}`}>
-        {isCollapsed ? (
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded flex items-center justify-center">
-            <span className="text-white font-bold text-lg">U</span>
-          </div>
-        ) : (
+      {/* Logo/Brand - only show when expanded */}
+      {!isCollapsed && (
+        <div className="p-4 border-b border-gray-700/50">
           <h2 className="text-blue-400 font-bold text-lg truncate">UMO Archive</h2>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <nav className="flex-shrink-0 p-2 border-b border-gray-700/50">
