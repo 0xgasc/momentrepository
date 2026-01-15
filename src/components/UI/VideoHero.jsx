@@ -996,6 +996,16 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               {isPlaying ? <Pause size={14} className="text-white" /> : <Play size={14} className="text-white" />}
             </button>
             <button
+              onClick={(e) => { e.stopPropagation(); toggleMute(); }}
+              className={`rounded-full p-2 transition-colors ${
+                isMuted ? 'bg-orange-500 hover:bg-orange-400' : 'bg-gray-800 hover:bg-gray-700'
+              }`}
+              style={{ minWidth: '36px', minHeight: '36px' }}
+              title={isMuted ? 'Unmute' : 'Mute'}
+            >
+              {isMuted ? <VolumeX size={14} className="text-white" /> : <Volume2 size={14} className="text-white" />}
+            </button>
+            <button
               onClick={(e) => { e.stopPropagation(); handleNext(); }}
               className="bg-gray-800 hover:bg-gray-700 rounded-full p-2 transition-colors"
               style={{ minWidth: '36px', minHeight: '36px' }}
