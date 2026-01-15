@@ -976,8 +976,10 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
             />
           </div>
 
-          {/* Top info banner - glassy */}
-          <div className="absolute top-0 left-0 right-0 z-25 bg-black/30 backdrop-blur-xl pointer-events-none border-b border-white/10">
+          {/* Top info banner - glassy, auto-hides with controls */}
+          <div className={`absolute top-0 left-0 right-0 z-25 bg-black/30 backdrop-blur-xl pointer-events-none border-b border-white/10 transition-opacity duration-300 ${
+            showControls ? 'opacity-100' : 'opacity-0'
+          }`}>
             {moment && (
               <div className="px-4 py-3">
                 <h3 className="text-white font-bold text-base sm:text-lg truncate drop-shadow-lg">

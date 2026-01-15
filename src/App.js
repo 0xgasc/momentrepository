@@ -1,7 +1,7 @@
 import React, { useState, useEffect, memo } from 'react';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
-import { Menu, X, ChevronDown, ChevronUp, Music, Video, Link2, Upload, Film, Calendar, User } from 'lucide-react';
+import { Menu, X, ChevronDown, ChevronUp, Music, Video, Link2, Upload, Film, Calendar, User, LogIn } from 'lucide-react';
 import './styles/umo-theme.css';
 
 // Import the extracted components
@@ -247,6 +247,7 @@ const MainApp = memo(() => {
             setShowMyAccount(true);
             refreshNotifications();
           }}
+          onLoginClick={() => setShowLogin(true)}
         />
         )}
 
@@ -752,7 +753,8 @@ const MainContent = memo(({
   onBrowseModeChange,
   user,
   mediaFilters,
-  onShowAccount
+  onShowAccount,
+  onLoginClick
 }) => {
   const [heroSelectedMoment, setHeroSelectedMoment] = useState(null);
 
@@ -896,14 +898,25 @@ const MainContent = memo(({
             <Music size={20} />
             <span className="text-[10px] font-medium">Songs</span>
           </button>
-          <button
-            onClick={onShowAccount}
-            style={{ minHeight: '56px', minWidth: '60px' }}
-            className="flex flex-col items-center justify-center gap-0.5 text-gray-400 transition-colors"
-          >
-            <User size={20} />
-            <span className="text-[10px] font-medium">Account</span>
-          </button>
+          {user ? (
+            <button
+              onClick={onShowAccount}
+              style={{ minHeight: '56px', minWidth: '60px' }}
+              className="flex flex-col items-center justify-center gap-0.5 text-gray-400 transition-colors"
+            >
+              <User size={20} />
+              <span className="text-[10px] font-medium">Account</span>
+            </button>
+          ) : (
+            <button
+              onClick={onLoginClick}
+              style={{ minHeight: '56px', minWidth: '60px' }}
+              className="flex flex-col items-center justify-center gap-0.5 text-gray-400 transition-colors"
+            >
+              <LogIn size={20} />
+              <span className="text-[10px] font-medium">Login</span>
+            </button>
+          )}
         </div>
       </div>
 
