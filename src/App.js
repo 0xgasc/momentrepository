@@ -19,6 +19,7 @@ import UMOTube from './components/UMOTube/UMOTube';
 import TheaterQueue from './components/UI/TheaterQueue';
 import VideoHero from './components/UI/VideoHero';
 import PublicCollectionView from './components/Collection/PublicCollectionView';
+import DesktopSidebar from './components/UI/DesktopSidebar';
 import { TheaterQueueProvider } from './contexts/TheaterQueueContext';
 import { useNotifications } from './hooks';
 import { API_BASE_URL } from './components/Auth/AuthProvider';
@@ -193,7 +194,22 @@ const MainApp = memo(() => {
 
   return (
     <div className="umo-container">
-      <div className="umo-container-fluid">
+      {/* Desktop Sidebar - only visible on lg screens */}
+      <DesktopSidebar
+        browseMode={browseMode}
+        onBrowseModeChange={switchBrowseMode}
+        mediaFilters={mediaFilters}
+        toggleFilter={toggleFilter}
+        user={user}
+        onShowAccount={() => {
+          setShowMyAccount(true);
+          refreshNotifications();
+        }}
+        onLoginClick={() => setShowLogin(true)}
+      />
+
+      {/* Main content area - offset for sidebar on desktop */}
+      <div className="umo-container-fluid lg:ml-56">
         {/* Header with Navigation */}
         <Header
           user={user}
@@ -272,6 +288,7 @@ const MainApp = memo(() => {
 
       {/* Theater Queue (always rendered, shows when items in queue) */}
       <TheaterQueue />
+      </div>
     </div>
   );
 });
@@ -575,8 +592,8 @@ const Header = memo(({
                 {showHowToGuide ? <ChevronUp size={16} className="text-blue-600" /> : <ChevronDown size={16} className="text-blue-600" />}
               </button>
 
-              {/* Filter Pills - Desktop - Icons Only */}
-              <div className="flex gap-3 items-center">
+              {/* Filter Pills - Desktop - Icons Only - Hidden on lg (in sidebar) */}
+              <div className="flex gap-3 items-center lg:hidden">
                 {/* Media Type Group */}
                 <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
                   <button
@@ -785,8 +802,8 @@ const MainContent = memo(({
         mediaFilters={mediaFilters}
       />
 
-      {/* Navigation Tabs - Below Hero (Desktop) */}
-      <div className="hidden sm:flex justify-center mb-6">
+      {/* Navigation Tabs - Below Hero (Desktop - hidden on lg where sidebar shows) */}
+      <div className="hidden sm:flex lg:hidden justify-center mb-6">
         <div className="umo-glass p-1 inline-flex w-full max-w-lg" style={{ borderRadius: '2px' }}>
           <button
             onClick={() => onBrowseModeChange('moments')}
