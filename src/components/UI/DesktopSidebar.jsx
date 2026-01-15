@@ -4,7 +4,7 @@ import React, { memo } from 'react';
 import {
   Film, Calendar, Music, Video, Link2, Upload,
   ChevronLeft, ChevronRight, ListMusic, Play, User, LogIn,
-  Tv
+  Tv, Trash2
 } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 
@@ -19,12 +19,12 @@ const DesktopSidebar = memo(({
   isCollapsed,
   onToggleCollapse
 }) => {
-  const { theaterQueue, currentQueueIndex, isPlayingFromQueue, playQueue } = useTheaterQueue();
+  const { theaterQueue, currentQueueIndex, isPlayingFromQueue, playQueue, clearQueue } = useTheaterQueue();
 
   const navItems = [
     { id: 'moments', label: 'Moments', icon: Film },
     { id: 'performances', label: 'Shows', icon: Calendar },
-    { id: 'songs', label: 'Songs', icon: Music },
+    { id: 'songs', label: 'Songs', icon: ListMusic },
   ];
 
   // Add UMOTube for admin/mod
@@ -160,9 +160,20 @@ const DesktopSidebar = memo(({
         {!isCollapsed && (
           <div className="text-[10px] uppercase tracking-wider text-gray-500 px-2 mb-2 flex items-center justify-between">
             <span>Queue</span>
-            {theaterQueue.length > 0 && (
-              <span className="text-yellow-400">{theaterQueue.length}</span>
-            )}
+            <div className="flex items-center gap-2">
+              {theaterQueue.length > 0 && (
+                <>
+                  <span className="text-yellow-400">{theaterQueue.length}</span>
+                  <button
+                    onClick={clearQueue}
+                    className="text-gray-500 hover:text-red-400 transition-colors"
+                    title="Clear queue"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )}
 

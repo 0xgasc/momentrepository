@@ -1,6 +1,6 @@
 // src/components/UI/VideoHero.jsx - Hero player for random video/audio clips
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
-import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2, Droplet, MessageSquare, Monitor, Sun, Sunset, Film, Camera, Loader2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2, Droplet, MessageSquare, Loader2 } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import UMOEffect from './UMOEffect';
@@ -12,206 +12,7 @@ import { transformMediaUrl } from '../../utils/mediaUrl';
 // ASCII character map - from darkest to brightest
 const ASCII_CHARS = ' .:-=+*#%@';
 
-// Video filter presets for YouTube/linked content - ordered for cycling
-const VIDEO_FILTER_ORDER = ['none', 'warm', 'lofi', 'retro', 'vhs'];
-
-// Dynamic filter generators based on intensity (0-100)
-const getFilterStyle = (mode, intensity) => {
-  const i = intensity / 100;
-  switch (mode) {
-    case 'warm':
-      return `sepia(${20 + i * 50}%) saturate(${110 + i * 40}%) brightness(${105 - i * 5}%) contrast(${100 + i * 15}%)`;
-    case 'lofi':
-      return `grayscale(${20 + i * 60}%) contrast(${110 + i * 30}%) brightness(${100 - i * 15}%) saturate(${90 - i * 40}%)`;
-    case 'retro':
-      return `sepia(${40 + i * 40}%) hue-rotate(-${5 + i * 20}deg) saturate(${130 + i * 70}%) contrast(${105 + i * 20}%)`;
-    case 'vhs':
-      return `saturate(${120 + i * 50}%) contrast(${100 - i * 15}%) brightness(${105 + i * 10}%) blur(${0.3 + i * 1.2}px)`;
-    default:
-      return 'none';
-  }
-};
-
-const VIDEO_FILTER_PRESETS = {
-  none: { label: 'Off', Icon: Monitor },
-  warm: { label: 'Warm', Icon: Sun },
-  lofi: { label: 'Lo-Fi', Icon: Sunset },
-  retro: { label: 'Retro', Icon: Film },
-  vhs: { label: 'VHS', Icon: Camera }
-};
-
-// Effect overlay component for filter enhancements
-const FilterOverlay = ({ mode, intensity }) => {
-  const i = intensity / 100;
-
-  if (mode === 'none') return null;
-
-  return (
-    <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
-      {/* WARM: Golden vignette + film grain */}
-      {mode === 'warm' && (
-        <>
-          {/* Golden/amber vignette */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background: `radial-gradient(ellipse at center, transparent ${60 - i * 20}%, rgba(255,180,50,${i * 0.25}) 100%)`,
-            }}
-          />
-          {/* Film grain texture */}
-          {intensity > 30 && (
-            <div
-              className="absolute inset-0 grain-overlay"
-              style={{
-                opacity: i * 0.35,
-                mixBlendMode: 'overlay',
-              }}
-            />
-          )}
-          {/* Light leak in corner */}
-          {intensity > 60 && (
-            <div
-              className="absolute inset-0"
-              style={{
-                background: `radial-gradient(ellipse at 90% 10%, rgba(255,200,100,${(i - 0.6) * 0.4}) 0%, transparent 40%)`,
-              }}
-            />
-          )}
-        </>
-      )}
-
-      {/* LO-FI: Heavy grain + scanlines + crushed blacks */}
-      {mode === 'lofi' && (
-        <>
-          {/* Heavy film grain */}
-          <div
-            className="absolute inset-0 grain-overlay grain-animated"
-            style={{
-              opacity: 0.2 + i * 0.5,
-              mixBlendMode: 'multiply',
-            }}
-          />
-          {/* CRT scanlines */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px)',
-              opacity: i * 0.8,
-            }}
-          />
-          {/* Crushed blacks vignette */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background: `radial-gradient(ellipse at center, transparent ${50 - i * 20}%, rgba(0,0,0,${0.3 + i * 0.4}) 100%)`,
-            }}
-          />
-        </>
-      )}
-
-      {/* RETRO: Film burns + RGB bleed + flicker */}
-      {mode === 'retro' && (
-        <>
-          {/* Film burn corners */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background: `
-                radial-gradient(ellipse at 0% 0%, rgba(255,100,0,${i * 0.3}) 0%, transparent 35%),
-                radial-gradient(ellipse at 100% 100%, rgba(255,180,0,${i * 0.25}) 0%, transparent 40%),
-                radial-gradient(ellipse at 100% 0%, rgba(255,50,0,${i * 0.15}) 0%, transparent 30%)
-              `,
-            }}
-          />
-          {/* RGB chromatic aberration */}
-          <div
-            className="absolute inset-0"
-            style={{
-              boxShadow: `
-                inset ${2 + i * 4}px 0 ${2 + i * 2}px rgba(255,0,0,${0.1 + i * 0.15}),
-                inset -${2 + i * 4}px 0 ${2 + i * 2}px rgba(0,255,255,${0.1 + i * 0.15})
-              `,
-            }}
-          />
-          {/* Horizontal jitter at high intensity */}
-          {intensity > 70 && (
-            <div
-              className="absolute inset-0 retro-jitter"
-              style={{ opacity: (i - 0.7) * 2 }}
-            />
-          )}
-          {/* Film grain */}
-          <div
-            className="absolute inset-0 grain-overlay"
-            style={{ opacity: i * 0.25, mixBlendMode: 'overlay' }}
-          />
-        </>
-      )}
-
-      {/* VHS: Rolling bars + color bleeding + tape warping */}
-      {mode === 'vhs' && (
-        <>
-          {/* Rolling horizontal tracking bars */}
-          <div className="absolute inset-0 vhs-tracking">
-            <div
-              className="vhs-bar vhs-bar-1"
-              style={{
-                height: `${3 + i * 8}px`,
-                opacity: 0.1 + i * 0.2,
-              }}
-            />
-            <div
-              className="vhs-bar vhs-bar-2"
-              style={{
-                height: `${2 + i * 5}px`,
-                opacity: 0.08 + i * 0.15,
-              }}
-            />
-            {intensity > 50 && (
-              <div
-                className="vhs-bar vhs-bar-3"
-                style={{
-                  height: `${4 + i * 6}px`,
-                  opacity: (i - 0.5) * 0.3,
-                }}
-              />
-            )}
-          </div>
-          {/* Color bleeding / RGB offset */}
-          <div
-            className="absolute inset-0"
-            style={{
-              boxShadow: `
-                ${1 + i * 5}px 0 ${i * 3}px rgba(255,0,0,${0.15 + i * 0.2}),
-                -${1 + i * 5}px 0 ${i * 3}px rgba(0,255,255,${0.15 + i * 0.2})
-              `,
-              mixBlendMode: 'screen',
-            }}
-          />
-          {/* Tape edge warping at high intensity */}
-          {intensity > 60 && (
-            <div
-              className="absolute inset-0 vhs-warp"
-              style={{
-                background: `linear-gradient(90deg, rgba(0,0,0,${(i - 0.6) * 0.5}) 0%, transparent 8%, transparent 92%, rgba(0,0,0,${(i - 0.6) * 0.5}) 100%)`,
-              }}
-            />
-          )}
-          {/* Static noise at edges */}
-          {intensity > 40 && (
-            <div
-              className="absolute inset-0 grain-overlay grain-animated"
-              style={{
-                opacity: (i - 0.4) * 0.4,
-                mixBlendMode: 'screen',
-              }}
-            />
-          )}
-        </>
-      )}
-    </div>
-  );
-};
+// Keep only trippy effect - removed redundant filter presets
 
 const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: true, linked: true, uploads: true }, customMoments = null }) => {
   const { user, token } = useAuth();
@@ -235,7 +36,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   const [youtubeKey, setYoutubeKey] = useState(0);
   const [trippyEffect, setTrippyEffect] = useState(false);
   const [effectIntensity, setEffectIntensity] = useState(50);
-  const [videoFilterMode, setVideoFilterMode] = useState('none'); // For YouTube: none, warm, lofi, retro, vhs
   const [asciiOutput, setAsciiOutput] = useState([]);
   const [isAsciiMode, setIsAsciiMode] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -555,7 +355,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     // Reset trippy effect when switching away from YouTube
     if (!isYouTube) {
       setTrippyEffect(false);
-      setVideoFilterMode('none');
     }
   }, [isYouTube, isAudio]);
 
@@ -1173,7 +972,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
                 }
               }}
               className="w-full h-full transition-all duration-300"
-              style={{ filter: getFilterStyle(videoFilterMode, effectIntensity) }}
             />
           </div>
 
@@ -1200,9 +998,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               <Play size={64} className="text-white opacity-80" />
             </div>
           )}
-
-          {/* Filter effect overlays - grain, scanlines, film burns etc */}
-          <FilterOverlay mode={videoFilterMode} intensity={effectIntensity} />
 
           {/* UMO Trippy Effect Overlay - only when trippy mode is on */}
           {trippyEffect && <UMOEffect intensity={effectIntensity} />}
@@ -1430,34 +1225,9 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               </>
             )}
 
-            {/* YouTube: Filter cycle toggle + trippy effect + intensity slider */}
+            {/* YouTube: Trippy effect toggle + intensity slider */}
             {isYouTube && (
               <>
-                {/* Filter toggle - cycles through presets */}
-                {(() => {
-                  const currentPreset = VIDEO_FILTER_PRESETS[videoFilterMode];
-                  const FilterIcon = currentPreset?.Icon || Monitor;
-                  const cycleFilter = (e) => {
-                    e.stopPropagation();
-                    const currentIndex = VIDEO_FILTER_ORDER.indexOf(videoFilterMode);
-                    const nextIndex = (currentIndex + 1) % VIDEO_FILTER_ORDER.length;
-                    setVideoFilterMode(VIDEO_FILTER_ORDER[nextIndex]);
-                  };
-                  return (
-                    <button
-                      onClick={cycleFilter}
-                      className={`rounded-full p-2 transition-colors flex items-center gap-1.5 ${
-                        videoFilterMode !== 'none'
-                          ? 'bg-amber-600/70 hover:bg-amber-600/90'
-                          : 'bg-white/20 hover:bg-white/30'
-                      }`}
-                      style={{ minWidth: '36px', minHeight: '36px' }}
-                      title={`Filter: ${currentPreset?.label || 'Off'} (${effectIntensity}%)`}
-                    >
-                      <FilterIcon size={16} className="text-white" />
-                    </button>
-                  );
-                })()}
                 {/* Trippy effect toggle */}
                 <button
                   onClick={(e) => {
@@ -1468,12 +1238,12 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
                     trippyEffect ? 'bg-purple-600 hover:bg-purple-500' : 'bg-white/20 hover:bg-white/30'
                   }`}
                   style={{ minWidth: '36px', minHeight: '36px' }}
-                  title="Trippy overlay"
+                  title="Effect overlay"
                 >
                   <Droplet size={16} className="text-white" />
                 </button>
-                {/* Intensity slider - shows when ANY effect is active */}
-                {(videoFilterMode !== 'none' || trippyEffect) && (
+                {/* Intensity slider - shows when effect is active */}
+                {trippyEffect && (
                   <div className="hidden sm:flex items-center bg-black/60 rounded-full px-2 py-1 gap-1.5">
                     <span className="text-white/60 text-[10px] font-mono">{effectIntensity}%</span>
                     <input
