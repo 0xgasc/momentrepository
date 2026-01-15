@@ -1,7 +1,7 @@
 // src/components/Collection/PublicCollectionView.jsx
 // Public collection view for shared collection links
 import React, { useState, useEffect, memo } from 'react';
-import { Play, ListMusic, ArrowLeft, Globe, User, Loader2, Share2, Check } from 'lucide-react';
+import { Play, ListMusic, ArrowLeft, Globe, User, Loader2, Share2, Check, Music } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { transformMediaUrl } from '../../utils/mediaUrl';
@@ -267,7 +267,7 @@ const PublicCollectionView = memo(({ collectionId, onBack }) => {
                   )}
                   {!moment.mediaUrl && (
                     <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <span className="text-3xl">🎵</span>
+                      <Music className="w-8 h-8 text-gray-400" />
                     </div>
                   )}
                 </div>

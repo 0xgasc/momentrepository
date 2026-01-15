@@ -1,5 +1,6 @@
 // src/components/Admin/AdminPanel.jsx
 import React, { useState, useEffect, memo, useCallback } from 'react';
+import { CheckCircle, Globe, Ban, Upload, Wrench, BarChart3 } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useCacheStatus } from '../../hooks';
 import { transformMediaUrl } from '../../utils/mediaUrl';
@@ -556,7 +557,7 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
 
       {pendingMoments.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
-          <div className="text-4xl mb-2">✅</div>
+          <CheckCircle className="w-10 h-10 text-green-500 mx-auto mb-2" />
           <div>No pending content</div>
           <div className="text-sm">All uploads have been reviewed!</div>
         </div>
@@ -1068,22 +1069,22 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
       {/* Settings Summary - Moved to top */}
       <div className="bg-white rounded-sm p-6 border border-gray-200">
         <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          📊 Settings Summary
+          <BarChart3 className="w-5 h-5" /> Settings Summary
         </h4>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div className={`p-3 rounded-sm ${localSettings?.web3Enabled ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>
-            <div className="text-2xl">{localSettings?.web3Enabled ? '🌐' : '🚫'}</div>
+            <div className="flex justify-center">{localSettings?.web3Enabled ? <Globe className="w-6 h-6" /> : <Ban className="w-6 h-6" />}</div>
             <div className="text-sm font-medium">Web3</div>
             <div className="text-xs">{localSettings?.web3Enabled ? 'Enabled' : 'Disabled'}</div>
           </div>
           <div className={`p-3 rounded-sm ${localSettings?.uploadsEnabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-            <div className="text-2xl">{localSettings?.uploadsEnabled ? '📤' : '🚫'}</div>
+            <div className="flex justify-center">{localSettings?.uploadsEnabled ? <Upload className="w-6 h-6" /> : <Ban className="w-6 h-6" />}</div>
             <div className="text-sm font-medium">Uploads</div>
             <div className="text-xs">{localSettings?.uploadsEnabled ? 'Enabled' : 'Disabled'}</div>
           </div>
           <div className={`p-3 rounded-sm ${!localSettings?.maintenanceMode ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-            <div className="text-2xl">{!localSettings?.maintenanceMode ? '✅' : '🔧'}</div>
+            <div className="flex justify-center">{!localSettings?.maintenanceMode ? <CheckCircle className="w-6 h-6" /> : <Wrench className="w-6 h-6" />}</div>
             <div className="text-sm font-medium">Status</div>
             <div className="text-xs">{!localSettings?.maintenanceMode ? 'Live' : 'Maintenance'}</div>
           </div>

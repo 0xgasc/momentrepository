@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { createTimeoutSignal, formatShortDate } from '../../utils';
-import { Play, Calendar, MapPin, User, Clock, HelpCircle, X, ListPlus, Check, Music, Loader2 } from 'lucide-react';
+import { Play, Calendar, MapPin, User, Clock, HelpCircle, X, ListPlus, Check, Music, Loader2, Search } from 'lucide-react';
 import MomentDetailModal from './MomentDetailModal';
 import PullToRefresh from '../UI/PullToRefresh';
 import { transformMediaUrl } from '../../utils/mediaUrl';
@@ -310,7 +310,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilters = 
           <div className="text-center py-12">
             {searchQuery.trim() ? (
               <>
-                <div className="text-4xl mb-4">🔍</div>
+                <Search className="w-10 h-10 text-gray-400 mx-auto mb-4" />
                 <div className="text-gray-700 text-lg mb-2">No moments found</div>
                 <div className="text-gray-500 text-sm mb-4">No moments match your search "{searchQuery}"</div>
                 <button

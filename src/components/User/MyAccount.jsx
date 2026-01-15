@@ -1,6 +1,6 @@
 // src/components/User/MyAccount.jsx
 import React, { useState, useEffect, memo, useCallback } from 'react';
-import { Upload, Eye, MessageCircle, Heart, Folder, Plus, Trash2, Play, Loader2, Globe, Lock, Share2, Check, Link, Edit3, Search, X } from 'lucide-react';
+import { Upload, Eye, MessageCircle, Heart, Folder, Plus, Trash2, Play, Loader2, Globe, Lock, Share2, Check, Link, Edit3, Search, X, Music } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useUserStats } from '../../hooks/useUserStats';
 import { useFavorites } from '../../hooks/useFavorites';
@@ -732,7 +732,7 @@ const FavoritesTab = memo(() => {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-gray-500 text-2xl">🎵</span>
+                    <Music className="w-6 h-6 text-gray-400" />
                   )}
                 </div>
                 <div className="p-2">
@@ -1185,7 +1185,7 @@ const UploadsTab = memo(({ moments, getStatusDisplay, formatDate }) => {
       <h3 className="text-lg font-semibold">All My Uploads ({moments.length})</h3>
       {moments.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
-          <div className="text-4xl mb-2">📤</div>
+          <Upload className="w-10 h-10 text-gray-400 mx-auto mb-2" />
           <div>No uploads yet</div>
           <div className="text-sm">Upload your first moment to get started!</div>
         </div>

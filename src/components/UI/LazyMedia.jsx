@@ -1,6 +1,6 @@
 // LazyMedia component for efficient image and video loading
 import React, { useState, useRef, useEffect, memo } from 'react';
-import { Play } from 'lucide-react';
+import { Play, Video, Image } from 'lucide-react';
 
 const LazyMedia = memo(({
   src,
@@ -211,8 +211,8 @@ const LazyMedia = memo(({
             </>
           ) : (
             <>
-              <div className="text-gray-400 text-4xl mb-2">
-                {type === 'video' ? '📹' : '🖼️'}
+              <div className="flex justify-center mb-2">
+                {type === 'video' ? <Video className="w-10 h-10 text-gray-400" /> : <Image className="w-10 h-10 text-gray-400" />}
               </div>
               <p className="text-sm text-gray-500">Network error loading {type}</p>
               {retryCount >= MAX_RETRIES && (

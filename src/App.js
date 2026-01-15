@@ -288,7 +288,6 @@ const MainApp = memo(() => {
 
       {/* Theater Queue (always rendered, shows when items in queue) */}
       <TheaterQueue />
-      </div>
     </div>
   );
 });

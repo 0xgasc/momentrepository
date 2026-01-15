@@ -279,15 +279,15 @@ const UploaderNFTCreator = ({ moment, user, onSuccess, onCancel }) => {
               <h4 className="font-semibold text-blue-800 mb-3">Revenue Distribution</h4>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-blue-700">🎵 UMO (Artist)</span>
+                  <span className="text-blue-700">UMO (Artist)</span>
                   <span className="font-medium text-blue-800">80%</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-blue-700">📤 You (Uploader)</span>
+                  <span className="text-blue-700">You (Uploader)</span>
                   <span className="font-medium text-blue-800">15%</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-blue-700">⚙️ Platform</span>
+                  <span className="text-blue-700">Platform</span>
                   <span className="font-medium text-blue-800">5%</span>
                 </div>
               </div>

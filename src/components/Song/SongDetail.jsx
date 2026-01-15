@@ -6,7 +6,7 @@ import { formatDate, formatShortDate } from '../../utils';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import UploadModal from '../Moment/UploadModal';
 import LazyMedia from '../UI/LazyMedia';
-import { Play, ListPlus, Check } from 'lucide-react';
+import { Play, ListPlus, Check, Music } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { transformMediaUrl } from '../../utils/mediaUrl';
 
@@ -287,7 +287,7 @@ const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-900 to-gray-900">
-                            <span className="text-3xl">🎵</span>
+                            <Music className="w-8 h-8 text-purple-300" />
                           </div>
                         );
                       }
@@ -464,7 +464,7 @@ const SongDetailHeader = memo(({ songData, songMoments, nonSongMoments, onBack }
       {nonSongMoments.length > 0 && (
         <div className="mt-4 p-3 bg-gray-50 rounded-sm">
           <div className="text-sm text-gray-600 text-center">
-            📀 {nonSongMoments.length} additional moment{nonSongMoments.length !== 1 ? 's' : ''} with this name (non-song content)
+            {nonSongMoments.length} additional moment{nonSongMoments.length !== 1 ? 's' : ''} with this name (non-song content)
           </div>
         </div>
       )}
@@ -576,7 +576,7 @@ const SongDetailControls = memo(({ viewMode, setViewMode, showPositions, setShow
   <div className="mb-6 space-y-4">
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-4">
-        <h3 className="text-xl font-bold text-gray-900">🎵 Song Performance History</h3>
+        <h3 className="text-lg font-bold text-gray-900">Performance History</h3>
         
         {/* View Mode Toggle - simplified and mobile-friendly */}
         <div className="flex items-center gap-2 flex-wrap">
@@ -824,9 +824,7 @@ const SongMomentCard = memo(({ moment, onMomentSelect }) => {
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-              <div className="text-gray-500">
-                <span className="text-2xl">🎵</span>
-              </div>
+              <Music className="w-6 h-6 text-gray-400" />
             </div>
           )}
         </div>

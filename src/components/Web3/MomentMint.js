@@ -1,7 +1,7 @@
 /* global BigInt */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAccount, useConnect, useWaitForTransactionReceipt, useWriteContract, useReadContract } from 'wagmi';
-import { Zap } from 'lucide-react';
+import { Zap, Rocket, Palette, Wrench, Clock, RefreshCw, CheckCircle, Music, Upload, Settings } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import UMOMomentsERC1155Contract from '../../contracts/UMOMomentsERC1155.json';
 import UMOMomentsERC1155V2Contract from '../../contracts/UMOMomentsERC1155V2.json';
@@ -951,11 +951,11 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
               {isCreatingNFT && currentStep !== 'success' && (
                 <div className="w-full bg-blue-600/20 border border-blue-500/30 text-blue-100 p-4 rounded-lg mb-4 text-center">
                   <div className="text-lg font-semibold mb-2">
-                    {currentStep === 'launching-token' ? '🚀 Launching Token...' :
-                     currentStep === 'generating-card' ? '🎨 Generating Card...' :
-                     currentStep === 'creating-contract' ? '🔧 Creating NFT Contract...' :
-                     currentStep === 'confirming' ? '⏳ Creating Edition...' :
-                     '🔄 Processing...'}
+                    {currentStep === 'launching-token' ? 'Launching Token...' :
+                     currentStep === 'generating-card' ? 'Generating Card...' :
+                     currentStep === 'creating-contract' ? 'Creating NFT Contract...' :
+                     currentStep === 'confirming' ? 'Creating Edition...' :
+                     'Processing...'}
                   </div>
                   <div className="text-xs opacity-80">
                     {currentStep === 'launching-token' ? 'Initializing your NFT collection...' :
@@ -1132,7 +1132,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
               </div>
               {userBalance && Number(userBalance) > 0 && (
                 <div className="text-xs mt-2 px-2 py-1 bg-green-500/20 border border-green-500/30 rounded-lg text-green-200">
-                  ✅ You own {Number(userBalance)} NFT{Number(userBalance) !== 1 ? 's' : ''}
+                  You own {Number(userBalance)} NFT{Number(userBalance) !== 1 ? 's' : ''}
                 </div>
               )}
               
@@ -1172,7 +1172,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
                   }}
                   className="mt-2 text-xs underline text-yellow-400 hover:text-yellow-300"
                 >
-                  🔧 Fix mint count
+                  Fix mint count
                 </button>
               )}
             </div>
@@ -1243,7 +1243,7 @@ const MomentMint = ({ moment, user, isOwner, hasNFTEdition, isExpanded = false, 
 
             <div className="bg-white/10 p-3 rounded-lg text-xs leading-relaxed mb-3">
               <strong>Revenue split:</strong><br/>
-              🎵 UMO: 65% • 📤 Creator: 30% • ⚙️ Platform: 5%
+              UMO: 65% | Creator: 30% | Platform: 5%
             </div>
 
             {/* OpenSea Link - only show if NFT has been minted at least once */}

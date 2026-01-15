@@ -1,6 +1,6 @@
 // src/components/Moment/MomentDetailModal.jsx - OPTIMIZED & FIXED
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { ChevronDown, ChevronUp, Clock, ListPlus, Check, Archive, ExternalLink, User } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, ListPlus, Check, Archive, ExternalLink, User, Video, FileText } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
@@ -410,7 +410,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
       if (!youtubeId) {
         return (
           <div className="media-container text-center py-8">
-            <div className="text-4xl mb-2">🎬</div>
+            <Video className="w-10 h-10 text-gray-400 mx-auto mb-2" />
             <p className="text-gray-600">Invalid YouTube URL</p>
           </div>
         );
@@ -547,7 +547,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose }) => {
     return (
       <div className="media-container audio-placeholder">
         <div className="text-center py-8">
-          <div className="text-4xl mb-2">📁</div>
+          <FileText className="w-10 h-10 text-gray-400 mx-auto mb-2" />
           <p className="text-gray-600 mb-4">{moment.fileName}</p>
           <p className="text-sm text-gray-500 mb-4">
             {moment.fileSize ? formatFileSize(moment.fileSize) : 'Unknown size'} • {moment.mediaType || 'File'}

@@ -1,5 +1,6 @@
 // src/components/Song/SongBrowser.jsx
 import React, { memo } from 'react';
+import { Search } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { useSongDatabase } from '../../hooks';
 import { formatShortDate } from '../../utils';
@@ -283,7 +284,7 @@ const NoResultsState = memo(({ searchQuery, onClearSearch }) => (
   <div className="text-center py-8 text-gray-500">
     {searchQuery.trim() ? (
       <>
-        <div className="text-4xl mb-4">🔍</div>
+        <Search className="w-10 h-10 text-gray-400 mx-auto mb-4" />
         <h3 className="text-lg font-medium mb-2">No songs found</h3>
         <p className="mb-4">No songs match your search "{searchQuery}"</p>
         <button
