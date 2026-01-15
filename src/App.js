@@ -1,7 +1,7 @@
 import React, { useState, useEffect, memo } from 'react';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
-import { Menu, X, ChevronDown, ChevronUp, Music, Video, Link2, Upload } from 'lucide-react';
+import { Menu, X, ChevronDown, ChevronUp, Music, Video, Link2, Upload, Film, Calendar, User } from 'lucide-react';
 import './styles/umo-theme.css';
 
 // Import the extracted components
@@ -243,6 +243,10 @@ const MainApp = memo(() => {
           onBrowseModeChange={switchBrowseMode}
           user={user}
           mediaFilters={mediaFilters}
+          onShowAccount={() => {
+            setShowMyAccount(true);
+            refreshNotifications();
+          }}
         />
         )}
 
@@ -747,7 +751,8 @@ const MainContent = memo(({
   onBack,
   onBrowseModeChange,
   user,
-  mediaFilters
+  mediaFilters,
+  onShowAccount
 }) => {
   const [heroSelectedMoment, setHeroSelectedMoment] = useState(null);
 
@@ -778,8 +783,8 @@ const MainContent = memo(({
         mediaFilters={mediaFilters}
       />
 
-      {/* Navigation Tabs - Below Hero */}
-      <div className="flex justify-center mb-6">
+      {/* Navigation Tabs - Below Hero (Desktop) */}
+      <div className="hidden sm:flex justify-center mb-6">
         <div className="umo-glass p-1 inline-flex w-full max-w-lg" style={{ borderRadius: '2px' }}>
           <button
             onClick={() => onBrowseModeChange('moments')}
@@ -857,6 +862,53 @@ const MainContent = memo(({
           />
         </React.Suspense>
       )}
+
+      {/* Mobile Bottom Navigation */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-sm border-t border-gray-700" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <div className="flex justify-around items-center py-1">
+          <button
+            onClick={() => onBrowseModeChange('moments')}
+            style={{ minHeight: '56px', minWidth: '60px' }}
+            className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              browseMode === 'moments' ? 'text-yellow-400' : 'text-gray-400'
+            }`}
+          >
+            <Film size={20} />
+            <span className="text-[10px] font-medium">Moments</span>
+          </button>
+          <button
+            onClick={() => onBrowseModeChange('performances')}
+            style={{ minHeight: '56px', minWidth: '60px' }}
+            className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              browseMode === 'performances' ? 'text-yellow-400' : 'text-gray-400'
+            }`}
+          >
+            <Calendar size={20} />
+            <span className="text-[10px] font-medium">Shows</span>
+          </button>
+          <button
+            onClick={() => onBrowseModeChange('songs')}
+            style={{ minHeight: '56px', minWidth: '60px' }}
+            className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              browseMode === 'songs' ? 'text-yellow-400' : 'text-gray-400'
+            }`}
+          >
+            <Music size={20} />
+            <span className="text-[10px] font-medium">Songs</span>
+          </button>
+          <button
+            onClick={onShowAccount}
+            style={{ minHeight: '56px', minWidth: '60px' }}
+            className="flex flex-col items-center justify-center gap-0.5 text-gray-400 transition-colors"
+          >
+            <User size={20} />
+            <span className="text-[10px] font-medium">Account</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom padding spacer for mobile nav */}
+      <div className="sm:hidden h-20" />
     </>
   );
 });

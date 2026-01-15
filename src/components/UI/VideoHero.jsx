@@ -1015,8 +1015,8 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               preload="auto"
               onLoadedData={handleVideoLoaded}
               onEnded={handleNext}
-              className={`w-full ${isAsciiMode ? 'opacity-0' : ''}`}
-              style={{ maxHeight: isFullscreen ? '100vh' : '500px', objectFit: 'contain', backgroundColor: '#000' }}
+              className={`w-full ${isAsciiMode ? 'opacity-0' : ''} ${isFullscreen ? 'max-h-screen' : 'max-h-[280px] sm:max-h-[400px] md:max-h-[500px]'}`}
+              style={{ objectFit: 'contain', backgroundColor: '#000' }}
             />
           )}
 

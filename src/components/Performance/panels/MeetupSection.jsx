@@ -149,18 +149,20 @@ const MeetupCard = memo(({ meetup, user, onJoin, onLeave }) => {
               isJoined ? (
                 <button
                   onClick={() => onLeave(meetup._id)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-sm text-sm transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-sm text-sm transition-colors"
+                  style={{ minHeight: '44px' }}
                 >
-                  <LogOut size={14} />
+                  <LogOut size={16} />
                   Leave
                 </button>
               ) : (
                 <button
                   onClick={() => onJoin(meetup._id)}
                   disabled={meetup.spotsRemaining === 0}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-sm text-sm transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-sm text-sm transition-colors"
+                  style={{ minHeight: '44px' }}
                 >
-                  <UserPlus size={14} />
+                  <UserPlus size={16} />
                   {meetup.spotsRemaining === 0 ? 'Full' : 'Join'}
                 </button>
               )
@@ -198,9 +200,8 @@ const CreateMeetupForm = memo(({ onSubmit, onCancel }) => {
     <form onSubmit={handleSubmit} className="p-4 bg-gray-800/50 rounded-sm border border-gray-700">
       <h4 className="font-medium text-white mb-4">Create a Meetup</h4>
 
-      {/* Type selection */}
+      {/* Type selection - icons are self-explanatory */}
       <div className="mb-3">
-        <label className="block text-sm text-gray-400 mb-2">Type</label>
         <div className="grid grid-cols-2 gap-2">
           {meetupTypes.map(t => {
             const Icon = t.icon;
@@ -210,14 +211,15 @@ const CreateMeetupForm = memo(({ onSubmit, onCancel }) => {
                 type="button"
                 onClick={() => setType(t.id)}
                 className={`
-                  flex items-center gap-2 p-2 rounded-sm border text-sm transition-colors
+                  flex items-center gap-2 p-3 rounded-sm border text-sm transition-colors
                   ${type === t.id
                     ? 'bg-blue-600/20 border-blue-500 text-blue-400'
                     : 'bg-gray-900/50 border-gray-700 text-gray-400 hover:text-white'
                   }
                 `}
+                style={{ minHeight: '44px' }}
               >
-                <Icon size={16} />
+                <Icon size={18} />
                 {t.label}
               </button>
             );
@@ -295,14 +297,16 @@ const CreateMeetupForm = memo(({ onSubmit, onCancel }) => {
         <button
           type="submit"
           disabled={!title.trim()}
-          className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-sm transition-colors"
+          className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white rounded-sm transition-colors"
+          style={{ minHeight: '44px' }}
         >
           Create Meetup
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+          className="px-4 py-3 text-gray-400 hover:text-white transition-colors"
+          style={{ minHeight: '44px' }}
         >
           Cancel
         </button>
@@ -359,9 +363,10 @@ const MeetupSection = memo(({ performanceId, user, token }) => {
         <div className="flex justify-end mb-4">
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-sm transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-sm transition-colors"
+            style={{ minHeight: '44px' }}
           >
-            <Plus size={16} />
+            <Plus size={18} />
             Create Meetup
           </button>
         </div>

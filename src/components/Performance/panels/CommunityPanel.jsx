@@ -111,17 +111,18 @@ const CommunityPanel = memo(({ performance, user, token }) => {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`
-                    flex items-center gap-2 px-4 py-3 text-sm font-medium
+                    flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-3 text-sm font-medium
                     transition-colors whitespace-nowrap
                     ${isActive
                       ? 'text-white bg-gray-800/50 border-b-2 border-blue-500'
                       : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
                     }
                   `}
+                  style={{ minHeight: '44px' }}
                   title={tab.description}
                 >
-                  <Icon size={16} />
-                  {tab.label}
+                  <Icon size={18} />
+                  <span className="hidden sm:inline">{tab.label}</span>
                 </button>
               );
             })}
