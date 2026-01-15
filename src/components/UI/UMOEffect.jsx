@@ -426,14 +426,67 @@ const UMOEffect = memo(({ intensity = 50, className = '' }) => {
         </>
       )}
 
-      {/* MAXIMUM UMO MODE (85%+) */}
-      {intensity > 85 && (
+      {/* ENHANCED CHAOS MODE (80%+) */}
+      {intensity > 80 && (
         <>
-          {/* Color inversion flashes */}
+          {/* Screen tearing effect - horizontal slices offset */}
+          <div
+            className="absolute inset-0 overflow-hidden"
+            style={{ opacity: (i - 0.8) * 5 }}
+          >
+            {[0, 1, 2, 3].map((slice) => (
+              <div
+                key={`tear-${slice}`}
+                className="absolute left-0 right-0"
+                style={{
+                  top: `${20 + slice * 20 + Math.sin(wavePhase * (slice + 1)) * 5}%`,
+                  height: '8%',
+                  transform: `translateX(${Math.sin(wavePhase * 2 + slice) * (10 + (i - 0.8) * 50)}px)`,
+                  background: 'rgba(255, 200, 100, 0.08)',
+                  boxShadow: `
+                    ${5 + Math.random() * 5}px 0 0 rgba(255, 100, 0, 0.2),
+                    ${-5 - Math.random() * 5}px 0 0 rgba(0, 255, 255, 0.15)
+                  `,
+                  mixBlendMode: 'screen'
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Aggressive RGB channel splitting */}
           <div
             className="absolute inset-0"
             style={{
-              opacity: Math.random() < 0.15 ? 0.4 : 0,
+              opacity: (i - 0.8) * 3,
+              boxShadow: `
+                inset ${12 + Math.sin(wavePhase * 4) * 8}px 0 0 rgba(255, 50, 0, 0.35),
+                inset ${-12 - Math.sin(wavePhase * 4) * 8}px 0 0 rgba(0, 255, 200, 0.35),
+                inset 0 ${6 + Math.cos(wavePhase * 3) * 4}px 0 rgba(255, 255, 0, 0.2)
+              `
+            }}
+          />
+
+          {/* Pulsing zoom effect */}
+          <div
+            className="absolute inset-0"
+            style={{
+              opacity: (i - 0.8) * 2,
+              background: 'transparent',
+              transform: `scale(${1 + Math.sin(wavePhase * 2) * (i - 0.8) * 0.1})`,
+              boxShadow: 'inset 0 0 100px rgba(255, 150, 0, 0.3)'
+            }}
+          />
+        </>
+      )}
+
+      {/* MAXIMUM UMO MODE (85%+) */}
+      {intensity > 85 && (
+        <>
+          {/* Color inversion flashes - more frequent */}
+          <div
+            className="absolute inset-0"
+            style={{
+              opacity: Math.random() < 0.25 ? 0.5 : 0,
               background: 'white',
               mixBlendMode: 'difference'
             }}
@@ -443,84 +496,210 @@ const UMOEffect = memo(({ intensity = 50, className = '' }) => {
           <div
             className="absolute inset-0"
             style={{
-              opacity: 0.6,
+              opacity: 0.7,
               boxShadow: `
-                inset ${15 + Math.sin(wavePhase * 3) * 10}px 0 30px rgba(255, 150, 0, 0.5),
-                inset ${-15 - Math.sin(wavePhase * 3) * 10}px 0 30px rgba(255, 200, 100, 0.5),
-                inset 0 ${10 + Math.cos(wavePhase * 2) * 5}px 20px rgba(200, 100, 0, 0.3)
+                inset ${20 + Math.sin(wavePhase * 3) * 15}px 0 40px rgba(255, 100, 0, 0.6),
+                inset ${-20 - Math.sin(wavePhase * 3) * 15}px 0 40px rgba(0, 255, 255, 0.5),
+                inset 0 ${15 + Math.cos(wavePhase * 2) * 10}px 30px rgba(255, 0, 150, 0.4)
               `
             }}
           />
 
-          {/* DIGITAL DECAY */}
+          {/* DIGITAL DECAY / Datamosh effect */}
           <div
             className="absolute inset-0"
             style={{
-              opacity: (i - 0.85) * 5,
+              opacity: (i - 0.85) * 6,
               background: `repeating-linear-gradient(
-                ${90 + waveDistortX * 10}deg,
+                ${90 + waveDistortX * 15}deg,
                 transparent 0px,
-                rgba(255, 200, 100, 0.3) 1px,
-                transparent 2px,
-                transparent ${8 + Math.random() * 4}px
+                rgba(255, 200, 100, 0.4) 1px,
+                rgba(0, 255, 255, 0.2) 2px,
+                transparent 3px,
+                transparent ${6 + Math.random() * 4}px
               )`,
               mixBlendMode: 'screen'
             }}
           />
 
-          {/* MELTING EFFECT */}
+          {/* MELTING EFFECT - enhanced */}
           <div
             className="absolute inset-0"
             style={{
-              opacity: (i - 0.85) * 3,
+              opacity: (i - 0.85) * 4,
               background: `linear-gradient(
                 180deg,
                 transparent 0%,
-                transparent ${50 + Math.sin(wavePhase) * 20}%,
-                rgba(255, 150, 0, 0.2) ${60 + Math.sin(wavePhase) * 15}%,
-                rgba(255, 200, 100, 0.3) ${75 + Math.cos(wavePhase) * 10}%,
-                rgba(200, 150, 0, 0.2) 100%
+                transparent ${40 + Math.sin(wavePhase) * 25}%,
+                rgba(255, 100, 0, 0.3) ${55 + Math.sin(wavePhase) * 20}%,
+                rgba(255, 200, 100, 0.4) ${70 + Math.cos(wavePhase) * 15}%,
+                rgba(200, 100, 0, 0.3) 100%
               )`,
-              filter: `blur(${i * 15}px)`,
-              transform: `translateY(${Math.sin(wavePhase) * 10}px)`,
+              filter: `blur(${i * 20}px)`,
+              transform: `translateY(${Math.sin(wavePhase) * 15}px) scaleY(${1 + Math.sin(wavePhase * 2) * 0.1})`,
+              mixBlendMode: 'screen'
+            }}
+          />
+
+          {/* Pixel sorting / glitch bands */}
+          <div
+            className="absolute inset-0 overflow-hidden"
+            style={{ opacity: (i - 0.85) * 5 }}
+          >
+            {[0, 1, 2, 3, 4, 5].map((band) => (
+              <div
+                key={`band-${band}`}
+                className="absolute left-0 right-0"
+                style={{
+                  top: `${band * 16 + Math.sin(wavePhase * (band + 1)) * 8}%`,
+                  height: `${3 + Math.random() * 5}%`,
+                  background: `linear-gradient(90deg,
+                    transparent ${Math.random() * 30}%,
+                    rgba(255, ${150 + Math.random() * 100}, ${Math.random() * 100}, 0.4) ${30 + Math.random() * 20}%,
+                    rgba(0, 255, 255, 0.3) ${60 + Math.random() * 20}%,
+                    transparent ${80 + Math.random() * 20}%
+                  )`,
+                  transform: `skewX(${(Math.random() - 0.5) * 30}deg)`,
+                  mixBlendMode: 'screen'
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Recursive zoom illusion */}
+          <div
+            className="absolute inset-0"
+            style={{
+              opacity: (i - 0.85) * 2,
+              background: 'radial-gradient(circle at center, transparent 30%, rgba(255, 150, 0, 0.2) 60%, transparent 80%)',
+              transform: `scale(${1 + Math.sin(wavePhase * 3) * 0.15})`,
               mixBlendMode: 'screen'
             }}
           />
         </>
       )}
 
-      {/* ABSOLUTE MAXIMUM (95%+) */}
+      {/* ABSOLUTE MAXIMUM (95%+) - REALITY BREAKS DOWN */}
       {intensity > 95 && (
         <>
-          {/* REALITY BREAKDOWN */}
+          {/* REALITY BREAKDOWN - intensified grid */}
           <div
             className="absolute inset-0"
             style={{
-              opacity: 0.5,
+              opacity: 0.7,
               background: `
                 repeating-linear-gradient(
-                  ${wavePhase * 100}deg,
+                  ${wavePhase * 150}deg,
                   transparent,
-                  rgba(255, 150, 0, 0.3) 2px,
-                  transparent 4px
+                  rgba(255, 100, 0, 0.5) 1px,
+                  rgba(0, 255, 255, 0.3) 2px,
+                  transparent 3px
                 ),
                 repeating-linear-gradient(
-                  ${-wavePhase * 100}deg,
+                  ${-wavePhase * 150}deg,
                   transparent,
-                  rgba(255, 200, 100, 0.3) 2px,
-                  transparent 4px
+                  rgba(255, 0, 150, 0.4) 1px,
+                  rgba(150, 255, 0, 0.3) 2px,
+                  transparent 3px
                 )
               `,
-              mixBlendMode: 'screen'
+              mixBlendMode: 'screen',
+              animation: 'spin 0.5s linear infinite'
             }}
           />
 
-          {/* COMPLETE CHAOS FLICKER */}
+          {/* COMPLETE CHAOS FLICKER - more aggressive */}
           <div
             className="absolute inset-0"
             style={{
-              opacity: Math.random() * 0.3,
-              background: `hsl(${30 + Math.random() * 30}, 100%, 50%)`,
+              opacity: Math.random() * 0.5,
+              background: `hsl(${Math.random() * 60}, 100%, 50%)`,
+              mixBlendMode: Math.random() > 0.5 ? 'overlay' : 'difference'
+            }}
+          />
+
+          {/* Kaleidoscope / mirror fragment effect */}
+          <div
+            className="absolute inset-0"
+            style={{
+              opacity: 0.4,
+              background: `conic-gradient(
+                from ${wavePhase * 180}deg at 50% 50%,
+                rgba(255, 100, 0, 0.4) 0deg,
+                transparent 30deg,
+                rgba(0, 255, 200, 0.3) 60deg,
+                transparent 90deg,
+                rgba(255, 0, 150, 0.3) 120deg,
+                transparent 150deg,
+                rgba(255, 200, 0, 0.4) 180deg,
+                transparent 210deg,
+                rgba(100, 255, 100, 0.3) 240deg,
+                transparent 270deg,
+                rgba(150, 100, 255, 0.3) 300deg,
+                transparent 330deg,
+                rgba(255, 100, 0, 0.4) 360deg
+              )`,
+              mixBlendMode: 'screen',
+              transform: `rotate(${wavePhase * 30}deg) scale(${1.5 + Math.sin(wavePhase * 2) * 0.3})`
+            }}
+          />
+
+          {/* Extreme screen distortion / wave warp */}
+          <div
+            className="absolute inset-0"
+            style={{
+              opacity: 0.6,
+              transform: `
+                perspective(500px)
+                rotateX(${Math.sin(wavePhase * 2) * 5}deg)
+                rotateY(${Math.cos(wavePhase * 3) * 5}deg)
+                skewX(${Math.sin(wavePhase) * 8}deg)
+              `,
+              background: 'transparent',
+              boxShadow: `
+                ${30 * Math.sin(wavePhase * 4)}px ${20 * Math.cos(wavePhase * 3)}px 60px rgba(255, 100, 0, 0.5),
+                ${-30 * Math.sin(wavePhase * 4)}px ${-20 * Math.cos(wavePhase * 3)}px 60px rgba(0, 255, 255, 0.5)
+              `
+            }}
+          />
+
+          {/* Negative / solarize flash bursts */}
+          {Math.random() > 0.85 && (
+            <div
+              className="absolute inset-0"
+              style={{
+                opacity: 0.6,
+                filter: 'invert(1) hue-rotate(180deg)',
+                mixBlendMode: 'exclusion'
+              }}
+            />
+          )}
+
+          {/* Strobing edge glow */}
+          <div
+            className="absolute inset-0"
+            style={{
+              opacity: 0.5 + Math.sin(wavePhase * 8) * 0.3,
+              boxShadow: `
+                inset 0 0 80px rgba(255, 0, 100, 0.6),
+                inset 0 0 40px rgba(0, 255, 200, 0.5),
+                0 0 60px rgba(255, 150, 0, 0.8)
+              `
+            }}
+          />
+
+          {/* Converging lines / hypnotic spiral */}
+          <div
+            className="absolute inset-0"
+            style={{
+              opacity: 0.3,
+              background: `repeating-conic-gradient(
+                from ${wavePhase * 90}deg at 50% 50%,
+                transparent 0deg,
+                rgba(255, 255, 255, 0.1) 5deg,
+                transparent 10deg
+              )`,
+              transform: `scale(${2 + Math.sin(wavePhase) * 0.5})`,
               mixBlendMode: 'overlay'
             }}
           />

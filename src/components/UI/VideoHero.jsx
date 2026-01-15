@@ -14,12 +14,203 @@ const ASCII_CHARS = ' .:-=+*#%@';
 
 // Video filter presets for YouTube/linked content - ordered for cycling
 const VIDEO_FILTER_ORDER = ['none', 'warm', 'lofi', 'retro', 'vhs'];
+
+// Dynamic filter generators based on intensity (0-100)
+const getFilterStyle = (mode, intensity) => {
+  const i = intensity / 100;
+  switch (mode) {
+    case 'warm':
+      return `sepia(${20 + i * 50}%) saturate(${110 + i * 40}%) brightness(${105 - i * 5}%) contrast(${100 + i * 15}%)`;
+    case 'lofi':
+      return `grayscale(${20 + i * 60}%) contrast(${110 + i * 30}%) brightness(${100 - i * 15}%) saturate(${90 - i * 40}%)`;
+    case 'retro':
+      return `sepia(${40 + i * 40}%) hue-rotate(-${5 + i * 20}deg) saturate(${130 + i * 70}%) contrast(${105 + i * 20}%)`;
+    case 'vhs':
+      return `saturate(${120 + i * 50}%) contrast(${100 - i * 15}%) brightness(${105 + i * 10}%) blur(${0.3 + i * 1.2}px)`;
+    default:
+      return 'none';
+  }
+};
+
 const VIDEO_FILTER_PRESETS = {
-  none: { label: 'Off', filter: 'none', Icon: Monitor },
-  warm: { label: 'Warm', filter: 'sepia(30%) saturate(120%) brightness(105%) contrast(105%)', Icon: Sun },
-  lofi: { label: 'Lo-Fi', filter: 'grayscale(30%) contrast(120%) brightness(95%) saturate(80%)', Icon: Sunset },
-  retro: { label: 'Retro', filter: 'sepia(50%) hue-rotate(-10deg) saturate(150%) contrast(110%)', Icon: Film },
-  vhs: { label: 'VHS', filter: 'saturate(130%) contrast(95%) brightness(105%) blur(0.5px)', Icon: Camera }
+  none: { label: 'Off', Icon: Monitor },
+  warm: { label: 'Warm', Icon: Sun },
+  lofi: { label: 'Lo-Fi', Icon: Sunset },
+  retro: { label: 'Retro', Icon: Film },
+  vhs: { label: 'VHS', Icon: Camera }
+};
+
+// Effect overlay component for filter enhancements
+const FilterOverlay = ({ mode, intensity }) => {
+  const i = intensity / 100;
+
+  if (mode === 'none') return null;
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
+      {/* WARM: Golden vignette + film grain */}
+      {mode === 'warm' && (
+        <>
+          {/* Golden/amber vignette */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `radial-gradient(ellipse at center, transparent ${60 - i * 20}%, rgba(255,180,50,${i * 0.25}) 100%)`,
+            }}
+          />
+          {/* Film grain texture */}
+          {intensity > 30 && (
+            <div
+              className="absolute inset-0 grain-overlay"
+              style={{
+                opacity: i * 0.35,
+                mixBlendMode: 'overlay',
+              }}
+            />
+          )}
+          {/* Light leak in corner */}
+          {intensity > 60 && (
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `radial-gradient(ellipse at 90% 10%, rgba(255,200,100,${(i - 0.6) * 0.4}) 0%, transparent 40%)`,
+              }}
+            />
+          )}
+        </>
+      )}
+
+      {/* LO-FI: Heavy grain + scanlines + crushed blacks */}
+      {mode === 'lofi' && (
+        <>
+          {/* Heavy film grain */}
+          <div
+            className="absolute inset-0 grain-overlay grain-animated"
+            style={{
+              opacity: 0.2 + i * 0.5,
+              mixBlendMode: 'multiply',
+            }}
+          />
+          {/* CRT scanlines */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: 'repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px)',
+              opacity: i * 0.8,
+            }}
+          />
+          {/* Crushed blacks vignette */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `radial-gradient(ellipse at center, transparent ${50 - i * 20}%, rgba(0,0,0,${0.3 + i * 0.4}) 100%)`,
+            }}
+          />
+        </>
+      )}
+
+      {/* RETRO: Film burns + RGB bleed + flicker */}
+      {mode === 'retro' && (
+        <>
+          {/* Film burn corners */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `
+                radial-gradient(ellipse at 0% 0%, rgba(255,100,0,${i * 0.3}) 0%, transparent 35%),
+                radial-gradient(ellipse at 100% 100%, rgba(255,180,0,${i * 0.25}) 0%, transparent 40%),
+                radial-gradient(ellipse at 100% 0%, rgba(255,50,0,${i * 0.15}) 0%, transparent 30%)
+              `,
+            }}
+          />
+          {/* RGB chromatic aberration */}
+          <div
+            className="absolute inset-0"
+            style={{
+              boxShadow: `
+                inset ${2 + i * 4}px 0 ${2 + i * 2}px rgba(255,0,0,${0.1 + i * 0.15}),
+                inset -${2 + i * 4}px 0 ${2 + i * 2}px rgba(0,255,255,${0.1 + i * 0.15})
+              `,
+            }}
+          />
+          {/* Horizontal jitter at high intensity */}
+          {intensity > 70 && (
+            <div
+              className="absolute inset-0 retro-jitter"
+              style={{ opacity: (i - 0.7) * 2 }}
+            />
+          )}
+          {/* Film grain */}
+          <div
+            className="absolute inset-0 grain-overlay"
+            style={{ opacity: i * 0.25, mixBlendMode: 'overlay' }}
+          />
+        </>
+      )}
+
+      {/* VHS: Rolling bars + color bleeding + tape warping */}
+      {mode === 'vhs' && (
+        <>
+          {/* Rolling horizontal tracking bars */}
+          <div className="absolute inset-0 vhs-tracking">
+            <div
+              className="vhs-bar vhs-bar-1"
+              style={{
+                height: `${3 + i * 8}px`,
+                opacity: 0.1 + i * 0.2,
+              }}
+            />
+            <div
+              className="vhs-bar vhs-bar-2"
+              style={{
+                height: `${2 + i * 5}px`,
+                opacity: 0.08 + i * 0.15,
+              }}
+            />
+            {intensity > 50 && (
+              <div
+                className="vhs-bar vhs-bar-3"
+                style={{
+                  height: `${4 + i * 6}px`,
+                  opacity: (i - 0.5) * 0.3,
+                }}
+              />
+            )}
+          </div>
+          {/* Color bleeding / RGB offset */}
+          <div
+            className="absolute inset-0"
+            style={{
+              boxShadow: `
+                ${1 + i * 5}px 0 ${i * 3}px rgba(255,0,0,${0.15 + i * 0.2}),
+                -${1 + i * 5}px 0 ${i * 3}px rgba(0,255,255,${0.15 + i * 0.2})
+              `,
+              mixBlendMode: 'screen',
+            }}
+          />
+          {/* Tape edge warping at high intensity */}
+          {intensity > 60 && (
+            <div
+              className="absolute inset-0 vhs-warp"
+              style={{
+                background: `linear-gradient(90deg, rgba(0,0,0,${(i - 0.6) * 0.5}) 0%, transparent 8%, transparent 92%, rgba(0,0,0,${(i - 0.6) * 0.5}) 100%)`,
+              }}
+            />
+          )}
+          {/* Static noise at edges */}
+          {intensity > 40 && (
+            <div
+              className="absolute inset-0 grain-overlay grain-animated"
+              style={{
+                opacity: (i - 0.4) * 0.4,
+                mixBlendMode: 'screen',
+              }}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
 };
 
 const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: true, linked: true, uploads: true }, customMoments = null }) => {
@@ -972,7 +1163,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
                 }
               }}
               className="w-full h-full transition-all duration-300"
-              style={{ filter: VIDEO_FILTER_PRESETS[videoFilterMode]?.filter || 'none' }}
+              style={{ filter: getFilterStyle(videoFilterMode, effectIntensity) }}
             />
           </div>
 
@@ -999,6 +1190,9 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               <Play size={64} className="text-white opacity-80" />
             </div>
           )}
+
+          {/* Filter effect overlays - grain, scanlines, film burns etc */}
+          <FilterOverlay mode={videoFilterMode} intensity={effectIntensity} />
 
           {/* UMO Trippy Effect Overlay - only when trippy mode is on */}
           {trippyEffect && <UMOEffect intensity={effectIntensity} />}
@@ -1226,7 +1420,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               </>
             )}
 
-            {/* YouTube: Filter cycle toggle + trippy effect */}
+            {/* YouTube: Filter cycle toggle + trippy effect + intensity slider */}
             {isYouTube && (
               <>
                 {/* Filter toggle - cycles through presets */}
@@ -1248,7 +1442,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
                           : 'bg-white/20 hover:bg-white/30'
                       }`}
                       style={{ minWidth: '36px', minHeight: '36px' }}
-                      title={`Filter: ${currentPreset?.label || 'Off'}`}
+                      title={`Filter: ${currentPreset?.label || 'Off'} (${effectIntensity}%)`}
                     >
                       <FilterIcon size={16} className="text-white" />
                     </button>
@@ -1268,8 +1462,10 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
                 >
                   <Droplet size={16} className="text-white" />
                 </button>
-                {trippyEffect && (
-                  <div className="hidden sm:flex items-center bg-black/60 rounded-full px-2 py-1">
+                {/* Intensity slider - shows when ANY effect is active */}
+                {(videoFilterMode !== 'none' || trippyEffect) && (
+                  <div className="hidden sm:flex items-center bg-black/60 rounded-full px-2 py-1 gap-1.5">
+                    <span className="text-white/60 text-[10px] font-mono">{effectIntensity}%</span>
                     <input
                       type="range"
                       min="10"

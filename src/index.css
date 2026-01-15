@@ -144,6 +144,90 @@ a:hover {
   100% { opacity: 1; transform: translateY(0); }
 }
 
+/* ====== VIDEO EFFECT ANIMATIONS ====== */
+
+/* Film grain overlay texture */
+.grain-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* Animated grain */
+.grain-animated {
+  animation: grainShift 0.15s steps(3) infinite;
+}
+
+@keyframes grainShift {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(-2px, 1px); }
+  66% { transform: translate(1px, -1px); }
+}
+
+/* Retro horizontal jitter */
+.retro-jitter {
+  animation: retroJitter 0.08s steps(2) infinite;
+}
+
+@keyframes retroJitter {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(2px); }
+}
+
+/* VHS tracking bars - roll down effect */
+.vhs-tracking {
+  position: relative;
+}
+
+.vhs-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(255,255,255,0.08) 30%,
+    rgba(255,255,255,0.15) 50%,
+    rgba(255,255,255,0.08) 70%,
+    transparent 100%
+  );
+}
+
+.vhs-bar-1 {
+  animation: vhsRoll1 3s linear infinite;
+}
+
+.vhs-bar-2 {
+  animation: vhsRoll2 4.5s linear infinite;
+}
+
+.vhs-bar-3 {
+  animation: vhsRoll3 2.5s linear infinite;
+}
+
+@keyframes vhsRoll1 {
+  0% { top: -10%; }
+  100% { top: 110%; }
+}
+
+@keyframes vhsRoll2 {
+  0% { top: -20%; }
+  100% { top: 120%; }
+}
+
+@keyframes vhsRoll3 {
+  0% { top: -15%; }
+  100% { top: 115%; }
+}
+
+/* VHS tape edge warping */
+.vhs-warp {
+  animation: vhsWarp 0.1s ease-in-out infinite alternate;
+}
+
+@keyframes vhsWarp {
+  0% { transform: scaleX(1); }
+  100% { transform: scaleX(1.01); }
+}
+
 /* Modern Moment Cards */
 .moment-card, .nft-card {
   background: var(--card-bg) !important;
