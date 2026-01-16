@@ -45,8 +45,8 @@ let cacheRefreshStatus = {
 // Global metadata storage (in production, use database)
 global.metadataStorage = global.metadataStorage || {};
 
-// Security middleware
-app.use(helmet({
+// Security middleware - skip for proxy routes that need cross-origin access
+const helmetMiddleware = helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -61,9 +61,9 @@ app.use(helmet({
     },
   },
   crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: { policy: "cross-origin" },  // Allow cross-origin resource loading
+  crossOriginResourcePolicy: { policy: "cross-origin" },
   hsts: {
-    maxAge: 31536000, // 1 year
+    maxAge: 31536000,
     includeSubDomains: true,
     preload: true
   },
@@ -71,7 +71,15 @@ app.use(helmet({
   noSniff: true,
   frameguard: { action: 'deny' },
   xssFilter: true
-}));
+});
+
+// Skip helmet for proxy routes
+app.use((req, res, next) => {
+  if (req.path.startsWith('/proxy/')) {
+    return next();
+  }
+  return helmetMiddleware(req, res, next);
+});
 
 app.use(compression());
 app.use(mongoSanitize());
