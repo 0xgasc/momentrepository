@@ -61,6 +61,7 @@ app.use(helmet({
     },
   },
   crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: false,  // Allow cross-origin resource loading for proxy
   hsts: {
     maxAge: 31536000, // 1 year
     includeSubDomains: true,
@@ -871,8 +872,15 @@ app.get('/proxy/irys/:txId', async (req, res) => {
 
     if (contentType) res.setHeader('Content-Type', contentType);
     if (contentLength) res.setHeader('Content-Length', contentLength);
-    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+
+    // CORS and embedding headers - required for video/audio playback cross-origin
+    res.setHeader('Cache-Control', 'public, max-age=86400');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
 
     // Stream the response
     response.body.pipe(res);
@@ -880,6 +888,15 @@ app.get('/proxy/irys/:txId', async (req, res) => {
     console.error(`❌ Irys proxy error for ${txId}:`, error.message);
     res.status(502).json({ error: 'Proxy error', message: error.message });
   }
+});
+
+// Handle OPTIONS preflight for the proxy
+app.options('/proxy/irys/:txId', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.status(204).send();
 });
 
 // NFT TOKEN ID MANAGEMENT

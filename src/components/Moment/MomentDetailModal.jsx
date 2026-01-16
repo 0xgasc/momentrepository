@@ -220,7 +220,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
 
   const handleDownload = () => {
     try {
-      window.open(moment.mediaUrl, '_blank', 'noopener,noreferrer');
+      window.open(transformMediaUrl(moment.mediaUrl), '_blank', 'noopener,noreferrer');
     } catch (err) {
       console.error('Download error:', err);
       alert('Failed to open file. Please try again.');
