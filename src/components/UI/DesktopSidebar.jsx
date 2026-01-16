@@ -5,11 +5,12 @@ import React, { memo, useState } from 'react';
 import {
   Film, Calendar, Music, Video, Link2, Upload,
   ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
-  ListMusic, Play, User, LogIn, Shield,
+  ListMusic, Play, Pause, SkipBack, SkipForward, User, LogIn, Shield,
   Tv, Trash2, Trophy, Settings, PanelLeft, PanelRight, PanelTop, PanelBottom
 } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import TopContributors from '../Community/TopContributors';
+import MediaControlCenter from './MediaControlCenter';
 
 const DesktopSidebar = memo(({
   browseMode,
@@ -26,9 +27,14 @@ const DesktopSidebar = memo(({
   position = 'left',
   onPositionChange
 }) => {
-  const { theaterQueue, currentQueueIndex, isPlayingFromQueue, playQueue, clearQueue } = useTheaterQueue();
+  const {
+    theaterQueue, currentQueueIndex, isPlayingFromQueue, playQueue, clearQueue,
+    currentMoment, playNextInQueue, playPrevInQueue
+  } = useTheaterQueue();
   const [showContributors, setShowContributors] = useState(false);
   const [showPositionPicker, setShowPositionPicker] = useState(false);
+  const [mediaControlDocked, setMediaControlDocked] = useState(true);
+  const [showMediaControl, setShowMediaControl] = useState(true);
 
   const navItems = [
     { id: 'moments', label: 'Moments', icon: Film },
@@ -175,6 +181,48 @@ const DesktopSidebar = memo(({
 
         {/* Divider */}
         <div className="w-px h-8 bg-gray-700/50" />
+
+        {/* Now Playing Mini (horizontal) - click to open floating control */}
+        {(isPlayingFromQueue || currentMoment) && currentMoment && (
+          <>
+            <button
+              onClick={() => {
+                setMediaControlDocked(false);
+                setShowMediaControl(true);
+              }}
+              className="flex items-center gap-2 px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/20 transition-colors"
+              title="Open media controls"
+            >
+              <div className="flex items-end gap-0.5 h-3">
+                <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '6px' }} />
+                <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '10px', animationDelay: '150ms' }} />
+                <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '5px', animationDelay: '300ms' }} />
+              </div>
+              <div className="max-w-[120px] hidden xl:block">
+                <div className="text-[10px] font-medium text-white truncate">{currentMoment.songName}</div>
+              </div>
+              <div className="flex items-center gap-1">
+                <SkipBack size={12} className="text-gray-400" />
+                <Play size={12} className="text-yellow-400" />
+                <SkipForward size={12} className="text-gray-400" />
+              </div>
+            </button>
+            <div className="w-px h-8 bg-gray-700/50" />
+          </>
+        )}
+
+        {/* Floating Media Control for horizontal mode */}
+        {showMediaControl && !mediaControlDocked && (isPlayingFromQueue || currentMoment) && (
+          <MediaControlCenter
+            isDocked={false}
+            onDockChange={(docked) => {
+              setMediaControlDocked(docked);
+              // If docking from horizontal mode, just hide it
+              if (docked) setShowMediaControl(false);
+            }}
+            onClose={() => setShowMediaControl(false)}
+          />
+        )}
 
         {/* Queue Count */}
         <div className={`flex items-center gap-2 ${theaterQueue.length > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>
@@ -330,18 +378,18 @@ const DesktopSidebar = memo(({
           {/* Collapsible Top Contributors */}
           <button
             onClick={() => setShowContributors(!showContributors)}
-            className="flex items-center gap-2 mt-3 text-xs text-gray-500 hover:text-gray-300 transition-colors w-full"
+            className="flex items-center gap-2 mt-3 text-[10px] text-gray-500 hover:text-gray-300 transition-colors w-full"
           >
-            <Trophy size={12} className="text-yellow-400" />
+            <Trophy size={10} className="text-yellow-400" />
             <span>Top Contributors</span>
             <ChevronDown
-              size={12}
+              size={10}
               className={`ml-auto transition-transform ${showContributors ? 'rotate-180' : ''}`}
             />
           </button>
           {showContributors && (
-            <div className="mt-2 max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700">
-              <TopContributors onViewUserProfile={onViewUserProfile} />
+            <div className="mt-2 max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700">
+              <TopContributors onViewUserProfile={onViewUserProfile} compact />
             </div>
           )}
         </div>
@@ -443,6 +491,42 @@ const DesktopSidebar = memo(({
           </button>
         </div>
       </div>
+
+      {/* Media Control Center - Docked */}
+      {showMediaControl && mediaControlDocked && (isPlayingFromQueue || currentMoment) && !isCollapsed && (
+        <div className="flex-shrink-0 border-b border-gray-700/50">
+          <MediaControlCenter
+            isDocked={true}
+            onDockChange={(docked) => setMediaControlDocked(docked)}
+            onClose={() => setShowMediaControl(false)}
+          />
+        </div>
+      )}
+
+      {/* Collapsed Now Playing indicator */}
+      {(isPlayingFromQueue || currentMoment) && isCollapsed && (
+        <div className="flex-shrink-0 p-2 border-b border-gray-700/50">
+          <div className="flex flex-col items-center gap-1">
+            <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center border border-yellow-500/30">
+              <Play size={12} className="text-yellow-400 ml-0.5" />
+            </div>
+            <div className="flex items-end gap-0.5 h-2">
+              <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '4px' }} />
+              <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '8px', animationDelay: '150ms' }} />
+              <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '4px', animationDelay: '300ms' }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Media Control Center - when popped out */}
+      {showMediaControl && !mediaControlDocked && (isPlayingFromQueue || currentMoment) && (
+        <MediaControlCenter
+          isDocked={false}
+          onDockChange={(docked) => setMediaControlDocked(docked)}
+          onClose={() => setShowMediaControl(false)}
+        />
+      )}
 
       {/* Queue Preview */}
       <div className="flex-1 overflow-hidden p-2">

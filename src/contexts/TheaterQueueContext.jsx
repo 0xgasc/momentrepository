@@ -1,5 +1,5 @@
 // src/contexts/TheaterQueueContext.jsx - Theater queue playlist system
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 
 const TheaterQueueContext = createContext();
 
@@ -17,6 +17,53 @@ export const TheaterQueueProvider = ({ children }) => {
   const [currentQueueIndex, setCurrentQueueIndex] = useState(-1);
   const [isPlayingFromQueue, setIsPlayingFromQueue] = useState(false);
   const [currentMoment, setCurrentMoment] = useState(null);
+
+  // Player state - shared between VideoHero and MediaControlCenter
+  const [playerState, setPlayerState] = useState({
+    isPlaying: false,
+    currentTime: 0,
+    duration: 0,
+    volume: 1,
+    isMuted: false
+  });
+
+  // Player controls ref - VideoHero registers its controls here
+  const playerControlsRef = useRef(null);
+
+  // Register player controls from VideoHero
+  const registerPlayerControls = useCallback((controls) => {
+    playerControlsRef.current = controls;
+  }, []);
+
+  // Update player state (called by VideoHero)
+  const updatePlayerState = useCallback((updates) => {
+    setPlayerState(prev => ({ ...prev, ...updates }));
+  }, []);
+
+  // Player control functions that MediaControlCenter can call
+  const togglePlayPause = useCallback(() => {
+    if (playerControlsRef.current?.togglePlayPause) {
+      playerControlsRef.current.togglePlayPause();
+    }
+  }, []);
+
+  const seekTo = useCallback((time) => {
+    if (playerControlsRef.current?.seekTo) {
+      playerControlsRef.current.seekTo(time);
+    }
+  }, []);
+
+  const setVolume = useCallback((vol) => {
+    if (playerControlsRef.current?.setVolume) {
+      playerControlsRef.current.setVolume(vol);
+    }
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    if (playerControlsRef.current?.toggleMute) {
+      playerControlsRef.current.toggleMute();
+    }
+  }, []);
 
   // Add moment to theater queue
   const addToQueue = useCallback((moment) => {
@@ -169,7 +216,18 @@ export const TheaterQueueProvider = ({ children }) => {
     reorderQueue,
     shuffleQueue,
     isInQueue,
-    stopQueue
+    stopQueue,
+
+    // Player state (shared)
+    playerState,
+    updatePlayerState,
+    registerPlayerControls,
+
+    // Player controls (for MediaControlCenter)
+    togglePlayPause,
+    seekTo,
+    setVolume,
+    toggleMute
   };
 
   return (

@@ -110,9 +110,9 @@ const SetlistPanel = memo(({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* setlist.fm attribution */}
+          {/* setlist.fm attribution - link to UMO page since direct links require full slug */}
           <a
-            href={`https://www.setlist.fm/setlist/${performance?.id}`}
+            href="https://www.setlist.fm/setlists/unknown-mortal-orchestra-33d6a0ed.html"
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}

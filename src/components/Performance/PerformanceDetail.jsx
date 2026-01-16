@@ -20,13 +20,28 @@ const PerformanceDetail = memo(({ performance, onBack, onViewUserProfile, onNavi
 
   // Check if we need to fetch full performance data
   useEffect(() => {
-    const needsFullData = !performance.sets?.set || performance.sets.set.length === 0;
-    const isFromMoment = performance.id?.startsWith('moment-');
+    const fetchFullPerformance = async () => {
+      setLoading(true);
+      try {
+        // Case 1: We only have an ID (from URL navigation)
+        if (performance.id && !performance.venue) {
+          console.log('🎸 Fetching performance by ID:', performance.id);
+          const response = await fetch(`${API_BASE_URL}/cached/performance/${performance.id}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.performance) {
+              console.log('✅ Loaded performance:', data.performance.venue?.name);
+              setFullPerformance(data.performance);
+            }
+          }
+          return;
+        }
 
-    if (needsFullData && isFromMoment) {
-      const fetchFullPerformance = async () => {
-        setLoading(true);
-        try {
+        // Case 2: From moment (need to search by venue)
+        const needsFullData = !performance.sets?.set || performance.sets.set.length === 0;
+        const isFromMoment = performance.id?.startsWith('moment-');
+
+        if (needsFullData && isFromMoment) {
           const response = await fetch(`${API_BASE_URL}/cached/performances?search=${encodeURIComponent(performance.venue.name)}`);
           if (response.ok) {
             const data = await response.json();
@@ -38,14 +53,15 @@ const PerformanceDetail = memo(({ performance, onBack, onViewUserProfile, onNavi
               setFullPerformance(matchingPerf);
             }
           }
-        } catch (error) {
-          console.error('Failed to fetch full performance data:', error);
-        } finally {
-          setLoading(false);
         }
-      };
-      fetchFullPerformance();
-    }
+      } catch (error) {
+        console.error('Failed to fetch full performance data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFullPerformance();
   }, [performance]);
 
   useEffect(() => {
@@ -115,7 +131,8 @@ const PerformanceDetail = memo(({ performance, onBack, onViewUserProfile, onNavi
     return showDate <= today;
   })();
 
-  if (loading || loadingMomentDetails) {
+  // Show loading when fetching data or when venue info not yet available
+  if (loading || loadingMomentDetails || !fullPerformance?.venue) {
     return (
       <div className="flex items-center justify-center py-16">
         <div className="flex items-center gap-3 text-gray-400">

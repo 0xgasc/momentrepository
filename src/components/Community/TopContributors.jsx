@@ -3,7 +3,7 @@ import React, { useState, useEffect, memo } from 'react';
 import { Trophy, ChevronDown, ChevronUp, Eye, Film, Award } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 
-const TopContributors = memo(({ onViewUserProfile }) => {
+const TopContributors = memo(({ onViewUserProfile, compact = false }) => {
   const [contributors, setContributors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -27,6 +27,14 @@ const TopContributors = memo(({ onViewUserProfile }) => {
   }, []);
 
   if (loading) {
+    if (compact) {
+      return (
+        <div className="flex items-center gap-2 text-gray-400 py-2">
+          <div className="w-3 h-3 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs">Loading...</span>
+        </div>
+      );
+    }
     return (
       <div className="bg-gray-900/50 rounded-lg border border-gray-800 p-4">
         <div className="flex items-center gap-2 text-gray-400">
@@ -41,6 +49,23 @@ const TopContributors = memo(({ onViewUserProfile }) => {
     return null;
   }
 
+  // Compact mode for sidebar - show top 5 without header
+  if (compact) {
+    return (
+      <div className="space-y-1">
+        {contributors.slice(0, 5).map((contributor, idx) => (
+          <CompactContributorRow
+            key={contributor._id}
+            contributor={contributor}
+            rank={idx + 1}
+            onViewUserProfile={onViewUserProfile}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  // Full mode with header and expand/collapse
   const displayContributors = isExpanded ? contributors : contributors.slice(0, 5);
 
   return (
@@ -87,6 +112,50 @@ const TopContributors = memo(({ onViewUserProfile }) => {
     </div>
   );
 });
+
+// Compact row for sidebar
+const CompactContributorRow = memo(({ contributor, rank, onViewUserProfile }) => {
+  const rankColors = {
+    1: 'text-yellow-400',
+    2: 'text-gray-300',
+    3: 'text-orange-400'
+  };
+
+  const rankColor = rankColors[rank] || 'text-gray-500';
+
+  return (
+    <div className="flex items-center gap-2 py-1 px-1 rounded hover:bg-gray-800/30 transition-colors">
+      <span className={`w-4 text-center text-xs font-bold ${rankColor}`}>
+        {rank}
+      </span>
+      <button
+        onClick={() => onViewUserProfile && onViewUserProfile(contributor._id)}
+        className="flex-1 min-w-0 text-left"
+      >
+        <span className="text-xs text-white hover:text-blue-400 transition-colors truncate block">
+          {contributor.displayName}
+        </span>
+        <span className="text-[10px] text-gray-500 flex items-center gap-2">
+          <span className="flex items-center gap-0.5">
+            <Film size={8} />
+            {contributor.uploadCount}
+          </span>
+          <span className="flex items-center gap-0.5">
+            <Eye size={8} />
+            {formatNumber(contributor.totalViews)}
+          </span>
+        </span>
+      </button>
+      {contributor.badges.length > 0 && (
+        <span className="text-xs" title={contributor.badges[0]?.label}>
+          {contributor.badges[0]?.icon}
+        </span>
+      )}
+    </div>
+  );
+});
+
+CompactContributorRow.displayName = 'CompactContributorRow';
 
 const ContributorRow = memo(({ contributor, rank, onViewUserProfile }) => {
   const rankColors = {

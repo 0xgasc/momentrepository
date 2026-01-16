@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, memo } from 'react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useMoments, useNotifications } from '../../hooks';
 import { formatDate, formatShortDate } from '../../utils';
+import { slugify } from '../../utils/slugify';
 import MomentDetailModal from '../Moment/MomentDetailModal';
 import UploadModal from '../Moment/UploadModal';
 import LazyMedia from '../UI/LazyMedia';
@@ -34,7 +35,7 @@ const SongDetail = memo(({ songData: initialSongData, onBack, onPerformanceSelec
     return initialSongData;
   }, [initialSongData, fullSongData]);
 
-  // Fetch full song data if not provided (e.g., when navigating from setlist)
+  // Fetch full song data if not provided (e.g., when navigating from setlist or URL)
   useEffect(() => {
     const fetchFullSongData = async () => {
       // Only fetch if we don't have the full data
@@ -42,17 +43,35 @@ const SongDetail = memo(({ songData: initialSongData, onBack, onPerformanceSelec
         return; // Already have full data
       }
 
+      // Need either songName or songSlug to search
+      if (!initialSongData.songName && !initialSongData.songSlug) {
+        return;
+      }
+
       try {
         const response = await fetch(`${API_BASE_URL}/cached/songs`);
         if (response.ok) {
           const data = await response.json();
           const songs = data.songs || data;
-          const matchingSong = songs.find(
-            s => s.songName.toLowerCase() === initialSongData.songName.toLowerCase()
-          );
+
+          // Try to match by songName first, then by slug
+          let matchingSong = null;
+          if (initialSongData.songName) {
+            matchingSong = songs.find(
+              s => s.songName.toLowerCase() === initialSongData.songName.toLowerCase()
+            );
+          } else if (initialSongData.songSlug) {
+            // Match by slug when navigating via URL
+            matchingSong = songs.find(
+              s => slugify(s.songName) === initialSongData.songSlug
+            );
+          }
+
           if (matchingSong) {
-            console.log('📊 Fetched full song data for:', initialSongData.songName);
+            console.log('📊 Fetched full song data for:', matchingSong.songName);
             setFullSongData(matchingSong);
+          } else {
+            console.warn('❌ No matching song found for:', initialSongData.songName || initialSongData.songSlug);
           }
         }
       } catch (err) {
@@ -61,10 +80,13 @@ const SongDetail = memo(({ songData: initialSongData, onBack, onPerformanceSelec
     };
 
     fetchFullSongData();
-  }, [initialSongData.songName, initialSongData.performances, initialSongData.venues]);
+  }, [initialSongData.songName, initialSongData.songSlug, initialSongData.performances, initialSongData.venues]);
 
   useEffect(() => {
-    loadMomentDetails(`song/${encodeURIComponent(songData.songName)}`, `song "${songData.songName}"`);
+    // Only load moments when we have a songName (either from initial data or fetched)
+    if (songData.songName) {
+      loadMomentDetails(`song/${encodeURIComponent(songData.songName)}`, `song "${songData.songName}"`);
+    }
   }, [songData.songName, loadMomentDetails]);
 
   const handleUploadMoment = (performance) => {
@@ -202,12 +224,13 @@ const SongDetail = memo(({ songData: initialSongData, onBack, onPerformanceSelec
     }
   }, [songData.performances, viewMode, showOnlyWithMoments, getPerformanceSongMoments]);
 
-  if (loading) {
+  // Show loading when fetching song data (by name or slug) or moments
+  if (loading || !songData.songName) {
     return (
       <div className="text-center py-8">
         <div className="inline-flex items-center text-gray-500">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
-          Loading "{songData.songName}" details...
+          Loading {songData.songName ? `"${songData.songName}"` : 'song'} details...
         </div>
       </div>
     );

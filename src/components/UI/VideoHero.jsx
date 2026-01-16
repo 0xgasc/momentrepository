@@ -128,7 +128,9 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     addToQueue,
     isInQueue,
     playNextInQueue,
-    currentMoment: queueMoment
+    currentMoment: queueMoment,
+    registerPlayerControls,
+    updatePlayerState
   } = useTheaterQueue();
 
   // Get YouTube video ID from URL
@@ -606,6 +608,66 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     handleNextRef.current = handleNext;
   }, [handleNext]);
 
+  // Media Session API for lock screen controls
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !moment) return;
+
+    // Set metadata for lock screen display
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: moment.songName || 'Unknown Song',
+      artist: 'Unknown Mortal Orchestra',
+      album: moment.venueName || moment.venueCity || 'Live Performance',
+      artwork: moment.thumbnailUrl ? [
+        { src: transformMediaUrl(moment.thumbnailUrl), sizes: '512x512', type: 'image/jpeg' }
+      ] : []
+    });
+
+    // Set up action handlers
+    navigator.mediaSession.setActionHandler('play', () => {
+      if (!isPlaying) {
+        if (isAudio && audioRef.current) {
+          audioRef.current.play().catch(() => {});
+        } else if (isYouTube && ytPlayerRef.current) {
+          try { ytPlayerRef.current.playVideo(); } catch (e) {}
+        } else if (videoRef.current) {
+          videoRef.current.play().catch(() => {});
+        }
+        setIsPlaying(true);
+      }
+    });
+
+    navigator.mediaSession.setActionHandler('pause', () => {
+      if (isPlaying) {
+        if (isAudio && audioRef.current) {
+          audioRef.current.pause();
+        } else if (isYouTube && ytPlayerRef.current) {
+          try { ytPlayerRef.current.pauseVideo(); } catch (e) {}
+        } else if (videoRef.current) {
+          videoRef.current.pause();
+        }
+        setIsPlaying(false);
+      }
+    });
+
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      handleNextRef.current?.();
+    });
+
+    // Update playback state
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+
+    return () => {
+      // Clean up action handlers
+      try {
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.setActionHandler('nexttrack', null);
+      } catch (e) {
+        // Some browsers don't support null handlers
+      }
+    };
+  }, [moment, isPlaying, isAudio, isYouTube]);
+
   // Add to queue
   const handleAddToQueue = useCallback(() => {
     if (moment) {
@@ -664,6 +726,100 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       videoRef.current.muted = newMuted;
     }
   };
+
+  // Seek to specific time
+  const seekTo = useCallback((time) => {
+    if (isAudio && audioRef.current) {
+      audioRef.current.currentTime = time;
+    } else if (isYouTube && ytPlayerRef.current) {
+      try {
+        ytPlayerRef.current.seekTo(time, true);
+      } catch (e) {
+        console.log('YT seek error:', e);
+      }
+    } else if (videoRef.current) {
+      videoRef.current.currentTime = time;
+    }
+  }, [isAudio, isYouTube]);
+
+  // Set volume (0-1)
+  const setVolumeLevel = useCallback((vol) => {
+    const clampedVol = Math.max(0, Math.min(1, vol));
+    if (isAudio && audioRef.current) {
+      audioRef.current.volume = clampedVol;
+    } else if (isYouTube && ytPlayerRef.current) {
+      try {
+        ytPlayerRef.current.setVolume(clampedVol * 100);
+      } catch (e) {
+        console.log('YT volume error:', e);
+      }
+    } else if (videoRef.current) {
+      videoRef.current.volume = clampedVol;
+    }
+    // Auto-unmute when setting volume
+    if (clampedVol > 0 && isMuted) {
+      setIsMuted(false);
+      if (isAudio && audioRef.current) audioRef.current.muted = false;
+      else if (isYouTube && ytPlayerRef.current) {
+        try { ytPlayerRef.current.unMute(); } catch (e) {}
+      } else if (videoRef.current) videoRef.current.muted = false;
+    }
+  }, [isAudio, isYouTube, isMuted]);
+
+  // Register player controls with context
+  useEffect(() => {
+    registerPlayerControls({
+      togglePlayPause: () => {
+        if (isAudio && audioRef.current) {
+          if (isPlaying) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+          } else {
+            audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+          }
+        } else if (isYouTube && ytPlayerRef.current) {
+          try {
+            if (isPlaying) {
+              ytPlayerRef.current.pauseVideo();
+            } else {
+              ytPlayerRef.current.playVideo();
+            }
+            setIsPlaying(!isPlaying);
+          } catch (e) {}
+        } else if (videoRef.current) {
+          if (isPlaying) {
+            videoRef.current.pause();
+            setIsPlaying(false);
+          } else {
+            videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+          }
+        }
+      },
+      seekTo,
+      setVolume: setVolumeLevel,
+      toggleMute: () => {
+        const newMuted = !isMuted;
+        setIsMuted(newMuted);
+        if (isAudio && audioRef.current) audioRef.current.muted = newMuted;
+        else if (isYouTube && ytPlayerRef.current) {
+          try {
+            if (newMuted) ytPlayerRef.current.mute();
+            else ytPlayerRef.current.unMute();
+          } catch (e) {}
+        } else if (videoRef.current) videoRef.current.muted = newMuted;
+      }
+    });
+  }, [registerPlayerControls, isAudio, isYouTube, isPlaying, isMuted, seekTo, setVolumeLevel]);
+
+  // Update player state in context when local state changes
+  useEffect(() => {
+    updatePlayerState({
+      isPlaying,
+      isMuted,
+      currentTime: isYouTube ? ytProgress.currentTime : 0,
+      duration: isYouTube ? ytProgress.duration : 0
+    });
+  }, [isPlaying, isMuted, ytProgress, isYouTube, updatePlayerState]);
 
   // Handle YouTube seek
   // eslint-disable-next-line no-unused-vars

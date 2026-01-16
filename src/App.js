@@ -1,5 +1,7 @@
 import React, { useState, useEffect, memo } from 'react';
+import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
+import { slugify } from './utils/slugify';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
 import { Menu, X, ChevronDown, ChevronUp, Music, Video, Link2, Upload, Film, Calendar, User, LogIn } from 'lucide-react';
 import './styles/umo-theme.css';
@@ -64,6 +66,10 @@ const queryClient = new QueryClient();
 
 // Main App Component with Clean Navigation
 const MainApp = memo(() => {
+  // Router hooks
+  const navigate = useNavigate();
+  const location = useLocation();
+
   // View state management
   const [currentView, setCurrentView] = useState('home');
   const [browseMode, setBrowseMode] = useState('moments');
@@ -127,39 +133,102 @@ const MainApp = memo(() => {
 
   const { user, logout, loading } = useAuth();
 
-  // Check URL for collection parameter on mount (supports both /collection/:id and ?collection=id)
+  // Handle URL-based navigation on mount and location changes
   useEffect(() => {
+    const pathname = location.pathname;
+
     // Check for /collection/:id path format
-    const pathMatch = window.location.pathname.match(/^\/collection\/([a-f0-9]+)$/i);
-    if (pathMatch) {
-      setPublicCollectionId(pathMatch[1]);
+    const collectionMatch = pathname.match(/^\/collection\/([a-f0-9]+)$/i);
+    if (collectionMatch) {
+      setPublicCollectionId(collectionMatch[1]);
       setCurrentView('collection');
       return;
     }
 
-    // Fallback to query parameter format
-    const params = new URLSearchParams(window.location.search);
+    // Check for /song/:slug path format
+    const songMatch = pathname.match(/^\/song\/(.+)$/);
+    if (songMatch) {
+      const songSlug = decodeURIComponent(songMatch[1]);
+      // Store the slug - SongDetail will fetch data based on it
+      setSelectedSong({ songSlug, songName: null });
+      setCurrentView('song');
+      setBrowseMode('songs');
+      return;
+    }
+
+    // Check for /show/:id path format
+    const showMatch = pathname.match(/^\/show\/(.+)$/);
+    if (showMatch) {
+      const performanceId = decodeURIComponent(showMatch[1]);
+      // Store the ID - PerformanceDetail will fetch data based on it
+      setSelectedPerformance({ id: performanceId });
+      setCurrentView('performance');
+      setBrowseMode('performances');
+      return;
+    }
+
+    // Check for /songs path
+    if (pathname === '/songs') {
+      setBrowseMode('songs');
+      setCurrentView('home');
+      return;
+    }
+
+    // Check for /shows path
+    if (pathname === '/shows') {
+      setBrowseMode('performances');
+      setCurrentView('home');
+      return;
+    }
+
+    // Fallback to query parameter format for collections
+    const params = new URLSearchParams(location.search);
     const collectionId = params.get('collection');
     if (collectionId) {
       setPublicCollectionId(collectionId);
       setCurrentView('collection');
+      return;
     }
-  }, []);
+
+    // Default: home view
+    if (pathname === '/' || pathname === '') {
+      if (currentView !== 'home') {
+        setCurrentView('home');
+        setSelectedSong(null);
+        setSelectedPerformance(null);
+        setPublicCollectionId(null);
+      }
+    }
+  }, [location.pathname, location.search]);
   
   // Notifications hook
   const { getBadgeInfo, refreshNotifications } = useNotifications(API_BASE_URL);
   
 
 
-  // Navigation handlers
+  // Navigation handlers with URL routing
   const handleSongBrowseSelect = (songData) => {
-    setSelectedSong(songData);
-    setCurrentView('song');
+    const songName = songData.songName || songData.name;
+    if (songName) {
+      const slug = slugify(songName);
+      setSelectedSong({ ...songData, songSlug: slug });
+      setCurrentView('song');
+      navigate(`/song/${slug}`);
+    } else if (songData.songSlug) {
+      // Already have a slug (from URL navigation)
+      setSelectedSong(songData);
+      setCurrentView('song');
+    }
   };
 
   const handlePerformanceSelect = (performance) => {
     setSelectedPerformance(performance);
     setCurrentView('performance');
+    // Use performance ID for URL
+    const perfId = performance.id || performance._id;
+    if (perfId) {
+      navigate(`/show/${perfId}`);
+    }
   };
 
   const handleBackToHome = () => {
@@ -167,8 +236,7 @@ const MainApp = memo(() => {
     setSelectedSong(null);
     setSelectedPerformance(null);
     setPublicCollectionId(null);
-    // Clear URL params when going back to home
-    window.history.replaceState({}, '', window.location.pathname);
+    navigate('/');
   };
 
   const switchBrowseMode = (mode) => {
@@ -176,6 +244,14 @@ const MainApp = memo(() => {
     setSelectedSong(null);
     setSelectedPerformance(null);
     setCurrentView('home');
+    // Update URL based on browse mode
+    if (mode === 'songs') {
+      navigate('/songs');
+    } else if (mode === 'performances') {
+      navigate('/shows');
+    } else {
+      navigate('/');
+    }
   };
 
   // Loading state
@@ -235,7 +311,7 @@ const MainApp = memo(() => {
       />
 
       {/* Main content area - offset for sidebar on desktop, bottom padding for mobile nav */}
-      <div className={`umo-container-fluid overflow-x-hidden pb-20 sm:pb-0 transition-[margin] duration-300 ease-in-out ${
+      <div className={`umo-container-fluid overflow-x-hidden pb-20 sm:pb-0 bg-gray-950 transition-[margin] duration-300 ease-in-out ${
         sidebarPosition === 'left'
           ? (sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56')
           : sidebarPosition === 'right'
@@ -330,17 +406,15 @@ const MainApp = memo(() => {
         </div>
       )}
 
-      {/* User Profile */}
+      {/* User Profile Modal */}
       {showUserProfile && selectedUserId && (
-        <div className="fixed inset-0 z-50 overflow-auto">
-          <UserProfile
-            userId={selectedUserId}
-            onBack={() => {
-              setShowUserProfile(false);
-              setSelectedUserId(null);
-            }}
-          />
-        </div>
+        <UserProfile
+          userId={selectedUserId}
+          onClose={() => {
+            setShowUserProfile(false);
+            setSelectedUserId(null);
+          }}
+        />
       )}
 
       {/* Theater Queue (always rendered, shows when items in queue) */}
