@@ -830,12 +830,56 @@ app.get('/', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
+  res.json({
+    status: 'healthy',
     service: 'UMO Archive Backend',
     timestamp: new Date().toISOString(),
     version: '1.0.0'
   });
+});
+
+// IRYS DEVNET PROXY - Workaround for SSL issues on devnet.irys.xyz
+// =============================================================================
+app.get('/proxy/irys/:txId', async (req, res) => {
+  const { txId } = req.params;
+
+  // Validate txId format (base58-like string)
+  if (!txId || !/^[A-Za-z0-9_-]{40,50}$/.test(txId)) {
+    return res.status(400).json({ error: 'Invalid transaction ID' });
+  }
+
+  const irysUrl = `http://devnet.irys.xyz/${txId}`;
+  console.log(`🔄 Proxying Irys request: ${txId}`);
+
+  try {
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(irysUrl, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'UMO-Archive-Proxy/1.0'
+      }
+    });
+
+    if (!response.ok) {
+      console.error(`❌ Irys proxy failed: ${response.status} for ${txId}`);
+      return res.status(response.status).json({ error: 'Failed to fetch from Irys' });
+    }
+
+    // Forward content type and other relevant headers
+    const contentType = response.headers.get('content-type');
+    const contentLength = response.headers.get('content-length');
+
+    if (contentType) res.setHeader('Content-Type', contentType);
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Stream the response
+    response.body.pipe(res);
+  } catch (error) {
+    console.error(`❌ Irys proxy error for ${txId}:`, error.message);
+    res.status(502).json({ error: 'Proxy error', message: error.message });
+  }
 });
 
 // NFT TOKEN ID MANAGEMENT
