@@ -12,18 +12,58 @@
   --text-muted: #A0ADB8;
   --border-color: #4A5568;
   --border-light: #718096;
-  
+
   /* Accent Colors */
   --blue-primary: #4299E1;
   --blue-light: #63B3ED;
   --green-success: #48BB78;
   --orange-accent: #ED8936;
   --purple-accent: #9F7AEA;
-  
+
+  /* User-customizable accent color (set by ThemeContext) */
+  --accent-color: #eab308;
+  --accent-rgb: 234, 179, 8;
+
   /* Modern Gradients */
   --primary-gradient: linear-gradient(135deg, var(--dark-bg) 0%, var(--card-bg) 100%);
   --surface-gradient: linear-gradient(180deg, var(--card-bg) 0%, var(--surface-bg) 100%);
   --accent-gradient: linear-gradient(45deg, var(--primary-red) 0%, var(--accent-red) 100%);
+}
+
+/* Extra Dark Mode */
+html.extra-dark {
+  --dark-bg: #0a0a0a;
+  --card-bg: #111111;
+  --surface-bg: #1a1a1a;
+  --border-color: #2a2a2a;
+  --border-light: #3a3a3a;
+}
+
+html.extra-dark body {
+  background: #050505;
+}
+
+html.extra-dark .bg-gray-900,
+html.extra-dark .bg-gray-900\/95,
+html.extra-dark .bg-gray-900\/50 {
+  background-color: #0a0a0a !important;
+}
+
+html.extra-dark .bg-gray-800,
+html.extra-dark .bg-gray-800\/50,
+html.extra-dark .bg-gray-800\/30 {
+  background-color: #111111 !important;
+}
+
+html.extra-dark .bg-gray-700,
+html.extra-dark .bg-gray-700\/50 {
+  background-color: #1a1a1a !important;
+}
+
+html.extra-dark .border-gray-700,
+html.extra-dark .border-gray-700\/50,
+html.extra-dark .border-gray-800 {
+  border-color: #222222 !important;
 }
 
 body {

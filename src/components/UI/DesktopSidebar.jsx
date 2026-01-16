@@ -6,7 +6,7 @@ import {
   Film, Calendar, Music, Video, Link2, Upload,
   ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
   ListMusic, Play, Pause, SkipBack, SkipForward, User, LogIn, Shield,
-  Tv, Trash2, Trophy, Settings, PanelLeft, PanelRight, PanelTop, PanelBottom
+  Tv, Trash2, Trophy, Settings
 } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import TopContributors from '../Community/TopContributors';
@@ -25,14 +25,13 @@ const DesktopSidebar = memo(({
   onToggleCollapse,
   onViewUserProfile,
   position = 'left',
-  onPositionChange
+  onShowSettings
 }) => {
   const {
     theaterQueue, currentQueueIndex, isPlayingFromQueue, playQueue, clearQueue,
     currentMoment, playNextInQueue, playPrevInQueue
   } = useTheaterQueue();
   const [showContributors, setShowContributors] = useState(false);
-  const [showPositionPicker, setShowPositionPicker] = useState(false);
   const [mediaControlDocked, setMediaControlDocked] = useState(true);
   const [showMediaControl, setShowMediaControl] = useState(true);
 
@@ -233,48 +232,14 @@ const DesktopSidebar = memo(({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Position Picker */}
-        <div className="relative">
-          <button
-            onClick={() => setShowPositionPicker(!showPositionPicker)}
-            className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 rounded-sm transition-all"
-            title="Sidebar position"
-          >
-            <Settings size={14} />
-          </button>
-          {showPositionPicker && (
-            <div className={`absolute ${position === 'top' ? 'top-full mt-2' : 'bottom-full mb-2'} right-0 bg-gray-800 border border-gray-700 rounded-sm shadow-lg p-3 z-50 w-36`}>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 whitespace-nowrap">Sidebar Position</div>
-              <div className="grid grid-cols-2 gap-1">
-                {[
-                  { id: 'left', icon: PanelLeft, label: 'Left' },
-                  { id: 'right', icon: PanelRight, label: 'Right' },
-                  { id: 'top', icon: PanelTop, label: 'Top' },
-                  { id: 'bottom', icon: PanelBottom, label: 'Bottom' },
-                ].map(pos => {
-                  const Icon = pos.icon;
-                  return (
-                    <button
-                      key={pos.id}
-                      onClick={() => {
-                        onPositionChange(pos.id);
-                        setShowPositionPicker(false);
-                      }}
-                      className={`flex items-center gap-2 px-2 py-2 rounded-sm transition-all text-xs whitespace-nowrap ${
-                        position === pos.id
-                          ? 'bg-blue-600/30 text-blue-400'
-                          : 'text-gray-400 hover:bg-gray-700'
-                      }`}
-                    >
-                      <Icon size={14} />
-                      {pos.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Settings Button */}
+        <button
+          onClick={onShowSettings}
+          className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 rounded-sm transition-all"
+          title="Settings"
+        >
+          <Settings size={14} />
+        </button>
 
         {/* Account */}
         {user ? (
@@ -331,48 +296,14 @@ const DesktopSidebar = memo(({
           <div className="flex items-center justify-between">
             <h2 className="text-blue-400 font-bold text-lg truncate">UMO Archive</h2>
 
-            {/* Position Picker */}
-            <div className="relative">
-              <button
-                onClick={() => setShowPositionPicker(!showPositionPicker)}
-                className="p-1 text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 rounded-sm transition-all"
-                title="Sidebar position"
-              >
-                <Settings size={12} />
-              </button>
-              {showPositionPicker && (
-                <div className={`absolute ${position === 'left' ? 'left-full ml-2' : 'right-full mr-2'} top-0 bg-gray-800 border border-gray-700 rounded-sm shadow-lg p-3 z-50 w-32`}>
-                  <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 whitespace-nowrap">Sidebar Position</div>
-                  <div className="space-y-1">
-                    {[
-                      { id: 'left', icon: PanelLeft, label: 'Left' },
-                      { id: 'right', icon: PanelRight, label: 'Right' },
-                      { id: 'top', icon: PanelTop, label: 'Top' },
-                      { id: 'bottom', icon: PanelBottom, label: 'Bottom' },
-                    ].map(pos => {
-                      const Icon = pos.icon;
-                      return (
-                        <button
-                          key={pos.id}
-                          onClick={() => {
-                            onPositionChange(pos.id);
-                            setShowPositionPicker(false);
-                          }}
-                          className={`w-full flex items-center gap-2 px-2 py-2 rounded-sm transition-all text-xs whitespace-nowrap ${
-                            position === pos.id
-                              ? 'bg-blue-600/30 text-blue-400'
-                              : 'text-gray-400 hover:bg-gray-700'
-                          }`}
-                        >
-                          <Icon size={14} />
-                          {pos.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Settings Button */}
+            <button
+              onClick={onShowSettings}
+              className="p-1 text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 rounded-sm transition-all"
+              title="Settings"
+            >
+              <Settings size={12} />
+            </button>
           </div>
 
           {/* Collapsible Top Contributors */}

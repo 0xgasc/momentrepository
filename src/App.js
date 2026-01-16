@@ -26,6 +26,8 @@ import PublicCollectionView from './components/Collection/PublicCollectionView';
 import DesktopSidebar from './components/UI/DesktopSidebar';
 import TopContributors from './components/Community/TopContributors';
 import { TheaterQueueProvider } from './contexts/TheaterQueueContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import SettingsPanel from './components/UI/SettingsPanel';
 import { useNotifications } from './hooks';
 import { API_BASE_URL } from './components/Auth/AuthProvider';
 
@@ -82,6 +84,7 @@ const MainApp = memo(() => {
   const [showContactForm, setShowContactForm] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarPosition, setSidebarPosition] = useState(() => {
     // Load from localStorage or default to 'left'
@@ -307,7 +310,7 @@ const MainApp = memo(() => {
           setShowUserProfile(true);
         }}
         position={sidebarPosition}
-        onPositionChange={changeSidebarPosition}
+        onShowSettings={() => setShowSettings(true)}
       />
 
       {/* Main content area - offset for sidebar on desktop, bottom padding for mobile nav */}
@@ -416,6 +419,19 @@ const MainApp = memo(() => {
           }}
         />
       )}
+
+      {/* Settings Panel */}
+      <SettingsPanel
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        position={sidebarPosition}
+        onPositionChange={changeSidebarPosition}
+        user={user}
+        onLoginClick={() => {
+          setShowSettings(false);
+          setShowLogin(true);
+        }}
+      />
 
       {/* Theater Queue (always rendered, shows when items in queue) */}
       <TheaterQueue sidebarPosition={sidebarPosition} sidebarCollapsed={sidebarCollapsed} />
@@ -958,9 +974,11 @@ export default function App() {
       <WagmiProvider config={wagmiConfig}>
         <PlatformSettingsProvider>
           <AuthProvider>
-            <TheaterQueueProvider>
-              <MainApp />
-            </TheaterQueueProvider>
+            <ThemeProvider>
+              <TheaterQueueProvider>
+                <MainApp />
+              </TheaterQueueProvider>
+            </ThemeProvider>
           </AuthProvider>
         </PlatformSettingsProvider>
       </WagmiProvider>
