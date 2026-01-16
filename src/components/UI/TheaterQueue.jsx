@@ -5,7 +5,7 @@ import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { useAuth } from '../Auth/AuthProvider';
 import { useFavorites } from '../../hooks/useFavorites';
 
-const TheaterQueue = () => {
+const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
 
@@ -131,9 +131,25 @@ const TheaterQueue = () => {
     return null;
   }
 
+  // Calculate position based on sidebar - avoid overlap
+  const getPositionClasses = () => {
+    // On mobile (below lg), always bottom-right
+    // On desktop (lg+), adjust based on sidebar position
+    if (sidebarPosition === 'right') {
+      // Move to bottom-left when sidebar is on right
+      return 'bottom-4 left-4 lg:left-4 lg:right-auto';
+    }
+    if (sidebarPosition === 'bottom') {
+      // Move higher when sidebar is at bottom
+      return 'bottom-20 right-4';
+    }
+    // Default: bottom-right (works for left and top sidebar)
+    return 'bottom-4 right-4';
+  };
+
   return (
     <>
-      <div className="theater-queue fixed bottom-4 right-4 z-40 w-72 sm:w-80 bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-sm shadow-2xl overflow-hidden">
+      <div className={`theater-queue fixed z-40 w-72 sm:w-80 bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-sm shadow-2xl overflow-hidden ${getPositionClasses()}`}>
         {/* Header - mobile-friendly touch targets */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}

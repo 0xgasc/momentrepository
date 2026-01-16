@@ -343,7 +343,7 @@ const MainApp = memo(() => {
       )}
 
       {/* Theater Queue (always rendered, shows when items in queue) */}
-      <TheaterQueue />
+      <TheaterQueue sidebarPosition={sidebarPosition} sidebarCollapsed={sidebarCollapsed} />
     </div>
   );
 });
