@@ -132,16 +132,15 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
   }
 
   // Calculate position based on sidebar - avoid overlap
+  // Sidebar only shows on lg+ screens, so adjustments should be lg: prefixed
   const getPositionClasses = () => {
-    // On mobile (below lg), always bottom-right
-    // On desktop (lg+), adjust based on sidebar position
     if (sidebarPosition === 'right') {
-      // Move to bottom-left when sidebar is on right
-      return 'bottom-4 left-4 lg:left-4 lg:right-auto';
+      // Move to bottom-left on desktop when sidebar is on right
+      return 'bottom-4 right-4 lg:left-4 lg:right-auto';
     }
     if (sidebarPosition === 'bottom') {
-      // Move higher when sidebar is at bottom
-      return 'bottom-20 right-4';
+      // Move higher on desktop when sidebar is at bottom
+      return 'bottom-4 right-4 lg:bottom-20';
     }
     // Default: bottom-right (works for left and top sidebar)
     return 'bottom-4 right-4';
