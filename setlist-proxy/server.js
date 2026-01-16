@@ -61,7 +61,7 @@ app.use(helmet({
     },
   },
   crossOriginEmbedderPolicy: false,
-  crossOriginResourcePolicy: false,  // Allow cross-origin resource loading for proxy
+  crossOriginResourcePolicy: { policy: "cross-origin" },  // Allow cross-origin resource loading
   hsts: {
     maxAge: 31536000, // 1 year
     includeSubDomains: true,
