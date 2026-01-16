@@ -77,6 +77,16 @@ const MainApp = memo(() => {
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarPosition, setSidebarPosition] = useState(() => {
+    // Load from localStorage or default to 'left'
+    return localStorage.getItem('umo-sidebar-position') || 'left';
+  });
+
+  // Save sidebar position to localStorage when changed
+  const changeSidebarPosition = (newPosition) => {
+    setSidebarPosition(newPosition);
+    localStorage.setItem('umo-sidebar-position', newPosition);
+  };
 
   // Public collection state (for shared collection URLs)
   const [publicCollectionId, setPublicCollectionId] = useState(null);
@@ -219,10 +229,20 @@ const MainApp = memo(() => {
           setSelectedUserId(userId);
           setShowUserProfile(true);
         }}
+        position={sidebarPosition}
+        onPositionChange={changeSidebarPosition}
       />
 
       {/* Main content area - offset for sidebar on desktop, bottom padding for mobile nav */}
-      <div className={`umo-container-fluid overflow-x-hidden pb-20 sm:pb-0 transition-[margin] duration-300 ease-in-out ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56'}`}>
+      <div className={`umo-container-fluid overflow-x-hidden pb-20 sm:pb-0 transition-[margin] duration-300 ease-in-out ${
+        sidebarPosition === 'left'
+          ? (sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56')
+          : sidebarPosition === 'right'
+            ? (sidebarCollapsed ? 'lg:mr-16' : 'lg:mr-56')
+            : sidebarPosition === 'top'
+              ? 'lg:mt-16'
+              : 'lg:mb-16'
+      }`}>
         {/* Header with Navigation */}
         <Header
           user={user}
