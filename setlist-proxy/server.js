@@ -881,6 +881,13 @@ app.get('/proxy/irys/:txId', async (req, res) => {
     if (contentType) res.setHeader('Content-Type', contentType);
     if (contentLength) res.setHeader('Content-Length', contentLength);
 
+    // Remove any restrictive headers that might have been set
+    res.removeHeader('Cross-Origin-Embedder-Policy');
+    res.removeHeader('Cross-Origin-Opener-Policy');
+    res.removeHeader('Cross-Origin-Resource-Policy');
+    res.removeHeader('Content-Security-Policy');
+    res.removeHeader('X-Frame-Options');
+
     // CORS and embedding headers - required for video/audio playback cross-origin
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.setHeader('Access-Control-Allow-Origin', '*');
