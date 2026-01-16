@@ -5,7 +5,7 @@ import React, { memo, useState } from 'react';
 import {
   Film, Calendar, Music, Video, Link2, Upload,
   ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
-  ListMusic, Play, User, LogIn,
+  ListMusic, Play, User, LogIn, Shield,
   Tv, Trash2, Trophy, Settings, PanelLeft, PanelRight, PanelTop, PanelBottom
 } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
@@ -18,6 +18,7 @@ const DesktopSidebar = memo(({
   toggleFilter,
   user,
   onShowAccount,
+  onAdminPanelClick,
   onLoginClick,
   isCollapsed,
   onToggleCollapse,
@@ -194,8 +195,8 @@ const DesktopSidebar = memo(({
             <Settings size={14} />
           </button>
           {showPositionPicker && (
-            <div className={`absolute ${position === 'top' ? 'top-full mt-2' : 'bottom-full mb-2'} right-0 bg-gray-800 border border-gray-700 rounded-sm shadow-lg p-2 z-50`}>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Position</div>
+            <div className={`absolute ${position === 'top' ? 'top-full mt-2' : 'bottom-full mb-2'} right-0 bg-gray-800 border border-gray-700 rounded-sm shadow-lg p-3 z-50 w-36`}>
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 whitespace-nowrap">Sidebar Position</div>
               <div className="grid grid-cols-2 gap-1">
                 {[
                   { id: 'left', icon: PanelLeft, label: 'Left' },
@@ -211,13 +212,13 @@ const DesktopSidebar = memo(({
                         onPositionChange(pos.id);
                         setShowPositionPicker(false);
                       }}
-                      className={`flex items-center gap-2 px-2 py-1.5 rounded-sm transition-all text-xs ${
+                      className={`flex items-center gap-2 px-2 py-2 rounded-sm transition-all text-xs whitespace-nowrap ${
                         position === pos.id
                           ? 'bg-blue-600/30 text-blue-400'
                           : 'text-gray-400 hover:bg-gray-700'
                       }`}
                     >
-                      <Icon size={12} />
+                      <Icon size={14} />
                       {pos.label}
                     </button>
                   );
@@ -229,14 +230,25 @@ const DesktopSidebar = memo(({
 
         {/* Account */}
         {user ? (
-          <button
-            onClick={onShowAccount}
-            className="flex items-center gap-2 px-2 py-1.5 text-gray-400 hover:bg-gray-800/50 hover:text-white rounded-sm transition-all"
-            title="My Account"
-          >
-            <User size={16} />
-            <span className="text-xs hidden xl:inline">{user.displayName}</span>
-          </button>
+          <>
+            <button
+              onClick={onShowAccount}
+              className="flex items-center gap-2 px-2 py-1.5 text-gray-400 hover:bg-gray-800/50 hover:text-white rounded-sm transition-all"
+              title="My Account"
+            >
+              <User size={16} />
+              <span className="text-xs hidden xl:inline">{user.displayName}</span>
+            </button>
+            {(user.role === 'admin' || user.role === 'mod') && (
+              <button
+                onClick={onAdminPanelClick}
+                className="flex items-center gap-2 px-2 py-1.5 text-yellow-400 hover:bg-yellow-600/20 rounded-sm transition-all"
+                title={user.role === 'admin' ? 'Admin Panel' : 'Mod Panel'}
+              >
+                <Shield size={16} />
+              </button>
+            )}
+          </>
         ) : (
           <button
             onClick={onLoginClick}
@@ -281,33 +293,35 @@ const DesktopSidebar = memo(({
                 <Settings size={12} />
               </button>
               {showPositionPicker && (
-                <div className={`absolute ${position === 'left' ? 'left-full ml-2' : 'right-full mr-2'} top-0 bg-gray-800 border border-gray-700 rounded-sm shadow-lg p-2 z-50 min-w-[100px]`}>
-                  <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Position</div>
-                  {[
-                    { id: 'left', icon: PanelLeft, label: 'Left' },
-                    { id: 'right', icon: PanelRight, label: 'Right' },
-                    { id: 'top', icon: PanelTop, label: 'Top' },
-                    { id: 'bottom', icon: PanelBottom, label: 'Bottom' },
-                  ].map(pos => {
-                    const Icon = pos.icon;
-                    return (
-                      <button
-                        key={pos.id}
-                        onClick={() => {
-                          onPositionChange(pos.id);
-                          setShowPositionPicker(false);
-                        }}
-                        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-sm transition-all text-xs ${
-                          position === pos.id
-                            ? 'bg-blue-600/30 text-blue-400'
-                            : 'text-gray-400 hover:bg-gray-700'
-                        }`}
-                      >
-                        <Icon size={12} />
-                        {pos.label}
-                      </button>
-                    );
-                  })}
+                <div className={`absolute ${position === 'left' ? 'left-full ml-2' : 'right-full mr-2'} top-0 bg-gray-800 border border-gray-700 rounded-sm shadow-lg p-3 z-50 w-32`}>
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 whitespace-nowrap">Sidebar Position</div>
+                  <div className="space-y-1">
+                    {[
+                      { id: 'left', icon: PanelLeft, label: 'Left' },
+                      { id: 'right', icon: PanelRight, label: 'Right' },
+                      { id: 'top', icon: PanelTop, label: 'Top' },
+                      { id: 'bottom', icon: PanelBottom, label: 'Bottom' },
+                    ].map(pos => {
+                      const Icon = pos.icon;
+                      return (
+                        <button
+                          key={pos.id}
+                          onClick={() => {
+                            onPositionChange(pos.id);
+                            setShowPositionPicker(false);
+                          }}
+                          className={`w-full flex items-center gap-2 px-2 py-2 rounded-sm transition-all text-xs whitespace-nowrap ${
+                            position === pos.id
+                              ? 'bg-blue-600/30 text-blue-400'
+                              : 'text-gray-400 hover:bg-gray-700'
+                          }`}
+                        >
+                          <Icon size={14} />
+                          {pos.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -507,23 +521,39 @@ const DesktopSidebar = memo(({
       </div>
 
       {/* Account Section */}
-      <div className="flex-shrink-0 p-2 border-t border-gray-700/50">
+      <div className="flex-shrink-0 p-2 border-t border-gray-700/50 space-y-1">
         {user ? (
-          <button
-            onClick={onShowAccount}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-gray-400 hover:bg-gray-800/50 hover:text-white transition-all ${
-              isCollapsed ? 'justify-center px-2' : ''
-            }`}
-            title={isCollapsed ? 'Account' : undefined}
-          >
-            <User size={18} />
-            {!isCollapsed && (
-              <div className="flex-1 min-w-0 text-left">
-                <div className="text-xs text-white truncate">{user.displayName}</div>
-                <div className="text-[10px] text-gray-500">My Account</div>
-              </div>
+          <>
+            <button
+              onClick={onShowAccount}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-gray-400 hover:bg-gray-800/50 hover:text-white transition-all ${
+                isCollapsed ? 'justify-center px-2' : ''
+              }`}
+              title={isCollapsed ? 'Account' : undefined}
+            >
+              <User size={18} />
+              {!isCollapsed && (
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="text-xs text-white truncate">{user.displayName}</div>
+                  <div className="text-[10px] text-gray-500">My Account</div>
+                </div>
+              )}
+            </button>
+            {(user.role === 'admin' || user.role === 'mod') && (
+              <button
+                onClick={onAdminPanelClick}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-yellow-400 hover:bg-yellow-600/20 transition-all ${
+                  isCollapsed ? 'justify-center px-2' : ''
+                }`}
+                title={isCollapsed ? (user.role === 'admin' ? 'Admin Panel' : 'Mod Panel') : undefined}
+              >
+                <Shield size={18} />
+                {!isCollapsed && (
+                  <span className="text-xs font-medium">{user.role === 'admin' ? 'Admin Panel' : 'Mod Panel'}</span>
+                )}
+              </button>
             )}
-          </button>
+          </>
         ) : (
           <button
             onClick={onLoginClick}

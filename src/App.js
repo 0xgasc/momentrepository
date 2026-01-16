@@ -222,6 +222,7 @@ const MainApp = memo(() => {
           setShowMyAccount(true);
           refreshNotifications();
         }}
+        onAdminPanelClick={() => setShowAdminPanel(true)}
         onLoginClick={() => setShowLogin(true)}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}

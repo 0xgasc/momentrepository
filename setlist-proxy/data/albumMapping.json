@@ -1,0 +1,208 @@
+{
+  "albums": [
+    {
+      "id": "ia",
+      "name": "II",
+      "year": 2013,
+      "icon": "https://upload.wikimedia.org/wikipedia/en/5/56/Unknown_Mortal_Orchestra_-_II.jpg",
+      "emoji": "II",
+      "color": "#E53935",
+      "songs": [
+        "So Good at Being in Trouble",
+        "Swim and Sleep (Like a Shark)",
+        "Swim and Sleep",
+        "One of These Days",
+        "Faded in the Morning",
+        "FFunny FFriends",
+        "The World Is Crowded",
+        "No Need for a Leader",
+        "Strangers Are Strange",
+        "Monki",
+        "Dawn"
+      ]
+    },
+    {
+      "id": "ml",
+      "name": "Multi-Love",
+      "year": 2015,
+      "icon": "https://upload.wikimedia.org/wikipedia/en/4/40/Unknown_Mortal_Orchestra_-_Multi-Love.png",
+      "emoji": "ML",
+      "color": "#9C27B0",
+      "songs": [
+        "Multi-Love",
+        "Like Acid",
+        "Ur Life One Night",
+        "Can't Keep Checking My Phone",
+        "Extreme Wealth and Casual Cruelty",
+        "Puzzles",
+        "Necessary Evil",
+        "Stage or Screen",
+        "The World Is Crowded",
+        "Internals"
+      ]
+    },
+    {
+      "id": "sf",
+      "name": "Sex & Food",
+      "year": 2018,
+      "icon": "https://upload.wikimedia.org/wikipedia/en/d/da/Unknown_Mortal_Orchestra_-_Sex_%26_Food.png",
+      "emoji": "SF",
+      "color": "#FF5722",
+      "songs": [
+        "A God Called Hubris",
+        "Major Leagues",
+        "Ministry of Alienation",
+        "Hunnybee",
+        "Everyone Acts Crazy Nowadays",
+        "American Guilt",
+        "The Internet of Love (That Way)",
+        "Chronos Feasts on His Children",
+        "Not in Love We're Just High",
+        "How Many Zeros",
+        "If You're Going to Break Yourself",
+        "This Doomsday"
+      ]
+    },
+    {
+      "id": "ic",
+      "name": "IC-01 Hanoi",
+      "year": 2019,
+      "icon": "https://upload.wikimedia.org/wikipedia/en/8/8d/Unknown_Mortal_Orchestra_-_IC-01_Hanoi.jpg",
+      "emoji": "IC",
+      "color": "#4CAF50",
+      "songs": [
+        "IC-01 Hanoi"
+      ]
+    },
+    {
+      "id": "v",
+      "name": "V",
+      "year": 2023,
+      "icon": "https://upload.wikimedia.org/wikipedia/en/c/cd/Unknown_Mortal_Orchestra_-_V.png",
+      "emoji": "V",
+      "color": "#2196F3",
+      "songs": [
+        "The Garden",
+        "That Life",
+        "Layla",
+        "Meshuggah",
+        "Weekend Run",
+        "I Killed Captain Cook",
+        "Nadja",
+        "Keyed Out",
+        "In the Rear View",
+        "Shin Ramyun",
+        "Drag"
+      ]
+    },
+    {
+      "id": "umo1",
+      "name": "Unknown Mortal Orchestra",
+      "year": 2011,
+      "icon": "https://upload.wikimedia.org/wikipedia/en/4/4d/Unknown_Mortal_Orchestra_-_Unknown_Mortal_Orchestra.png",
+      "emoji": "UMO",
+      "color": "#607D8B",
+      "songs": [
+        "Ffunny Ffrends",
+        "Thought Ballune",
+        "Jello and Juggernauts",
+        "How Can U Luv Me",
+        "Strangers Are Strange",
+        "Nerve Damage!",
+        "Little Blue House",
+        "Bicycle",
+        "Shakedown Street"
+      ]
+    }
+  ],
+  "activityBadges": [
+    {
+      "id": "first_upload",
+      "name": "First Upload",
+      "description": "Uploaded your first moment to the archive",
+      "icon": "film",
+      "emoji": "1",
+      "color": "#4CAF50",
+      "type": "activity"
+    },
+    {
+      "id": "first_favorite",
+      "name": "First Favorite",
+      "description": "Added your first moment to favorites",
+      "icon": "heart",
+      "emoji": "1",
+      "color": "#E91E63",
+      "type": "activity"
+    },
+    {
+      "id": "first_playlist",
+      "name": "Playlist Creator",
+      "description": "Created your first public collection",
+      "icon": "list",
+      "emoji": "1",
+      "color": "#9C27B0",
+      "type": "activity"
+    },
+    {
+      "id": "first_guestbook",
+      "name": "Guestbook Signer",
+      "description": "Signed a show guestbook",
+      "icon": "book",
+      "emoji": "1",
+      "color": "#FF9800",
+      "type": "activity"
+    },
+    {
+      "id": "first_comment",
+      "name": "Commenter",
+      "description": "Left your first comment on a moment",
+      "icon": "message",
+      "emoji": "1",
+      "color": "#03A9F4",
+      "type": "activity"
+    },
+    {
+      "id": "first_rsvp",
+      "name": "Show Goer",
+      "description": "RSVP'd to an upcoming show",
+      "icon": "calendar",
+      "emoji": "1",
+      "color": "#8BC34A",
+      "type": "activity"
+    }
+  ],
+  "contributorBadges": [
+    {
+      "id": "contributor_5",
+      "name": "Contributor",
+      "description": "Uploaded 5+ moments",
+      "icon": "star",
+      "emoji": "5",
+      "color": "#FFC107",
+      "requirement": { "uploads": 5 },
+      "type": "contributor"
+    },
+    {
+      "id": "contributor_25",
+      "name": "Super Contributor",
+      "description": "Uploaded 25+ moments",
+      "icon": "star",
+      "emoji": "25",
+      "color": "#FF9800",
+      "requirement": { "uploads": 25 },
+      "type": "contributor"
+    },
+    {
+      "id": "contributor_100",
+      "name": "Archive Hero",
+      "description": "Uploaded 100+ moments",
+      "icon": "trophy",
+      "emoji": "100",
+      "color": "#FFD700",
+      "requirement": { "uploads": 100 },
+      "type": "contributor"
+    }
+  ],
+  "albumBadgeRequirement": 3,
+  "albumBadgeDescription": "Favorited 3+ clips from this album"
+}
