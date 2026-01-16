@@ -10,20 +10,58 @@ import { Play, ListPlus, Check, Music } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { transformMediaUrl } from '../../utils/mediaUrl';
 
-const SongDetail = memo(({ songData, onBack, onPerformanceSelect }) => {
+const SongDetail = memo(({ songData: initialSongData, onBack, onPerformanceSelect }) => {
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [uploadingMoment, setUploadingMoment] = useState(null);
   const [viewMode, setViewMode] = useState('chronological');
   const [showPositions, setShowPositions] = useState(false);
   const [expandedPerformances, setExpandedPerformances] = useState(new Set());
-  const [showNonSongMoments, setShowNonSongMoments] = useState(false); // ✅ NEW: Toggle for non-song moments
-  const [showOnlyWithMoments, setShowOnlyWithMoments] = useState(false); // ✅ NEW: Toggle to show only performances with moments
+  const [showNonSongMoments, setShowNonSongMoments] = useState(false); // Toggle for non-song moments
+  const [showOnlyWithMoments, setShowOnlyWithMoments] = useState(false); // Toggle to show only performances with moments
   const [momentDisplayCount, setMomentDisplayCount] = useState(8); // For horizontal scroll load more
+  const [fullSongData, setFullSongData] = useState(null); // Fetched song data if not provided
   const { user } = useAuth();
   const { refreshNotifications } = useNotifications(API_BASE_URL);
   const { addToQueue, isInQueue } = useTheaterQueue();
-  
+
   const { moments, loadingMomentDetails: loading, loadMomentDetails } = useMoments(API_BASE_URL);
+
+  // Merge initial data with fetched full data
+  const songData = useMemo(() => {
+    if (fullSongData) {
+      return { ...initialSongData, ...fullSongData };
+    }
+    return initialSongData;
+  }, [initialSongData, fullSongData]);
+
+  // Fetch full song data if not provided (e.g., when navigating from setlist)
+  useEffect(() => {
+    const fetchFullSongData = async () => {
+      // Only fetch if we don't have the full data
+      if (initialSongData.performances && initialSongData.venues) {
+        return; // Already have full data
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/cached/songs`);
+        if (response.ok) {
+          const data = await response.json();
+          const songs = data.songs || data;
+          const matchingSong = songs.find(
+            s => s.songName.toLowerCase() === initialSongData.songName.toLowerCase()
+          );
+          if (matchingSong) {
+            console.log('📊 Fetched full song data for:', initialSongData.songName);
+            setFullSongData(matchingSong);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch song data:', err);
+      }
+    };
+
+    fetchFullSongData();
+  }, [initialSongData.songName, initialSongData.performances, initialSongData.venues]);
 
   useEffect(() => {
     loadMomentDetails(`song/${encodeURIComponent(songData.songName)}`, `song "${songData.songName}"`);
@@ -440,30 +478,28 @@ const SongDetailHeader = memo(({ songData, songMoments, nonSongMoments, onBack }
         </div>
       </div>
       
-      {/* Sleek Stats Row - only show if we have full song data */}
-      {(songData.totalPerformances || songData.venues || songData.cities) && (
-        <div className="flex items-center justify-between text-center bg-gray-50/80 rounded-sm p-4">
-          <div className="flex-1">
-            <div className="text-2xl font-bold text-blue-600">{songData.totalPerformances || 0}</div>
-            <div className="text-xs text-gray-600">Performances</div>
-          </div>
-          <div className="w-px h-8 bg-gray-300 mx-4"></div>
-          <div className="flex-1">
-            <div className="text-2xl font-bold text-green-600">{(songData.venues || []).length}</div>
-            <div className="text-xs text-gray-600">Venues</div>
-          </div>
-          <div className="w-px h-8 bg-gray-300 mx-4"></div>
-          <div className="flex-1">
-            <div className="text-2xl font-bold text-purple-600">{(songData.cities || []).length}</div>
-            <div className="text-xs text-gray-600">Cities</div>
-          </div>
-          <div className="w-px h-8 bg-gray-300 mx-4"></div>
-          <div className="flex-1">
-            <div className="text-2xl font-bold text-orange-600">{songMoments.length}</div>
-            <div className="text-xs text-gray-600">Song Moments</div>
-          </div>
+      {/* Sleek Stats Row */}
+      <div className="flex items-center justify-between text-center bg-gray-50/80 rounded-sm p-4">
+        <div className="flex-1">
+          <div className="text-2xl font-bold text-blue-600">{songData.totalPerformances || '—'}</div>
+          <div className="text-xs text-gray-600">Performances</div>
         </div>
-      )}
+        <div className="w-px h-8 bg-gray-300 mx-4"></div>
+        <div className="flex-1">
+          <div className="text-2xl font-bold text-green-600">{songData.venues ? songData.venues.length : '—'}</div>
+          <div className="text-xs text-gray-600">Venues</div>
+        </div>
+        <div className="w-px h-8 bg-gray-300 mx-4"></div>
+        <div className="flex-1">
+          <div className="text-2xl font-bold text-purple-600">{songData.cities ? songData.cities.length : '—'}</div>
+          <div className="text-xs text-gray-600">Cities</div>
+        </div>
+        <div className="w-px h-8 bg-gray-300 mx-4"></div>
+        <div className="flex-1">
+          <div className="text-2xl font-bold text-orange-600">{songMoments.length}</div>
+          <div className="text-xs text-gray-600">Song Moments</div>
+        </div>
+      </div>
       
       {/* ✅ NEW: Additional info for non-song moments */}
       {nonSongMoments.length > 0 && (
