@@ -26,7 +26,14 @@ const userSchema = new mongoose.Schema({
     whatsapp: { type: String, default: '' }
   },
   // Optional bio for user profiles
-  bio: { type: String, maxlength: 500, default: '' }
+  bio: { type: String, maxlength: 500, default: '' },
+  // User preferences (theme settings, etc.)
+  preferences: {
+    theme: {
+      accentColor: { type: String, default: '#eab308' },
+      extraDark: { type: Boolean, default: false }
+    }
+  }
 }, { timestamps: true });
 
 // ✅ Password setter

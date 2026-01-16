@@ -130,7 +130,8 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     playNextInQueue,
     currentMoment: queueMoment,
     registerPlayerControls,
-    updatePlayerState
+    updatePlayerState,
+    setPlayingMoment
   } = useTheaterQueue();
 
   // Get YouTube video ID from URL
@@ -151,6 +152,13 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     const randomIndex = Math.floor(Math.random() * availableMoments.length);
     return availableMoments[randomIndex];
   }, []);
+
+  // Sync the currently playing moment to context for MediaControlCenter
+  useEffect(() => {
+    if (moment && !isPlayingFromQueue) {
+      setPlayingMoment(moment);
+    }
+  }, [moment, isPlayingFromQueue, setPlayingMoment]);
 
   // Detect content type from moment data
   const detectContentType = useCallback((m) => {

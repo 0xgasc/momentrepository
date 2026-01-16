@@ -2412,6 +2412,53 @@ app.get('/api/users/:userId/profile', async (req, res) => {
   }
 });
 
+// Get current user's preferences
+app.get('/api/users/me/preferences', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('preferences');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ preferences: user.preferences || {} });
+  } catch (error) {
+    console.error('❌ Get preferences error:', error);
+    res.status(500).json({ error: 'Failed to fetch preferences' });
+  }
+});
+
+// Update current user's preferences
+app.put('/api/users/me/preferences', authenticateToken, async (req, res) => {
+  try {
+    const { theme } = req.body;
+    const updates = {};
+
+    if (theme) {
+      if (theme.accentColor) {
+        updates['preferences.theme.accentColor'] = theme.accentColor;
+      }
+      if (typeof theme.extraDark === 'boolean') {
+        updates['preferences.theme.extraDark'] = theme.extraDark;
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select('preferences');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log('✅ Preferences updated for user:', req.user.userId);
+    res.json({ success: true, preferences: user.preferences });
+  } catch (error) {
+    console.error('❌ Update preferences error:', error);
+    res.status(500).json({ error: 'Failed to update preferences' });
+  }
+});
+
 // Get user statistics
 app.get('/api/users/:userId/stats', async (req, res) => {
   try {

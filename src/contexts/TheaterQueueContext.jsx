@@ -197,6 +197,13 @@ export const TheaterQueueProvider = ({ children }) => {
     setCurrentMoment(null);
   }, []);
 
+  // Set current moment for direct playback (not from queue)
+  // Used by VideoHero when playing moments directly
+  const setPlayingMoment = useCallback((moment) => {
+    setCurrentMoment(moment);
+    // Not from queue, so don't set isPlayingFromQueue
+  }, []);
+
   const value = {
     // Queue state
     theaterQueue,
@@ -217,6 +224,7 @@ export const TheaterQueueProvider = ({ children }) => {
     shuffleQueue,
     isInQueue,
     stopQueue,
+    setPlayingMoment,
 
     // Player state (shared)
     playerState,
