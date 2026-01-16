@@ -226,7 +226,6 @@ const MainApp = memo(() => {
         {/* Header with Navigation */}
         <Header
           user={user}
-          logout={logout}
           onLoginClick={() => setShowLogin(true)}
           onMyAccountClick={() => {
             setShowMyAccount(true);
@@ -236,10 +235,8 @@ const MainApp = memo(() => {
             setShowAdminPanel(true);
             refreshNotifications();
           }}
-          currentView={currentView}
           browseMode={browseMode}
           onBrowseModeChange={switchBrowseMode}
-          onHomeClick={handleBackToHome}
           badgeInfo={getBadgeInfo()}
           showHowToGuide={showHowToGuide}
           onToggleHowToGuide={() => setShowHowToGuide(!showHowToGuide)}
@@ -333,17 +330,14 @@ const MainApp = memo(() => {
 
 MainApp.displayName = 'MainApp';
 
-// Mobile-Optimized Header Component with Hamburger Menu
+// Header Component - Title, How-To Guide, and Mobile Menu (accounts in sidebar for desktop)
 const Header = memo(({
   user,
-  logout,
   onLoginClick,
   onMyAccountClick,
   onAdminPanelClick,
-  currentView,
   browseMode,
   onBrowseModeChange,
-  onHomeClick,
   badgeInfo,
   showHowToGuide,
   onToggleHowToGuide
@@ -354,66 +348,64 @@ const Header = memo(({
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
-    <div className="mb-6">
+    <div className="mb-4">
       {/* Mobile Header */}
       <div className="block sm:hidden">
-        <div className="flex flex-col p-3 bg-white/90 backdrop-blur-sm" style={{ borderRadius: '4px', marginBottom: '1rem' }}>
-          <div className="flex items-center justify-between">
-            {/* Logo/Title */}
-            <button
-              onClick={() => {
-                onToggleHowToGuide();
-              }}
-              className="flex-1 text-left flex items-center gap-2"
-              title="Click for site info and how to use"
-            >
-              <h1 className="umo-heading umo-heading--sm text-blue-600">
-                UMO - the best band in the world
-              </h1>
-              {showHowToGuide ? <ChevronUp size={14} className="text-blue-600" /> : <ChevronDown size={14} className="text-blue-600" />}
-            </button>
+        <div className="flex items-center justify-between p-3 bg-gray-900/90 backdrop-blur-sm border-b border-gray-800" style={{ borderRadius: '2px' }}>
+          {/* Logo/Title */}
+          <button
+            onClick={() => {
+              onToggleHowToGuide();
+            }}
+            className="flex-1 text-left flex items-center gap-2"
+            title="Click for site info and how to use"
+          >
+            <h1 className="text-sm font-semibold text-blue-400">
+              UMO Archive
+            </h1>
+            {showHowToGuide ? <ChevronUp size={14} className="text-blue-400" /> : <ChevronDown size={14} className="text-blue-400" />}
+          </button>
 
-            {/* Hamburger Menu Button */}
-            <button
-              onClick={toggleMobileMenu}
-              className="p-2 text-gray-600 hover:text-gray-900 focus:outline-none"
-              style={{ minHeight: '44px', minWidth: '44px' }}
-            >
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-          </div>
+          {/* Hamburger Menu Button */}
+          <button
+            onClick={toggleMobileMenu}
+            className="p-2 text-gray-400 hover:text-gray-200 focus:outline-none"
+            style={{ minHeight: '44px', minWidth: '44px' }}
+          >
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
 
         {/* How to Guide - Mobile - Simplified */}
         {showHowToGuide && (
-          <div className="mb-4 umo-card p-3">
-            <h3 className="umo-heading umo-heading--sm mb-2">UMO Archive</h3>
-            <p className="umo-text-secondary text-xs mb-3">
+          <div className="mt-2 mb-4 p-3 bg-gray-800/90 border border-gray-700 rounded-sm">
+            <h3 className="text-sm font-semibold text-gray-100 mb-2">UMO Archive</h3>
+            <p className="text-gray-400 text-xs mb-3">
               Fan-curated concert moments from Unknown Mortal Orchestra.
             </p>
 
             <div className="space-y-3">
               <div className="flex items-start gap-2">
-                <div className="flex-shrink-0 w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-xs font-bold text-blue-600">1</div>
+                <div className="flex-shrink-0 w-5 h-5 bg-blue-900 rounded-full flex items-center justify-center text-xs font-bold text-blue-400">1</div>
                 <div>
-                  <div className="umo-text-primary text-xs font-medium">Watch & Explore</div>
-                  <div className="umo-text-secondary text-xs">Filter by Clips, Audio, or Linked. Browse Shows & Songs.</div>
+                  <div className="text-gray-200 text-xs font-medium">Watch & Explore</div>
+                  <div className="text-gray-500 text-xs">Filter by Clips, Audio, or Linked. Browse Shows & Songs.</div>
                 </div>
               </div>
 
               <div className="flex items-start gap-2">
-                <div className="flex-shrink-0 w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center text-xs font-bold text-yellow-600">2</div>
+                <div className="flex-shrink-0 w-5 h-5 bg-yellow-900 rounded-full flex items-center justify-center text-xs font-bold text-yellow-400">2</div>
                 <div>
-                  <div className="umo-text-primary text-xs font-medium">Build Playlists</div>
-                  <div className="umo-text-secondary text-xs">Tap + to queue moments. Keep browsing while music plays.</div>
+                  <div className="text-gray-200 text-xs font-medium">Build Playlists</div>
+                  <div className="text-gray-500 text-xs">Tap + to queue moments. Keep browsing while music plays.</div>
                 </div>
               </div>
 
               <div className="flex items-start gap-2">
-                <div className="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center text-xs font-bold text-green-600">3</div>
+                <div className="flex-shrink-0 w-5 h-5 bg-green-900 rounded-full flex items-center justify-center text-xs font-bold text-green-400">3</div>
                 <div>
-                  <div className="umo-text-primary text-xs font-medium">Upload & Share</div>
-                  <div className="umo-text-secondary text-xs">Login → My Account → Upload your concert clips.</div>
+                  <div className="text-gray-200 text-xs font-medium">Upload & Share</div>
+                  <div className="text-gray-500 text-xs">Login → My Account → Upload your concert clips.</div>
                 </div>
               </div>
             </div>
@@ -555,130 +547,63 @@ const Header = memo(({
         )}
       </div>
 
-      {/* Desktop Header */}
-      <div className="hidden sm:block">
-        <div className="flex items-start justify-between mb-4 p-4 bg-white/90 backdrop-blur-sm" style={{ borderRadius: '4px', marginBottom: '1.5rem' }}>
-          {/* Title Section */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-4 mb-2">
-              <button
-                onClick={() => {
-                  onToggleHowToGuide();
-                }}
-                className="flex items-center gap-2"
-                title="Click for site info and how to use"
-              >
-                <h1 className="umo-heading umo-heading--lg text-blue-600 hover:text-blue-800 transition-colors">
-                  UMO - the best band in the world
-                </h1>
-                {showHowToGuide ? <ChevronUp size={16} className="text-blue-600" /> : <ChevronDown size={16} className="text-blue-600" />}
-              </button>
-            </div>
-            
-            {showHowToGuide && (
-              <div className="mt-3 umo-card p-4">
-                <h3 className="umo-heading umo-heading--md mb-3">UMO Archive</h3>
-                <p className="umo-text-secondary text-sm mb-4">
-                  Fan-curated archive of Unknown Mortal Orchestra concert moments.
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-sm font-bold text-blue-600">1</div>
-                    <div>
-                      <div className="umo-text-primary font-medium mb-1 text-sm">Watch & Explore</div>
-                      <div className="umo-text-secondary text-xs">
-                        Filter by Clips, Audio, or Linked content. Browse Shows, Songs, and fan uploads.
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center text-sm font-bold text-yellow-600">2</div>
-                    <div>
-                      <div className="umo-text-primary font-medium mb-1 text-sm">Build Playlists</div>
-                      <div className="umo-text-secondary text-xs">
-                        Click + on any moment to add to your queue. Keep browsing while music plays.
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center text-sm font-bold text-green-600">3</div>
-                    <div>
-                      <div className="umo-text-primary font-medium mb-1 text-sm">Upload & Share</div>
-                      <div className="umo-text-secondary text-xs">
-                        Login → My Account → Upload. Your moments join the archive after approval.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          {/* Account Controls - Top Right */}
-          <div className="flex-shrink-0 ml-2">
-            {user ? (
-              <div className="text-right space-y-2">
-                <div className="text-xs text-gray-600 truncate max-w-32 mb-1">
-                  {user.displayName}
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={onMyAccountClick}
-                    className="umo-btn umo-btn--secondary text-xs whitespace-nowrap relative"
-                    style={{ minHeight: '32px' }}
-                  >
-                    My Account
-                    {badgeInfo.show && !badgeInfo.isModOrAdmin && (
-                      <div 
-                        className={`absolute -top-1 -right-1 w-3 h-3 ${badgeInfo.color === 'blue' ? 'bg-blue-500' : 'bg-red-500'} rounded-full border border-white`}
-                        style={{ 
-                          minWidth: '12px', 
-                          minHeight: '12px',
-                          zIndex: 10
-                        }}
-                      />
-                    )}
-                  </button>
-{(user.role === 'admin' || user.role === 'mod') && (
-                    <button
-                      onClick={onAdminPanelClick}
-                      className="umo-btn umo-btn--primary text-xs whitespace-nowrap relative"
-                      style={{ minHeight: '32px' }}
-                    >
-                      {user.role === 'admin' ? 'Admin' : 'Mod'}
-                      {badgeInfo.show && badgeInfo.isModOrAdmin && (
-                        <div 
-                          className={`absolute -top-1 -right-1 w-3 h-3 ${badgeInfo.color === 'red' ? 'bg-red-500' : 'bg-red-500'} rounded-full border border-white`}
-                          style={{ 
-                            minWidth: '12px', 
-                            minHeight: '12px',
-                            zIndex: 10
-                          }}
-                        />
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="text-right">
-                <div className="text-xs text-gray-500 mb-1">Browse read-only</div>
-                <button
-                  onClick={onLoginClick}
-                  className="umo-btn umo-btn--primary text-sm whitespace-nowrap"
-                  style={{ minHeight: '36px' }}
-                >
-                  Login to Upload
-                </button>
-              </div>
-            )}
-          </div>
+      {/* Desktop Header - Hidden on lg+ where sidebar handles everything */}
+      <div className="hidden sm:block lg:hidden">
+        <div className="flex items-center justify-center mb-4 p-3 bg-gray-900/80 backdrop-blur-sm border-b border-gray-800" style={{ borderRadius: '2px' }}>
+          <button
+            onClick={() => {
+              onToggleHowToGuide();
+            }}
+            className="flex items-center gap-2"
+            title="Click for site info and how to use"
+          >
+            <h1 className="umo-heading umo-heading--lg text-blue-400 hover:text-blue-300 transition-colors">
+              UMO - the best band in the world
+            </h1>
+            {showHowToGuide ? <ChevronUp size={16} className="text-blue-400" /> : <ChevronDown size={16} className="text-blue-400" />}
+          </button>
         </div>
 
-        {/* Navigation tabs moved to MainContent below hero */}
+        {showHowToGuide && (
+          <div className="mb-4 p-4 bg-gray-800/90 border border-gray-700 rounded-sm">
+            <h3 className="text-lg font-semibold text-gray-100 mb-3">UMO Archive</h3>
+            <p className="text-gray-400 text-sm mb-4">
+              Fan-curated archive of Unknown Mortal Orchestra concert moments.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-blue-900 rounded-full flex items-center justify-center text-sm font-bold text-blue-400">1</div>
+                <div>
+                  <div className="text-gray-200 font-medium mb-1 text-sm">Watch & Explore</div>
+                  <div className="text-gray-500 text-xs">
+                    Filter by Clips, Audio, or Linked content. Browse Shows, Songs, and fan uploads.
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-yellow-900 rounded-full flex items-center justify-center text-sm font-bold text-yellow-400">2</div>
+                <div>
+                  <div className="text-gray-200 font-medium mb-1 text-sm">Build Playlists</div>
+                  <div className="text-gray-500 text-xs">
+                    Click + on any moment to add to your queue. Keep browsing while music plays.
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-6 h-6 bg-green-900 rounded-full flex items-center justify-center text-sm font-bold text-green-400">3</div>
+                <div>
+                  <div className="text-gray-200 font-medium mb-1 text-sm">Upload & Share</div>
+                  <div className="text-gray-500 text-xs">
+                    Login → My Account → Upload. Your moments join the archive after approval.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -728,16 +653,16 @@ const MainContent = memo(({
     <>
       {/* Media Filter Pills - Above Hero (hidden on lg where sidebar has them) */}
       <div className="flex justify-center mb-4 lg:hidden">
-        <div className="flex gap-3 items-center bg-white/90 backdrop-blur-sm p-2 rounded-lg">
+        <div className="flex gap-3 items-center bg-gray-900/80 backdrop-blur-sm p-2 rounded-sm border border-gray-800">
           {/* Media Type Group */}
-          <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
+          <div className="flex gap-1 bg-gray-800 p-0.5 rounded-sm">
             <button
               onClick={() => toggleFilter('type', 'audio')}
               title="Audio"
-              className={`p-1.5 rounded-md transition-all ${
+              className={`p-1.5 rounded-sm transition-all ${
                 mediaFilters.audio
                   ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-500 hover:bg-gray-200'
+                  : 'text-gray-400 hover:bg-gray-700'
               }`}
             >
               <Music size={16} />
@@ -745,24 +670,24 @@ const MainContent = memo(({
             <button
               onClick={() => toggleFilter('type', 'video')}
               title="Video"
-              className={`p-1.5 rounded-md transition-all ${
+              className={`p-1.5 rounded-sm transition-all ${
                 mediaFilters.video
                   ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-500 hover:bg-gray-200'
+                  : 'text-gray-400 hover:bg-gray-700'
               }`}
             >
               <Video size={16} />
             </button>
           </div>
           {/* Source Group */}
-          <div className="flex gap-1 bg-gray-100 p-0.5 rounded-lg">
+          <div className="flex gap-1 bg-gray-800 p-0.5 rounded-sm">
             <button
               onClick={() => toggleFilter('source', 'linked')}
               title="Linked"
-              className={`p-1.5 rounded-md transition-all ${
+              className={`p-1.5 rounded-sm transition-all ${
                 mediaFilters.linked
                   ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-500 hover:bg-gray-200'
+                  : 'text-gray-400 hover:bg-gray-700'
               }`}
             >
               <Link2 size={16} />
@@ -770,10 +695,10 @@ const MainContent = memo(({
             <button
               onClick={() => toggleFilter('source', 'uploads')}
               title="Uploads"
-              className={`p-1.5 rounded-md transition-all ${
+              className={`p-1.5 rounded-sm transition-all ${
                 mediaFilters.uploads
                   ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-500 hover:bg-gray-200'
+                  : 'text-gray-400 hover:bg-gray-700'
               }`}
             >
               <Upload size={16} />
