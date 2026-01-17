@@ -24,7 +24,11 @@ export const TheaterQueueProvider = ({ children }) => {
     currentTime: 0,
     duration: 0,
     volume: 1,
-    isMuted: false
+    isMuted: false,
+    isFullscreen: false,
+    effectMode: null, // 'ascii' | 'trippy' | null
+    effectIntensity: 50,
+    isPiPMode: false
   });
 
   // Player controls ref - VideoHero registers its controls here
@@ -62,6 +66,55 @@ export const TheaterQueueProvider = ({ children }) => {
   const toggleMute = useCallback(() => {
     if (playerControlsRef.current?.toggleMute) {
       playerControlsRef.current.toggleMute();
+    }
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (playerControlsRef.current?.toggleFullscreen) {
+      playerControlsRef.current.toggleFullscreen();
+    }
+  }, []);
+
+  const toggleEffect = useCallback((effectType) => {
+    if (playerControlsRef.current?.toggleEffect) {
+      playerControlsRef.current.toggleEffect(effectType);
+    }
+  }, []);
+
+  const setEffectIntensity = useCallback((intensity) => {
+    if (playerControlsRef.current?.setEffectIntensity) {
+      playerControlsRef.current.setEffectIntensity(intensity);
+    }
+    setPlayerState(prev => ({ ...prev, effectIntensity: intensity }));
+  }, []);
+
+  const togglePiPMode = useCallback(() => {
+    if (playerControlsRef.current?.togglePiP) {
+      playerControlsRef.current.togglePiP();
+    }
+  }, []);
+
+  const openComments = useCallback(() => {
+    if (playerControlsRef.current?.openComments) {
+      playerControlsRef.current.openComments();
+    }
+  }, []);
+
+  const openInfo = useCallback(() => {
+    if (playerControlsRef.current?.openInfo) {
+      playerControlsRef.current.openInfo();
+    }
+  }, []);
+
+  const playNext = useCallback(() => {
+    if (playerControlsRef.current?.playNext) {
+      playerControlsRef.current.playNext();
+    }
+  }, []);
+
+  const playRandom = useCallback(() => {
+    if (playerControlsRef.current?.playRandom) {
+      playerControlsRef.current.playRandom();
     }
   }, []);
 
@@ -235,7 +288,15 @@ export const TheaterQueueProvider = ({ children }) => {
     togglePlayPause,
     seekTo,
     setVolume,
-    toggleMute
+    toggleMute,
+    toggleFullscreen,
+    toggleEffect,
+    setEffectIntensity,
+    togglePiPMode,
+    openComments,
+    openInfo,
+    playNext,
+    playRandom
   };
 
   return (

@@ -1,12 +1,12 @@
 // src/components/UI/VideoHero.jsx - Hero player for random video/audio clips
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
-import { Play, Pause, Volume2, VolumeX, SkipForward, Info, ListPlus, ListMusic, Music, Minimize2, Maximize2, Droplet, MessageSquare, Loader2 } from 'lucide-react';
+import { Play, Pause, Music, Loader2 } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import UMOEffect from './UMOEffect';
 import WaveformPlayer from './WaveformPlayer';
 import VideoHeroComments from './VideoHeroComments';
-import FavoriteButton from './FavoriteButton';
+// FavoriteButton moved to MediaControlCenter
 import { transformMediaUrl } from '../../utils/mediaUrl';
 
 // ASCII character map - from darkest to brightest
@@ -46,6 +46,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   const [ytProgress, setYtProgress] = useState({ currentTime: 0, duration: 0 });
   const [isYtLoading, setIsYtLoading] = useState(true);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  const [isPiPActive, setIsPiPActive] = useState(false);
   const frameSkipRef = useRef(0);
   const ytPlayerRef = useRef(null);
   const ytProgressIntervalRef = useRef(null);
@@ -800,19 +801,85 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
             else ytPlayerRef.current.unMute();
           } catch (e) {}
         } else if (videoRef.current) videoRef.current.muted = newMuted;
+      },
+      toggleFullscreen: () => {
+        if (!containerRef.current) return;
+        if (!isFullscreen) {
+          if (containerRef.current.requestFullscreen) {
+            containerRef.current.requestFullscreen();
+          } else if (containerRef.current.webkitRequestFullscreen) {
+            containerRef.current.webkitRequestFullscreen();
+          }
+          setIsFullscreen(true);
+        } else {
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+          }
+          setIsFullscreen(false);
+        }
+      },
+      toggleEffect: (effectType) => {
+        if (effectType === 'ascii') {
+          setIsAsciiMode(prev => !prev);
+        } else if (effectType === 'trippy') {
+          setTrippyEffect(prev => !prev);
+        }
+      },
+      setEffectIntensity: (intensity) => {
+        setEffectIntensity(intensity);
+      },
+      openComments: () => {
+        setShowCommentsPanel(true);
+      },
+      openInfo: () => {
+        if (moment && onMomentClick) {
+          onMomentClick(moment);
+        }
+      },
+      playNext: handleNext,
+      playRandom: handleNext,
+      togglePiP: async () => {
+        try {
+          // For native video elements, use browser PiP API
+          if (videoRef.current && document.pictureInPictureEnabled) {
+            if (document.pictureInPictureElement) {
+              await document.exitPictureInPicture();
+              setIsPiPActive(false);
+            } else {
+              await videoRef.current.requestPictureInPicture();
+              setIsPiPActive(true);
+            }
+          }
+        } catch (err) {
+          // PiP not supported or failed
+        }
       }
     });
-  }, [registerPlayerControls, isAudio, isYouTube, isPlaying, isMuted, seekTo, setVolumeLevel]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registerPlayerControls, isAudio, isYouTube, isPlaying, isMuted, isFullscreen, seekTo, setVolumeLevel, moment, onMomentClick, handleNext]);
 
   // Update player state in context when local state changes
   useEffect(() => {
     updatePlayerState({
       isPlaying,
       isMuted,
+      isFullscreen,
+      isPiPMode: isPiPActive,
       currentTime: isYouTube ? ytProgress.currentTime : 0,
-      duration: isYouTube ? ytProgress.duration : 0
+      duration: isYouTube ? ytProgress.duration : 0,
+      effectMode: isYouTube ? (trippyEffect ? 'trippy' : null) : (isAsciiMode ? 'ascii' : null),
+      effectIntensity
     });
-  }, [isPlaying, isMuted, ytProgress, isYouTube, updatePlayerState]);
+  }, [isPlaying, isMuted, isFullscreen, isPiPActive, ytProgress, isYouTube, trippyEffect, isAsciiMode, effectIntensity, updatePlayerState]);
+
+  // Listen for PiP exit
+  useEffect(() => {
+    const handlePiPExit = () => setIsPiPActive(false);
+    document.addEventListener('leavepictureinpicture', handlePiPExit);
+    return () => document.removeEventListener('leavepictureinpicture', handlePiPExit);
+  }, []);
 
   // Handle YouTube seek
   // eslint-disable-next-line no-unused-vars
@@ -1102,6 +1169,10 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
                       controls: 0,
                       modestbranding: 1,
                       rel: 0,
+                      showinfo: 0,
+                      iv_load_policy: 3,
+                      fs: 0,
+                      disablekb: 1,
                       enablejsapi: 1,
                       start: startTime,
                       playsinline: 1
@@ -1243,246 +1314,58 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         </div>
       )}
 
-      {/* Bottom controls - glassy effect */}
-      <div className={`absolute bottom-0 left-0 right-0 bg-black/30 backdrop-blur-xl p-3 sm:p-4 z-30 transition-opacity duration-300 border-t border-white/10 ${
-        showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      }`}>
-        {/* WaveformPlayer - simple mode for video, full waveform for audio */}
-        {!isYouTube && moment && (
-          <div className="mb-2">
-            <WaveformPlayer
-              audioRef={isAudio ? audioRef : null}
-              videoRef={!isAudio ? videoRef : null}
-              moment={moment}
-              isPlaying={isPlaying}
-              isVideo={!isAudio}
-              simple={!isAudio}
-            />
-          </div>
-        )}
-
-        {/* YouTube progress bar / seeker - scoped to moment's start/end time */}
-        {isYouTube && ytProgress.duration > 0 && (
-          <div className="mb-2">
-            {(() => {
-              // Calculate moment-scoped progress
-              const segmentStart = moment?.startTime || 0;
-              const segmentEnd = moment?.endTime || ytProgress.duration;
-              const segmentDuration = segmentEnd - segmentStart;
-              const relativeTime = Math.max(0, ytProgress.currentTime - segmentStart);
-              const progressPercent = segmentDuration > 0 ? Math.min(100, (relativeTime / segmentDuration) * 100) : 0;
-
-              return (
-                <>
-                  <div
-                    className="relative h-1.5 bg-gray-700/50 rounded-full cursor-pointer group"
-                    onClick={(e) => {
-                      // Seek within segment bounds
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const clickX = e.clientX - rect.left;
-                      const percentage = clickX / rect.width;
-                      const seekTime = segmentStart + (percentage * segmentDuration);
-                      try {
-                        ytPlayerRef.current?.seekTo(seekTime, true);
-                      } catch (err) {
-                        console.log('YT seek error:', err);
-                      }
-                    }}
-                  >
-                    {/* Progress fill */}
-                    <div
-                      className="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all duration-150"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                    {/* Hover indicator */}
-                    <div className="absolute top-0 left-0 h-full w-full opacity-0 group-hover:opacity-100 bg-white/10 rounded-full" />
-                    {/* Playhead */}
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ left: `calc(${progressPercent}% - 6px)` }}
-                    />
-                  </div>
-                  {/* Time display - relative to segment */}
-                  <div className="flex justify-between text-xs text-gray-400 mt-1 font-mono">
-                    <span>{Math.floor(relativeTime / 60)}:{String(Math.floor(relativeTime % 60)).padStart(2, '0')}</span>
-                    <span>{Math.floor(segmentDuration / 60)}:{String(Math.floor(segmentDuration % 60)).padStart(2, '0')}</span>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        )}
-
-        {/* Song info */}
-        {moment && (
-          <div className="mb-2">
-            <h3 className="text-white font-bold text-sm sm:text-base truncate drop-shadow-lg">{moment.songName}</h3>
-            <p className="text-gray-300 text-xs truncate drop-shadow-md">
-              {moment.venueName}
-              {moment.venueCity && ` - ${moment.venueCity}`}
-              {moment.performanceDate && ` (${moment.performanceDate})`}
-            </p>
-          </div>
-        )}
-
-        {/* Controls row */}
-        <div className="flex items-center justify-between gap-2">
-          {/* Queue indicator */}
-          {isPlayingFromQueue && (
-            <div className="flex items-center gap-1 px-2 py-1 bg-yellow-900/40 border border-yellow-600/50 rounded-full">
-              <ListMusic size={12} className="text-yellow-400" />
-              <span className="text-yellow-400 text-xs font-mono">{currentQueueIndex + 1}/{theaterQueue.length}</span>
-            </div>
-          )}
-
-          {/* Spacer when no queue */}
-          {!isPlayingFromQueue && <div className="flex-1" />}
-
-          {/* Main controls */}
-          <div className="flex items-center gap-1">
-            {/* Effect controls - different for each media type */}
-            {/* Audio: No effects */}
-            {/* Uploaded Video: ASCII mode toggle */}
-            {!isYouTube && !isAudio && (
-              <>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsAsciiMode(!isAsciiMode);
-                  }}
-                  className={`rounded-full p-2 transition-colors ${
-                    isAsciiMode ? 'bg-purple-600 hover:bg-purple-500' : 'bg-white/20 hover:bg-white/30'
-                  }`}
-                  style={{ minWidth: '36px', minHeight: '36px' }}
-                  title="ASCII mode"
-                >
-                  <Droplet size={16} className="text-white" />
-                </button>
-                {isAsciiMode && (
-                  <div className="hidden sm:flex items-center bg-black/60 rounded-full px-2 py-1">
-                    <input
-                      type="range"
-                      min="10"
-                      max="100"
-                      value={effectIntensity}
-                      onChange={(e) => setEffectIntensity(Number(e.target.value))}
-                      className="w-16 h-1 accent-purple-500 cursor-pointer"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* YouTube: Trippy effect toggle + intensity slider */}
-            {isYouTube && (
-              <>
-                {/* Trippy effect toggle */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setTrippyEffect(!trippyEffect);
-                  }}
-                  className={`rounded-full p-2 transition-colors ${
-                    trippyEffect ? 'bg-purple-600 hover:bg-purple-500' : 'bg-white/20 hover:bg-white/30'
-                  }`}
-                  style={{ minWidth: '36px', minHeight: '36px' }}
-                  title="Effect overlay"
-                >
-                  <Droplet size={16} className="text-white" />
-                </button>
-                {/* Intensity slider - shows when effect is active */}
-                {trippyEffect && (
-                  <div className="hidden sm:flex items-center bg-black/60 rounded-full px-2 py-1 gap-1.5">
-                    <span className="text-white/60 text-[10px] font-mono">{effectIntensity}%</span>
-                    <input
-                      type="range"
-                      min="10"
-                      max="100"
-                      value={effectIntensity}
-                      onChange={(e) => setEffectIntensity(Number(e.target.value))}
-                      className="w-16 h-1 accent-purple-500 cursor-pointer"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            <button
-              onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
-              className="bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
-              style={{ minWidth: '36px', minHeight: '36px' }}
-            >
-              {isPlaying ? <Pause size={16} className="text-white" /> : <Play size={16} className="text-white ml-0.5" />}
-            </button>
-
-            <button
-              onClick={(e) => { e.stopPropagation(); toggleMute(); }}
-              className={`rounded-full p-2 transition-colors ${
-                isMuted ? 'bg-orange-500 hover:bg-orange-400' : 'bg-white/20 hover:bg-white/30'
-              }`}
-              style={{ minWidth: '36px', minHeight: '36px' }}
-              title={isMuted ? 'Unmute' : 'Mute'}
-            >
-              {isMuted ? <VolumeX size={16} className="text-white" /> : <Volume2 size={16} className="text-white" />}
-            </button>
-
-            <button
-              onClick={(e) => { e.stopPropagation(); handleNext(); }}
-              className="bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
-              style={{ minWidth: '36px', minHeight: '36px' }}
-              title="Next"
-            >
-              <SkipForward size={16} className="text-white" />
-            </button>
-
-            <button
-              onClick={(e) => { e.stopPropagation(); handleAddToQueue(); }}
-              className={`rounded-full p-2 transition-colors ${
-                moment && isInQueue(moment._id) ? 'bg-yellow-600/50' : 'bg-white/20 hover:bg-white/30'
-              }`}
-              style={{ minWidth: '36px', minHeight: '36px' }}
-              title={moment && isInQueue(moment._id) ? 'In queue' : 'Add to queue'}
-            >
-              <ListPlus size={16} className="text-white" />
-            </button>
-
-            {moment?._id && (
-              <FavoriteButton momentId={moment._id} size="md" />
-            )}
-
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowCommentsPanel(true); }}
-              className="bg-blue-600/50 hover:bg-blue-600/70 rounded-full p-2 transition-colors"
-              style={{ minWidth: '36px', minHeight: '36px' }}
-              title="Comments"
-            >
-              <MessageSquare size={16} className="text-white" />
-            </button>
-
-            <button
-              onClick={handleInfoClick}
-              className="bg-blue-600/50 hover:bg-blue-600/70 rounded-full p-2 transition-colors"
-              style={{ minWidth: '36px', minHeight: '36px' }}
-              title="Details"
-            >
-              <Info size={16} className="text-white" />
-            </button>
-
-            <button
-              onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-              className={`rounded-full p-2 transition-colors ${
-                isFullscreen ? 'bg-green-600 hover:bg-green-500' : 'bg-white/20 hover:bg-white/30'
-              }`}
-              style={{ minWidth: '36px', minHeight: '36px' }}
-              title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            >
-              <Maximize2 size={16} className="text-white" />
-            </button>
-          </div>
+      {/* Minimal overlay with waveform only - controls moved to MediaControlCenter */}
+      {!isYouTube && moment && showControls && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 z-30">
+          <WaveformPlayer
+            audioRef={isAudio ? audioRef : null}
+            videoRef={!isAudio ? videoRef : null}
+            moment={moment}
+            isPlaying={isPlaying}
+            isVideo={!isAudio}
+            simple={!isAudio}
+          />
         </div>
-      </div>
+      )}
+
+      {/* YouTube progress bar overlay only */}
+      {isYouTube && ytProgress.duration > 0 && showControls && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 z-30">
+          {(() => {
+            const segmentStart = moment?.startTime || 0;
+            const segmentEnd = moment?.endTime || ytProgress.duration;
+            const segmentDuration = segmentEnd - segmentStart;
+            const relativeTime = Math.max(0, ytProgress.currentTime - segmentStart);
+            const progressPercent = segmentDuration > 0 ? Math.min(100, (relativeTime / segmentDuration) * 100) : 0;
+
+            return (
+              <div
+                className="relative h-1.5 bg-gray-700/50 rounded-full cursor-pointer group"
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const clickX = e.clientX - rect.left;
+                  const percentage = clickX / rect.width;
+                  const seekTime = segmentStart + (percentage * segmentDuration);
+                  try {
+                    ytPlayerRef.current?.seekTo(seekTime, true);
+                  } catch (err) {
+                    // Seek error
+                  }
+                }}
+              >
+                <div
+                  className="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all duration-150"
+                  style={{ width: `${progressPercent}%` }}
+                />
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ left: `calc(${progressPercent}% - 6px)` }}
+                />
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Comments Panel */}
       <VideoHeroComments
