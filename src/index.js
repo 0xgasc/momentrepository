@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import App from './App';
 
-// Add Tailwind CSS via CDN for the classNames to work
+// Tailwind CSS via CDN (PostCSS not configured)
 const tailwindScript = document.createElement('script');
 tailwindScript.src = 'https://cdn.tailwindcss.com';
 document.head.appendChild(tailwindScript);

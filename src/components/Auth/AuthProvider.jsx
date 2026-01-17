@@ -6,12 +6,6 @@ const API_BASE_URL = process.env.REACT_APP_API_URL ||
     ? 'http://localhost:5050'  
     : 'https://momentrepository-production.up.railway.app');
 
-  
-// ADD THIS TEMPORARY DEBUG:
-console.log('🔍 API_BASE_URL:', API_BASE_URL);
-console.log('🔍 hostname:', window.location.hostname);
-console.log('🔍 full location:', window.location.href);
-
 const AuthContext = createContext();
 
 export const useAuth = () => {

@@ -82,7 +82,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
           // Check if we've reached the moment's end time
           if (moment?.endTime && currentTime >= moment.endTime) {
-            console.log('VideoHero: Reached end time', moment.endTime, 'at', currentTime);
             // Skip to next moment
             if (ytProgressIntervalRef.current) {
               clearInterval(ytProgressIntervalRef.current);
@@ -242,8 +241,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   useEffect(() => {
     // If customMoments provided, use those instead of fetching
     if (customMoments && customMoments.length > 0) {
-      console.log('VideoHero: Using customMoments:', customMoments.length);
-
       // Filter to only playable content (has mediaUrl)
       const playable = customMoments.filter(m => m.mediaUrl);
 
@@ -284,8 +281,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         const data = await response.json();
         const allData = data.moments || [];
 
-        console.log('VideoHero: Fetched', allData.length, 'moments');
-
         // Filter to only playable content (has mediaUrl)
         const playable = allData.filter(m => m.mediaUrl);
 
@@ -294,12 +289,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           const { isYouTube: isYT, isAudio: isAud, isArchive } = detectContentType(m);
           return { ...m, _isYouTube: isYT, _isAudio: isAud, _isArchive: isArchive };
         });
-
-        console.log('VideoHero: Playable moments:', withTypes.length);
-        console.log('VideoHero: Videos:', withTypes.filter(m => !m._isYouTube && !m._isAudio && !m._isArchive).length);
-        console.log('VideoHero: YouTube:', withTypes.filter(m => m._isYouTube).length);
-        console.log('VideoHero: Audio:', withTypes.filter(m => m._isAudio).length);
-        console.log('VideoHero: Archive:', withTypes.filter(m => m._isArchive).length);
 
         setAllMoments(withTypes);
 
@@ -311,7 +300,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           setMoment(selected);
           setIsYouTube(selected._isYouTube);
           setIsAudio(selected._isAudio);
-          console.log('VideoHero: Selected moment:', selected.songName, 'isYouTube:', selected._isYouTube, 'isAudio:', selected._isAudio);
         } else {
           setError('No content available');
         }
@@ -378,7 +366,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       setIsPlaying(true);
       setIsMuted(false);
       setYoutubeKey(prev => prev + 1);
-      console.log('VideoHero: Queue playing:', queueMoment.songName, 'isYouTube:', isYT, 'isAudio:', isAud);
     }
   }, [isPlayingFromQueue, queueMoment, currentQueueIndex, detectContentType]);
 
@@ -397,7 +384,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           setIsPlaying(true);
           setAutoplayBlocked(false);
         } catch (e) {
-          console.log('VideoHero: Audio autoplay blocked');
           setIsPlaying(false);
           setAutoplayBlocked(true);
         }
@@ -408,7 +394,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           setIsPlaying(true);
           setAutoplayBlocked(false);
         } catch (e) {
-          console.log('VideoHero: Video autoplay blocked');
           setIsPlaying(false);
           setAutoplayBlocked(true);
         }
