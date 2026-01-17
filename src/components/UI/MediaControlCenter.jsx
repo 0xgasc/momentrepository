@@ -3,18 +3,14 @@ import React, { useState, useRef, useEffect, memo, useCallback } from 'react';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
   Maximize2, Minimize2, GripHorizontal, X, Shuffle, Droplet,
-  ListPlus, ListMusic, MessageSquare, Info, Heart, PictureInPicture,
-  ChevronDown, ChevronUp, Disc3
+  ListPlus, MessageSquare, Info, Heart, PictureInPicture, Disc3
 } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
-import FavoriteButton from './FavoriteButton';
 
 const MediaControlCenter = memo(({
   isDocked = true,
   onDockChange,
-  onClose,
-  onShowComments,
-  onShowInfo
+  onClose
 }) => {
   const {
     currentMoment,
@@ -34,7 +30,9 @@ const MediaControlCenter = memo(({
     togglePiPMode,
     playRandom,
     addToQueue,
-    isInQueue
+    isInQueue,
+    openComments,
+    openInfo
   } = useTheaterQueue();
 
   // Dragging state
@@ -44,9 +42,8 @@ const MediaControlCenter = memo(({
   const dragOffset = useRef({ x: 0, y: 0 });
 
   // UI state
-  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-  const [showQueue, setShowQueue] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
 
   // Handle drag start
   const handleDragStart = useCallback((e) => {
@@ -369,27 +366,20 @@ const MediaControlCenter = memo(({
                 <ListPlus size={12} />
               </button>
 
-              {/* Queue indicator */}
-              {hasQueue && (
-                <button
-                  onClick={() => setShowQueue(!showQueue)}
-                  className="p-1.5 rounded-full text-yellow-400 hover:bg-yellow-900/40 transition-colors"
-                  title="View queue"
-                >
-                  <ListMusic size={12} />
-                </button>
-              )}
-
-              {/* Favorite */}
-              {currentMoment?._id && (
-                <div className="scale-75">
-                  <FavoriteButton momentId={currentMoment._id} size="sm" />
-                </div>
-              )}
+              {/* Favorite - simple heart */}
+              <button
+                onClick={() => setIsFavorited(!isFavorited)}
+                className={`p-1.5 rounded-full transition-colors ${
+                  isFavorited ? 'text-red-500' : 'text-gray-400 hover:text-red-400 hover:bg-red-900/40'
+                }`}
+                title={isFavorited ? 'Unfavorite' : 'Favorite'}
+              >
+                <Heart size={12} fill={isFavorited ? 'currentColor' : 'none'} />
+              </button>
 
               {/* Comments */}
               <button
-                onClick={() => onShowComments?.()}
+                onClick={() => openComments?.()}
                 className="p-1.5 rounded-full text-gray-400 hover:text-blue-400 hover:bg-blue-900/40 transition-colors"
                 title="Comments"
               >
@@ -398,7 +388,7 @@ const MediaControlCenter = memo(({
 
               {/* Info */}
               <button
-                onClick={() => onShowInfo?.()}
+                onClick={() => openInfo?.()}
                 className="p-1.5 rounded-full text-gray-400 hover:text-blue-400 hover:bg-blue-900/40 transition-colors"
                 title="Details"
               >
@@ -416,29 +406,6 @@ const MediaControlCenter = memo(({
                 <Maximize2 size={12} />
               </button>
             </div>
-
-            {/* Queue Progress */}
-            {hasQueue && (
-              <div className="text-[9px] text-gray-500 text-center mt-1">
-                {currentQueueIndex + 1} of {theaterQueue.length}
-              </div>
-            )}
-
-            {/* Mini Queue View */}
-            {showQueue && hasQueue && (
-              <div className="mt-2 pt-2 border-t border-gray-700/50 max-h-24 overflow-y-auto">
-                {theaterQueue.slice(currentQueueIndex, currentQueueIndex + 3).map((item, idx) => (
-                  <div
-                    key={item._id || idx}
-                    className={`text-[10px] truncate py-0.5 ${
-                      idx === 0 ? 'text-yellow-400' : 'text-gray-500'
-                    }`}
-                  >
-                    {idx === 0 ? '▶ ' : '  '}{item.songName}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -641,16 +608,21 @@ const MediaControlCenter = memo(({
             <span className="text-[8px] mt-0.5">Queue</span>
           </button>
 
-          {/* Favorite */}
-          <div className="p-2 rounded-lg flex flex-col items-center justify-center">
-            {currentMoment?._id && (
-              <FavoriteButton momentId={currentMoment._id} size="sm" showLabel />
-            )}
-          </div>
+          {/* Favorite - simple heart */}
+          <button
+            onClick={() => setIsFavorited(!isFavorited)}
+            className={`p-2 rounded-lg transition-colors flex flex-col items-center ${
+              isFavorited ? 'text-red-500' : 'text-gray-400 hover:text-red-400 hover:bg-red-900/40'
+            }`}
+            title={isFavorited ? 'Unfavorite' : 'Favorite'}
+          >
+            <Heart size={14} fill={isFavorited ? 'currentColor' : 'none'} />
+            <span className="text-[8px] mt-0.5">Fav</span>
+          </button>
 
           {/* Comments */}
           <button
-            onClick={() => onShowComments?.()}
+            onClick={() => openComments?.()}
             className="p-2 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-blue-900/40 transition-colors flex flex-col items-center"
             title="Comments"
           >
@@ -660,7 +632,7 @@ const MediaControlCenter = memo(({
 
           {/* Info */}
           <button
-            onClick={() => onShowInfo?.()}
+            onClick={() => openInfo?.()}
             className="p-2 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-blue-900/40 transition-colors flex flex-col items-center"
             title="Details"
           >
@@ -680,41 +652,6 @@ const MediaControlCenter = memo(({
             <span className="text-[8px] mt-0.5">Full</span>
           </button>
         </div>
-
-        {/* Queue Section */}
-        {hasQueue && (
-          <div className="mt-3 pt-2 border-t border-gray-700/50">
-            <button
-              onClick={() => setShowQueue(!showQueue)}
-              className="flex items-center justify-between w-full text-xs text-gray-400 hover:text-white transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <ListMusic size={14} className="text-yellow-400" />
-                <span>Queue ({currentQueueIndex + 1}/{theaterQueue.length})</span>
-              </div>
-              {showQueue ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-
-            {showQueue && (
-              <div className="mt-2 max-h-32 overflow-y-auto">
-                {theaterQueue.map((item, idx) => (
-                  <div
-                    key={item._id || idx}
-                    className={`text-xs truncate py-1 px-2 rounded ${
-                      idx === currentQueueIndex
-                        ? 'text-yellow-400 bg-yellow-900/30'
-                        : idx < currentQueueIndex
-                          ? 'text-gray-600'
-                          : 'text-gray-400'
-                    }`}
-                  >
-                    {idx === currentQueueIndex ? '▶ ' : `${idx + 1}. `}{item.songName}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
