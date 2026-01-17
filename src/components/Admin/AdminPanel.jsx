@@ -993,6 +993,12 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token, isAdmi
   const [irysRefreshing, setIrysRefreshing] = useState(false);
   const [irysResult, setIrysResult] = useState(null);
 
+  // Selectable Irys moments
+  const [irysMoments, setIrysMoments] = useState([]);
+  const [selectedMomentIds, setSelectedMomentIds] = useState(new Set());
+  const [loadingMoments, setLoadingMoments] = useState(false);
+  const [showMomentList, setShowMomentList] = useState(false);
+
   // Fetch Irys URL status
   const fetchIrysStatus = useCallback(async () => {
     try {
@@ -1025,6 +1031,78 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token, isAdmi
       setIrysResult(data);
       if (!dryRun) {
         fetchIrysStatus();
+      }
+    } catch (err) {
+      setIrysResult({ error: err.message });
+    } finally {
+      setIrysRefreshing(false);
+    }
+  };
+
+  // Fetch list of all Irys moments for selective refresh
+  const fetchIrysMoments = async () => {
+    setLoadingMoments(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/irys/moments`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setIrysMoments(data.moments || []);
+        setShowMomentList(true);
+      }
+    } catch (err) {
+      console.error('Failed to fetch Irys moments:', err);
+    } finally {
+      setLoadingMoments(false);
+    }
+  };
+
+  // Toggle selection of a moment
+  const toggleMomentSelection = (momentId) => {
+    setSelectedMomentIds(prev => {
+      const next = new Set(prev);
+      if (next.has(momentId)) {
+        next.delete(momentId);
+      } else {
+        next.add(momentId);
+      }
+      return next;
+    });
+  };
+
+  // Select/deselect all moments
+  const toggleSelectAll = () => {
+    if (selectedMomentIds.size === irysMoments.length) {
+      setSelectedMomentIds(new Set());
+    } else {
+      setSelectedMomentIds(new Set(irysMoments.map(m => m.id)));
+    }
+  };
+
+  // Refresh only selected moments
+  const handleRefreshSelected = async (dryRun = true) => {
+    if (selectedMomentIds.size === 0) return;
+
+    setIrysRefreshing(true);
+    setIrysResult(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/irys/refresh-selected`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          momentIds: Array.from(selectedMomentIds),
+          dryRun
+        })
+      });
+      const data = await response.json();
+      setIrysResult(data);
+      if (!dryRun) {
+        fetchIrysStatus();
+        fetchIrysMoments(); // Refresh the list
       }
     } catch (err) {
       setIrysResult({ error: err.message });
@@ -1297,6 +1375,98 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token, isAdmi
                   {irysRefreshing ? 'Running...' : 'Refresh Now'}
                 </button>
               </div>
+            </div>
+
+            {/* Selective Refresh */}
+            <div className="pt-3 border-t border-cyan-200">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-gray-600">
+                  Or select specific clips to refresh:
+                </p>
+                <button
+                  onClick={fetchIrysMoments}
+                  disabled={loadingMoments}
+                  className="px-3 py-1 bg-cyan-100 text-cyan-700 rounded text-xs hover:bg-cyan-200 transition-colors"
+                >
+                  {loadingMoments ? 'Loading...' : showMomentList ? 'Refresh List' : 'Load Clips'}
+                </button>
+              </div>
+
+              {showMomentList && irysMoments.length > 0 && (
+                <div className="bg-white border border-cyan-200 rounded-lg overflow-hidden">
+                  {/* Header with select all */}
+                  <div className="flex items-center justify-between px-3 py-2 bg-cyan-50 border-b border-cyan-200">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedMomentIds.size === irysMoments.length && irysMoments.length > 0}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 rounded border-cyan-300 text-cyan-600 focus:ring-cyan-500"
+                      />
+                      <span className="text-xs font-medium text-cyan-800">
+                        Select All ({irysMoments.length} clips)
+                      </span>
+                    </label>
+                    <span className="text-xs text-cyan-600">
+                      {selectedMomentIds.size} selected
+                    </span>
+                  </div>
+
+                  {/* Scrollable list */}
+                  <div className="max-h-48 overflow-y-auto">
+                    {irysMoments.map(moment => (
+                      <label
+                        key={moment.id}
+                        className={`flex items-center gap-3 px-3 py-2 border-b border-gray-100 hover:bg-cyan-50 cursor-pointer ${
+                          selectedMomentIds.has(moment.id) ? 'bg-cyan-50' : ''
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedMomentIds.has(moment.id)}
+                          onChange={() => toggleMomentSelection(moment.id)}
+                          className="w-4 h-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-800 truncate">
+                            {moment.songName || 'Untitled'}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate">
+                            {moment.venueName} • {moment.date}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-400 flex-shrink-0">
+                          {moment.mediaType}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* Actions for selected */}
+                  {selectedMomentIds.size > 0 && (
+                    <div className="flex gap-2 p-3 bg-cyan-50 border-t border-cyan-200">
+                      <button
+                        onClick={() => handleRefreshSelected(true)}
+                        disabled={irysRefreshing}
+                        className="flex-1 px-3 py-1.5 bg-cyan-600 text-white rounded text-sm hover:bg-cyan-700 disabled:opacity-50 transition-colors"
+                      >
+                        {irysRefreshing ? 'Running...' : `Dry Run (${selectedMomentIds.size})`}
+                      </button>
+                      <button
+                        onClick={() => handleRefreshSelected(false)}
+                        disabled={irysRefreshing}
+                        className="flex-1 px-3 py-1.5 bg-teal-600 text-white rounded text-sm hover:bg-teal-700 disabled:opacity-50 transition-colors"
+                      >
+                        {irysRefreshing ? 'Running...' : `Refresh (${selectedMomentIds.size})`}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {showMomentList && irysMoments.length === 0 && !loadingMoments && (
+                <p className="text-xs text-gray-500 italic">No clips found with Irys URLs.</p>
+              )}
             </div>
 
             {/* Results */}

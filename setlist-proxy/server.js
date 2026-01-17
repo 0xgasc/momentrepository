@@ -5286,7 +5286,121 @@ app.get('/admin/irys/status', authenticateToken, requireAdmin, async (req, res) 
   }
 });
 
-// Manual bulk refresh trigger
+// List all moments with Irys URLs (for selective refresh)
+app.get('/admin/irys/moments', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const moments = await irysRefreshService.getMomentsWithIrysUrls();
+    res.json({
+      success: true,
+      count: moments.length,
+      moments: moments.map(m => ({
+        id: m._id.toString(),
+        _id: m._id,
+        songName: m.songName || 'Untitled',
+        venueName: m.venueName || '',
+        date: m.eventDate ? new Date(m.eventDate).toLocaleDateString() : '',
+        eventDate: m.eventDate,
+        mediaUrl: m.mediaUrl,
+        mediaType: m.mediaType,
+        fileName: m.fileName
+      }))
+    });
+  } catch (error) {
+    console.error('Irys moments list error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Refresh specific moments by ID
+app.post('/admin/irys/refresh-selected', authenticateToken, requireAdmin, async (req, res) => {
+  const { momentIds = [], dryRun = false } = req.body;
+
+  if (!momentIds.length) {
+    return res.status(400).json({ error: 'No moment IDs provided' });
+  }
+
+  try {
+    console.log(`Irys selective refresh - ${momentIds.length} moments, dryRun: ${dryRun}`);
+
+    // Get the selected moments
+    const moments = await Moment.find({ _id: { $in: momentIds } }).lean();
+
+    if (!moments.length) {
+      return res.status(404).json({ error: 'No moments found with provided IDs' });
+    }
+
+    const results = {
+      total: moments.length,
+      processed: 0,
+      updated: 0,
+      failed: 0,
+      details: []
+    };
+
+    for (const moment of moments) {
+      console.log(`Processing moment ${moment._id} (${moment.songName || 'Untitled'})...`);
+
+      if (dryRun) {
+        results.processed++;
+        results.details.push({
+          id: moment._id,
+          songName: moment.songName,
+          status: 'would_refresh',
+          mediaUrl: moment.mediaUrl
+        });
+        continue;
+      }
+
+      try {
+        const refreshed = await irysRefreshService.refreshMomentUrls(moment);
+        const updates = {};
+        if (refreshed.mediaUrl) updates.mediaUrl = refreshed.mediaUrl;
+        if (refreshed.thumbnailUrl) updates.thumbnailUrl = refreshed.thumbnailUrl;
+
+        if (Object.keys(updates).length > 0) {
+          updates.updatedAt = new Date();
+          await Moment.findByIdAndUpdate(moment._id, updates);
+          results.updated++;
+          results.details.push({
+            id: moment._id,
+            songName: moment.songName,
+            status: 'success',
+            newUrls: updates
+          });
+        } else if (refreshed.errors.length > 0) {
+          results.failed++;
+          results.details.push({
+            id: moment._id,
+            songName: moment.songName,
+            status: 'failed',
+            errors: refreshed.errors
+          });
+        }
+      } catch (err) {
+        results.failed++;
+        results.details.push({
+          id: moment._id,
+          songName: moment.songName,
+          status: 'failed',
+          error: err.message
+        });
+      }
+    }
+
+    results.processed = results.updated + results.failed;
+
+    res.json({
+      success: true,
+      message: dryRun ? 'Dry run complete' : 'Selective refresh complete',
+      results
+    });
+  } catch (error) {
+    console.error('Irys selective refresh error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Manual bulk refresh trigger (all moments)
 app.post('/admin/irys/refresh', authenticateToken, requireAdmin, async (req, res) => {
   const { dryRun = false, validateFirst = true, batchSize = 10 } = req.body;
 
