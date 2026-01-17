@@ -1077,7 +1077,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
       {/* Audio Mode */}
       {isAudio && moment ? (
-        <div className="relative w-full" style={{ paddingBottom: '45%', minHeight: '200px' }}>
+        <div className="relative w-full" style={{ paddingBottom: '56.25%', minHeight: '200px' }}>
           <audio
             key={`audio-${moment._id}`}
             ref={audioRef}
@@ -1103,30 +1103,73 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
             onEnded={handleNext}
           />
 
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-900" />
-
-          {/* Audio indicator */}
-          <div className="absolute top-4 right-4 z-20 flex items-center gap-2 bg-purple-600/80 backdrop-blur-sm px-3 py-1.5 rounded-full">
-            <Music size={14} className="text-white" />
-            <span className="text-white text-xs font-medium">Audio</span>
+          {/* Background - thumbnail or gradient */}
+          <div className="absolute inset-0">
+            {moment.thumbnailUrl ? (
+              <>
+                <img
+                  src={transformMediaUrl(moment.thumbnailUrl)}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+              </>
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-900/80 via-gray-900 to-black" />
+            )}
           </div>
 
-          {/* Play/Pause button */}
-          <button
-            onClick={togglePlayPause}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-15 bg-black/40 hover:bg-black/60 backdrop-blur-sm rounded-full p-4 transition-all hover:scale-110"
-          >
-            {isPlaying ? (
-              <Pause size={32} className="text-white" />
-            ) : (
-              <Play size={32} className="text-white ml-1" />
-            )}
-          </button>
+          {/* Center album art */}
+          <div className="absolute inset-0 flex items-center justify-center z-10">
+            <div className="relative">
+              {moment.thumbnailUrl ? (
+                <div className={`w-32 h-32 sm:w-40 sm:h-40 rounded-lg shadow-2xl overflow-hidden border-2 border-white/20 ${isPlaying ? 'animate-pulse' : ''}`}>
+                  <img
+                    src={transformMediaUrl(moment.thumbnailUrl)}
+                    alt={moment.songName}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className={`w-32 h-32 sm:w-40 sm:h-40 rounded-lg bg-gradient-to-br from-purple-600 to-purple-900 shadow-2xl flex items-center justify-center ${isPlaying ? 'animate-pulse' : ''}`}>
+                  <Music size={48} className="text-white/80" />
+                </div>
+              )}
+
+              {/* Play/Pause overlay on album art */}
+              <button
+                onClick={togglePlayPause}
+                className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/50 transition-colors rounded-lg"
+              >
+                {isPlaying ? (
+                  <Pause size={40} className="text-white drop-shadow-lg" />
+                ) : (
+                  <Play size={40} className="text-white ml-1 drop-shadow-lg" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Audio indicator badge */}
+          <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 bg-purple-600/90 backdrop-blur-sm px-2.5 py-1 rounded-full">
+            <Music size={12} className="text-white" />
+            <span className="text-white text-[10px] font-medium uppercase tracking-wide">Audio</span>
+          </div>
+
+          {/* Animated bars when playing */}
+          {isPlaying && (
+            <div className="absolute top-3 left-3 z-20 flex items-end gap-0.5 h-4">
+              <div className="w-1 bg-purple-400 rounded-full animate-bounce" style={{ height: '60%', animationDuration: '0.5s' }} />
+              <div className="w-1 bg-purple-400 rounded-full animate-bounce" style={{ height: '100%', animationDuration: '0.7s', animationDelay: '0.1s' }} />
+              <div className="w-1 bg-purple-400 rounded-full animate-bounce" style={{ height: '40%', animationDuration: '0.6s', animationDelay: '0.2s' }} />
+              <div className="w-1 bg-purple-400 rounded-full animate-bounce" style={{ height: '80%', animationDuration: '0.55s', animationDelay: '0.15s' }} />
+            </div>
+          )}
 
           {/* Autoplay blocked overlay */}
           {autoplayBlocked && !isPlaying && (
             <div
-              className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 cursor-pointer"
+              className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/70 cursor-pointer"
               onClick={() => {
                 setAutoplayBlocked(false);
                 togglePlayPause();
@@ -1138,19 +1181,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               <p className="text-white text-sm font-medium">Tap to play</p>
             </div>
           )}
-
-          {/* Song info - glassy */}
-          <div className="absolute bottom-0 left-0 right-0 bg-black/30 backdrop-blur-xl p-4 z-10 pointer-events-none border-t border-white/10">
-            <h3 className="text-white font-bold text-base sm:text-lg truncate drop-shadow-lg">
-              {moment.songName}
-            </h3>
-            <p className="text-gray-300 text-xs sm:text-sm truncate drop-shadow-md">
-              {moment.venueName}
-              {moment.venueCity && ` - ${moment.venueCity}`}
-              {moment.performanceDate && ` (${moment.performanceDate})`}
-            </p>
-          </div>
-          {/* No effects for audio */}
         </div>
       ) : isYouTube && youtubeId ? (
         /* YouTube Mode with API control */
@@ -1330,37 +1360,53 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
       {/* YouTube progress bar overlay only */}
       {isYouTube && ytProgress.duration > 0 && showControls && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 z-30">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 z-30">
           {(() => {
             const segmentStart = moment?.startTime || 0;
             const segmentEnd = moment?.endTime || ytProgress.duration;
             const segmentDuration = segmentEnd - segmentStart;
             const relativeTime = Math.max(0, ytProgress.currentTime - segmentStart);
             const progressPercent = segmentDuration > 0 ? Math.min(100, (relativeTime / segmentDuration) * 100) : 0;
+            const formatTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
             return (
-              <div
-                className="relative h-1.5 bg-gray-700/50 rounded-full cursor-pointer group"
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const clickX = e.clientX - rect.left;
-                  const percentage = clickX / rect.width;
-                  const seekTime = segmentStart + (percentage * segmentDuration);
-                  try {
-                    ytPlayerRef.current?.seekTo(seekTime, true);
-                  } catch (err) {
-                    // Seek error
-                  }
-                }}
-              >
+              <div className="space-y-2">
+                {/* Time display */}
+                <div className="flex items-center justify-between text-[11px] text-white/80 font-mono px-0.5">
+                  <span>{formatTime(relativeTime)}</span>
+                  <span>{formatTime(segmentDuration)}</span>
+                </div>
+                {/* Progress bar */}
                 <div
-                  className="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all duration-150"
-                  style={{ width: `${progressPercent}%` }}
-                />
-                <div
-                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ left: `calc(${progressPercent}% - 6px)` }}
-                />
+                  className="relative h-1 bg-white/20 rounded-full cursor-pointer group hover:h-1.5 transition-all"
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const percentage = clickX / rect.width;
+                    const seekTime = segmentStart + (percentage * segmentDuration);
+                    try {
+                      ytPlayerRef.current?.seekTo(seekTime, true);
+                    } catch (err) {
+                      // Seek error
+                    }
+                  }}
+                >
+                  {/* Buffer indicator (fake for now) */}
+                  <div
+                    className="absolute top-0 left-0 h-full bg-white/30 rounded-full"
+                    style={{ width: `${Math.min(100, progressPercent + 15)}%` }}
+                  />
+                  {/* Progress fill */}
+                  <div
+                    className="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all duration-100"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                  {/* Playhead */}
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity scale-0 group-hover:scale-100"
+                    style={{ left: `calc(${progressPercent}% - 6px)` }}
+                  />
+                </div>
               </div>
             );
           })()}

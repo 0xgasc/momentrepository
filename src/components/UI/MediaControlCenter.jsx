@@ -3,7 +3,8 @@ import React, { useState, useRef, useEffect, memo, useCallback } from 'react';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
   Maximize2, Minimize2, GripHorizontal, X, Shuffle, Droplet,
-  ListPlus, MessageSquare, Info, Heart, PictureInPicture, Disc3
+  ListPlus, MessageSquare, Info, Heart, PictureInPicture, Disc3,
+  ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 
