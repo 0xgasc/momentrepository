@@ -1,6 +1,6 @@
 // src/components/UI/VideoHero.jsx - Hero player for random video/audio clips
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
-import { Play, Pause, Music, Loader2 } from 'lucide-react';
+import { Play, Pause, Music, Loader2, Volume2, VolumeX, SkipForward, Minimize2, Maximize2, ListMusic } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import UMOEffect from './UMOEffect';
