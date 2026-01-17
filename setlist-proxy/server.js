@@ -5162,14 +5162,21 @@ app.post('/admin/irys/refresh-selected', authenticateToken, requireAdmin, async 
         if (refreshed.thumbnailUrl) updates.thumbnailUrl = refreshed.thumbnailUrl;
 
         if (Object.keys(updates).length > 0) {
-          updates.updatedAt = new Date();
-          await Moment.findByIdAndUpdate(moment._id, updates);
+          const now = new Date();
+          // Use $set to ensure updatedAt is explicitly written
+          const updateResult = await Moment.findByIdAndUpdate(
+            moment._id,
+            { $set: { ...updates, updatedAt: now } },
+            { new: true }
+          );
+          console.log(`  Updated moment ${moment._id}, new updatedAt: ${updateResult?.updatedAt}`);
           results.updated++;
           results.details.push({
             id: moment._id,
             songName: moment.songName,
             status: 'success',
-            newUrls: updates
+            newUrls: updates,
+            updatedAt: now.toISOString()
           });
         } else if (refreshed.errors.length > 0) {
           results.failed++;

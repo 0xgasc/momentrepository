@@ -246,11 +246,15 @@ async function bulkRefreshIrysUrls(options = {}) {
         if (refreshed.thumbnailUrl) updates.thumbnailUrl = refreshed.thumbnailUrl;
 
         if (Object.keys(updates).length > 0) {
-          // Update the database
-          updates.updatedAt = new Date();
-          await Moment.findByIdAndUpdate(moment._id, updates);
+          // Update the database with $set to ensure updatedAt is written
+          const now = new Date();
+          await Moment.findByIdAndUpdate(
+            moment._id,
+            { $set: { ...updates, updatedAt: now } },
+            { new: true }
+          );
           results.updated++;
-          console.log(`  Database updated with new URLs.`);
+          console.log(`  Database updated with new URLs. updatedAt: ${now.toISOString()}`);
         }
 
         if (refreshed.errors.length > 0) {

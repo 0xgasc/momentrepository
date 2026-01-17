@@ -1418,8 +1418,10 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token, isAdmi
                       // Helper to format time ago
                       const formatTimeAgo = (date) => {
                         if (!date) return '';
+                        const dateObj = new Date(date);
+                        if (isNaN(dateObj.getTime())) return '';
                         const now = new Date();
-                        const diffMs = now - new Date(date);
+                        const diffMs = now - dateObj;
                         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
                         if (diffDays === 0) return 'Today';
                         if (diffDays === 1) return '1d ago';
@@ -1430,9 +1432,15 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token, isAdmi
 
                       const uploadedAgo = formatTimeAgo(moment.createdAt);
 
-                      // Check if it was refreshed (updatedAt differs from createdAt by more than 1 minute)
-                      const wasRefreshed = moment.updatedAt && moment.createdAt &&
-                        (new Date(moment.updatedAt) - new Date(moment.createdAt)) > 60000;
+                      // Check if it was refreshed - handle cases where createdAt might be missing
+                      const hasValidUpdatedAt = moment.updatedAt && !isNaN(new Date(moment.updatedAt).getTime());
+                      const hasValidCreatedAt = moment.createdAt && !isNaN(new Date(moment.createdAt).getTime());
+
+                      // Show as refreshed if: updatedAt exists and either createdAt is missing OR they differ by >1min
+                      const wasRefreshed = hasValidUpdatedAt && (
+                        !hasValidCreatedAt ||
+                        (new Date(moment.updatedAt) - new Date(moment.createdAt)) > 60000
+                      );
                       const refreshedAgo = wasRefreshed ? formatTimeAgo(moment.updatedAt) : null;
 
                       return (
@@ -1560,7 +1568,9 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token, isAdmi
                                 }`}
                               >
                                 <span className="font-medium">{detail.songName || 'Untitled'}</span>
-                                {detail.status === 'success' && ' - Re-uploaded successfully'}
+                                {detail.status === 'success' && (
+                                  <span> - Re-uploaded {detail.updatedAt ? `(${new Date(detail.updatedAt).toLocaleTimeString()})` : 'successfully'}</span>
+                                )}
                                 {detail.status === 'failed' && ` - Failed: ${detail.error || detail.errors?.[0]?.error || 'Unknown error'}`}
                                 {detail.status === 'would_refresh' && ' - Would be re-uploaded'}
                               </div>
