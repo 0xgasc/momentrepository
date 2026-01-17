@@ -1500,21 +1500,69 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token, isAdmi
               )}
             </div>
 
+            {/* Loading State */}
+            {irysRefreshing && (
+              <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded">
+                <div className="flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                  <div>
+                    <p className="text-sm font-medium text-blue-800">Processing...</p>
+                    <p className="text-xs text-blue-600">
+                      Re-uploading {selectedMomentIds.size} clip{selectedMomentIds.size !== 1 ? 's' : ''} to Irys. This may take a few minutes for large files.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Results */}
-            {irysResult && (
-              <div className={`mt-3 p-3 rounded text-sm ${irysResult.error ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+            {irysResult && !irysRefreshing && (
+              <div className={`mt-3 p-3 rounded text-sm ${irysResult.error ? 'bg-red-100 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
                 {irysResult.error ? (
-                  <p>Error: {irysResult.error}</p>
+                  <div className="text-red-800">
+                    <p className="font-medium">Error</p>
+                    <p className="text-xs mt-1">{irysResult.error}</p>
+                  </div>
                 ) : (
                   <div>
-                    <p className="font-medium">{irysResult.message}</p>
+                    <p className="font-medium text-green-800">{irysResult.message}</p>
                     {irysResult.results && (
-                      <div className="mt-1 text-xs">
-                        Total: {irysResult.results.total} •
-                        Updated: {irysResult.results.updated} •
-                        Skipped: {irysResult.results.skipped} •
-                        Failed: {irysResult.results.failed}
-                      </div>
+                      <>
+                        <div className="mt-2 flex gap-4 text-xs">
+                          <span className="text-gray-600">Total: <strong>{irysResult.results.total}</strong></span>
+                          {irysResult.results.updated > 0 && (
+                            <span className="text-green-700">Updated: <strong>{irysResult.results.updated}</strong></span>
+                          )}
+                          {irysResult.results.skipped > 0 && (
+                            <span className="text-gray-500">Skipped: <strong>{irysResult.results.skipped}</strong></span>
+                          )}
+                          {irysResult.results.failed > 0 && (
+                            <span className="text-red-600">Failed: <strong>{irysResult.results.failed}</strong></span>
+                          )}
+                        </div>
+
+                        {/* Show individual details if any failed or updated */}
+                        {irysResult.results.details && irysResult.results.details.length > 0 && (
+                          <div className="mt-3 max-h-32 overflow-y-auto">
+                            {irysResult.results.details.map((detail, idx) => (
+                              <div
+                                key={idx}
+                                className={`text-xs py-1 px-2 mb-1 rounded ${
+                                  detail.status === 'success' ? 'bg-green-100 text-green-800' :
+                                  detail.status === 'failed' ? 'bg-red-100 text-red-800' :
+                                  detail.status === 'would_refresh' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-700'
+                                }`}
+                              >
+                                <span className="font-medium">{detail.songName || 'Untitled'}</span>
+                                {detail.status === 'success' && ' - Re-uploaded successfully'}
+                                {detail.status === 'failed' && ` - Failed: ${detail.error || detail.errors?.[0]?.error || 'Unknown error'}`}
+                                {detail.status === 'would_refresh' && ' - Would be re-uploaded'}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
