@@ -328,6 +328,7 @@ const AdminPanel = memo(({ onClose }) => {
               platformSettings={platformSettings}
               setPlatformSettings={setPlatformSettings}
               token={token}
+              isAdmin={isAdmin}
             />
           )}
 
@@ -979,13 +980,65 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
 });
 
 // Platform Settings Tab
-const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
+const SettingsTab = memo(({ platformSettings, setPlatformSettings, token, isAdmin }) => {
   // eslint-disable-next-line no-unused-vars
   const { cacheStatus, showDetails, refreshing, refreshStatus, handleRefresh, toggleDetails, checkRefreshStatus } = useCacheStatus(API_BASE_URL);
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [localSettings, setLocalSettings] = useState(platformSettings);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Irys refresh state
+  const [irysStatus, setIrysStatus] = useState(null);
+  const [irysRefreshing, setIrysRefreshing] = useState(false);
+  const [irysResult, setIrysResult] = useState(null);
+
+  // Fetch Irys URL status
+  const fetchIrysStatus = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/irys/status`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setIrysStatus(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch Irys status:', err);
+    }
+  }, [token]);
+
+  // Trigger Irys refresh (dry run or live)
+  const handleIrysRefresh = async (dryRun = true) => {
+    setIrysRefreshing(true);
+    setIrysResult(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/irys/refresh`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ dryRun, validateFirst: true, batchSize: 5 })
+      });
+      const data = await response.json();
+      setIrysResult(data);
+      if (!dryRun) {
+        fetchIrysStatus();
+      }
+    } catch (err) {
+      setIrysResult({ error: err.message });
+    } finally {
+      setIrysRefreshing(false);
+    }
+  };
+
+  // Fetch Irys status on mount
+  useEffect(() => {
+    if (isAdmin) {
+      fetchIrysStatus();
+    }
+  }, [isAdmin, fetchIrysStatus]);
   
   // Update platformSettings when props change
   React.useEffect(() => {
@@ -1186,7 +1239,90 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token }) => {
           </div>
         </div>
       )}
-      
+
+      {/* Irys Storage Management */}
+      {isAdmin && (
+        <div className="bg-gradient-to-r from-cyan-50 to-teal-50 rounded-sm p-6 border border-cyan-200">
+          <h4 className="text-lg font-semibold text-cyan-900 mb-4 flex items-center gap-2">
+            💾 Irys Storage Management
+          </h4>
+
+          <div className="space-y-4">
+            {/* Status */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Uploaded Clips Status</p>
+                {irysStatus ? (
+                  <div className="text-xs text-gray-600 mt-1">
+                    <span className="font-medium">{irysStatus.totalWithIrysUrls}</span> clips on Irys devnet
+                    {irysStatus.sampleSize > 0 && (
+                      <span className="ml-2">
+                        • Sample check: <span className={irysStatus.sampleExpired > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>{irysStatus.sampleValid}/{irysStatus.sampleSize} accessible</span>
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-1">Loading status...</p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchIrysStatus}
+                  className="px-3 py-1.5 bg-cyan-100 text-cyan-700 rounded text-sm hover:bg-cyan-200 transition-colors"
+                >
+                  Check Status
+                </button>
+              </div>
+            </div>
+
+            {/* Refresh Actions */}
+            <div className="pt-3 border-t border-cyan-200">
+              <p className="text-xs text-gray-600 mb-3">
+                Re-upload clips with expired URLs to refresh their availability. Dry run shows what would be refreshed without making changes.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleIrysRefresh(true)}
+                  disabled={irysRefreshing}
+                  className="px-3 py-1.5 bg-cyan-600 text-white rounded text-sm hover:bg-cyan-700 disabled:opacity-50 transition-colors"
+                >
+                  {irysRefreshing ? 'Running...' : 'Dry Run'}
+                </button>
+                <button
+                  onClick={() => handleIrysRefresh(false)}
+                  disabled={irysRefreshing}
+                  className="px-3 py-1.5 bg-teal-600 text-white rounded text-sm hover:bg-teal-700 disabled:opacity-50 transition-colors"
+                >
+                  {irysRefreshing ? 'Running...' : 'Refresh Now'}
+                </button>
+              </div>
+            </div>
+
+            {/* Results */}
+            {irysResult && (
+              <div className={`mt-3 p-3 rounded text-sm ${irysResult.error ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                {irysResult.error ? (
+                  <p>Error: {irysResult.error}</p>
+                ) : (
+                  <div>
+                    <p className="font-medium">{irysResult.message}</p>
+                    {irysResult.results && (
+                      <div className="mt-1 text-xs">
+                        Total: {irysResult.results.total} •
+                        Updated: {irysResult.results.updated} •
+                        Skipped: {irysResult.results.skipped} •
+                        Failed: {irysResult.results.failed}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Web3/NFT Settings */}
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-sm p-6 border border-purple-200">
         <h4 className="text-lg font-semibold text-purple-900 mb-4 flex items-center gap-2">

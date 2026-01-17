@@ -4,6 +4,18 @@ const { uploadFileToIrys, checkBalance } = require('./irysUploader');
 const Moment = require('../models/Moment');
 
 /**
+ * Convert HTTPS devnet.irys.xyz URLs to HTTP (workaround for SSL issues)
+ * @param {string} url - The original URL
+ * @returns {string} - URL with HTTP if it's a devnet.irys.xyz URL
+ */
+function getWorkingUrl(url) {
+  if (url && url.includes('devnet.irys.xyz')) {
+    return url.replace('https://', 'http://');
+  }
+  return url;
+}
+
+/**
  * Check if a URL is still accessible
  * @param {string} url - The URL to check
  * @returns {Promise<boolean>} - True if URL is valid, false otherwise
@@ -14,7 +26,10 @@ async function checkUrlValidity(url) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-    const response = await fetch(url, {
+    // Use HTTP for devnet.irys.xyz (their HTTPS is broken)
+    const workingUrl = getWorkingUrl(url);
+
+    const response = await fetch(workingUrl, {
       method: 'HEAD',
       signal: controller.signal
     });
@@ -50,8 +65,12 @@ async function downloadToBuffer(url) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 300000); // 5 minute timeout for large files
 
+  // Use HTTP for devnet.irys.xyz (their HTTPS is broken)
+  const workingUrl = getWorkingUrl(url);
+  console.log(`  Downloading from: ${workingUrl}`);
+
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(workingUrl, { signal: controller.signal });
     clearTimeout(timeout);
 
     if (!response.ok) {
