@@ -1258,8 +1258,8 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         </div>
       )}
 
-      {/* Bottom controls - glassy effect */}
-      <div className={`absolute bottom-0 left-0 right-0 bg-black/30 backdrop-blur-xl p-3 sm:p-4 z-30 transition-opacity duration-300 border-t border-white/10 ${
+      {/* Top controls - glassy effect */}
+      <div className={`absolute top-0 left-0 right-0 bg-black/30 backdrop-blur-xl p-3 sm:p-4 z-30 transition-opacity duration-300 border-b border-white/10 ${
         showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}>
         {/* WaveformPlayer - simple mode for video, full waveform for audio */}
