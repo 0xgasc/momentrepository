@@ -5104,7 +5104,9 @@ app.get('/admin/irys/moments', authenticateToken, requireAdmin, async (req, res)
         eventDate: m.eventDate,
         mediaUrl: m.mediaUrl,
         mediaType: m.mediaType,
-        fileName: m.fileName
+        fileName: m.fileName,
+        createdAt: m.createdAt,
+        updatedAt: m.updatedAt
       }))
     });
   } catch (error) {

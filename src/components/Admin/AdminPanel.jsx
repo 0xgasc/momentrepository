@@ -1413,33 +1413,64 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token, isAdmi
                   </div>
 
                   {/* Scrollable list */}
-                  <div className="max-h-48 overflow-y-auto">
-                    {irysMoments.map(moment => (
-                      <label
-                        key={moment.id}
-                        className={`flex items-center gap-3 px-3 py-2 border-b border-gray-100 hover:bg-cyan-50 cursor-pointer ${
-                          selectedMomentIds.has(moment.id) ? 'bg-cyan-50' : ''
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedMomentIds.has(moment.id)}
-                          onChange={() => toggleMomentSelection(moment.id)}
-                          className="w-4 h-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-gray-800 truncate">
-                            {moment.songName || 'Untitled'}
+                  <div className="max-h-48 overflow-y-auto bg-white">
+                    {irysMoments.map(moment => {
+                      // Calculate time since upload
+                      const uploadDate = moment.createdAt ? new Date(moment.createdAt) : null;
+                      let timeAgo = '';
+                      if (uploadDate) {
+                        const now = new Date();
+                        const diffMs = now - uploadDate;
+                        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                        if (diffDays === 0) {
+                          timeAgo = 'Today';
+                        } else if (diffDays === 1) {
+                          timeAgo = '1 day ago';
+                        } else if (diffDays < 30) {
+                          timeAgo = `${diffDays} days ago`;
+                        } else if (diffDays < 60) {
+                          timeAgo = '1 month ago';
+                        } else {
+                          timeAgo = `${Math.floor(diffDays / 30)} months ago`;
+                        }
+                      }
+
+                      return (
+                        <label
+                          key={moment.id}
+                          className={`flex items-center gap-3 px-3 py-2 border-b border-gray-200 cursor-pointer transition-colors ${
+                            selectedMomentIds.has(moment.id)
+                              ? 'bg-cyan-100 hover:bg-cyan-200'
+                              : 'bg-white hover:bg-gray-100'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedMomentIds.has(moment.id)}
+                            onChange={() => toggleMomentSelection(moment.id)}
+                            className="w-4 h-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate">
+                              {moment.songName || 'Untitled'}
+                            </div>
+                            <div className="text-xs text-gray-600 truncate">
+                              {moment.venueName} • {moment.date}
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-500 truncate">
-                            {moment.venueName} • {moment.date}
+                          <div className="text-right flex-shrink-0">
+                            <div className="text-xs text-gray-500">
+                              {moment.mediaType}
+                            </div>
+                            {timeAgo && (
+                              <div className="text-[10px] text-cyan-600">
+                                {timeAgo}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                        <div className="text-xs text-gray-400 flex-shrink-0">
-                          {moment.mediaType}
-                        </div>
-                      </label>
-                    ))}
+                        </label>
+                      );
+                    })}
                   </div>
 
                   {/* Actions for selected */}
