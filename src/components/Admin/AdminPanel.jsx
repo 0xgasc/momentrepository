@@ -1415,25 +1415,25 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token, isAdmi
                   {/* Scrollable list */}
                   <div className="max-h-48 overflow-y-auto bg-white">
                     {irysMoments.map(moment => {
-                      // Calculate time since upload
-                      const uploadDate = moment.createdAt ? new Date(moment.createdAt) : null;
-                      let timeAgo = '';
-                      if (uploadDate) {
+                      // Helper to format time ago
+                      const formatTimeAgo = (date) => {
+                        if (!date) return '';
                         const now = new Date();
-                        const diffMs = now - uploadDate;
+                        const diffMs = now - new Date(date);
                         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                        if (diffDays === 0) {
-                          timeAgo = 'Today';
-                        } else if (diffDays === 1) {
-                          timeAgo = '1 day ago';
-                        } else if (diffDays < 30) {
-                          timeAgo = `${diffDays} days ago`;
-                        } else if (diffDays < 60) {
-                          timeAgo = '1 month ago';
-                        } else {
-                          timeAgo = `${Math.floor(diffDays / 30)} months ago`;
-                        }
-                      }
+                        if (diffDays === 0) return 'Today';
+                        if (diffDays === 1) return '1d ago';
+                        if (diffDays < 30) return `${diffDays}d ago`;
+                        if (diffDays < 60) return '1mo ago';
+                        return `${Math.floor(diffDays / 30)}mo ago`;
+                      };
+
+                      const uploadedAgo = formatTimeAgo(moment.createdAt);
+
+                      // Check if it was refreshed (updatedAt differs from createdAt by more than 1 minute)
+                      const wasRefreshed = moment.updatedAt && moment.createdAt &&
+                        (new Date(moment.updatedAt) - new Date(moment.createdAt)) > 60000;
+                      const refreshedAgo = wasRefreshed ? formatTimeAgo(moment.updatedAt) : null;
 
                       return (
                         <label
@@ -1458,13 +1458,18 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token, isAdmi
                               {moment.venueName} • {moment.date}
                             </div>
                           </div>
-                          <div className="text-right flex-shrink-0">
+                          <div className="text-right flex-shrink-0 min-w-[70px]">
                             <div className="text-xs text-gray-500">
                               {moment.mediaType}
                             </div>
-                            {timeAgo && (
+                            {uploadedAgo && (
                               <div className="text-[10px] text-cyan-600">
-                                {timeAgo}
+                                Uploaded {uploadedAgo}
+                              </div>
+                            )}
+                            {refreshedAgo && (
+                              <div className="text-[10px] text-green-600 font-medium">
+                                Refreshed {refreshedAgo}
                               </div>
                             )}
                           </div>
