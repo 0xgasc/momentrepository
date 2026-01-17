@@ -976,61 +976,93 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   const youtubeId = isYouTube ? (moment?.externalVideoId || getYouTubeId(moment?.mediaUrl)) : null;
   const startTime = moment?.startTime || 0;
 
-  // Minimized view - mobile optimized
+  // Minimized view - mobile optimized with progress bar
   if (isMinimized) {
+    // Calculate progress for minimized view
+    const getProgress = () => {
+      if (isYouTube && ytProgress.duration > 0) {
+        const segmentStart = moment?.startTime || 0;
+        const segmentEnd = moment?.endTime || ytProgress.duration;
+        const segmentDuration = segmentEnd - segmentStart;
+        const relativeTime = Math.max(0, ytProgress.currentTime - segmentStart);
+        return segmentDuration > 0 ? Math.min(100, (relativeTime / segmentDuration) * 100) : 0;
+      }
+      if (isAudio && audioRef.current) {
+        const duration = audioRef.current.duration || 0;
+        const currentTime = audioRef.current.currentTime || 0;
+        return duration > 0 ? (currentTime / duration) * 100 : 0;
+      }
+      if (!isAudio && !isYouTube && videoRef.current) {
+        const duration = videoRef.current.duration || 0;
+        const currentTime = videoRef.current.currentTime || 0;
+        return duration > 0 ? (currentTime / duration) * 100 : 0;
+      }
+      return 0;
+    };
+
     return (
       <div className="mb-4 sm:mb-6 bg-gray-900 border border-gray-700 rounded-sm overflow-hidden">
-        <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3">
-          <div className="flex-1 min-w-0 cursor-pointer" onClick={handleInfoClick}>
+        {/* Progress bar at top */}
+        <div className="h-1 bg-gray-800 w-full">
+          <div
+            className="h-full bg-yellow-500 transition-all duration-200"
+            style={{ width: `${getProgress()}%` }}
+          />
+        </div>
+
+        <div className="flex items-center px-3 sm:px-4 py-2 sm:py-3 gap-3">
+          {/* Fixed width info section */}
+          <div className="w-32 sm:w-48 flex-shrink-0 cursor-pointer" onClick={handleInfoClick}>
             {moment && (
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-800 rounded flex items-center justify-center flex-shrink-0">
-                  {isAudio ? <Music size={14} className="text-yellow-400" /> : <Play size={14} className="text-yellow-400" />}
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gray-800 rounded flex items-center justify-center flex-shrink-0">
+                  {isAudio ? <Music size={12} className="text-yellow-400" /> : <Play size={12} className="text-yellow-400" />}
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-white font-medium text-xs sm:text-sm truncate">{moment.songName}</h3>
-                  <p className="text-gray-500 text-xs truncate">{moment.venueName}</p>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-white font-medium text-xs truncate">{moment.songName}</h3>
+                  <p className="text-gray-500 text-[10px] truncate">{moment.venueName}</p>
                 </div>
               </div>
             )}
           </div>
 
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Queue indicator */}
           {isPlayingFromQueue && (
-            <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-yellow-900/30 border border-yellow-700/50 rounded mr-2">
-              <ListMusic size={12} className="text-yellow-400" />
-              <span className="text-yellow-400 text-xs font-mono">{currentQueueIndex + 1}/{theaterQueue.length}</span>
+            <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-yellow-900/30 border border-yellow-700/50 rounded">
+              <ListMusic size={10} className="text-yellow-400" />
+              <span className="text-yellow-400 text-[10px] font-mono">{currentQueueIndex + 1}/{theaterQueue.length}</span>
             </div>
           )}
 
-          <div className="flex items-center gap-1 sm:gap-2">
+          {/* Controls - fixed size */}
+          <div className="flex items-center gap-1 flex-shrink-0">
             <button
               onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
-              className="bg-gray-800 hover:bg-gray-700 rounded-full p-2 transition-colors"
-              style={{ minWidth: '36px', minHeight: '36px' }}
+              className="bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 transition-colors"
             >
-              {isPlaying ? <Pause size={14} className="text-white" /> : <Play size={14} className="text-white" />}
+              {isPlaying ? <Pause size={14} className="text-white" /> : <Play size={14} className="text-white ml-0.5" />}
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); toggleMute(); }}
-              className={`rounded-full p-2 transition-colors ${
+              className={`rounded-full p-1.5 transition-colors ${
                 isMuted ? 'bg-orange-500 hover:bg-orange-400' : 'bg-gray-800 hover:bg-gray-700'
               }`}
-              style={{ minWidth: '36px', minHeight: '36px' }}
               title={isMuted ? 'Unmute' : 'Mute'}
             >
               {isMuted ? <VolumeX size={14} className="text-white" /> : <Volume2 size={14} className="text-white" />}
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); handleNext(); }}
-              className="bg-gray-800 hover:bg-gray-700 rounded-full p-2 transition-colors"
-              style={{ minWidth: '36px', minHeight: '36px' }}
+              className="bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 transition-colors"
             >
               <SkipForward size={14} className="text-white" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); setIsMinimized(false); }}
-              className="bg-yellow-600/50 hover:bg-yellow-600/70 rounded-full p-2 transition-colors"
-              style={{ minWidth: '36px', minHeight: '36px' }}
+              className="bg-yellow-600/50 hover:bg-yellow-600/70 rounded-full p-1.5 transition-colors"
             >
               <Maximize2 size={14} className="text-white" />
             </button>
@@ -1179,6 +1211,19 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
                 <Play size={32} className="text-gray-800 ml-1" />
               </div>
               <p className="text-white text-sm font-medium">Tap to play</p>
+            </div>
+          )}
+
+          {/* Waveform seeker at bottom */}
+          {showControls && (
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 z-30">
+              <WaveformPlayer
+                audioRef={audioRef}
+                moment={moment}
+                isPlaying={isPlaying}
+                isVideo={false}
+                simple={false}
+              />
             </div>
           )}
         </div>
