@@ -1045,15 +1045,36 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
             >
               {isPlaying ? <Pause size={14} className="text-white" /> : <Play size={14} className="text-white ml-0.5" />}
             </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); toggleMute(); }}
-              className={`rounded-full p-1.5 transition-colors ${
-                isMuted ? 'bg-orange-500 hover:bg-orange-400' : 'bg-gray-800 hover:bg-gray-700'
-              }`}
-              title={isMuted ? 'Unmute' : 'Mute'}
-            >
-              {isMuted ? <VolumeX size={14} className="text-white" /> : <Volume2 size={14} className="text-white" />}
-            </button>
+            {/* Volume control group */}
+            <div className="flex items-center gap-1 bg-gray-800 rounded-full px-1.5 py-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleMute(); }}
+                className={`p-0.5 transition-colors ${isMuted ? 'text-orange-400' : 'text-white'}`}
+                title={isMuted ? 'Unmute' : 'Mute'}
+              >
+                {isMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+              </button>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={isMuted ? 0 : volume}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  const newVol = parseFloat(e.target.value);
+                  setVolume(newVol);
+                  if (newVol > 0 && isMuted) setIsMuted(false);
+                  if (newVol === 0) setIsMuted(true);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-12 h-1 accent-yellow-500 cursor-pointer"
+                style={{
+                  WebkitAppearance: 'none',
+                  background: `linear-gradient(to right, #eab308 0%, #eab308 ${(isMuted ? 0 : volume) * 100}%, #374151 ${(isMuted ? 0 : volume) * 100}%, #374151 100%)`
+                }}
+              />
+            </div>
             <button
               onClick={(e) => { e.stopPropagation(); handleNext(); }}
               className="bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 transition-colors"
@@ -1214,18 +1235,16 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
             </div>
           )}
 
-          {/* Waveform seeker at bottom */}
-          {showControls && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 z-30">
-              <WaveformPlayer
-                audioRef={audioRef}
-                moment={moment}
-                isPlaying={isPlaying}
-                isVideo={false}
-                simple={false}
-              />
-            </div>
-          )}
+          {/* Waveform seeker at bottom - always visible for audio */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 z-30">
+            <WaveformPlayer
+              audioRef={audioRef}
+              moment={moment}
+              isPlaying={isPlaying}
+              isVideo={false}
+              simple={false}
+            />
+          </div>
         </div>
       ) : isYouTube && youtubeId ? (
         /* YouTube Mode with API control */
