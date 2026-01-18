@@ -48,6 +48,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   const [isYtLoading, setIsYtLoading] = useState(true);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [isPiPActive, setIsPiPActive] = useState(false);
+  const [nativeProgress, setNativeProgress] = useState({ currentTime: 0, duration: 0 });
   const frameSkipRef = useRef(0);
   const ytPlayerRef = useRef(null);
   const ytProgressIntervalRef = useRef(null);
@@ -120,6 +121,27 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       }
     };
   }, [moment?._id]);
+
+  // Track native media (audio/video element) progress
+  useEffect(() => {
+    if (isYouTube) return;
+
+    const updateProgress = () => {
+      const mediaEl = isAudio ? audioRef.current : videoRef.current;
+      if (mediaEl) {
+        setNativeProgress({
+          currentTime: mediaEl.currentTime || 0,
+          duration: mediaEl.duration || 0
+        });
+      }
+    };
+
+    // Update every 500ms
+    const interval = setInterval(updateProgress, 500);
+    updateProgress(); // Initial call
+
+    return () => clearInterval(interval);
+  }, [isYouTube, isAudio, moment?._id]);
 
   // Theater queue context
   const {
@@ -722,20 +744,22 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     }
   };
 
-  // Seek to specific time
+  // Seek to specific time (segment-relative for YouTube with custom times)
   const seekTo = useCallback((time) => {
     if (isAudio && audioRef.current) {
       audioRef.current.currentTime = time;
     } else if (isYouTube && ytPlayerRef.current) {
       try {
-        ytPlayerRef.current.seekTo(time, true);
+        // Add startTime offset for YouTube with custom segments
+        const actualTime = time + (moment?.startTime || 0);
+        ytPlayerRef.current.seekTo(actualTime, true);
       } catch (e) {
         console.log('YT seek error:', e);
       }
     } else if (videoRef.current) {
       videoRef.current.currentTime = time;
     }
-  }, [isAudio, isYouTube]);
+  }, [isAudio, isYouTube, moment?.startTime]);
 
   // Set volume (0-1)
   const setVolumeLevel = useCallback((vol) => {
@@ -868,17 +892,33 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
   // Update player state in context when local state changes
   useEffect(() => {
+    // Calculate time values based on media type
+    let currentTime = 0;
+    let duration = 0;
+
+    if (isYouTube) {
+      // For YouTube with custom start/end times, use segment-relative time
+      const segmentStart = moment?.startTime || 0;
+      const segmentEnd = moment?.endTime || ytProgress.duration;
+      duration = segmentEnd - segmentStart;
+      currentTime = Math.max(0, ytProgress.currentTime - segmentStart);
+    } else {
+      // For native audio/video elements
+      currentTime = nativeProgress.currentTime;
+      duration = nativeProgress.duration;
+    }
+
     updatePlayerState({
       isPlaying,
       isMuted,
       isFullscreen,
       isPiPMode: isPiPActive,
-      currentTime: isYouTube ? ytProgress.currentTime : 0,
-      duration: isYouTube ? ytProgress.duration : 0,
+      currentTime,
+      duration,
       effectMode: isYouTube ? (trippyEffect ? 'trippy' : null) : (isAsciiMode ? 'ascii' : null),
       effectIntensity
     });
-  }, [isPlaying, isMuted, isFullscreen, isPiPActive, ytProgress, isYouTube, trippyEffect, isAsciiMode, effectIntensity, updatePlayerState]);
+  }, [isPlaying, isMuted, isFullscreen, isPiPActive, ytProgress, nativeProgress, isYouTube, trippyEffect, isAsciiMode, effectIntensity, updatePlayerState, moment?.startTime, moment?.endTime]);
 
   // Listen for PiP exit
   useEffect(() => {

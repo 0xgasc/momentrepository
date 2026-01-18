@@ -178,9 +178,15 @@ export const TheaterQueueProvider = ({ children }) => {
     return theaterQueue[nextIdx];
   }, [theaterQueue, currentQueueIndex]);
 
-  // Play previous in queue
+  // Play previous in queue, or restart current track if at start/not in queue
   const playPrevInQueue = useCallback(() => {
-    if (theaterQueue.length === 0 || currentQueueIndex <= 0) return null;
+    if (theaterQueue.length === 0 || currentQueueIndex <= 0) {
+      // No previous track - seek to start of current track
+      if (playerControlsRef.current?.seekTo) {
+        playerControlsRef.current.seekTo(0);
+      }
+      return null;
+    }
     const prevIdx = currentQueueIndex - 1;
     setCurrentQueueIndex(prevIdx);
     setCurrentMoment(theaterQueue[prevIdx]);
