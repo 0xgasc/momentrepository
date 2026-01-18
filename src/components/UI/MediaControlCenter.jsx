@@ -227,28 +227,21 @@ const MediaControlCenter = memo(({
         {!isCollapsed && (
           <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-lg p-2">
             {/* Song Info */}
-            <div className="flex items-center gap-2 mb-2">
-              <div className="flex items-end gap-0.5 h-3 flex-shrink-0">
-                <div className={`w-0.5 bg-yellow-400 rounded-full ${playerState.isPlaying ? 'animate-pulse' : ''}`} style={{ height: '8px' }} />
-                <div className={`w-0.5 bg-yellow-400 rounded-full ${playerState.isPlaying ? 'animate-pulse' : ''}`} style={{ height: '12px', animationDelay: '150ms' }} />
-                <div className={`w-0.5 bg-yellow-400 rounded-full ${playerState.isPlaying ? 'animate-pulse' : ''}`} style={{ height: '6px', animationDelay: '300ms' }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-white truncate">{currentMoment?.songName || 'Unknown'}</div>
-                <div className="text-[10px] text-gray-400 truncate">{currentMoment?.venueName || ''}</div>
-              </div>
+            <div className="mb-2">
+              <div className="text-xs font-medium text-white truncate">{currentMoment?.songName || 'Unknown'}</div>
+              <div className="text-[10px] text-gray-400 truncate">{currentMoment?.venueName || ''}</div>
             </div>
 
             {/* Progress Bar */}
             <div
-              className="h-1 bg-gray-700 rounded-full cursor-pointer mb-2 group"
+              className="h-1 bg-gray-700 rounded cursor-pointer mb-2 group"
               onClick={handleProgressClick}
             >
               <div
-                className="h-full bg-yellow-400 rounded-full relative"
+                className="h-full bg-yellow-400 rounded relative"
                 style={{ width: `${progressPercent}%` }}
               >
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </div>
 
@@ -462,31 +455,24 @@ const MediaControlCenter = memo(({
       {/* Content */}
       <div className="p-3">
         {/* Song Info */}
-        <div className="flex items-center gap-3 mb-3">
-          <div className="flex items-end gap-0.5 h-4 flex-shrink-0">
-            <div className={`w-1 bg-yellow-400 rounded-full ${playerState.isPlaying ? 'animate-pulse' : ''}`} style={{ height: '10px' }} />
-            <div className={`w-1 bg-yellow-400 rounded-full ${playerState.isPlaying ? 'animate-pulse' : ''}`} style={{ height: '16px', animationDelay: '150ms' }} />
-            <div className={`w-1 bg-yellow-400 rounded-full ${playerState.isPlaying ? 'animate-pulse' : ''}`} style={{ height: '8px', animationDelay: '300ms' }} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-white truncate">{currentMoment?.songName || 'Unknown'}</div>
-            <div className="text-xs text-gray-400 truncate">
-              {currentMoment?.venueName || ''}
-              {currentMoment?.venueCity && ` - ${currentMoment.venueCity}`}
-            </div>
+        <div className="mb-3">
+          <div className="text-sm font-medium text-white truncate">{currentMoment?.songName || 'Unknown'}</div>
+          <div className="text-xs text-gray-400 truncate">
+            {currentMoment?.venueName || ''}
+            {currentMoment?.venueCity && ` - ${currentMoment.venueCity}`}
           </div>
         </div>
 
         {/* Progress Bar */}
         <div
-          className="h-1.5 bg-gray-700 rounded-full cursor-pointer mb-2 group"
+          className="h-1.5 bg-gray-700 rounded cursor-pointer mb-2 group"
           onClick={handleProgressClick}
         >
           <div
-            className="h-full bg-yellow-400 rounded-full relative transition-all"
+            className="h-full bg-yellow-400 rounded relative transition-all"
             style={{ width: `${progressPercent}%` }}
           >
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow" />
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded opacity-0 group-hover:opacity-100 transition-opacity shadow" />
           </div>
         </div>
 

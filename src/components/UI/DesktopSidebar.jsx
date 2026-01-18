@@ -5,7 +5,7 @@ import React, { memo, useState } from 'react';
 import {
   Film, Calendar, Music, Video, Link2, Upload,
   ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
-  ListMusic, Play, Pause, SkipBack, SkipForward, User, LogIn, Shield,
+  ListMusic, Play, Pause, SkipBack, Shuffle, User, LogIn, Shield,
   Tv, Trash2, Trophy, Settings, Volume2, VolumeX
 } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
@@ -30,7 +30,7 @@ const DesktopSidebar = memo(({
   const {
     theaterQueue, currentQueueIndex, isPlayingFromQueue, playQueue, clearQueue,
     currentMoment, playNextInQueue, playPrevInQueue,
-    togglePlayPause, playerState, toggleMute, setVolume
+    togglePlayPause, playerState, toggleMute, setVolume, playRandom
   } = useTheaterQueue();
   const [showContributors, setShowContributors] = useState(false);
   const [mediaControlDocked, setMediaControlDocked] = useState(true);
@@ -185,14 +185,7 @@ const DesktopSidebar = memo(({
         {/* Now Playing Mini (horizontal) - WORKING CONTROLS */}
         {(isPlayingFromQueue || currentMoment) && currentMoment && (
           <>
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-              {/* Animated bars indicator */}
-              <div className="flex items-end gap-0.5 h-3">
-                <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '6px' }} />
-                <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '10px', animationDelay: '150ms' }} />
-                <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '5px', animationDelay: '300ms' }} />
-              </div>
-
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded">
               {/* Song name - clickable to expand MediaControlCenter */}
               <button
                 onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
@@ -205,18 +198,19 @@ const DesktopSidebar = memo(({
               {/* WORKING Play/Pause */}
               <button
                 onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
-                className="p-1 rounded-full bg-yellow-500/20 hover:bg-yellow-500/40 transition-colors"
+                className="p-1 rounded bg-yellow-500/20 hover:bg-yellow-500/40 transition-colors"
                 title={playerState.isPlaying ? 'Pause' : 'Play'}
               >
                 {playerState.isPlaying ? <Pause size={12} className="text-yellow-400" /> : <Play size={12} className="text-yellow-400 ml-0.5" />}
               </button>
 
-              {/* WORKING Skip buttons */}
+              {/* Previous */}
               <button onClick={() => playPrevInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Previous">
                 <SkipBack size={12} className="text-gray-400 hover:text-white" />
               </button>
-              <button onClick={() => playNextInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Next">
-                <SkipForward size={12} className="text-gray-400 hover:text-white" />
+              {/* Random/Shuffle */}
+              <button onClick={() => playRandom()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Random">
+                <Shuffle size={12} className="text-gray-400 hover:text-white" />
               </button>
 
               {/* Volume control */}
@@ -472,15 +466,14 @@ const DesktopSidebar = memo(({
       {/* Collapsed Now Playing indicator */}
       {(isPlayingFromQueue || currentMoment) && isCollapsed && (
         <div className="flex-shrink-0 p-2 border-b border-gray-700/50">
-          <div className="flex flex-col items-center gap-1">
-            <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center border border-yellow-500/30">
-              <Play size={12} className="text-yellow-400 ml-0.5" />
-            </div>
-            <div className="flex items-end gap-0.5 h-2">
-              <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '4px' }} />
-              <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '8px', animationDelay: '150ms' }} />
-              <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '4px', animationDelay: '300ms' }} />
-            </div>
+          <div className="flex flex-col items-center">
+            <button
+              onClick={() => togglePlayPause()}
+              className="w-8 h-8 bg-yellow-500/20 rounded flex items-center justify-center border border-yellow-500/30 hover:bg-yellow-500/30 transition-colors"
+              title={playerState.isPlaying ? 'Pause' : 'Play'}
+            >
+              {playerState.isPlaying ? <Pause size={12} className="text-yellow-400" /> : <Play size={12} className="text-yellow-400 ml-0.5" />}
+            </button>
           </div>
         </div>
       )}
