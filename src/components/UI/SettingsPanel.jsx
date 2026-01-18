@@ -1,8 +1,8 @@
 // src/components/UI/SettingsPanel.jsx - Theme and layout settings
 import React, { useState, memo } from 'react';
 import {
-  Settings, X, PanelLeft, PanelRight, PanelTop, PanelBottom,
-  Moon, Sun, Palette, Save, Check, Loader2, LogIn
+  Settings, X, PanelTop, PanelBottom,
+  Palette, Save, Check, Loader2, LogIn
 } from 'lucide-react';
 import { useTheme, presetColors } from '../../contexts/ThemeContext';
 
@@ -16,9 +16,7 @@ const SettingsPanel = memo(({
 }) => {
   const {
     accentColor,
-    extraDark,
     setAccentColor,
-    toggleExtraDark,
     saveToAccount,
     isSyncing
   } = useTheme();
@@ -73,26 +71,25 @@ const SettingsPanel = memo(({
 
         {/* Content */}
         <div className="p-4 space-y-6">
-          {/* Sidebar Position */}
+          {/* Menu Bar Position - Top/Bottom only */}
           <div>
             <label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
-              Sidebar Position
+              Menu Bar Position
             </label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {[
-                { id: 'left', icon: PanelLeft, label: 'Left' },
-                { id: 'right', icon: PanelRight, label: 'Right' },
                 { id: 'top', icon: PanelTop, label: 'Top' },
                 { id: 'bottom', icon: PanelBottom, label: 'Bottom' },
               ].map(pos => {
                 const Icon = pos.icon;
+                const isActive = position === pos.id;
                 return (
                   <button
                     key={pos.id}
                     onClick={() => onPositionChange(pos.id)}
                     className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-all ${
-                      position === pos.id
-                        ? 'bg-[var(--accent-color)]/20 border border-[var(--accent-color)]/50 text-[var(--accent-color)]'
+                      isActive
+                        ? 'bg-yellow-500/20 border border-yellow-500/50 text-yellow-400'
                         : 'bg-gray-800 border border-gray-700 text-gray-400 hover:bg-gray-700'
                     }`}
                   >
@@ -104,37 +101,6 @@ const SettingsPanel = memo(({
             </div>
           </div>
 
-          {/* Dark Mode Toggle */}
-          <div>
-            <label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
-              Display Mode
-            </label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => extraDark && toggleExtraDark()}
-                className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg transition-all ${
-                  !extraDark
-                    ? 'bg-[var(--accent-color)]/20 border border-[var(--accent-color)]/50 text-[var(--accent-color)]'
-                    : 'bg-gray-800 border border-gray-700 text-gray-400 hover:bg-gray-700'
-                }`}
-              >
-                <Sun size={18} />
-                <span className="text-sm">Normal Dark</span>
-              </button>
-              <button
-                onClick={() => !extraDark && toggleExtraDark()}
-                className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg transition-all ${
-                  extraDark
-                    ? 'bg-[var(--accent-color)]/20 border border-[var(--accent-color)]/50 text-[var(--accent-color)]'
-                    : 'bg-gray-800 border border-gray-700 text-gray-400 hover:bg-gray-700'
-                }`}
-              >
-                <Moon size={18} />
-                <span className="text-sm">Extra Dark</span>
-              </button>
-            </div>
-          </div>
-
           {/* Accent Color */}
           <div>
             <label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
@@ -143,17 +109,17 @@ const SettingsPanel = memo(({
             </label>
 
             {/* Preset Colors */}
-            <div className="grid grid-cols-8 gap-2 mb-3">
+            <div className="flex flex-wrap gap-3 mb-3">
               {presetColors.map(preset => (
                 <button
                   key={preset.color}
                   onClick={() => setAccentColor(preset.color)}
-                  className={`w-8 h-8 rounded-full transition-all ${
+                  className={`w-10 h-10 rounded-full transition-all border-2 ${
                     accentColor === preset.color
-                      ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-900 scale-110'
-                      : 'hover:scale-105'
+                      ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-900 scale-110 border-white'
+                      : 'border-gray-600 hover:scale-105 hover:border-gray-400'
                   }`}
-                  style={{ backgroundColor: preset.color }}
+                  style={{ background: preset.color }}
                   title={preset.name}
                 />
               ))}
@@ -190,18 +156,18 @@ const SettingsPanel = memo(({
               <div
                 className="px-3 py-1.5 rounded text-sm font-medium"
                 style={{
-                  backgroundColor: `rgba(var(--accent-rgb), 0.2)`,
-                  color: 'var(--accent-color)',
-                  border: `1px solid rgba(var(--accent-rgb), 0.5)`
+                  backgroundColor: `${accentColor}33`,
+                  color: accentColor,
+                  border: `1px solid ${accentColor}80`
                 }}
               >
                 Active Tab
               </div>
               <div
                 className="w-3 h-3 rounded-full animate-pulse"
-                style={{ backgroundColor: 'var(--accent-color)' }}
+                style={{ backgroundColor: accentColor }}
               />
-              <span style={{ color: 'var(--accent-color)' }} className="text-sm">
+              <span style={{ color: accentColor }} className="text-sm">
                 Accent Text
               </span>
             </div>
@@ -218,8 +184,13 @@ const SettingsPanel = memo(({
                     ? 'bg-green-600/20 text-green-400 border border-green-500/50'
                     : saveStatus === 'error'
                     ? 'bg-red-600/20 text-red-400 border border-red-500/50'
-                    : 'bg-[var(--accent-color)]/20 text-[var(--accent-color)] border border-[var(--accent-color)]/50 hover:bg-[var(--accent-color)]/30'
+                    : ''
                 }`}
+                style={!saveStatus ? {
+                  backgroundColor: `${accentColor}33`,
+                  color: accentColor,
+                  border: `1px solid ${accentColor}80`
+                } : {}}
               >
                 {isSyncing ? (
                   <>

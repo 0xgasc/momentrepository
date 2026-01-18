@@ -15,7 +15,7 @@ export const useTheme = () => {
 // Default theme
 const defaultTheme = {
   accentColor: '#eab308', // yellow-500
-  extraDark: false
+  extraDark: true // Always extra dark by default
 };
 
 // Preset colors for quick selection
