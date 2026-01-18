@@ -61,12 +61,14 @@ export const TheaterQueueProvider = ({ children }) => {
     if (playerControlsRef.current?.setVolume) {
       playerControlsRef.current.setVolume(vol);
     }
+    setPlayerState(prev => ({ ...prev, volume: vol }));
   }, []);
 
   const toggleMute = useCallback(() => {
     if (playerControlsRef.current?.toggleMute) {
       playerControlsRef.current.toggleMute();
     }
+    setPlayerState(prev => ({ ...prev, isMuted: !prev.isMuted }));
   }, []);
 
   const toggleFullscreen = useCallback(() => {
