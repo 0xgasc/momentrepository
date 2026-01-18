@@ -117,9 +117,27 @@ const MediaControlCenter = memo(({
     setVolume(newVol);
   };
 
-  // Check media type
-  const isYouTube = currentMoment?.youtubeId || currentMoment?.sourceUrl?.includes('youtube');
-  const isAudio = currentMoment?.mediaType === 'audio' || currentMoment?.arweaveUrl?.endsWith('.mp3');
+  // Check media type - match VideoHero detection logic
+  const isYouTube = currentMoment?.mediaSource === 'youtube' ||
+    currentMoment?.mediaUrl?.includes('youtube.com') ||
+    currentMoment?.mediaUrl?.includes('youtu.be') ||
+    (currentMoment?.externalVideoId && !currentMoment?.externalVideoId?.match(/^umo\d{4}/i));
+
+  const isArchive = currentMoment?.mediaSource === 'archive' ||
+    currentMoment?.mediaUrl?.includes('archive.org') ||
+    currentMoment?.externalVideoId?.match(/^umo\d{4}/i);
+
+  const mediaUrl = (currentMoment?.mediaUrl || '').toLowerCase();
+  const isAudio = currentMoment?.mediaType === 'audio' ||
+    isArchive ||
+    mediaUrl.includes('.mp3') ||
+    mediaUrl.includes('.flac') ||
+    mediaUrl.includes('.wav') ||
+    mediaUrl.includes('.ogg');
+
+  // Uploaded video = not YouTube, not archive, not audio
+  const isUploadedVideo = !isYouTube && !isArchive && !isAudio && currentMoment?.mediaUrl;
+
   const hasQueue = theaterQueue.length > 0;
   const isAtQueueEnd = currentQueueIndex >= theaterQueue.length - 1;
 
@@ -314,15 +332,15 @@ const MediaControlCenter = memo(({
               />
             </div>
 
-            {/* Effect Controls */}
-            {(!isAudio) && (
+            {/* Effect Controls - only for video content */}
+            {(isYouTube || isUploadedVideo) && (
               <div className="flex items-center gap-1 mb-2">
                 <button
                   onClick={() => toggleEffect?.(isYouTube ? 'trippy' : 'ascii')}
                   className={`p-1.5 rounded-full transition-colors ${
                     playerState.effectMode ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
                   }`}
-                  title={isYouTube ? 'Trippy effect' : 'ASCII mode'}
+                  title={isYouTube ? 'Trippy FX' : 'ASCII mode'}
                 >
                   <Droplet size={12} />
                 </button>
@@ -545,21 +563,21 @@ const MediaControlCenter = memo(({
           />
         </div>
 
-        {/* Effect Controls */}
-        {(!isAudio) && (
+        {/* Effect Controls - only for video content */}
+        {(isYouTube || isUploadedVideo) && (
           <div className="flex items-center gap-2 mb-3 p-2 bg-gray-800/50 rounded-lg">
             <button
               onClick={() => toggleEffect?.(isYouTube ? 'trippy' : 'ascii')}
               className={`p-2 rounded-full transition-colors ${
                 playerState.effectMode ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
               }`}
-              title={isYouTube ? 'Trippy effect' : 'ASCII mode'}
+              title={isYouTube ? 'Trippy FX' : 'ASCII mode'}
             >
               <Droplet size={16} />
             </button>
             <div className="flex-1">
               <div className="text-[10px] text-gray-500 mb-1">
-                {isYouTube ? 'Trippy Effect' : 'ASCII Mode'}: {playerState.effectIntensity || 50}%
+                {isYouTube ? 'Trippy FX' : 'ASCII Mode'}: {playerState.effectIntensity || 50}%
               </div>
               <input
                 type="range"
