@@ -232,24 +232,6 @@ const DesktopSidebar = memo(({
                 />
               </div>
 
-              {/* Audio/Video toggle (inline) */}
-              <div className="flex gap-0.5 ml-1">
-                <button
-                  onClick={() => toggleFilter('type', 'audio')}
-                  className={`p-1 rounded transition-all ${mediaFilters.audio ? 'bg-blue-600/30 text-blue-400' : 'text-gray-500'}`}
-                  title="Audio"
-                >
-                  <Music size={10} />
-                </button>
-                <button
-                  onClick={() => toggleFilter('type', 'video')}
-                  className={`p-1 rounded transition-all ${mediaFilters.video ? 'bg-blue-600/30 text-blue-400' : 'text-gray-500'}`}
-                  title="Video"
-                >
-                  <Video size={10} />
-                </button>
-              </div>
-
               {/* Expand button for full controls */}
               <button
                 onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
