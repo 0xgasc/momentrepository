@@ -6,7 +6,7 @@ import {
   Film, Calendar, Music, Video, Link2, Upload,
   ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
   ListMusic, Play, Pause, SkipBack, SkipForward, User, LogIn, Shield,
-  Tv, Trash2, Trophy, Settings
+  Tv, Trash2, Trophy, Settings, Volume2, VolumeX
 } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import TopContributors from '../Community/TopContributors';
@@ -29,7 +29,8 @@ const DesktopSidebar = memo(({
 }) => {
   const {
     theaterQueue, currentQueueIndex, isPlayingFromQueue, playQueue, clearQueue,
-    currentMoment, playNextInQueue, playPrevInQueue
+    currentMoment, playNextInQueue, playPrevInQueue,
+    togglePlayPause, playerState, toggleMute, setVolume
   } = useTheaterQueue();
   const [showContributors, setShowContributors] = useState(false);
   const [mediaControlDocked, setMediaControlDocked] = useState(true);
@@ -181,31 +182,83 @@ const DesktopSidebar = memo(({
         {/* Divider */}
         <div className="w-px h-8 bg-gray-700/50" />
 
-        {/* Now Playing Mini (horizontal) - click to open floating control */}
+        {/* Now Playing Mini (horizontal) - WORKING CONTROLS */}
         {(isPlayingFromQueue || currentMoment) && currentMoment && (
           <>
-            <button
-              onClick={() => {
-                setMediaControlDocked(false);
-                setShowMediaControl(true);
-              }}
-              className="flex items-center gap-2 px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded-lg hover:bg-yellow-500/20 transition-colors"
-              title="Open media controls"
-            >
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+              {/* Animated bars indicator */}
               <div className="flex items-end gap-0.5 h-3">
                 <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '6px' }} />
                 <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '10px', animationDelay: '150ms' }} />
                 <div className="w-0.5 bg-yellow-400 rounded-full animate-pulse" style={{ height: '5px', animationDelay: '300ms' }} />
               </div>
-              <div className="max-w-[120px] hidden xl:block">
+
+              {/* Song name - clickable to expand MediaControlCenter */}
+              <button
+                onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
+                className="max-w-[100px] hidden xl:block hover:text-yellow-400 transition-colors"
+                title="Open full controls"
+              >
                 <div className="text-[10px] font-medium text-white truncate">{currentMoment.songName}</div>
-              </div>
+              </button>
+
+              {/* WORKING Play/Pause */}
+              <button
+                onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
+                className="p-1 rounded-full bg-yellow-500/20 hover:bg-yellow-500/40 transition-colors"
+                title={playerState.isPlaying ? 'Pause' : 'Play'}
+              >
+                {playerState.isPlaying ? <Pause size={12} className="text-yellow-400" /> : <Play size={12} className="text-yellow-400 ml-0.5" />}
+              </button>
+
+              {/* WORKING Skip buttons */}
+              <button onClick={() => playPrevInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Previous">
+                <SkipBack size={12} className="text-gray-400 hover:text-white" />
+              </button>
+              <button onClick={() => playNextInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Next">
+                <SkipForward size={12} className="text-gray-400 hover:text-white" />
+              </button>
+
+              {/* Volume control */}
               <div className="flex items-center gap-1">
-                <SkipBack size={12} className="text-gray-400" />
-                <Play size={12} className="text-yellow-400" />
-                <SkipForward size={12} className="text-gray-400" />
+                <button onClick={() => toggleMute()} className="p-1 hover:bg-gray-700/50 rounded transition-colors">
+                  {playerState.isMuted ? <VolumeX size={12} className="text-orange-400" /> : <Volume2 size={12} className="text-gray-400" />}
+                </button>
+                <input
+                  type="range" min="0" max="1" step="0.05"
+                  value={playerState.isMuted ? 0 : (playerState.volume || 1)}
+                  onChange={(e) => setVolume(parseFloat(e.target.value))}
+                  className="w-12 h-1 accent-yellow-500"
+                />
               </div>
-            </button>
+
+              {/* Audio/Video toggle (inline) */}
+              <div className="flex gap-0.5 ml-1">
+                <button
+                  onClick={() => toggleFilter('type', 'audio')}
+                  className={`p-1 rounded transition-all ${mediaFilters.audio ? 'bg-blue-600/30 text-blue-400' : 'text-gray-500'}`}
+                  title="Audio"
+                >
+                  <Music size={10} />
+                </button>
+                <button
+                  onClick={() => toggleFilter('type', 'video')}
+                  className={`p-1 rounded transition-all ${mediaFilters.video ? 'bg-blue-600/30 text-blue-400' : 'text-gray-500'}`}
+                  title="Video"
+                >
+                  <Video size={10} />
+                </button>
+              </div>
+
+              {/* Expand button for full controls */}
+              <button
+                onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
+                className="p-1 text-gray-500 hover:text-white transition-colors"
+                title="More controls"
+              >
+                <ChevronDown size={12} />
+              </button>
+            </div>
             <div className="w-px h-8 bg-gray-700/50" />
           </>
         )}
