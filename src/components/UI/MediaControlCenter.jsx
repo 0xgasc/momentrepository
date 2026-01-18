@@ -25,7 +25,6 @@ const MediaControlCenter = memo(({
     toggleMute,
     seekTo,
     setVolume,
-    toggleFullscreen,
     toggleEffect,
     togglePiPMode,
     playRandom,
@@ -331,22 +330,6 @@ const MediaControlCenter = memo(({
               />
             </div>
 
-            {/* Effect Controls - only for video content (toggle only, fixed at 75%) */}
-            {(isYouTube || isUploadedVideo) && (
-              <div className="flex items-center gap-2 mb-2">
-                <button
-                  onClick={() => toggleEffect?.(isYouTube ? 'trippy' : 'ascii')}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded-full transition-colors ${
-                    playerState.effectMode ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
-                  }`}
-                  title={isYouTube ? 'Trippy FX' : 'ASCII mode'}
-                >
-                  <Droplet size={12} />
-                  <span className="text-[10px]">{isYouTube ? 'Trippy' : 'ASCII'}</span>
-                </button>
-              </div>
-            )}
-
             {/* Secondary Controls */}
             <div className="flex items-center justify-center gap-1 pt-1 border-t border-gray-700/50">
               {/* Add to queue */}
@@ -391,16 +374,18 @@ const MediaControlCenter = memo(({
                 <Info size={12} />
               </button>
 
-              {/* Fullscreen */}
-              <button
-                onClick={() => toggleFullscreen?.()}
-                className={`p-1.5 rounded-full transition-colors ${
-                  playerState.isFullscreen ? 'text-green-400 bg-green-900/40' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
-                }`}
-                title={playerState.isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-              >
-                <Maximize2 size={12} />
-              </button>
+              {/* Effect toggle (video only) */}
+              {(isYouTube || isUploadedVideo) && (
+                <button
+                  onClick={() => toggleEffect?.(isYouTube ? 'trippy' : 'ascii')}
+                  className={`p-1.5 rounded-full transition-colors ${
+                    playerState.effectMode ? 'text-purple-400 bg-purple-900/40' : 'text-gray-400 hover:text-purple-400 hover:bg-purple-900/40'
+                  }`}
+                  title={isYouTube ? 'Trippy FX' : 'ASCII mode'}
+                >
+                  <Droplet size={12} />
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -547,22 +532,6 @@ const MediaControlCenter = memo(({
           />
         </div>
 
-        {/* Effect Controls - only for video content (toggle only, fixed at 75%) */}
-        {(isYouTube || isUploadedVideo) && (
-          <div className="flex items-center gap-2 mb-3">
-            <button
-              onClick={() => toggleEffect?.(isYouTube ? 'trippy' : 'ascii')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                playerState.effectMode ? 'bg-purple-600 text-white' : 'bg-gray-800/50 text-gray-400 hover:text-white hover:bg-gray-700/50'
-              }`}
-              title={isYouTube ? 'Trippy FX' : 'ASCII mode'}
-            >
-              <Droplet size={16} />
-              <span className="text-xs">{isYouTube ? 'Trippy FX' : 'ASCII Mode'}</span>
-            </button>
-          </div>
-        )}
-
         {/* Secondary Controls Grid */}
         <div className="grid grid-cols-5 gap-1 pt-2 border-t border-gray-700/50">
           {/* Add to queue */}
@@ -611,17 +580,21 @@ const MediaControlCenter = memo(({
             <span className="text-[8px] mt-0.5">Info</span>
           </button>
 
-          {/* Fullscreen */}
-          <button
-            onClick={() => toggleFullscreen?.()}
-            className={`p-2 rounded-lg transition-colors flex flex-col items-center ${
-              playerState.isFullscreen ? 'text-green-400 bg-green-900/40' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
-            }`}
-            title={playerState.isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-          >
-            <Maximize2 size={14} />
-            <span className="text-[8px] mt-0.5">Full</span>
-          </button>
+          {/* Effect toggle (video only) */}
+          {(isYouTube || isUploadedVideo) ? (
+            <button
+              onClick={() => toggleEffect?.(isYouTube ? 'trippy' : 'ascii')}
+              className={`p-2 rounded-lg transition-colors flex flex-col items-center ${
+                playerState.effectMode ? 'text-purple-400 bg-purple-900/40' : 'text-gray-400 hover:text-purple-400 hover:bg-purple-900/40'
+              }`}
+              title={isYouTube ? 'Trippy FX' : 'ASCII mode'}
+            >
+              <Droplet size={14} />
+              <span className="text-[8px] mt-0.5">FX</span>
+            </button>
+          ) : (
+            <div className="p-2" />
+          )}
         </div>
       </div>
     </div>
