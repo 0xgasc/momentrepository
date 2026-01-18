@@ -30,6 +30,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   const [isAudio, setIsAudio] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay
+  const [volume, setVolume] = useState(1); // Volume level 0-1
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -739,6 +740,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   // Set volume (0-1)
   const setVolumeLevel = useCallback((vol) => {
     const clampedVol = Math.max(0, Math.min(1, vol));
+    setVolume(clampedVol); // Update volume state
     if (isAudio && audioRef.current) {
       audioRef.current.volume = clampedVol;
     } else if (isYouTube && ytPlayerRef.current) {
@@ -757,6 +759,10 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       else if (isYouTube && ytPlayerRef.current) {
         try { ytPlayerRef.current.unMute(); } catch (e) {}
       } else if (videoRef.current) videoRef.current.muted = false;
+    }
+    // Auto-mute when volume is 0
+    if (clampedVol === 0 && !isMuted) {
+      setIsMuted(true);
     }
   }, [isAudio, isYouTube, isMuted]);
 
@@ -1063,9 +1069,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
                 onChange={(e) => {
                   e.stopPropagation();
                   const newVol = parseFloat(e.target.value);
-                  setVolume(newVol);
-                  if (newVol > 0 && isMuted) setIsMuted(false);
-                  if (newVol === 0) setIsMuted(true);
+                  setVolumeLevel(newVol); // Use setVolumeLevel to apply to media element
                 }}
                 onClick={(e) => e.stopPropagation()}
                 className="w-12 h-1 accent-yellow-500 cursor-pointer"
