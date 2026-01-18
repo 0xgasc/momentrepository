@@ -36,7 +36,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   const [isMinimized, setIsMinimized] = useState(false);
   const [youtubeKey, setYoutubeKey] = useState(0);
   const [trippyEffect, setTrippyEffect] = useState(false);
-  const [effectIntensity, setEffectIntensity] = useState(50);
+  const [effectIntensity, setEffectIntensity] = useState(75); // Fixed at 75%
   const [asciiOutput, setAsciiOutput] = useState([]);
   const [isAsciiMode, setIsAsciiMode] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -865,6 +865,15 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       },
       openInfo: () => {
         if (moment && onMomentClick) {
+          // Pause media when opening info modal to avoid audio conflicts
+          if (isAudio && audioRef.current) {
+            audioRef.current.pause();
+          } else if (isYouTube && ytPlayerRef.current) {
+            try { ytPlayerRef.current.pauseVideo(); } catch (e) {}
+          } else if (videoRef.current) {
+            videoRef.current.pause();
+          }
+          setIsPlaying(false);
           onMomentClick(moment);
         }
       },
@@ -888,7 +897,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registerPlayerControls, isAudio, isYouTube, isPlaying, isMuted, isFullscreen, seekTo, setVolumeLevel, moment, onMomentClick, handleNext]);
+  }, [registerPlayerControls, isAudio, isYouTube, isPlaying, isMuted, isFullscreen, isMinimized, seekTo, setVolumeLevel, moment, onMomentClick, handleNext]);
 
   // Update player state in context when local state changes
   useEffect(() => {
@@ -1048,6 +1057,37 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
     return (
       <div className="mb-4 sm:mb-6 bg-gray-900 border border-gray-700 rounded-sm overflow-hidden">
+        {/* Hidden audio element - must be in DOM for audio to play when minimized */}
+        {isAudio && moment && (
+          <audio
+            key={`audio-minimized-${moment._id}`}
+            ref={audioRef}
+            src={transformMediaUrl(moment.mediaUrl)}
+            crossOrigin="anonymous"
+            muted={isMuted}
+            preload="auto"
+            onLoadedData={() => {
+              setIsLoading(false);
+              if (audioRef.current) {
+                audioRef.current.muted = isMuted;
+                audioRef.current.volume = volume;
+                audioRef.current.play()
+                  .then(() => {
+                    setIsPlaying(true);
+                    setAutoplayBlocked(false);
+                  })
+                  .catch(() => {
+                    setAutoplayBlocked(true);
+                    setIsPlaying(false);
+                  });
+              }
+            }}
+            onEnded={handleNext}
+            onError={() => setError('Failed to load audio')}
+            className="hidden"
+          />
+        )}
+
         {/* Progress bar at top */}
         <div className="h-1 bg-gray-800 w-full">
           <div

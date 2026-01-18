@@ -27,7 +27,6 @@ const MediaControlCenter = memo(({
     setVolume,
     toggleFullscreen,
     toggleEffect,
-    setEffectIntensity,
     togglePiPMode,
     playRandom,
     addToQueue,
@@ -332,34 +331,19 @@ const MediaControlCenter = memo(({
               />
             </div>
 
-            {/* Effect Controls - only for video content */}
+            {/* Effect Controls - only for video content (toggle only, fixed at 75%) */}
             {(isYouTube || isUploadedVideo) && (
-              <div className="flex items-center gap-1 mb-2">
+              <div className="flex items-center gap-2 mb-2">
                 <button
                   onClick={() => toggleEffect?.(isYouTube ? 'trippy' : 'ascii')}
-                  className={`p-1.5 rounded-full transition-colors ${
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-full transition-colors ${
                     playerState.effectMode ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
                   }`}
                   title={isYouTube ? 'Trippy FX' : 'ASCII mode'}
                 >
                   <Droplet size={12} />
+                  <span className="text-[10px]">{isYouTube ? 'Trippy' : 'ASCII'}</span>
                 </button>
-                {playerState.effectMode && (
-                  <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    value={playerState.effectIntensity || 50}
-                    onChange={(e) => setEffectIntensity?.(Number(e.target.value))}
-                    className="flex-1 h-1 bg-gray-700 rounded-full appearance-none cursor-pointer accent-purple-500
-                               [&::-webkit-slider-thumb]:appearance-none
-                               [&::-webkit-slider-thumb]:w-2
-                               [&::-webkit-slider-thumb]:h-2
-                               [&::-webkit-slider-thumb]:rounded-full
-                               [&::-webkit-slider-thumb]:bg-purple-400
-                               [&::-webkit-slider-thumb]:cursor-pointer"
-                  />
-                )}
               </div>
             )}
 
@@ -563,37 +547,19 @@ const MediaControlCenter = memo(({
           />
         </div>
 
-        {/* Effect Controls - only for video content */}
+        {/* Effect Controls - only for video content (toggle only, fixed at 75%) */}
         {(isYouTube || isUploadedVideo) && (
-          <div className="flex items-center gap-2 mb-3 p-2 bg-gray-800/50 rounded-lg">
+          <div className="flex items-center gap-2 mb-3">
             <button
               onClick={() => toggleEffect?.(isYouTube ? 'trippy' : 'ascii')}
-              className={`p-2 rounded-full transition-colors ${
-                playerState.effectMode ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                playerState.effectMode ? 'bg-purple-600 text-white' : 'bg-gray-800/50 text-gray-400 hover:text-white hover:bg-gray-700/50'
               }`}
               title={isYouTube ? 'Trippy FX' : 'ASCII mode'}
             >
               <Droplet size={16} />
+              <span className="text-xs">{isYouTube ? 'Trippy FX' : 'ASCII Mode'}</span>
             </button>
-            <div className="flex-1">
-              <div className="text-[10px] text-gray-500 mb-1">
-                {isYouTube ? 'Trippy FX' : 'ASCII Mode'}: {playerState.effectIntensity || 50}%
-              </div>
-              <input
-                type="range"
-                min="10"
-                max="100"
-                value={playerState.effectIntensity || 50}
-                onChange={(e) => setEffectIntensity?.(Number(e.target.value))}
-                className="w-full h-1 bg-gray-700 rounded-full appearance-none cursor-pointer accent-purple-500
-                           [&::-webkit-slider-thumb]:appearance-none
-                           [&::-webkit-slider-thumb]:w-3
-                           [&::-webkit-slider-thumb]:h-3
-                           [&::-webkit-slider-thumb]:rounded-full
-                           [&::-webkit-slider-thumb]:bg-purple-400
-                           [&::-webkit-slider-thumb]:cursor-pointer"
-              />
-            </div>
           </div>
         )}
 

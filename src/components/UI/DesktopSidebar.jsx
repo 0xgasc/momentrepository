@@ -5,7 +5,7 @@ import React, { memo, useState } from 'react';
 import {
   Film, Calendar, Music, Video, Link2, Upload,
   ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
-  ListMusic, Play, Pause, SkipBack, Shuffle, User, LogIn, Shield,
+  ListMusic, Play, Pause, SkipBack, SkipForward, Shuffle, User, LogIn, Shield,
   Tv, Trash2, Trophy, Settings, Volume2, VolumeX
 } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
@@ -204,14 +204,20 @@ const DesktopSidebar = memo(({
                 {playerState.isPlaying ? <Pause size={12} className="text-yellow-400" /> : <Play size={12} className="text-yellow-400 ml-0.5" />}
               </button>
 
-              {/* Previous */}
+              {/* Previous / Restart */}
               <button onClick={() => playPrevInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Previous">
                 <SkipBack size={12} className="text-gray-400 hover:text-white" />
               </button>
-              {/* Random/Shuffle */}
-              <button onClick={() => playRandom()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Random">
-                <Shuffle size={12} className="text-gray-400 hover:text-white" />
-              </button>
+              {/* Smart Next: shows Next if queue has more, else Random */}
+              {theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1 ? (
+                <button onClick={() => playNextInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Next in queue">
+                  <SkipForward size={12} className="text-gray-400 hover:text-white" />
+                </button>
+              ) : (
+                <button onClick={() => playRandom()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Play random">
+                  <Shuffle size={12} className="text-gray-400 hover:text-white" />
+                </button>
+              )}
 
               {/* Volume control */}
               <div className="flex items-center gap-1">

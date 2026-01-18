@@ -267,7 +267,7 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
                     className={`flex-1 rounded-sm transition-all duration-150 ${
                       isPlayed
                         ? 'bg-gradient-to-t from-purple-500 via-fuchsia-400 to-cyan-400'
-                        : 'bg-white/15'
+                        : 'bg-gray-500'
                     }`}
                     style={{ height: `${Math.min(100, height)}%` }}
                   />
@@ -295,7 +295,7 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
                     className={`flex-1 rounded-t-sm transition-colors duration-100 ${
                       isPlayed
                         ? 'bg-gradient-to-t from-purple-500 via-cyan-400 to-emerald-400'
-                        : 'bg-white/20'
+                        : 'bg-gray-400'
                     }`}
                     style={{ height: `${height * 100}%` }}
                   />

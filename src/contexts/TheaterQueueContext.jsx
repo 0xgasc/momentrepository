@@ -27,7 +27,7 @@ export const TheaterQueueProvider = ({ children }) => {
     isMuted: false,
     isFullscreen: false,
     effectMode: null, // 'ascii' | 'trippy' | null
-    effectIntensity: 50,
+    effectIntensity: 75, // Fixed at 75% (no slider)
     isPiPMode: false
   });
 
