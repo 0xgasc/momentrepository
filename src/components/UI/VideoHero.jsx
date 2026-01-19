@@ -1088,9 +1088,9 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           />
         )}
 
-        <div className="mb-4 sm:mb-6 bg-gray-900 border border-gray-700 rounded-sm overflow-hidden">
+        <div className="mb-4 sm:mb-6 bg-black/60 backdrop-blur-xl border border-white/10 rounded-sm overflow-hidden">
           {/* Progress bar at top */}
-        <div className="h-1 bg-gray-800 w-full">
+        <div className="h-1 bg-white/20 w-full">
           <div
             className="h-full bg-yellow-500 transition-all duration-200"
             style={{ width: `${getMinimizedProgress()}%` }}
