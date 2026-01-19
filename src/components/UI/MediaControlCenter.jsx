@@ -212,7 +212,7 @@ const MediaControlCenter = memo(({
   // Docked version (for sidebar)
   if (isDocked) {
     return (
-      <div className="media-control-center-docked p-2 bg-gray-900/40 backdrop-blur-xl rounded-lg border border-white/5">
+      <div className="media-control-center-docked p-2 bg-black/30 backdrop-blur-xl rounded-lg border border-white/10">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <button
@@ -250,7 +250,7 @@ const MediaControlCenter = memo(({
 
             {/* Progress Bar */}
             <div
-              className="h-1 bg-gray-700 rounded cursor-pointer mb-2 group"
+              className="h-1 bg-white/20 rounded cursor-pointer mb-2 group"
               onClick={handleProgressClick}
             >
               <div
@@ -452,7 +452,7 @@ const MediaControlCenter = memo(({
 
         {/* Progress Bar */}
         <div
-          className="h-1.5 bg-gray-700 rounded cursor-pointer mb-2 group"
+          className="h-1.5 bg-white/20 rounded cursor-pointer mb-2 group"
           onClick={handleProgressClick}
         >
           <div
