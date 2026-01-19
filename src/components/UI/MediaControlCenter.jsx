@@ -176,11 +176,11 @@ const MediaControlCenter = memo(({
         ) : (
           <div
             ref={dragRef}
-            className="fixed z-50 w-64 bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg shadow-2xl overflow-hidden"
+            className="fixed z-50 w-64 bg-gray-900/60 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden"
             style={{ left: position.x, top: position.y }}
           >
             <div
-              className="flex items-center justify-between px-3 py-2 bg-gray-800/50 border-b border-gray-700/50 cursor-grab"
+              className="flex items-center justify-between px-3 py-2 bg-white/5 border-b border-white/5 cursor-grab"
               onMouseDown={handleDragStart}
               onTouchStart={handleDragStart}
             >
@@ -241,7 +241,7 @@ const MediaControlCenter = memo(({
         </div>
 
         {!isCollapsed && (
-          <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 rounded-lg p-2">
+          <div className="bg-gradient-to-br from-yellow-500/5 via-gray-900/40 to-orange-500/5 backdrop-blur-md border border-white/10 rounded-lg p-2">
             {/* Song Info */}
             <div className="mb-2">
               <div className="text-xs font-medium text-white truncate">{currentMoment?.songName || 'Unknown'}</div>
@@ -397,7 +397,7 @@ const MediaControlCenter = memo(({
   return (
     <div
       ref={dragRef}
-      className="fixed z-50 w-80 bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg shadow-2xl overflow-hidden"
+      className="fixed z-50 w-80 bg-gray-900/60 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden"
       style={{
         left: position.x,
         top: position.y,
@@ -406,7 +406,7 @@ const MediaControlCenter = memo(({
     >
       {/* Drag Handle */}
       <div
-        className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-yellow-900/40 to-gray-900/80 border-b border-gray-700/50 cursor-grab active:cursor-grabbing"
+        className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-yellow-500/10 to-transparent border-b border-white/5 cursor-grab active:cursor-grabbing"
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
       >
