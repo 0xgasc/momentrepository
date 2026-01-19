@@ -1031,36 +1031,36 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   const youtubeId = isYouTube ? (moment?.externalVideoId || getYouTubeId(moment?.mediaUrl)) : null;
   const startTime = moment?.startTime || 0;
 
+  // Calculate progress for minimized view (needs to be available before conditional)
+  const getMinimizedProgress = () => {
+    if (isYouTube && ytProgress.duration > 0) {
+      const segmentStart = moment?.startTime || 0;
+      const segmentEnd = moment?.endTime || ytProgress.duration;
+      const segmentDuration = segmentEnd - segmentStart;
+      const relativeTime = Math.max(0, ytProgress.currentTime - segmentStart);
+      return segmentDuration > 0 ? Math.min(100, (relativeTime / segmentDuration) * 100) : 0;
+    }
+    if (isAudio && audioRef.current) {
+      const duration = audioRef.current.duration || 0;
+      const currentTime = audioRef.current.currentTime || 0;
+      return duration > 0 ? (currentTime / duration) * 100 : 0;
+    }
+    if (!isAudio && !isYouTube && videoRef.current) {
+      const duration = videoRef.current.duration || 0;
+      const currentTime = videoRef.current.currentTime || 0;
+      return duration > 0 ? (currentTime / duration) * 100 : 0;
+    }
+    return 0;
+  };
+
   // Minimized view - mobile optimized with progress bar
   if (isMinimized) {
-    // Calculate progress for minimized view
-    const getProgress = () => {
-      if (isYouTube && ytProgress.duration > 0) {
-        const segmentStart = moment?.startTime || 0;
-        const segmentEnd = moment?.endTime || ytProgress.duration;
-        const segmentDuration = segmentEnd - segmentStart;
-        const relativeTime = Math.max(0, ytProgress.currentTime - segmentStart);
-        return segmentDuration > 0 ? Math.min(100, (relativeTime / segmentDuration) * 100) : 0;
-      }
-      if (isAudio && audioRef.current) {
-        const duration = audioRef.current.duration || 0;
-        const currentTime = audioRef.current.currentTime || 0;
-        return duration > 0 ? (currentTime / duration) * 100 : 0;
-      }
-      if (!isAudio && !isYouTube && videoRef.current) {
-        const duration = videoRef.current.duration || 0;
-        const currentTime = videoRef.current.currentTime || 0;
-        return duration > 0 ? (currentTime / duration) * 100 : 0;
-      }
-      return 0;
-    };
-
     return (
-      <div className="mb-4 sm:mb-6 bg-gray-900 border border-gray-700 rounded-sm overflow-hidden">
-        {/* Hidden audio element - must be in DOM for audio to play when minimized */}
+      <>
+        {/* Persistent audio element - stays in DOM across minimize/maximize */}
         {isAudio && moment && (
           <audio
-            key={`audio-minimized-${moment._id}`}
+            key={`audio-persistent-${moment._id}`}
             ref={audioRef}
             src={transformMediaUrl(moment.mediaUrl)}
             crossOrigin="anonymous"
@@ -1088,11 +1088,12 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           />
         )}
 
-        {/* Progress bar at top */}
+        <div className="mb-4 sm:mb-6 bg-gray-900 border border-gray-700 rounded-sm overflow-hidden">
+          {/* Progress bar at top */}
         <div className="h-1 bg-gray-800 w-full">
           <div
             className="h-full bg-yellow-500 transition-all duration-200"
-            style={{ width: `${getProgress()}%` }}
+            style={{ width: `${getMinimizedProgress()}%` }}
           />
         </div>
 
@@ -1173,7 +1174,8 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
             </button>
           </div>
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 
@@ -1187,6 +1189,37 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     >
       {/* Hidden canvas for ASCII processing */}
       <canvas ref={canvasRef} className="hidden" />
+
+      {/* Persistent audio element - stays in DOM across minimize/maximize */}
+      {isAudio && moment && (
+        <audio
+          key={`audio-persistent-${moment._id}`}
+          ref={audioRef}
+          src={transformMediaUrl(moment.mediaUrl)}
+          crossOrigin="anonymous"
+          muted={isMuted}
+          preload="auto"
+          onLoadedData={() => {
+            setIsLoading(false);
+            if (audioRef.current) {
+              audioRef.current.muted = isMuted;
+              audioRef.current.volume = volume;
+              audioRef.current.play()
+                .then(() => {
+                  setIsPlaying(true);
+                  setAutoplayBlocked(false);
+                })
+                .catch(() => {
+                  setAutoplayBlocked(true);
+                  setIsPlaying(false);
+                });
+            }
+          }}
+          onEnded={handleNext}
+          onError={() => setError('Failed to load audio')}
+          className="hidden"
+        />
+      )}
 
       {/* Media filter moved to App.js - above hero */}
 
@@ -1215,30 +1248,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       {/* Audio Mode */}
       {isAudio && moment ? (
         <div className="relative w-full" style={{ paddingBottom: '56.25%', minHeight: '200px' }}>
-          <audio
-            key={`audio-${moment._id}`}
-            ref={audioRef}
-            src={transformMediaUrl(moment.mediaUrl)}
-            crossOrigin="anonymous"
-            muted={isMuted}
-            preload="auto"
-            onLoadedData={() => {
-              setIsLoading(false);
-              if (audioRef.current) {
-                audioRef.current.muted = isMuted;
-                audioRef.current.play()
-                  .then(() => {
-                    setIsPlaying(true);
-                    setAutoplayBlocked(false);
-                  })
-                  .catch(() => {
-                    setIsPlaying(false);
-                    setAutoplayBlocked(true);
-                  });
-              }
-            }}
-            onEnded={handleNext}
-          />
+          {/* Audio element is now at top level for persistence */}
 
           {/* Background - thumbnail or gradient */}
           <div className="absolute inset-0">
