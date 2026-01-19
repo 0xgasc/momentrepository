@@ -212,7 +212,7 @@ const MediaControlCenter = memo(({
   // Docked version (for sidebar)
   if (isDocked) {
     return (
-      <div className="media-control-center-docked p-2">
+      <div className="media-control-center-docked p-2 bg-gray-900/40 backdrop-blur-xl rounded-lg border border-white/5">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <button
@@ -241,7 +241,7 @@ const MediaControlCenter = memo(({
         </div>
 
         {!isCollapsed && (
-          <div className="bg-gradient-to-br from-yellow-500/5 via-gray-900/40 to-orange-500/5 backdrop-blur-md border border-white/10 rounded-lg p-2">
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-2">
             {/* Song Info */}
             <div className="mb-2">
               <div className="text-xs font-medium text-white truncate">{currentMoment?.songName || 'Unknown'}</div>
