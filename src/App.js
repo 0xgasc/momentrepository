@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { slugify } from './utils/slugify';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
-import { Menu, X, ChevronDown, ChevronUp, Music, Video, Link2, Upload, Film, Calendar, User, LogIn, Play, Pause, SkipForward } from 'lucide-react';
+import { Menu, X, ChevronDown, ChevronUp, Music, Video, Link2, Upload, Film, Calendar, User, LogIn, Play, Pause, SkipForward, SkipBack, Shuffle, Volume2, VolumeX } from 'lucide-react';
 import './styles/umo-theme.css';
 
 // Import the extracted components
@@ -747,11 +747,17 @@ const MainContent = memo(({
     isPlayingFromQueue,
     playerState,
     togglePlayPause,
+    toggleMute,
+    setVolume,
     playNextInQueue,
+    playPrevInQueue,
     playRandom,
     theaterQueue,
     currentQueueIndex
   } = useTheaterQueue();
+
+  // Mobile mini player expanded state
+  const [mobilePlayerExpanded, setMobilePlayerExpanded] = useState(false);
 
   // Import MomentDetailModal for hero clicks
   const MomentDetailModal = React.lazy(() => import('./components/Moment/MomentDetailModal'));
@@ -919,25 +925,27 @@ const MainContent = memo(({
       {/* Mobile Mini Player - Above Bottom Nav */}
       {(isPlayingFromQueue || currentMoment) && currentMoment && (
         <div className="sm:hidden fixed left-0 right-0 z-40" style={{ bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}>
-          <div className="mx-2 mb-1 bg-gray-800/95 backdrop-blur-xl border border-gray-700 rounded-lg shadow-lg overflow-hidden">
+          <div className="mx-2 mb-1 bg-black/60 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden">
             {/* Progress bar at top */}
-            <div className="h-0.5 bg-gray-700">
+            <div className="h-1 bg-gray-800 cursor-pointer">
               <div
                 className="h-full bg-gradient-to-r from-yellow-500 to-orange-500 transition-all duration-300"
                 style={{ width: `${(playerState.currentTime / playerState.duration) * 100 || 0}%` }}
               />
             </div>
 
-            <div className="flex items-center gap-3 px-3 py-2">
-              {/* Animated bars indicator */}
-              <div className="flex items-end gap-0.5 h-4 flex-shrink-0">
-                <div className={`w-0.5 bg-yellow-400 rounded-full ${playerState.isPlaying ? 'animate-pulse' : ''}`} style={{ height: '8px' }} />
-                <div className={`w-0.5 bg-yellow-400 rounded-full ${playerState.isPlaying ? 'animate-pulse' : ''}`} style={{ height: '14px', animationDelay: '150ms' }} />
-                <div className={`w-0.5 bg-yellow-400 rounded-full ${playerState.isPlaying ? 'animate-pulse' : ''}`} style={{ height: '6px', animationDelay: '300ms' }} />
-              </div>
+            {/* Main row - always visible */}
+            <div className="flex items-center gap-2 px-3 py-2">
+              {/* Expand/collapse toggle */}
+              <button
+                onClick={() => setMobilePlayerExpanded(!mobilePlayerExpanded)}
+                className="p-1 text-gray-400 hover:text-white transition-colors"
+              >
+                {mobilePlayerExpanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+              </button>
 
               {/* Song info */}
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0" onClick={() => setMobilePlayerExpanded(!mobilePlayerExpanded)}>
                 <div className="text-sm font-medium text-white truncate">
                   {currentMoment.songName || 'Unknown'}
                 </div>
@@ -946,9 +954,8 @@ const MainContent = memo(({
                 </div>
               </div>
 
-              {/* Controls */}
+              {/* Controls - compact */}
               <div className="flex items-center gap-1 flex-shrink-0">
-                {/* Play/Pause */}
                 <button
                   onClick={togglePlayPause}
                   className="p-2 rounded-full bg-yellow-500/20 hover:bg-yellow-500/40 transition-colors"
@@ -958,71 +965,161 @@ const MainContent = memo(({
                     : <Play size={18} className="text-yellow-400 ml-0.5" />
                   }
                 </button>
-
-                {/* Skip */}
                 <button
-                  onClick={() => theaterQueue.length > 0 ? playNextInQueue() : playRandom()}
-                  className="p-2 hover:bg-gray-700/50 rounded-full transition-colors"
-                  title={theaterQueue.length > 0 ? "Next in queue" : "Random"}
+                  onClick={() => theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1 ? playNextInQueue() : playRandom()}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
                 >
-                  <SkipForward size={18} className="text-gray-400" />
+                  {theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1
+                    ? <SkipForward size={16} className="text-gray-400" />
+                    : <Shuffle size={16} className="text-gray-400" />
+                  }
                 </button>
               </div>
             </div>
+
+            {/* Expanded controls */}
+            {mobilePlayerExpanded && (
+              <div className="px-3 pb-3 pt-1 border-t border-white/5 bg-white/5">
+                {/* Full transport controls */}
+                <div className="flex items-center justify-center gap-4 mb-3">
+                  <button
+                    onClick={() => playPrevInQueue()}
+                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                  >
+                    <SkipBack size={20} className="text-gray-300" />
+                  </button>
+                  <button
+                    onClick={togglePlayPause}
+                    className="p-3 rounded-full bg-yellow-500/30 hover:bg-yellow-500/50 transition-colors"
+                  >
+                    {playerState.isPlaying
+                      ? <Pause size={24} className="text-yellow-400" />
+                      : <Play size={24} className="text-yellow-400 ml-0.5" />
+                    }
+                  </button>
+                  <button
+                    onClick={() => theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1 ? playNextInQueue() : playRandom()}
+                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                  >
+                    {theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1
+                      ? <SkipForward size={20} className="text-gray-300" />
+                      : <Shuffle size={20} className="text-gray-300" />
+                    }
+                  </button>
+                </div>
+
+                {/* Volume control */}
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    onClick={() => toggleMute()}
+                    className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
+                  >
+                    {playerState.isMuted
+                      ? <VolumeX size={18} className="text-orange-400" />
+                      : <Volume2 size={18} className="text-gray-400" />
+                    }
+                  </button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={playerState.isMuted ? 0 : playerState.volume}
+                    onChange={(e) => setVolume(parseFloat(e.target.value))}
+                    className="flex-1 h-1 bg-gray-700 rounded-full appearance-none cursor-pointer
+                             [&::-webkit-slider-thumb]:appearance-none
+                             [&::-webkit-slider-thumb]:w-3
+                             [&::-webkit-slider-thumb]:h-3
+                             [&::-webkit-slider-thumb]:rounded-full
+                             [&::-webkit-slider-thumb]:bg-yellow-400
+                             [&::-webkit-slider-thumb]:cursor-pointer"
+                  />
+                </div>
+
+                {/* Time display */}
+                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
+                  <span>{Math.floor(playerState.currentTime / 60)}:{String(Math.floor(playerState.currentTime % 60)).padStart(2, '0')}</span>
+                  <span>{Math.floor(playerState.duration / 60)}:{String(Math.floor(playerState.duration % 60)).padStart(2, '0')}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Mobile Bottom Navigation */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-gray-900/95 backdrop-blur-sm border-t border-gray-700" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        <div className="flex justify-around items-center py-1">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-black/70 backdrop-blur-xl border-t border-white/10" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        {/* Source filter row */}
+        <div className="flex justify-center gap-2 pt-1.5 pb-0.5 border-b border-white/5">
+          <button
+            onClick={() => toggleFilter('source', 'linked')}
+            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] transition-all ${
+              mediaFilters.linked ? 'bg-blue-600/30 text-blue-400' : 'text-gray-500'
+            }`}
+          >
+            <Link2 size={10} />
+            Linked
+          </button>
+          <button
+            onClick={() => toggleFilter('source', 'uploads')}
+            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] transition-all ${
+              mediaFilters.uploads ? 'bg-blue-600/30 text-blue-400' : 'text-gray-500'
+            }`}
+          >
+            <Upload size={10} />
+            Uploads
+          </button>
+        </div>
+
+        {/* Main nav row */}
+        <div className="flex justify-around items-center">
           <button
             onClick={() => onBrowseModeChange('moments')}
-            style={{ minHeight: '56px', minWidth: '60px' }}
+            style={{ minHeight: '48px', minWidth: '56px' }}
             className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${
               browseMode === 'moments' ? 'text-yellow-400' : 'text-gray-400'
             }`}
           >
-            <Film size={20} />
-            <span className="text-[10px] font-medium">Moments</span>
+            <Film size={18} />
+            <span className="text-[9px] font-medium">Moments</span>
           </button>
           <button
             onClick={() => onBrowseModeChange('performances')}
-            style={{ minHeight: '56px', minWidth: '60px' }}
+            style={{ minHeight: '48px', minWidth: '56px' }}
             className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${
               browseMode === 'performances' ? 'text-yellow-400' : 'text-gray-400'
             }`}
           >
-            <Calendar size={20} />
-            <span className="text-[10px] font-medium">Shows</span>
+            <Calendar size={18} />
+            <span className="text-[9px] font-medium">Shows</span>
           </button>
           <button
             onClick={() => onBrowseModeChange('songs')}
-            style={{ minHeight: '56px', minWidth: '60px' }}
+            style={{ minHeight: '48px', minWidth: '56px' }}
             className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${
               browseMode === 'songs' ? 'text-yellow-400' : 'text-gray-400'
             }`}
           >
-            <Music size={20} />
-            <span className="text-[10px] font-medium">Songs</span>
+            <Music size={18} />
+            <span className="text-[9px] font-medium">Songs</span>
           </button>
           {user ? (
             <button
               onClick={onShowAccount}
-              style={{ minHeight: '56px', minWidth: '60px' }}
+              style={{ minHeight: '48px', minWidth: '56px' }}
               className="flex flex-col items-center justify-center gap-0.5 text-gray-400 transition-colors"
             >
-              <User size={20} />
-              <span className="text-[10px] font-medium">Account</span>
+              <User size={18} />
+              <span className="text-[9px] font-medium">Account</span>
             </button>
           ) : (
             <button
               onClick={onLoginClick}
-              style={{ minHeight: '56px', minWidth: '60px' }}
+              style={{ minHeight: '48px', minWidth: '56px' }}
               className="flex flex-col items-center justify-center gap-0.5 text-gray-400 transition-colors"
             >
-              <LogIn size={20} />
-              <span className="text-[10px] font-medium">Login</span>
+              <LogIn size={18} />
+              <span className="text-[9px] font-medium">Login</span>
             </button>
           )}
         </div>
