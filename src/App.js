@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { slugify } from './utils/slugify';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
-import { Menu, X, ChevronDown, ChevronUp, Music, Video, Link2, Upload, Film, Calendar, User, LogIn } from 'lucide-react';
+import { Menu, X, ChevronDown, ChevronUp, Music, Video, Link2, Upload, Film, Calendar, User, LogIn, Play, Pause, SkipForward } from 'lucide-react';
 import './styles/umo-theme.css';
 
 // Import the extracted components
@@ -25,7 +25,7 @@ import VideoHero from './components/UI/VideoHero';
 import PublicCollectionView from './components/Collection/PublicCollectionView';
 import DesktopSidebar from './components/UI/DesktopSidebar';
 import TopContributors from './components/Community/TopContributors';
-import { TheaterQueueProvider } from './contexts/TheaterQueueContext';
+import { TheaterQueueProvider, useTheaterQueue } from './contexts/TheaterQueueContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import SettingsPanel from './components/UI/SettingsPanel';
 import { useNotifications } from './hooks';
@@ -741,6 +741,18 @@ const MainContent = memo(({
 }) => {
   const [heroSelectedMoment, setHeroSelectedMoment] = useState(null);
 
+  // Theater queue for mobile mini player
+  const {
+    currentMoment,
+    isPlayingFromQueue,
+    playerState,
+    togglePlayPause,
+    playNextInQueue,
+    playRandom,
+    theaterQueue,
+    currentQueueIndex
+  } = useTheaterQueue();
+
   // Import MomentDetailModal for hero clicks
   const MomentDetailModal = React.lazy(() => import('./components/Moment/MomentDetailModal'));
 
@@ -902,6 +914,63 @@ const MainContent = memo(({
             onClose={() => setHeroSelectedMoment(null)}
           />
         </React.Suspense>
+      )}
+
+      {/* Mobile Mini Player - Above Bottom Nav */}
+      {(isPlayingFromQueue || currentMoment) && currentMoment && (
+        <div className="sm:hidden fixed left-0 right-0 z-40" style={{ bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}>
+          <div className="mx-2 mb-1 bg-gray-800/95 backdrop-blur-xl border border-gray-700 rounded-lg shadow-lg overflow-hidden">
+            {/* Progress bar at top */}
+            <div className="h-0.5 bg-gray-700">
+              <div
+                className="h-full bg-gradient-to-r from-yellow-500 to-orange-500 transition-all duration-300"
+                style={{ width: `${(playerState.currentTime / playerState.duration) * 100 || 0}%` }}
+              />
+            </div>
+
+            <div className="flex items-center gap-3 px-3 py-2">
+              {/* Animated bars indicator */}
+              <div className="flex items-end gap-0.5 h-4 flex-shrink-0">
+                <div className={`w-0.5 bg-yellow-400 rounded-full ${playerState.isPlaying ? 'animate-pulse' : ''}`} style={{ height: '8px' }} />
+                <div className={`w-0.5 bg-yellow-400 rounded-full ${playerState.isPlaying ? 'animate-pulse' : ''}`} style={{ height: '14px', animationDelay: '150ms' }} />
+                <div className={`w-0.5 bg-yellow-400 rounded-full ${playerState.isPlaying ? 'animate-pulse' : ''}`} style={{ height: '6px', animationDelay: '300ms' }} />
+              </div>
+
+              {/* Song info */}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-white truncate">
+                  {currentMoment.songName || 'Unknown'}
+                </div>
+                <div className="text-[10px] text-gray-400 truncate">
+                  {currentMoment.performanceName || currentMoment.venue || 'Unknown show'}
+                </div>
+              </div>
+
+              {/* Controls */}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {/* Play/Pause */}
+                <button
+                  onClick={togglePlayPause}
+                  className="p-2 rounded-full bg-yellow-500/20 hover:bg-yellow-500/40 transition-colors"
+                >
+                  {playerState.isPlaying
+                    ? <Pause size={18} className="text-yellow-400" />
+                    : <Play size={18} className="text-yellow-400 ml-0.5" />
+                  }
+                </button>
+
+                {/* Skip */}
+                <button
+                  onClick={() => theaterQueue.length > 0 ? playNextInQueue() : playRandom()}
+                  className="p-2 hover:bg-gray-700/50 rounded-full transition-colors"
+                  title={theaterQueue.length > 0 ? "Next in queue" : "Random"}
+                >
+                  <SkipForward size={18} className="text-gray-400" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Mobile Bottom Navigation */}
