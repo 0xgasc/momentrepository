@@ -176,7 +176,7 @@ const MediaControlCenter = memo(({
         ) : (
           <div
             ref={dragRef}
-            className="fixed z-50 w-64 bg-gray-900/60 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden"
+            className="fixed z-50 w-64 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden"
             style={{ left: position.x, top: position.y }}
           >
             <div
@@ -397,7 +397,7 @@ const MediaControlCenter = memo(({
   return (
     <div
       ref={dragRef}
-      className="fixed z-50 w-80 bg-gray-900/60 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden"
+      className="fixed z-50 w-80 bg-black/40 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden"
       style={{
         left: position.x,
         top: position.y,
