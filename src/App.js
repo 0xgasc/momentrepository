@@ -924,7 +924,7 @@ const MainContent = memo(({
 
       {/* Mobile Mini Player - Above Bottom Nav */}
       {(isPlayingFromQueue || currentMoment) && currentMoment && (
-        <div className="sm:hidden fixed left-0 right-0 z-40" style={{ bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="sm:hidden fixed left-0 right-0 z-40" style={{ bottom: 'calc(76px + env(safe-area-inset-bottom, 0px))' }}>
           <div className="mx-2 mb-1 bg-black/60 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden">
             {/* Progress bar at top */}
             <div className="h-1 bg-white/20 cursor-pointer">
