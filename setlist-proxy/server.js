@@ -151,9 +151,19 @@ console.log('🔐 CORS allowed origins:', allowedOrigins);
 app.use(cors({
   origin: true, // Allow all origins
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control', 'Pragma'],
-  exposedHeaders: ['Content-Length', 'Content-Type']
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control', 'Pragma',
+    // Tus protocol headers for resumable uploads
+    'Upload-Length', 'Upload-Offset', 'Tus-Resumable', 'Upload-Metadata',
+    'Upload-Defer-Length', 'Upload-Concat', 'X-HTTP-Method-Override'
+  ],
+  exposedHeaders: [
+    'Content-Length', 'Content-Type',
+    // Tus protocol response headers
+    'Upload-Offset', 'Location', 'Upload-Length', 'Tus-Version',
+    'Tus-Resumable', 'Tus-Max-Size', 'Tus-Extension', 'Upload-Metadata'
+  ]
 }));
 
 // =====================================================
