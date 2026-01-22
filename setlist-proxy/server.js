@@ -2128,14 +2128,57 @@ app.get('/cached/performance/:performanceId', async (req, res) => {
 });
 app.get('/cached/songs', async (req, res) => {
   try {
-    const { sortBy = 'alphabetical', limit } = req.query;
-    
+    const { sortBy = 'alphabetical', limit, includeMomentCounts = 'true' } = req.query;
+
     const songDatabase = await umoCache.getSongDatabase();
     let songs = Object.values(songDatabase);
-    
+
+    // Get moment counts for all songs in ONE aggregation query
+    let momentCountsMap = {};
+    if (includeMomentCounts === 'true') {
+      try {
+        const momentCounts = await Moment.aggregate([
+          {
+            $match: {
+              approvalStatus: 'approved',
+              $or: [
+                { contentType: 'song' },
+                { contentType: { $exists: false } }
+              ]
+            }
+          },
+          {
+            $group: {
+              _id: '$songName',
+              count: { $sum: 1 }
+            }
+          }
+        ]);
+
+        // Convert to map for fast lookup
+        momentCounts.forEach(item => {
+          if (item._id) {
+            momentCountsMap[item._id] = item.count;
+          }
+        });
+        console.log(`📊 Loaded moment counts for ${Object.keys(momentCountsMap).length} songs`);
+      } catch (dbErr) {
+        console.error('⚠️ Could not load moment counts:', dbErr.message);
+      }
+    }
+
+    // Add moment counts to songs
+    songs = songs.map(song => ({
+      ...song,
+      totalMoments: momentCountsMap[song.songName] || 0
+    }));
+
     switch (sortBy) {
       case 'mostPerformed':
         songs.sort((a, b) => b.totalPerformances - a.totalPerformances);
+        break;
+      case 'mostMoments':
+        songs.sort((a, b) => b.totalMoments - a.totalMoments);
         break;
       case 'lastPerformed':
         songs.sort((a, b) => new Date(b.lastPerformed) - new Date(a.lastPerformed));
@@ -2148,18 +2191,23 @@ app.get('/cached/songs', async (req, res) => {
         songs.sort((a, b) => a.songName.localeCompare(b.songName));
         break;
     }
-    
+
     if (limit) {
       songs = songs.slice(0, parseInt(limit));
     }
-    
+
+    const totalMoments = Object.values(momentCountsMap).reduce((sum, count) => sum + count, 0);
+    const songsWithMoments = Object.keys(momentCountsMap).length;
+
     res.json({
       songs,
       totalSongs: Object.keys(songDatabase).length,
+      totalMoments,
+      songsWithMoments,
       fromCache: true,
       lastUpdated: umoCache.cache?.lastUpdated
     });
-    
+
   } catch (err) {
     console.error('❌ Error fetching cached songs:', err);
     res.status(500).json({ error: 'Failed to fetch songs' });

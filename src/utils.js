@@ -286,20 +286,21 @@ export const searchUMOPerformances = async (cityQuery, apiBaseUrl, page = 1, lim
   }
 };
 
-// Function to get comprehensive song database from cache
+// Function to get comprehensive song database from cache (includes moment counts)
 export const fetchUMOSongDatabase = async (apiBaseUrl, sortBy = 'mostPerformed') => {
   try {
     console.log(`🎵 Fetching UMO song database from cache...`);
-    
-    const url = `${apiBaseUrl}/cached/songs?sortBy=${sortBy}`;
-    
+
+    const url = `${apiBaseUrl}/cached/songs?sortBy=${sortBy}&includeMomentCounts=true`;
+
     const response = await safeFetch(url);
     const data = await response.json();
-    
-    console.log(`📊 Song database loaded: ${data.songs.length} songs`);
-    
-    return data.songs;
-    
+
+    console.log(`📊 Song database loaded: ${data.songs?.length || 0} songs, ${data.totalMoments || 0} total moments`);
+
+    // Return full response with songs, totalMoments, songsWithMoments
+    return data;
+
   } catch (error) {
     console.error(`❌ Error fetching song database:`, error);
     throw error;
