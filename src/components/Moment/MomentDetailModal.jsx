@@ -535,6 +535,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
             sourceType={moment.sourceType}
             momentId={moment._id}
             onDownload={handleDownload}
+            autoPlay={true}
           />
           <p className="text-xs text-gray-500 mt-2 text-center">
             {moment.fileSize ? formatFileSize(moment.fileSize) : ''}
