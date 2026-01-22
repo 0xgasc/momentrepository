@@ -758,7 +758,7 @@ const MainContent = memo(({
 
   // Mobile mini player expanded state
   const [mobilePlayerExpanded, setMobilePlayerExpanded] = useState(false);
-  const [mobileNavPage, setMobileNavPage] = useState(0); // 0 = main nav, 1 = filters, 2 = settings
+  const [mobileNavPage, setMobileNavPage] = useState(0); // 0 = main nav, 1 = filters
 
   // Import MomentDetailModal for hero clicks
   const MomentDetailModal = React.lazy(() => import('./components/Moment/MomentDetailModal'));
@@ -925,7 +925,7 @@ const MainContent = memo(({
 
       {/* Mobile Mini Player - Above Bottom Nav */}
       {(isPlayingFromQueue || currentMoment) && currentMoment && (
-        <div className="sm:hidden fixed left-0 right-0 z-40" style={{ bottom: 'calc(60px + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="sm:hidden fixed left-0 right-0 z-40" style={{ bottom: 'calc(52px + env(safe-area-inset-bottom, 0px))' }}>
           <div className="mx-2 mb-1 bg-black/60 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden">
             {/* Progress bar at top */}
             <div className="h-1 bg-white/20 cursor-pointer">
@@ -1053,20 +1053,20 @@ const MainContent = memo(({
         <div className="flex items-center">
           {/* Left arrow */}
           <button
-            onClick={() => setMobileNavPage(p => p > 0 ? p - 1 : 2)}
+            onClick={() => setMobileNavPage(p => p === 0 ? 1 : 0)}
             className="p-2 text-gray-500 hover:text-white transition-colors"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} />
           </button>
 
           {/* Content area - swappable pages */}
           <div className="flex-1 overflow-hidden">
             {/* Page 0: Main Navigation */}
             {mobileNavPage === 0 && (
-              <div className="flex justify-around items-center py-1">
+              <div className="flex justify-around items-center py-1.5">
                 <button
                   onClick={() => onBrowseModeChange('moments')}
-                  className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 transition-colors ${
+                  className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 transition-colors ${
                     browseMode === 'moments' ? 'text-yellow-400' : 'text-gray-400'
                   }`}
                 >
@@ -1075,7 +1075,7 @@ const MainContent = memo(({
                 </button>
                 <button
                   onClick={() => onBrowseModeChange('performances')}
-                  className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 transition-colors ${
+                  className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 transition-colors ${
                     browseMode === 'performances' ? 'text-yellow-400' : 'text-gray-400'
                   }`}
                 >
@@ -1084,7 +1084,7 @@ const MainContent = memo(({
                 </button>
                 <button
                   onClick={() => onBrowseModeChange('songs')}
-                  className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 transition-colors ${
+                  className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 transition-colors ${
                     browseMode === 'songs' ? 'text-yellow-400' : 'text-gray-400'
                   }`}
                 >
@@ -1094,7 +1094,7 @@ const MainContent = memo(({
                 {user ? (
                   <button
                     onClick={onShowAccount}
-                    className="flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 text-gray-400 transition-colors"
+                    className="flex flex-col items-center justify-center gap-0.5 px-2 py-1 text-gray-400 transition-colors"
                   >
                     <User size={18} />
                     <span className="text-[9px] font-medium">Account</span>
@@ -1102,7 +1102,7 @@ const MainContent = memo(({
                 ) : (
                   <button
                     onClick={onLoginClick}
-                    className="flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 text-gray-400 transition-colors"
+                    className="flex flex-col items-center justify-center gap-0.5 px-2 py-1 text-gray-400 transition-colors"
                   >
                     <LogIn size={18} />
                     <span className="text-[9px] font-medium">Login</span>
@@ -1113,10 +1113,10 @@ const MainContent = memo(({
 
             {/* Page 1: Source & Media Filters */}
             {mobileNavPage === 1 && (
-              <div className="flex justify-around items-center py-2">
+              <div className="flex justify-around items-center py-1.5">
                 <button
                   onClick={() => toggleFilter('source', 'linked')}
-                  className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 transition-colors ${
+                  className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 transition-colors ${
                     mediaFilters.linked ? 'text-blue-400' : 'text-gray-500'
                   }`}
                 >
@@ -1125,7 +1125,7 @@ const MainContent = memo(({
                 </button>
                 <button
                   onClick={() => toggleFilter('source', 'uploads')}
-                  className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 transition-colors ${
+                  className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 transition-colors ${
                     mediaFilters.uploads ? 'text-purple-400' : 'text-gray-500'
                   }`}
                 >
@@ -1134,7 +1134,7 @@ const MainContent = memo(({
                 </button>
                 <button
                   onClick={() => toggleFilter('type', 'audio')}
-                  className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 transition-colors ${
+                  className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 transition-colors ${
                     mediaFilters.audio ? 'text-green-400' : 'text-gray-500'
                   }`}
                 >
@@ -1143,7 +1143,7 @@ const MainContent = memo(({
                 </button>
                 <button
                   onClick={() => toggleFilter('type', 'video')}
-                  className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 transition-colors ${
+                  className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 transition-colors ${
                     mediaFilters.video ? 'text-orange-400' : 'text-gray-500'
                   }`}
                 >
@@ -1152,45 +1152,15 @@ const MainContent = memo(({
                 </button>
               </div>
             )}
-
-            {/* Page 2: Quick Settings */}
-            {mobileNavPage === 2 && (
-              <div className="flex justify-around items-center py-2">
-                <button
-                  onClick={() => setMobileNavPage(0)}
-                  className="flex flex-col items-center justify-center gap-0.5 px-3 py-1 text-gray-400 transition-colors"
-                >
-                  <Settings size={18} />
-                  <span className="text-[9px] font-medium">Settings</span>
-                </button>
-                <div className="flex flex-col items-center justify-center gap-0.5 px-3 py-1 text-gray-500">
-                  <span className="text-[10px]">More coming</span>
-                  <span className="text-[9px]">soon...</span>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Right arrow */}
           <button
-            onClick={() => setMobileNavPage(p => p < 2 ? p + 1 : 0)}
+            onClick={() => setMobileNavPage(p => p === 0 ? 1 : 0)}
             className="p-2 text-gray-500 hover:text-white transition-colors"
           >
-            <ChevronRight size={18} />
+            <ChevronRight size={16} />
           </button>
-        </div>
-
-        {/* Page indicator dots */}
-        <div className="flex justify-center gap-1.5 pb-1">
-          {[0, 1, 2].map(i => (
-            <button
-              key={i}
-              onClick={() => setMobileNavPage(i)}
-              className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                mobileNavPage === i ? 'bg-yellow-400' : 'bg-gray-600'
-              }`}
-            />
-          ))}
         </div>
       </div>
 
