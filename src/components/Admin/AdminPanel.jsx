@@ -645,6 +645,20 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
                   {expandedMoment === moment._id && (
                     <div className="mt-3 p-3 bg-gray-50 rounded border">
                       <div className="grid grid-cols-2 gap-2 text-sm">
+                        {/* Media URL - clickable link */}
+                        <div className="col-span-2">
+                          <strong>Media URL:</strong>{' '}
+                          {moment.mediaUrl ? (
+                            <a
+                              href={transformMediaUrl(moment.mediaUrl)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 break-all"
+                            >
+                              {moment.mediaUrl}
+                            </a>
+                          ) : 'None'}
+                        </div>
                         <div><strong>Description:</strong> {moment.momentDescription || 'None'}</div>
                         <div><strong>Personal Note:</strong> {moment.personalNote || 'None'}</div>
                         <div><strong>Audio Quality:</strong> {moment.audioQuality || 'good'}</div>
