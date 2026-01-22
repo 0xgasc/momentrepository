@@ -75,13 +75,15 @@ const PerformanceDetail = memo(({ performance, onBack, onViewUserProfile, onNavi
       return;
     }
 
+    // Use fullPerformance which has the complete venue data
+    const perf = fullPerformance || performance;
     setUploadingMoment({
       type: 'song',
-      performanceId: performance.id,
-      performanceDate: performance.eventDate,
-      venueName: performance.venue?.name || '',
-      venueCity: performance.venue?.city?.name || '',
-      venueCountry: performance.venue?.city?.country?.name || '',
+      performanceId: perf.id,
+      performanceDate: perf.eventDate,
+      venueName: perf.venue?.name || '',
+      venueCity: perf.venue?.city?.name || '',
+      venueCountry: perf.venue?.city?.country?.name || '',
       songName: song?.name || '',
       setName: setInfo?.name || '',
       songPosition: (songIndex || 0) + 1,
@@ -95,13 +97,15 @@ const PerformanceDetail = memo(({ performance, onBack, onViewUserProfile, onNavi
       return;
     }
 
+    // Use fullPerformance which has the complete venue data
+    const perf = fullPerformance || performance;
     setUploadingMoment({
       type: 'other',
-      performanceId: performance.id,
-      performanceDate: performance.eventDate,
-      venueName: performance.venue?.name || '',
-      venueCity: performance.venue?.city?.name || '',
-      venueCountry: performance.venue?.city?.country?.name || '',
+      performanceId: perf.id,
+      performanceDate: perf.eventDate,
+      venueName: perf.venue?.name || '',
+      venueCity: perf.venue?.city?.name || '',
+      venueCountry: perf.venue?.city?.country?.name || '',
       songName: '',
       setName: '',
       songPosition: 0,
