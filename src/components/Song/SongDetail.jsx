@@ -317,25 +317,19 @@ const SongDetail = memo(({ songData: initialSongData, onBack, onPerformanceSelec
                         ) : null;
                       }
 
-                      // Uploaded video clip
+                      // Uploaded video clip - autoplay muted like YouTube
                       if (isVideo && moment.mediaUrl) {
                         return (
                           <video
                             src={transformMediaUrl(moment.mediaUrl)}
                             className="w-full h-full object-cover"
                             muted
+                            autoPlay
+                            loop
                             playsInline
-                            preload="metadata"
+                            preload="auto"
                             onLoadedMetadata={(e) => {
                               if (moment.startTime) e.target.currentTime = moment.startTime;
-                            }}
-                            onMouseEnter={(e) => {
-                              if (moment.startTime) e.target.currentTime = moment.startTime;
-                              e.target.play().catch(() => {});
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.pause();
-                              e.target.currentTime = moment.startTime || 0;
                             }}
                           />
                         );
