@@ -465,8 +465,9 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
             style={{ maxHeight: '500px', width: '100%', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
             controls={true}
             autoPlay={true}
-            muted={false}
-            preload="metadata"
+            muted={true}
+            unmuteAfterPlay={true}
+            preload="auto"
             playsInline={true}
             startTime={moment.startTime || 0}
             onLoad={() => { setVideoLoaded(true); setMediaError(false); }}

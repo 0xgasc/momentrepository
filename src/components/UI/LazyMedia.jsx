@@ -13,6 +13,7 @@ const LazyMedia = memo(({
   onError,
   autoPlay = false,
   muted = true,
+  unmuteAfterPlay = false,
   controls = true,
   preload = 'metadata',
   adaptiveQuality = true,
@@ -283,17 +284,33 @@ const LazyMedia = memo(({
               if (autoPlay && !hoverToPlay) {
                 const playPromise = mediaRef.current?.play();
                 if (playPromise !== undefined) {
-                  playPromise.catch((error) => {
-                    console.log('🔊 Autoplay with audio blocked, trying muted autoplay:', error.message);
-                    // If autoplay with audio fails, try muted autoplay as fallback
-                    if (!muted) {
+                  playPromise.then(() => {
+                    // Autoplay succeeded - unmute if requested
+                    if (unmuteAfterPlay && mediaRef.current) {
+                      setTimeout(() => {
+                        if (mediaRef.current) {
+                          mediaRef.current.muted = false;
+                        }
+                      }, 100);
+                    }
+                  }).catch((error) => {
+                    console.log('🔊 Autoplay blocked, trying muted autoplay:', error.message);
+                    // If autoplay fails, try muted autoplay as fallback
+                    if (mediaRef.current) {
                       mediaRef.current.muted = true;
-                      mediaRef.current.play().catch(() => {
+                      mediaRef.current.play().then(() => {
+                        // Muted autoplay succeeded - unmute after a moment
+                        if (unmuteAfterPlay) {
+                          setTimeout(() => {
+                            if (mediaRef.current) {
+                              mediaRef.current.muted = false;
+                            }
+                          }, 100);
+                        }
+                      }).catch(() => {
                         console.log('❌ All autoplay attempts failed, user interaction required');
                         setAutoplayBlocked(true);
                       });
-                    } else {
-                      setAutoplayBlocked(true);
                     }
                   });
                 }
