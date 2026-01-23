@@ -446,6 +446,23 @@ const MainApp = memo(() => {
 
       {/* Theater Queue (always rendered, shows when items in queue) */}
       <TheaterQueue sidebarPosition={sidebarPosition} sidebarCollapsed={sidebarCollapsed} />
+
+      {/* Mobile Bottom Navigation - Always visible on mobile */}
+      <MobileBottomNav
+        browseMode={browseMode}
+        onBrowseModeChange={switchBrowseMode}
+        mediaFilters={mediaFilters}
+        toggleFilter={toggleFilter}
+        user={user}
+        onShowAccount={() => {
+          setShowMyAccount(true);
+          refreshNotifications();
+        }}
+        onLoginClick={() => setShowLogin(true)}
+      />
+
+      {/* Bottom padding spacer for mobile nav */}
+      <div className="sm:hidden h-20" />
     </div>
   );
 });
@@ -752,26 +769,10 @@ const MainContent = memo(({
 }) => {
   const [heroSelectedMoment, setHeroSelectedMoment] = useState(null);
 
-  // Theater queue for mobile mini player
-  const {
-    currentMoment,
-    isPlayingFromQueue,
-    playerState,
-    togglePlayPause,
-    toggleMute,
-    setVolume,
-    playNextInQueue,
-    playPrevInQueue,
-    playRandom,
-    theaterQueue,
-    currentQueueIndex,
-    importPlaylistFromLink,
-    playQueue
-  } = useTheaterQueue();
+  // Theater queue for playlist import
+  const { importPlaylistFromLink, playQueue } = useTheaterQueue();
 
-  // Mobile mini player expanded state
-  const [mobilePlayerExpanded, setMobilePlayerExpanded] = useState(false);
-  const [mobileNavPage, setMobileNavPage] = useState(0); // 0 = main nav, 1 = filters
+  // Playlist import status
   const [playlistImportStatus, setPlaylistImportStatus] = useState(null); // { loading, success, error, name, count }
 
   // Handle shared playlist import from URL
@@ -1002,7 +1003,41 @@ const MainContent = memo(({
           />
         </React.Suspense>
       )}
+    </>
+  );
+});
 
+MainContent.displayName = 'MainContent';
+
+// Mobile Bottom Navigation - Always visible on mobile, regardless of view
+const MobileBottomNav = memo(({
+  browseMode,
+  onBrowseModeChange,
+  mediaFilters,
+  toggleFilter,
+  user,
+  onShowAccount,
+  onLoginClick
+}) => {
+  const [mobileNavPage, setMobileNavPage] = useState(0);
+  const [mobilePlayerExpanded, setMobilePlayerExpanded] = useState(false);
+
+  const {
+    currentMoment,
+    isPlayingFromQueue,
+    playerState,
+    togglePlayPause,
+    toggleMute,
+    setVolume,
+    playNextInQueue,
+    playPrevInQueue,
+    playRandom,
+    theaterQueue,
+    currentQueueIndex
+  } = useTheaterQueue();
+
+  return (
+    <>
       {/* Mobile Mini Player - Above Bottom Nav */}
       {(isPlayingFromQueue || currentMoment) && currentMoment && (
         <div className="sm:hidden fixed left-0 right-0 z-40" style={{ bottom: 'calc(52px + env(safe-area-inset-bottom, 0px))' }}>
@@ -1255,14 +1290,11 @@ const MainContent = memo(({
           </button>
         </div>
       </div>
-
-      {/* Bottom padding spacer for mobile nav */}
-      <div className="sm:hidden h-20" />
     </>
   );
 });
 
-MainContent.displayName = 'MainContent';
+MobileBottomNav.displayName = 'MobileBottomNav';
 
 // ✅ UPDATED: Main App Export with Web3 providers
 export default function App() {
