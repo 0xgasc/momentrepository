@@ -111,8 +111,8 @@ const MainApp = memo(() => {
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarPosition, setSidebarPosition] = useState(() => {
-    // Load from localStorage or default to 'left'
-    return localStorage.getItem('umo-sidebar-position') || 'left';
+    // Load from localStorage or default to 'right'
+    return localStorage.getItem('umo-sidebar-position') || 'right';
   });
 
   // Save sidebar position to localStorage when changed
