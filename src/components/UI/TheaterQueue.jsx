@@ -1,6 +1,6 @@
-// src/components/UI/TheaterQueue.jsx - Theater queue playlist component
+// src/components/UI/TheaterQueue.jsx - Theater queue playlist component with local playlists
 import React, { useState } from 'react';
-import { ListMusic, Play, X, Trash2, GripVertical, ChevronUp, ChevronDown, Shuffle, Save, Check, Loader2, Link2, Copy } from 'lucide-react';
+import { ListMusic, Play, X, Trash2, GripVertical, ChevronUp, ChevronDown, Shuffle, Save, Check, Loader2, Link2, Copy, FolderOpen, Plus, MoreVertical } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { useAuth } from '../Auth/AuthProvider';
 import { useFavorites } from '../../hooks/useFavorites';
@@ -8,6 +8,7 @@ import { useFavorites } from '../../hooks/useFavorites';
 const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
+  const [activeTab, setActiveTab] = useState('queue'); // 'queue' | 'playlists'
 
   // Save as collection state
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -18,6 +19,11 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
   const [saveError, setSaveError] = useState('');
   const [savedCollection, setSavedCollection] = useState(null);
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // Local playlist save modal
+  const [showLocalSaveModal, setShowLocalSaveModal] = useState(false);
+  const [localPlaylistName, setLocalPlaylistName] = useState('');
+  const [playlistMenuOpen, setPlaylistMenuOpen] = useState(null); // playlist id
 
   const { token, user } = useAuth();
   const { createCollection, addToCollection } = useFavorites(token);
@@ -35,7 +41,13 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
     shuffleQueue,
     playNextInQueue,
     // eslint-disable-next-line no-unused-vars
-    stopQueue
+    stopQueue,
+    // Local playlists
+    localPlaylists,
+    saveQueueAsLocalPlaylist,
+    loadLocalPlaylist,
+    deleteLocalPlaylist,
+    exportPlaylistAsLink
   } = useTheaterQueue();
 
   // Handle drag start
@@ -126,8 +138,51 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
     setLinkCopied(false);
   };
 
-  // If no queue, don't render anything
-  if (theaterQueue.length === 0) {
+  // Handle save as local playlist
+  const handleSaveLocalPlaylist = () => {
+    if (!localPlaylistName.trim() || theaterQueue.length === 0) return;
+    const result = saveQueueAsLocalPlaylist(localPlaylistName.trim());
+    if (result) {
+      setLocalPlaylistName('');
+      setShowLocalSaveModal(false);
+    }
+  };
+
+  // Handle load playlist into queue
+  const handleLoadPlaylist = (playlistId) => {
+    loadLocalPlaylist(playlistId, true);
+    setActiveTab('queue');
+    setPlaylistMenuOpen(null);
+  };
+
+  // Handle append playlist to queue
+  const handleAppendPlaylist = (playlistId) => {
+    loadLocalPlaylist(playlistId, false);
+    setActiveTab('queue');
+    setPlaylistMenuOpen(null);
+  };
+
+  // Handle copy playlist link
+  const handleCopyPlaylistLink = (playlistId) => {
+    const link = exportPlaylistAsLink(playlistId);
+    if (link) {
+      navigator.clipboard.writeText(link);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    }
+    setPlaylistMenuOpen(null);
+  };
+
+  // Handle delete playlist
+  const handleDeletePlaylist = (playlistId) => {
+    if (window.confirm('Delete this playlist?')) {
+      deleteLocalPlaylist(playlistId);
+    }
+    setPlaylistMenuOpen(null);
+  };
+
+  // If no queue AND no playlists, don't render anything
+  if (theaterQueue.length === 0 && localPlaylists.length === 0) {
     return null;
   }
 
@@ -159,9 +214,11 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
             {/* Queue icon with count badge */}
             <div className="relative">
               <ListMusic size={20} className="text-yellow-400" />
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-yellow-500 text-black text-[10px] font-bold rounded-full flex items-center justify-center">
-                {theaterQueue.length}
-              </span>
+              {theaterQueue.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-yellow-500 text-black text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {theaterQueue.length}
+                </span>
+              )}
             </div>
 
             {/* Status text */}
@@ -178,17 +235,21 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
                     {currentQueueIndex + 1}/{theaterQueue.length}
                   </span>
                 </div>
-              ) : (
+              ) : theaterQueue.length > 0 ? (
                 <span className="text-gray-400 text-sm">
                   {theaterQueue.length} queued
+                </span>
+              ) : (
+                <span className="text-gray-400 text-sm">
+                  {localPlaylists.length} playlist{localPlaylists.length !== 1 ? 's' : ''}
                 </span>
               )}
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Play button when not playing */}
-            {!isPlayingFromQueue && (
+            {/* Play button when not playing and has queue */}
+            {!isPlayingFromQueue && theaterQueue.length > 0 && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -209,9 +270,43 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
           </div>
         </button>
 
-        {/* Expanded queue list */}
-        {isExpanded && (
+        {/* Tabs - Queue / Playlists */}
+        {isExpanded && (localPlaylists.length > 0 || theaterQueue.length > 0) && (
+          <div className="flex border-b border-gray-700/50">
+            <button
+              onClick={() => setActiveTab('queue')}
+              className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                activeTab === 'queue'
+                  ? 'text-yellow-400 border-b-2 border-yellow-400 bg-yellow-500/10'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              Queue {theaterQueue.length > 0 && `(${theaterQueue.length})`}
+            </button>
+            <button
+              onClick={() => setActiveTab('playlists')}
+              className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                activeTab === 'playlists'
+                  ? 'text-yellow-400 border-b-2 border-yellow-400 bg-yellow-500/10'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              Playlists {localPlaylists.length > 0 && `(${localPlaylists.length})`}
+            </button>
+          </div>
+        )}
+
+        {/* Expanded content */}
+        {isExpanded && activeTab === 'queue' && (
           <div className="max-h-64 sm:max-h-80 overflow-y-auto">
+            {theaterQueue.length === 0 ? (
+              <div className="px-4 py-8 text-center text-gray-500 text-sm">
+                <ListMusic size={32} className="mx-auto mb-2 opacity-50" />
+                <p>Queue is empty</p>
+                <p className="text-xs mt-1">Add moments to build your queue</p>
+              </div>
+            ) : (
+            <>
             {/* Queue items */}
             <div className="divide-y divide-gray-800/50">
               {theaterQueue.map((moment, index) => (
@@ -291,6 +386,17 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
                 <span className="hidden sm:inline">Shuffle</span>
               </button>
 
+              {/* Save as Local Playlist button (no account needed) */}
+              <button
+                onClick={() => setShowLocalSaveModal(true)}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-green-400 transition-colors px-2 py-2"
+                style={{ minHeight: '36px' }}
+                title="Save as playlist"
+              >
+                <Save size={12} />
+                <span className="hidden sm:inline">Save</span>
+              </button>
+
               {/* Save as Collection button - only show if logged in */}
               {user && (
                 <button
@@ -298,12 +404,12 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
                     console.log('Save button clicked, showing modal');
                     setShowSaveModal(true);
                   }}
-                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-green-400 transition-colors px-2 py-2"
+                  className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-400 transition-colors px-2 py-2"
                   style={{ minHeight: '36px' }}
-                  title="Save as collection"
+                  title="Save to cloud"
                 >
-                  <Save size={12} />
-                  <span className="hidden sm:inline">Save</span>
+                  <Link2 size={12} />
+                  <span className="hidden sm:inline">Cloud</span>
                 </button>
               )}
 
@@ -317,7 +423,109 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
                 <span className="hidden sm:inline">Clear</span>
               </button>
             </div>
+            </>
+            )}
+          </div>
+        )}
 
+        {/* Playlists Tab */}
+        {isExpanded && activeTab === 'playlists' && (
+          <div className="max-h-64 sm:max-h-80 overflow-y-auto">
+            {localPlaylists.length === 0 ? (
+              <div className="px-4 py-8 text-center text-gray-500 text-sm">
+                <FolderOpen size={32} className="mx-auto mb-2 opacity-50" />
+                <p>No saved playlists</p>
+                <p className="text-xs mt-1">Save your queue to create a playlist</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-800/50">
+                {localPlaylists.map((playlist) => (
+                  <div
+                    key={playlist.id}
+                    className="flex items-center gap-2 px-3 py-3 hover:bg-gray-800/50 transition-colors"
+                    style={{ minHeight: '56px' }}
+                  >
+                    {/* Playlist icon */}
+                    <div className="w-8 h-8 bg-yellow-500/20 rounded flex items-center justify-center flex-shrink-0">
+                      <ListMusic size={14} className="text-yellow-400" />
+                    </div>
+
+                    {/* Playlist info */}
+                    <button
+                      onClick={() => handleLoadPlaylist(playlist.id)}
+                      className="flex-1 min-w-0 text-left hover:text-yellow-400 transition-colors"
+                    >
+                      <div className="text-white text-sm truncate">{playlist.name}</div>
+                      <div className="text-gray-500 text-xs">
+                        {playlist.moments.length} track{playlist.moments.length !== 1 ? 's' : ''}
+                      </div>
+                    </button>
+
+                    {/* Quick play button */}
+                    <button
+                      onClick={() => {
+                        handleLoadPlaylist(playlist.id);
+                        setTimeout(() => playQueue(0), 100);
+                      }}
+                      className="p-2 text-gray-500 hover:text-yellow-400 transition-colors"
+                      title="Play playlist"
+                    >
+                      <Play size={16} />
+                    </button>
+
+                    {/* More options */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setPlaylistMenuOpen(playlistMenuOpen === playlist.id ? null : playlist.id)}
+                        className="p-2 text-gray-500 hover:text-white transition-colors"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+
+                      {/* Dropdown menu */}
+                      {playlistMenuOpen === playlist.id && (
+                        <div className="absolute right-0 top-full mt-1 w-40 bg-gray-800 border border-gray-700 rounded shadow-xl z-10">
+                          <button
+                            onClick={() => handleAppendPlaylist(playlist.id)}
+                            className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center gap-2"
+                          >
+                            <Plus size={14} />
+                            Add to queue
+                          </button>
+                          <button
+                            onClick={() => handleCopyPlaylistLink(playlist.id)}
+                            className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center gap-2"
+                          >
+                            <Copy size={14} />
+                            {linkCopied ? 'Copied!' : 'Copy link'}
+                          </button>
+                          <button
+                            onClick={() => handleDeletePlaylist(playlist.id)}
+                            className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-gray-700 flex items-center gap-2"
+                          >
+                            <Trash2 size={14} />
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Create new playlist button */}
+            {theaterQueue.length > 0 && (
+              <div className="px-3 py-3 bg-gray-800/30 border-t border-gray-700/50">
+                <button
+                  onClick={() => setShowLocalSaveModal(true)}
+                  className="w-full px-3 py-2 text-sm text-yellow-400 border border-yellow-500/30 rounded hover:bg-yellow-500/10 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus size={14} />
+                  Save current queue as playlist
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -439,6 +647,62 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Save as Local Playlist Modal */}
+      {showLocalSaveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-gray-700 rounded-sm p-6 shadow-2xl w-80 max-w-[90vw]">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-white font-medium">Save as Playlist</h4>
+              <button
+                onClick={() => {
+                  setShowLocalSaveModal(false);
+                  setLocalPlaylistName('');
+                }}
+                className="text-gray-500 hover:text-white transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-400 mb-4">
+              Save to your device (no account needed). Your playlist will persist across sessions.
+            </p>
+
+            <input
+              type="text"
+              value={localPlaylistName}
+              onChange={(e) => setLocalPlaylistName(e.target.value)}
+              placeholder="Playlist name..."
+              className="w-full px-3 py-3 bg-gray-800 border border-gray-700 rounded text-white mb-4 focus:border-yellow-500 focus:outline-none"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSaveLocalPlaylist();
+              }}
+            />
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowLocalSaveModal(false);
+                  setLocalPlaylistName('');
+                }}
+                className="flex-1 px-4 py-3 text-gray-400 hover:text-white border border-gray-700 rounded transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveLocalPlaylist}
+                disabled={!localPlaylistName.trim()}
+                className="flex-1 px-4 py-3 bg-yellow-600 hover:bg-yellow-500 text-black font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <Save size={16} />
+                Save ({theaterQueue.length})
+              </button>
+            </div>
           </div>
         </div>
       )}

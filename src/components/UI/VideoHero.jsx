@@ -625,7 +625,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     handleNextRef.current = handleNext;
   }, [handleNext]);
 
-  // Media Session API for lock screen controls
+  // Media Session API for lock screen controls (enhanced for background playback)
   useEffect(() => {
     if (!('mediaSession' in navigator) || !moment) return;
 
@@ -635,6 +635,9 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       artist: 'Unknown Mortal Orchestra',
       album: moment.venueName || moment.venueCity || 'Live Performance',
       artwork: moment.thumbnailUrl ? [
+        { src: transformMediaUrl(moment.thumbnailUrl), sizes: '96x96', type: 'image/jpeg' },
+        { src: transformMediaUrl(moment.thumbnailUrl), sizes: '128x128', type: 'image/jpeg' },
+        { src: transformMediaUrl(moment.thumbnailUrl), sizes: '256x256', type: 'image/jpeg' },
         { src: transformMediaUrl(moment.thumbnailUrl), sizes: '512x512', type: 'image/jpeg' }
       ] : []
     });
@@ -670,6 +673,43 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       handleNextRef.current?.();
     });
 
+    // Previous track handler
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      // Seek to start if more than 3 seconds in, otherwise go to previous
+      const currentTime = isAudio ? audioRef.current?.currentTime :
+                          isYouTube ? ytPlayerRef.current?.getCurrentTime?.() :
+                          videoRef.current?.currentTime;
+      if (currentTime && currentTime > 3) {
+        // Seek to start
+        if (isAudio && audioRef.current) audioRef.current.currentTime = 0;
+        else if (videoRef.current) videoRef.current.currentTime = 0;
+        else if (isYouTube && ytPlayerRef.current) ytPlayerRef.current.seekTo(moment.startTime || 0);
+      } else {
+        // Go to previous (handled by context)
+        // This would need playPrevInQueue but we'll just restart for now
+        if (isAudio && audioRef.current) audioRef.current.currentTime = 0;
+        else if (videoRef.current) videoRef.current.currentTime = 0;
+        else if (isYouTube && ytPlayerRef.current) ytPlayerRef.current.seekTo(moment.startTime || 0);
+      }
+    });
+
+    // Seek handler for lock screen scrubbing
+    try {
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined) {
+          if (isAudio && audioRef.current) {
+            audioRef.current.currentTime = details.seekTime;
+          } else if (videoRef.current) {
+            videoRef.current.currentTime = details.seekTime;
+          } else if (isYouTube && ytPlayerRef.current) {
+            ytPlayerRef.current.seekTo(details.seekTime);
+          }
+        }
+      });
+    } catch (e) {
+      // seekto not supported in all browsers
+    }
+
     // Update playback state
     navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
 
@@ -679,11 +719,55 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         navigator.mediaSession.setActionHandler('play', null);
         navigator.mediaSession.setActionHandler('pause', null);
         navigator.mediaSession.setActionHandler('nexttrack', null);
+        navigator.mediaSession.setActionHandler('previoustrack', null);
+        navigator.mediaSession.setActionHandler('seekto', null);
       } catch (e) {
         // Some browsers don't support null handlers
       }
     };
   }, [moment, isPlaying, isAudio, isYouTube]);
+
+  // Update Media Session position state for lock screen progress bar
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !moment) return;
+
+    const progress = isYouTube ? ytProgress : nativeProgress;
+    if (progress.duration > 0) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: progress.duration,
+          playbackRate: 1,
+          position: Math.min(progress.currentTime, progress.duration)
+        });
+      } catch (e) {
+        // Position state not supported in all browsers
+      }
+    }
+  }, [moment, isYouTube, ytProgress, nativeProgress]);
+
+  // Prevent audio pause on visibility change (background playback support)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // When page becomes hidden (screen lock, tab switch), don't pause audio
+      // Native audio elements will continue playing by default
+      // YouTube will pause itself (YouTube policy - can't override)
+      if (document.hidden && isPlaying && !isYouTube) {
+        // For native audio/video, ensure it keeps playing
+        // Some browsers pause on visibility change, so we resume
+        setTimeout(() => {
+          if (isAudio && audioRef.current && audioRef.current.paused) {
+            audioRef.current.play().catch(() => {});
+          } else if (videoRef.current && videoRef.current.paused) {
+            // Video might pause on background, try to continue audio track
+            videoRef.current.play().catch(() => {});
+          }
+        }, 100);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isPlaying, isAudio, isYouTube]);
 
   // Add to queue
   const handleAddToQueue = useCallback(() => {

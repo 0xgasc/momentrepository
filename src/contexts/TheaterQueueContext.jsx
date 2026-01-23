@@ -1,7 +1,24 @@
-// src/contexts/TheaterQueueContext.jsx - Theater queue playlist system
-import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+// src/contexts/TheaterQueueContext.jsx - Theater queue playlist system with persistence
+import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 
 const TheaterQueueContext = createContext();
+
+// LocalStorage keys
+const STORAGE_KEYS = {
+  QUEUE: 'umo-theater-queue',
+  PLAYLISTS: 'umo-local-playlists',
+  CURRENT_INDEX: 'umo-queue-index'
+};
+
+// Helper to safely parse JSON from localStorage
+const safeJSONParse = (key, fallback) => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : fallback;
+  } catch {
+    return fallback;
+  }
+};
 
 export const useTheaterQueue = () => {
   const context = useContext(TheaterQueueContext);
@@ -12,11 +29,17 @@ export const useTheaterQueue = () => {
 };
 
 export const TheaterQueueProvider = ({ children }) => {
-  // Theater queue state
-  const [theaterQueue, setTheaterQueue] = useState([]);
-  const [currentQueueIndex, setCurrentQueueIndex] = useState(-1);
+  // Theater queue state - initialized from localStorage
+  const [theaterQueue, setTheaterQueue] = useState(() => safeJSONParse(STORAGE_KEYS.QUEUE, []));
+  const [currentQueueIndex, setCurrentQueueIndex] = useState(() => {
+    const saved = safeJSONParse(STORAGE_KEYS.CURRENT_INDEX, -1);
+    return saved;
+  });
   const [isPlayingFromQueue, setIsPlayingFromQueue] = useState(false);
   const [currentMoment, setCurrentMoment] = useState(null);
+
+  // Local playlists (saved to localStorage, no account needed)
+  const [localPlaylists, setLocalPlaylists] = useState(() => safeJSONParse(STORAGE_KEYS.PLAYLISTS, []));
 
   // Player state - shared between VideoHero and MediaControlCenter
   const [playerState, setPlayerState] = useState({
@@ -33,6 +56,28 @@ export const TheaterQueueProvider = ({ children }) => {
 
   // Player controls ref - VideoHero registers its controls here
   const playerControlsRef = useRef(null);
+
+  // Persist queue to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.QUEUE, JSON.stringify(theaterQueue));
+  }, [theaterQueue]);
+
+  // Persist current index to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.CURRENT_INDEX, JSON.stringify(currentQueueIndex));
+  }, [currentQueueIndex]);
+
+  // Persist local playlists to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.PLAYLISTS, JSON.stringify(localPlaylists));
+  }, [localPlaylists]);
+
+  // Restore current moment from queue on mount if there was a saved index
+  useEffect(() => {
+    if (theaterQueue.length > 0 && currentQueueIndex >= 0 && currentQueueIndex < theaterQueue.length) {
+      setCurrentMoment(theaterQueue[currentQueueIndex]);
+    }
+  }, []); // Only on mount
 
   // Register player controls from VideoHero
   const registerPlayerControls = useCallback((controls) => {
@@ -265,6 +310,124 @@ export const TheaterQueueProvider = ({ children }) => {
     // Not from queue, so don't set isPlayingFromQueue
   }, []);
 
+  // === LOCAL PLAYLIST MANAGEMENT ===
+  // Save current queue as a local playlist (no account needed)
+  const saveQueueAsLocalPlaylist = useCallback((name, description = '') => {
+    if (theaterQueue.length === 0 || !name.trim()) return null;
+
+    const newPlaylist = {
+      id: `local-${Date.now()}`,
+      name: name.trim(),
+      description: description.trim(),
+      moments: theaterQueue.map(m => ({
+        _id: m._id,
+        songName: m.songName,
+        venueName: m.venueName,
+        venueCity: m.venueCity,
+        performanceDate: m.performanceDate,
+        mediaUrl: m.mediaUrl,
+        mediaType: m.mediaType,
+        mediaSource: m.mediaSource,
+        externalVideoId: m.externalVideoId,
+        thumbnailUrl: m.thumbnailUrl,
+        startTime: m.startTime,
+        endTime: m.endTime
+      })),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setLocalPlaylists(prev => [...prev, newPlaylist]);
+    return newPlaylist;
+  }, [theaterQueue]);
+
+  // Load a local playlist into the queue
+  const loadLocalPlaylist = useCallback((playlistId, replace = true) => {
+    const playlist = localPlaylists.find(p => p.id === playlistId);
+    if (!playlist) return false;
+
+    if (replace) {
+      setTheaterQueue(playlist.moments);
+      setCurrentQueueIndex(-1);
+      setIsPlayingFromQueue(false);
+    } else {
+      // Append to existing queue
+      setTheaterQueue(prev => {
+        const existingIds = new Set(prev.map(m => m._id));
+        const newMoments = playlist.moments.filter(m => !existingIds.has(m._id));
+        return [...prev, ...newMoments];
+      });
+    }
+    return true;
+  }, [localPlaylists]);
+
+  // Delete a local playlist
+  const deleteLocalPlaylist = useCallback((playlistId) => {
+    setLocalPlaylists(prev => prev.filter(p => p.id !== playlistId));
+  }, []);
+
+  // Update a local playlist
+  const updateLocalPlaylist = useCallback((playlistId, updates) => {
+    setLocalPlaylists(prev => prev.map(p =>
+      p.id === playlistId
+        ? { ...p, ...updates, updatedAt: new Date().toISOString() }
+        : p
+    ));
+  }, []);
+
+  // Export playlist as shareable JSON (base64 encoded for URL)
+  const exportPlaylistAsLink = useCallback((playlistId) => {
+    const playlist = localPlaylists.find(p => p.id === playlistId);
+    if (!playlist) return null;
+
+    // Create minimal export data
+    const exportData = {
+      name: playlist.name,
+      moments: playlist.moments.map(m => m._id)
+    };
+
+    const encoded = btoa(JSON.stringify(exportData));
+    return `${window.location.origin}?playlist=${encoded}`;
+  }, [localPlaylists]);
+
+  // Import playlist from encoded data
+  const importPlaylistFromLink = useCallback(async (encodedData, apiBaseUrl) => {
+    try {
+      const decoded = JSON.parse(atob(encodedData));
+      if (!decoded.name || !decoded.moments || !Array.isArray(decoded.moments)) {
+        throw new Error('Invalid playlist data');
+      }
+
+      // Fetch moment details from API
+      const moments = [];
+      for (const momentId of decoded.moments) {
+        try {
+          const response = await fetch(`${apiBaseUrl}/moments/${momentId}`);
+          if (response.ok) {
+            const moment = await response.json();
+            moments.push(moment);
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch moment ${momentId}:`, e);
+        }
+      }
+
+      if (moments.length === 0) {
+        throw new Error('No valid moments found');
+      }
+
+      // Load into queue
+      setTheaterQueue(moments);
+      setCurrentQueueIndex(-1);
+      setIsPlayingFromQueue(false);
+
+      return { success: true, name: decoded.name, count: moments.length };
+    } catch (e) {
+      console.error('Failed to import playlist:', e);
+      return { success: false, error: e.message };
+    }
+  }, []);
+
   const value = {
     // Queue state
     theaterQueue,
@@ -286,6 +449,15 @@ export const TheaterQueueProvider = ({ children }) => {
     isInQueue,
     stopQueue,
     setPlayingMoment,
+
+    // Local playlists (no account needed)
+    localPlaylists,
+    saveQueueAsLocalPlaylist,
+    loadLocalPlaylist,
+    deleteLocalPlaylist,
+    updateLocalPlaylist,
+    exportPlaylistAsLink,
+    importPlaylistFromLink,
 
     // Player state (shared)
     playerState,

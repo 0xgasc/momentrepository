@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { slugify } from './utils/slugify';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
-import { Menu, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Music, Video, Link2, Upload, Film, Calendar, User, LogIn, Play, Pause, SkipForward, SkipBack, Shuffle, Volume2, VolumeX, Settings } from 'lucide-react';
+import { Menu, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Music, Video, Link2, Upload, Film, Calendar, User, LogIn, Play, Pause, SkipForward, SkipBack, Shuffle, Volume2, VolumeX, Settings, ListMusic } from 'lucide-react';
 import './styles/umo-theme.css';
 
 // Import the extracted components
@@ -190,6 +190,13 @@ const MainApp = memo(() => {
     if (collectionId) {
       setPublicCollectionId(collectionId);
       setCurrentView('collection');
+      return;
+    }
+
+    // Check for shared playlist link (encoded playlist data)
+    const playlistData = params.get('playlist');
+    if (playlistData) {
+      // Import will be handled by PlaylistImportHandler component
       return;
     }
 
@@ -753,12 +760,51 @@ const MainContent = memo(({
     playPrevInQueue,
     playRandom,
     theaterQueue,
-    currentQueueIndex
+    currentQueueIndex,
+    importPlaylistFromLink,
+    playQueue
   } = useTheaterQueue();
 
   // Mobile mini player expanded state
   const [mobilePlayerExpanded, setMobilePlayerExpanded] = useState(false);
   const [mobileNavPage, setMobileNavPage] = useState(0); // 0 = main nav, 1 = filters
+  const [playlistImportStatus, setPlaylistImportStatus] = useState(null); // { loading, success, error, name, count }
+
+  // Handle shared playlist import from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const playlistData = params.get('playlist');
+
+    if (playlistData && !playlistImportStatus) {
+      setPlaylistImportStatus({ loading: true });
+
+      importPlaylistFromLink(playlistData, API_BASE_URL)
+        .then(result => {
+          if (result.success) {
+            setPlaylistImportStatus({
+              loading: false,
+              success: true,
+              name: result.name,
+              count: result.count
+            });
+            // Auto-start playback
+            setTimeout(() => playQueue(0), 500);
+            // Clear URL param
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => setPlaylistImportStatus(null), 5000);
+          } else {
+            setPlaylistImportStatus({
+              loading: false,
+              success: false,
+              error: result.error
+            });
+            setTimeout(() => setPlaylistImportStatus(null), 5000);
+          }
+        });
+    }
+  }, []); // Only on mount
 
   // Import MomentDetailModal for hero clicks
   const MomentDetailModal = React.lazy(() => import('./components/Moment/MomentDetailModal'));
@@ -781,6 +827,36 @@ const MainContent = memo(({
   // Home view - Hero persists above navigation tabs
   return (
     <>
+      {/* Playlist Import Toast */}
+      {playlistImportStatus && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
+          <div className={`px-4 py-3 rounded-lg shadow-xl backdrop-blur-sm border ${
+            playlistImportStatus.loading
+              ? 'bg-gray-900/90 border-gray-700 text-white'
+              : playlistImportStatus.success
+                ? 'bg-green-900/90 border-green-700 text-green-200'
+                : 'bg-red-900/90 border-red-700 text-red-200'
+          }`}>
+            {playlistImportStatus.loading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+                <span>Loading shared playlist...</span>
+              </div>
+            ) : playlistImportStatus.success ? (
+              <div className="flex items-center gap-2">
+                <ListMusic size={18} className="text-green-400" />
+                <span>Loaded "{playlistImportStatus.name}" ({playlistImportStatus.count} tracks)</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <X size={18} className="text-red-400" />
+                <span>Failed to load playlist: {playlistImportStatus.error}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Media Filter Pills - Above Hero (hidden on lg where sidebar has them) */}
       <div className="flex justify-center mb-4 lg:hidden">
         <div className="flex gap-3 items-center bg-gray-900/80 backdrop-blur-sm p-2 rounded-sm border border-gray-800">
