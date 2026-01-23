@@ -857,8 +857,8 @@ const MainContent = memo(({
         </div>
       )}
 
-      {/* Media Filter Pills - Above Hero (hidden on lg where sidebar has them) */}
-      <div className="flex justify-center mb-4 lg:hidden">
+      {/* Media Filter Pills - Tablet only (mobile uses bottom ribbon, desktop uses sidebar) */}
+      <div className="hidden sm:flex lg:hidden justify-center mb-4">
         <div className="flex gap-3 items-center bg-gray-900/80 backdrop-blur-sm p-2 rounded-sm border border-gray-800">
           {/* Media Type Group */}
           <div className="flex gap-1 bg-gray-800 p-0.5 rounded-sm">
@@ -1027,12 +1027,23 @@ const MainContent = memo(({
                   {currentMoment.songName || 'Unknown'}
                 </div>
                 <div className="text-[10px] text-gray-400 truncate">
-                  {currentMoment.performanceName || currentMoment.venue || 'Unknown show'}
+                  {currentMoment.venueName || currentMoment.venueCity || currentMoment.performanceDate || 'Live'}
                 </div>
               </div>
 
               {/* Controls - compact */}
               <div className="flex items-center gap-1 flex-shrink-0">
+                {/* Mute toggle */}
+                <button
+                  onClick={() => toggleMute()}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                >
+                  {playerState.isMuted
+                    ? <VolumeX size={16} className="text-orange-400" />
+                    : <Volume2 size={16} className="text-gray-400" />
+                  }
+                </button>
+                {/* Play/Pause */}
                 <button
                   onClick={togglePlayPause}
                   className="p-2 rounded-full bg-yellow-500/20 hover:bg-yellow-500/40 transition-colors"
@@ -1042,6 +1053,7 @@ const MainContent = memo(({
                     : <Play size={18} className="text-yellow-400 ml-0.5" />
                   }
                 </button>
+                {/* Next/Random */}
                 <button
                   onClick={() => theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1 ? playNextInQueue() : playRandom()}
                   className="p-2 hover:bg-white/10 rounded-full transition-colors"
@@ -1202,7 +1214,7 @@ const MainContent = memo(({
                 <button
                   onClick={() => toggleFilter('source', 'uploads')}
                   className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 transition-colors ${
-                    mediaFilters.uploads ? 'text-purple-400' : 'text-gray-500'
+                    mediaFilters.uploads ? 'text-blue-400' : 'text-gray-500'
                   }`}
                 >
                   <Upload size={18} />
@@ -1211,7 +1223,7 @@ const MainContent = memo(({
                 <button
                   onClick={() => toggleFilter('type', 'audio')}
                   className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 transition-colors ${
-                    mediaFilters.audio ? 'text-green-400' : 'text-gray-500'
+                    mediaFilters.audio ? 'text-blue-400' : 'text-gray-500'
                   }`}
                 >
                   <Music size={18} />
@@ -1220,7 +1232,7 @@ const MainContent = memo(({
                 <button
                   onClick={() => toggleFilter('type', 'video')}
                   className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 transition-colors ${
-                    mediaFilters.video ? 'text-orange-400' : 'text-gray-500'
+                    mediaFilters.video ? 'text-blue-400' : 'text-gray-500'
                   }`}
                 >
                   <Video size={18} />
