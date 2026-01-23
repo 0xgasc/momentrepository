@@ -196,7 +196,11 @@ const MainApp = memo(() => {
     // Check for shared playlist link (encoded playlist data)
     const playlistData = params.get('playlist');
     if (playlistData) {
-      // Import will be handled by PlaylistImportHandler component
+      // Import will be handled by HomeContent component - ensure we're on home view
+      setCurrentView('home');
+      setSelectedSong(null);
+      setSelectedPerformance(null);
+      setPublicCollectionId(null);
       return;
     }
 
