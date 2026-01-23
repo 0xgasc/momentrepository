@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, memo, useMemo } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { slugify } from './utils/slugify';
@@ -71,6 +71,30 @@ const MainApp = memo(() => {
   // Router hooks
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Detect if running in iframe or forceDesktop URL param
+  const isEmbedded = useMemo(() => {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true; // Cross-origin iframe
+    }
+  }, []);
+
+  const forceDesktop = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('forceDesktop') === 'true' || params.get('embed') === 'true' || isEmbedded;
+  }, [isEmbedded]);
+
+  // Add force-desktop class to body when embedded
+  useEffect(() => {
+    if (forceDesktop) {
+      document.body.classList.add('force-desktop');
+    } else {
+      document.body.classList.remove('force-desktop');
+    }
+    return () => document.body.classList.remove('force-desktop');
+  }, [forceDesktop]);
 
   // View state management
   const [currentView, setCurrentView] = useState('home');

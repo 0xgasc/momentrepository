@@ -1327,3 +1327,64 @@ div[style*="background: #ffffff"] {
     margin: 0 !important;
   }
 }
+
+/* ============================================
+   FORCE DESKTOP MODE
+   Used when site is embedded in iframe or ?forceDesktop=true
+   Overrides responsive breakpoints to always show desktop layout
+   ============================================ */
+
+/* When force-desktop is active, show desktop sidebar */
+body.force-desktop .hidden.lg\:flex {
+  display: flex !important;
+}
+
+body.force-desktop .hidden.lg\:block {
+  display: block !important;
+}
+
+/* Hide mobile-only elements */
+body.force-desktop .sm\:hidden {
+  display: none !important;
+}
+
+/* Hide tablet-only elements (shown sm:flex lg:hidden) */
+body.force-desktop .lg\:hidden {
+  display: none !important;
+}
+
+/* Force desktop margins for main content */
+body.force-desktop .lg\:ml-56 {
+  margin-left: 14rem !important;
+}
+
+body.force-desktop .lg\:ml-16 {
+  margin-left: 4rem !important;
+}
+
+body.force-desktop .lg\:mr-56 {
+  margin-right: 14rem !important;
+}
+
+body.force-desktop .lg\:mr-16 {
+  margin-right: 4rem !important;
+}
+
+/* Show desktop header elements */
+body.force-desktop .lg\:flex {
+  display: flex !important;
+}
+
+/* Force proper sidebar width */
+body.force-desktop .lg\:w-56 {
+  width: 14rem !important;
+}
+
+body.force-desktop .lg\:w-16 {
+  width: 4rem !important;
+}
+
+/* Hide mobile header elements in force-desktop */
+body.force-desktop .block.sm\:hidden {
+  display: none !important;
+}
