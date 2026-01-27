@@ -34,15 +34,24 @@ const bannedPatterns = [
   /\bhttps?:\/\/[^\s]+\.(ru|cn|xyz|tk|ml|ga|cf)\b/i,
 ];
 
-// Less severe words that should trigger a warning but not block
-const warningPatterns = [
+// Profanity - also blocked (previously just warned)
+const profanityPatterns = [
   /\bf+u+c+k+/i,
   /\bs+h+i+t+/i,
   /\ba+s+s+h+o+l+e+/i,
   /\bb+i+t+c+h+/i,
   /\bc+u+n+t+/i,
   /\bd+i+c+k+/i,
+  /\bp+u+s+s+y+/i,
+  /\bw+h+o+r+e+/i,
+  /\bs+l+u+t+/i,
+  /\bd+a+m+n+/i,
+  /\bh+e+l+l+/i,
+  /\bc+r+a+p+/i,
 ];
+
+// Legacy export name for backwards compatibility
+const warningPatterns = profanityPatterns;
 
 /**
  * Check if content contains banned patterns
@@ -71,14 +80,13 @@ const filterContent = (text) => {
     }
   }
 
-  // Check warning patterns (not blocked, just flagged)
-  for (const pattern of warningPatterns) {
+  // Check profanity patterns (now blocked, not just warned)
+  for (const pattern of profanityPatterns) {
     if (pattern.test(normalizedText)) {
       return {
-        blocked: false,
-        reason: 'Content contains strong language',
-        severity: 'warning',
-        flagged: true
+        blocked: true,
+        reason: 'Content contains profanity',
+        severity: 'blocked'
       };
     }
   }
@@ -125,5 +133,6 @@ module.exports = {
   filterContent,
   sanitizeDisplayName,
   bannedPatterns,
-  warningPatterns
+  profanityPatterns,
+  warningPatterns // Legacy alias
 };
