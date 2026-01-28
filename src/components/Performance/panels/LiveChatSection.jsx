@@ -1,20 +1,26 @@
 // src/components/Performance/panels/LiveChatSection.jsx
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { Send, Wifi, WifiOff, User } from 'lucide-react';
+import { Send, Wifi, WifiOff, User, Trash2 } from 'lucide-react';
 import useLiveChat from '../../../hooks/useLiveChat';
 
 const formatTime = (date) => {
   return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-const ChatMessage = memo(({ message, isOwn, onViewUserProfile }) => {
+const ChatMessage = memo(({ message, isOwn, onViewUserProfile, onDelete }) => {
   const displayName = message.user?.displayName || message.displayName || 'Anonymous';
   const canClickUser = message.user?._id && onViewUserProfile;
 
+  const handleDelete = () => {
+    if (window.confirm('Delete this message?')) {
+      onDelete(message._id);
+    }
+  };
+
   return (
-    <div className={`flex gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
+    <div className={`group flex gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
       <div className={`
-        max-w-[80%] px-3 py-2 rounded-sm
+        max-w-[80%] px-3 py-2 rounded-sm relative
         ${isOwn
           ? 'bg-blue-600 text-white rounded-br-sm'
           : 'bg-gray-700/50 text-gray-200 rounded-bl-sm'
@@ -35,8 +41,19 @@ const ChatMessage = memo(({ message, isOwn, onViewUserProfile }) => {
           </div>
         )}
         <p className="text-sm break-words">{message.text}</p>
-        <div className={`text-xs mt-1 ${isOwn ? 'text-blue-200' : 'text-gray-500'}`}>
-          {formatTime(message.createdAt)}
+        <div className={`flex items-center justify-between gap-2 mt-1`}>
+          <span className={`text-xs ${isOwn ? 'text-blue-200' : 'text-gray-500'}`}>
+            {formatTime(message.createdAt)}
+          </span>
+          {isOwn && (
+            <button
+              onClick={handleDelete}
+              className="opacity-0 group-hover:opacity-100 text-xs text-red-300 hover:text-red-400 transition-all"
+              title="Delete message"
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -46,7 +63,7 @@ const ChatMessage = memo(({ message, isOwn, onViewUserProfile }) => {
 ChatMessage.displayName = 'ChatMessage';
 
 const LiveChatSection = memo(({ performanceId, user, token, onViewUserProfile }) => {
-  const { messages, connected, loading, sendMessage } = useLiveChat(performanceId, token);
+  const { messages, connected, loading, sendMessage, deleteMessage } = useLiveChat(performanceId, token);
   const [input, setInput] = useState('');
   const [anonName, setAnonName] = useState('');
   const [showNameInput, setShowNameInput] = useState(false);
@@ -143,6 +160,7 @@ const LiveChatSection = memo(({ performanceId, user, token, onViewUserProfile })
               message={message}
               isOwn={user ? message.user?._id === user.userId : message.anonymousId === anonId}
               onViewUserProfile={onViewUserProfile}
+              onDelete={(msgId) => deleteMessage(msgId, user ? null : anonId)}
             />
           ))
         )}

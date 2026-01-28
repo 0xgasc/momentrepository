@@ -59,6 +59,10 @@ export const useLiveChat = (performanceId, token) => {
       setMessages(prev => [...prev, message]);
     });
 
+    socket.on('chat-delete', ({ messageId }) => {
+      setMessages(prev => prev.filter(m => m._id !== messageId));
+    });
+
     // Fetch initial messages
     fetchMessages();
 
@@ -90,10 +94,41 @@ export const useLiveChat = (performanceId, token) => {
       }
 
       // Message will be added via socket event
-      return true;
+      return { success: true };
     } catch (err) {
       console.error('Failed to send message:', err);
-      return false;
+      // Check if it's a content filter error
+      if (err.response) {
+        const data = await err.response.json?.();
+        return { success: false, error: data?.error || 'Failed to send message' };
+      }
+      return { success: false, error: 'Failed to send message' };
+    }
+  }, [performanceId, token]);
+
+  // Delete message
+  const deleteMessage = useCallback(async (messageId, anonymousId) => {
+    try {
+      const url = new URL(`${API_BASE_URL}/api/community/performances/${performanceId}/chat/${messageId}`);
+      if (anonymousId) {
+        url.searchParams.set('anonymousId', anonymousId);
+      }
+
+      const response = await fetch(url.toString(), {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete');
+      }
+
+      // Message will be removed via socket event
+      return { success: true };
+    } catch (err) {
+      console.error('Failed to delete message:', err);
+      return { success: false, error: err.message };
     }
   }, [performanceId, token]);
 
@@ -102,6 +137,7 @@ export const useLiveChat = (performanceId, token) => {
     connected,
     loading,
     sendMessage,
+    deleteMessage,
     refetch: fetchMessages
   };
 };

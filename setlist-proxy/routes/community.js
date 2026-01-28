@@ -434,6 +434,44 @@ router.post('/performances/:performanceId/chat',
   }
 );
 
+// Delete chat message (owner only)
+router.delete('/performances/:performanceId/chat/:messageId', async (req, res) => {
+  try {
+    const { performanceId, messageId } = req.params;
+    const userId = req.user?.userId;
+    const { anonymousId } = req.query;
+
+    const message = await ChatMessage.findOne({
+      _id: messageId,
+      performanceId
+    });
+
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    // Check ownership - either logged in user or anonymous ID match
+    const isOwner = (userId && message.user?.toString() === userId) ||
+                    (!userId && anonymousId && message.anonymousId === anonymousId);
+
+    if (!isOwner) {
+      return res.status(403).json({ error: 'Not authorized to delete this message' });
+    }
+
+    await ChatMessage.deleteOne({ _id: messageId });
+
+    // Emit deletion via Socket.io if available
+    if (req.app.get('io')) {
+      req.app.get('io').to(`chat-${performanceId}`).emit('chat-delete', { messageId });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Delete chat message error:', err);
+    res.status(500).json({ error: 'Failed to delete message' });
+  }
+});
+
 // ============================================
 // GUESTBOOK - Simple signatures
 // ============================================
