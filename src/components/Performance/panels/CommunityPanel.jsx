@@ -1,5 +1,5 @@
 // src/components/Performance/panels/CommunityPanel.jsx
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, memo } from 'react';
 import { PenLine, Users, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import GuestbookSection from './GuestbookSection';
 import LiveChatSection from './LiveChatSection';
@@ -37,21 +37,21 @@ const CommunityPanel = memo(({ performance, user, token, onViewUserProfile }) =>
   const [activeTab, setActiveTab] = useState(isUpcoming ? 'chat' : 'guestbook');
   const [isExpanded, setIsExpanded] = useState(isUpcoming); // Expanded for upcoming shows
 
-  // Filter tabs based on whether show is upcoming or past
+  // Tabs - guestbook and chat available for all shows, RSVP only for upcoming
   const tabs = [
     {
       id: 'guestbook',
       label: 'Guestbook',
       icon: PenLine,
       description: 'Sign the guestbook - share your memories!',
-      available: !isUpcoming // Only for past shows
+      available: true
     },
     {
       id: 'chat',
-      label: 'Live Chat',
+      label: 'Chat',
       icon: MessageCircle,
-      description: 'Real-time chat for the show',
-      available: isUpcoming
+      description: 'Chat about the show',
+      available: true
     },
     {
       id: 'rsvp',
@@ -63,13 +63,6 @@ const CommunityPanel = memo(({ performance, user, token, onViewUserProfile }) =>
   ];
 
   const availableTabs = tabs.filter(t => t.available);
-
-  // Reset to guestbook if current tab becomes unavailable
-  useEffect(() => {
-    if (availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
-      setActiveTab('guestbook');
-    }
-  }, [availableTabs, activeTab]);
 
   if (!performanceId) return null;
 
@@ -137,7 +130,7 @@ const CommunityPanel = memo(({ performance, user, token, onViewUserProfile }) =>
                 onViewUserProfile={onViewUserProfile}
               />
             )}
-            {activeTab === 'chat' && isUpcoming && (
+            {activeTab === 'chat' && (
               <LiveChatSection
                 performanceId={performanceId}
                 user={user}
