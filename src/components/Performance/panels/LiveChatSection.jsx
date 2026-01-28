@@ -11,9 +11,12 @@ const ChatMessage = memo(({ message, isOwn, onViewUserProfile, onDelete }) => {
   const displayName = message.user?.displayName || message.displayName || 'Anonymous';
   const canClickUser = message.user?._id && onViewUserProfile;
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (window.confirm('Delete this message?')) {
-      onDelete(message._id);
+      const result = await onDelete(message._id);
+      if (result && !result.success) {
+        alert(result.error || 'Failed to delete message');
+      }
     }
   };
 
@@ -154,15 +157,25 @@ const LiveChatSection = memo(({ performanceId, user, token, onViewUserProfile })
             <p className="text-sm">No messages yet. Start the conversation!</p>
           </div>
         ) : (
-          messages.map((message, idx) => (
-            <ChatMessage
-              key={message._id || idx}
-              message={message}
-              isOwn={user ? message.user?._id === user.userId : message.anonymousId === anonId}
-              onViewUserProfile={onViewUserProfile}
-              onDelete={(msgId) => deleteMessage(msgId, user ? null : anonId)}
-            />
-          ))
+          messages.map((message, idx) => {
+            // Check ownership carefully - must match how message was posted
+            // If user logged in: only own if message has matching user ID
+            // If anonymous: only own if message has matching anonymousId (and no user)
+            const messageUserId = message.user?._id?.toString?.() || message.user?._id || message.user;
+            const isOwnMessage = user
+              ? (messageUserId && String(messageUserId) === String(user.userId))
+              : (!message.user && message.anonymousId === anonId);
+
+            return (
+              <ChatMessage
+                key={message._id || idx}
+                message={message}
+                isOwn={isOwnMessage}
+                onViewUserProfile={onViewUserProfile}
+                onDelete={(msgId) => deleteMessage(msgId, user ? null : anonId)}
+              />
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>

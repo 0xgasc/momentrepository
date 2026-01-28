@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo, useMemo } from 'react';
+import React, { useState, useEffect, memo, useMemo, useRef } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { slugify } from './utils/slugify';
@@ -792,12 +792,25 @@ const MainContent = memo(({
   onViewUserProfile
 }) => {
   const [heroSelectedMoment, setHeroSelectedMoment] = useState(null);
+  const contentSectionRef = useRef(null);
+  const prevBrowseModeRef = useRef(browseMode);
 
   // Theater queue for playlist import
   const { importPlaylistFromLink, playQueue } = useTheaterQueue();
 
   // Playlist import status
   const [playlistImportStatus, setPlaylistImportStatus] = useState(null); // { loading, success, error, name, count }
+
+  // Scroll to content section when browse mode changes (user clicks tab)
+  useEffect(() => {
+    if (prevBrowseModeRef.current !== browseMode) {
+      prevBrowseModeRef.current = browseMode;
+      // Small delay to let content render
+      setTimeout(() => {
+        contentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [browseMode]);
 
   // Handle shared playlist import from URL
   useEffect(() => {
@@ -947,6 +960,9 @@ const MainContent = memo(({
         onMomentClick={(moment) => setHeroSelectedMoment(moment)}
         mediaFilters={mediaFilters}
       />
+
+      {/* Scroll anchor for navigation clicks */}
+      <div ref={contentSectionRef} className="scroll-mt-4" />
 
       {/* Navigation Tabs - Below Hero (Desktop - hidden on lg where sidebar shows) */}
       <div className="hidden sm:flex lg:hidden justify-center mb-6">
