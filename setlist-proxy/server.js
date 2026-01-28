@@ -2246,7 +2246,7 @@ app.post('/register', authLimiter, [
     }
 
     const token = generateToken(user);
-    res.json({ token, user: { id: user._id, email: user.email, displayName: user.displayName } });
+    res.json({ token, user: { id: user._id, email: user.email, displayName: user.displayName, role: user.role || 'user' } });
   } catch (err) {
     console.error('❌ Registration Error:', err);
     res.status(500).json({ error: 'Registration failed' });

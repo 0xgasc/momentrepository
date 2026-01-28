@@ -26,13 +26,30 @@ const PerformanceDetail = memo(({ performance, onBack, onViewUserProfile, onNavi
         // Case 1: We only have an ID (from URL navigation)
         if (performance.id && !performance.venue) {
           console.log('🎸 Fetching performance by ID:', performance.id);
-          const response = await fetch(`${API_BASE_URL}/cached/performance/${performance.id}`);
+
+          // Check if this is an upcoming show (ID starts with 'upcoming-')
+          const isUpcoming = performance.id.startsWith('upcoming-');
+          // Strip 'upcoming-' prefix to get the actual MongoDB ObjectId
+          const actualId = isUpcoming ? performance.id.replace('upcoming-', '') : performance.id;
+          const endpoint = isUpcoming
+            ? `${API_BASE_URL}/api/upcoming-shows/${actualId}`
+            : `${API_BASE_URL}/cached/performance/${performance.id}`;
+
+          const response = await fetch(endpoint);
           if (response.ok) {
             const data = await response.json();
-            if (data.performance) {
-              console.log('✅ Loaded performance:', data.performance.venue?.name);
-              setFullPerformance(data.performance);
+            // Upcoming shows return { show }, cached returns { performance: ... }
+            let perfData = isUpcoming ? data.show : data.performance;
+            if (perfData) {
+              // Ensure upcoming shows have the correct ID format
+              if (isUpcoming && perfData._id) {
+                perfData = { ...perfData, id: `upcoming-${perfData._id}` };
+              }
+              console.log('✅ Loaded performance:', perfData.venue?.name);
+              setFullPerformance(perfData);
             }
+          } else {
+            console.error('Failed to fetch performance:', response.status);
           }
           return;
         }
