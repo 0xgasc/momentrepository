@@ -558,7 +558,7 @@ const requireAdmin = requireRole('admin');
 const requireMod = requireRole('mod');
 
 // Optional authentication middleware (doesn't reject if no token)
-const optionalAuth = (req, res, next) => {
+const optionalAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.split(' ')[1];
 
@@ -567,12 +567,25 @@ const optionalAuth = (req, res, next) => {
     return next();
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET, async (err, user) => {
     if (err) {
       req.user = null;
     } else {
       // Ensure userId is available (fallback to id for older tokens)
-      req.user = { ...user, userId: user.userId || user.id };
+      const userId = user.userId || user.id;
+
+      // If role is missing from token, fetch from database (backwards compat for old tokens)
+      let role = user.role;
+      if (!role && userId) {
+        try {
+          const dbUser = await User.findById(userId).select('role');
+          role = dbUser?.role || 'user';
+        } catch (e) {
+          role = 'user';
+        }
+      }
+
+      req.user = { ...user, userId, role: role || 'user' };
     }
     next();
   });
