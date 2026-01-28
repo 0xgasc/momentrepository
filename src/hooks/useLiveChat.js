@@ -1,6 +1,6 @@
 // src/hooks/useLiveChat.js
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { io } from 'socket.io-client';
+import io from 'socket.io-client';
 import { API_BASE_URL } from '../components/Auth/AuthProvider';
 
 export const useLiveChat = (performanceId, token) => {
