@@ -7,7 +7,7 @@ const formatTime = (date) => {
   return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-const ChatMessage = memo(({ message, isOwn, onViewUserProfile, onDelete }) => {
+const ChatMessage = memo(({ message, isOwn, canDelete, onViewUserProfile, onDelete }) => {
   const displayName = message.user?.displayName || message.displayName || 'Anonymous';
   const canClickUser = message.user?._id && onViewUserProfile;
 
@@ -48,11 +48,13 @@ const ChatMessage = memo(({ message, isOwn, onViewUserProfile, onDelete }) => {
           <span className={`text-xs ${isOwn ? 'text-blue-200' : 'text-gray-500'}`}>
             {formatTime(message.createdAt)}
           </span>
-          {isOwn && (
+          {canDelete && (
             <button
               onClick={handleDelete}
-              className="opacity-0 group-hover:opacity-100 text-xs text-red-300 hover:text-red-400 transition-all"
-              title="Delete message"
+              className={`opacity-0 group-hover:opacity-100 text-xs transition-all ${
+                isOwn ? 'text-red-300 hover:text-red-400' : 'text-red-400 hover:text-red-300'
+              }`}
+              title={isOwn ? 'Delete message' : 'Delete message (mod)'}
             >
               <Trash2 size={12} />
             </button>
@@ -166,11 +168,16 @@ const LiveChatSection = memo(({ performanceId, user, token, onViewUserProfile })
               ? (messageUserId && String(messageUserId) === String(user.userId))
               : (!message.user && message.anonymousId === anonId);
 
+            // Admins and mods can delete any message
+            const isAdminOrMod = user?.role === 'admin' || user?.role === 'mod';
+            const canDelete = isOwnMessage || isAdminOrMod;
+
             return (
               <ChatMessage
                 key={message._id || idx}
                 message={message}
                 isOwn={isOwnMessage}
+                canDelete={canDelete}
                 onViewUserProfile={onViewUserProfile}
                 onDelete={(msgId) => deleteMessage(msgId, user ? null : anonId)}
               />

@@ -434,11 +434,12 @@ router.post('/performances/:performanceId/chat',
   }
 );
 
-// Delete chat message (owner only)
+// Delete chat message (owner or admin/mod)
 router.delete('/performances/:performanceId/chat/:messageId', async (req, res) => {
   try {
     const { performanceId, messageId } = req.params;
     const userId = req.user?.userId;
+    const userRole = req.user?.role;
     const { anonymousId } = req.query;
 
     const message = await ChatMessage.findOne({
@@ -450,11 +451,14 @@ router.delete('/performances/:performanceId/chat/:messageId', async (req, res) =
       return res.status(404).json({ error: 'Message not found' });
     }
 
+    // Check if admin/mod (can delete any message)
+    const isAdminOrMod = userRole === 'admin' || userRole === 'mod';
+
     // Check ownership - either logged in user or anonymous ID match
     const isOwner = (userId && message.user?.toString() === userId) ||
                     (!userId && anonymousId && message.anonymousId === anonymousId);
 
-    if (!isOwner) {
+    if (!isOwner && !isAdminOrMod) {
       return res.status(403).json({ error: 'Not authorized to delete this message' });
     }
 
