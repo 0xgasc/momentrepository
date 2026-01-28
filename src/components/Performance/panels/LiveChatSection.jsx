@@ -98,15 +98,18 @@ const LiveChatSection = memo(({ performanceId, user, token, onViewUserProfile })
       return;
     }
 
-    const success = await sendMessage(
+    const result = await sendMessage(
       input.trim(),
       user ? null : (anonName || 'Anonymous'),
       user ? null : anonId
     );
 
-    if (success) {
+    if (result.success) {
       setInput('');
       inputRef.current?.focus();
+    } else {
+      // Show error to user
+      alert(result.error || 'Failed to send message');
     }
   };
 

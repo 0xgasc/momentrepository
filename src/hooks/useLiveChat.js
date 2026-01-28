@@ -90,19 +90,16 @@ export const useLiveChat = (performanceId, token) => {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to send message');
+        // Read error message from response before throwing
+        const data = await response.json().catch(() => ({}));
+        return { success: false, error: data.error || 'Failed to send message' };
       }
 
       // Message will be added via socket event
       return { success: true };
     } catch (err) {
       console.error('Failed to send message:', err);
-      // Check if it's a content filter error
-      if (err.response) {
-        const data = await err.response.json?.();
-        return { success: false, error: data?.error || 'Failed to send message' };
-      }
-      return { success: false, error: 'Failed to send message' };
+      return { success: false, error: err.message || 'Failed to send message' };
     }
   }, [performanceId, token]);
 
