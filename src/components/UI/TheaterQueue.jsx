@@ -1,16 +1,16 @@
-// src/components/UI/TheaterQueue.jsx - Theater queue playlist component with local playlists
-import React, { useState } from 'react';
-import { ListMusic, Play, X, Trash2, GripVertical, ChevronUp, ChevronDown, Shuffle, Save, Check, Loader2, Link2, Copy, FolderOpen, Plus, MoreVertical } from 'lucide-react';
+// src/components/UI/TheaterQueue.jsx - Sleek theater queue playlist component
+import { useState } from 'react';
+import { ListMusic, Play, X, Trash2, GripVertical, ChevronUp, ChevronDown, Shuffle, Save, Check, Loader2, Link2, Copy, FolderOpen, Plus, MoreVertical, Pause } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { useAuth } from '../Auth/AuthProvider';
 import { useFavorites } from '../../hooks/useFavorites';
 
-const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) => {
+const TheaterQueue = ({ sidebarPosition = 'left' }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState(null);
-  const [activeTab, setActiveTab] = useState('queue'); // 'queue' | 'playlists'
+  const [activeTab, setActiveTab] = useState('queue');
 
-  // Save as collection state
+  // Save modals
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [collectionName, setCollectionName] = useState('');
   const [isPublic, setIsPublic] = useState(false);
@@ -20,10 +20,9 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
   const [savedCollection, setSavedCollection] = useState(null);
   const [linkCopied, setLinkCopied] = useState(false);
 
-  // Local playlist save modal
   const [showLocalSaveModal, setShowLocalSaveModal] = useState(false);
   const [localPlaylistName, setLocalPlaylistName] = useState('');
-  const [playlistMenuOpen, setPlaylistMenuOpen] = useState(null); // playlist id
+  const [playlistMenuOpen, setPlaylistMenuOpen] = useState(null);
 
   const { token, user } = useAuth();
   const { createCollection, addToCollection } = useFavorites(token);
@@ -32,31 +31,25 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
     theaterQueue,
     currentQueueIndex,
     isPlayingFromQueue,
-    // eslint-disable-next-line no-unused-vars
-    currentMoment,
     removeFromQueue,
     clearQueue,
     playQueue,
     reorderQueue,
     shuffleQueue,
-    playNextInQueue,
-    // eslint-disable-next-line no-unused-vars
-    stopQueue,
-    // Local playlists
     localPlaylists,
     saveQueueAsLocalPlaylist,
     loadLocalPlaylist,
     deleteLocalPlaylist,
-    exportPlaylistAsLink
+    exportPlaylistAsLink,
+    playerState,
+    togglePlayPause
   } = useTheaterQueue();
 
-  // Handle drag start
   const handleDragStart = (e, index) => {
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  // Handle drag over
   const handleDragOver = (e, index) => {
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === index) return;
@@ -64,50 +57,27 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
     setDraggedIndex(index);
   };
 
-  // Handle drag end
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
-  };
+  const handleDragEnd = () => setDraggedIndex(null);
 
-  // Play from specific index
-  const handlePlayFromIndex = (index) => {
-    playQueue(index);
-  };
+  const handlePlayFromIndex = (index) => playQueue(index);
 
-  // Handle closing the modal (auto-advance)
-  // eslint-disable-next-line no-unused-vars
-  const handleCloseModal = () => {
-    // Auto-advance to next in queue
-    playNextInQueue();
-  };
-
-  // Handle save as collection
   const handleSaveAsCollection = async () => {
     if (!collectionName.trim() || theaterQueue.length === 0) return;
-
     setIsSaving(true);
     setSaveError('');
     setSaveSuccess(false);
     setSavedCollection(null);
 
     try {
-      // Create collection
       const result = await createCollection(collectionName.trim(), '', isPublic);
-
       if (result.success && result.collection) {
-        // Add all queue moments to collection
         for (const moment of theaterQueue) {
           await addToCollection(result.collection._id, moment._id);
         }
-
         setSaveSuccess(true);
         setSavedCollection(result.collection);
         setCollectionName('');
-
-        // Auto-play if not already playing
-        if (!isPlayingFromQueue) {
-          playQueue(0);
-        }
+        if (!isPlayingFromQueue) playQueue(0);
       } else {
         setSaveError(result.error || 'Failed to create collection');
       }
@@ -119,17 +89,14 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
     }
   };
 
-  // Copy shareable link
   const copyShareableLink = () => {
     if (savedCollection) {
-      const link = `${window.location.origin}/collection/${savedCollection._id}`;
-      navigator.clipboard.writeText(link);
+      navigator.clipboard.writeText(`${window.location.origin}/collection/${savedCollection._id}`);
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
     }
   };
 
-  // Close save modal and reset state
   const closeSaveModal = () => {
     setShowSaveModal(false);
     setSaveError('');
@@ -138,7 +105,6 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
     setLinkCopied(false);
   };
 
-  // Handle save as local playlist
   const handleSaveLocalPlaylist = () => {
     if (!localPlaylistName.trim() || theaterQueue.length === 0) return;
     const result = saveQueueAsLocalPlaylist(localPlaylistName.trim());
@@ -148,21 +114,18 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
     }
   };
 
-  // Handle load playlist into queue
   const handleLoadPlaylist = (playlistId) => {
     loadLocalPlaylist(playlistId, true);
     setActiveTab('queue');
     setPlaylistMenuOpen(null);
   };
 
-  // Handle append playlist to queue
   const handleAppendPlaylist = (playlistId) => {
     loadLocalPlaylist(playlistId, false);
     setActiveTab('queue');
     setPlaylistMenuOpen(null);
   };
 
-  // Handle copy playlist link
   const handleCopyPlaylistLink = (playlistId) => {
     const link = exportPlaylistAsLink(playlistId);
     if (link) {
@@ -173,7 +136,6 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
     setPlaylistMenuOpen(null);
   };
 
-  // Handle delete playlist
   const handleDeletePlaylist = (playlistId) => {
     if (window.confirm('Delete this playlist?')) {
       deleteLocalPlaylist(playlistId);
@@ -181,331 +143,237 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
     setPlaylistMenuOpen(null);
   };
 
-  // If no queue AND no playlists, don't render anything
-  if (theaterQueue.length === 0 && localPlaylists.length === 0) {
-    return null;
-  }
+  if (theaterQueue.length === 0 && localPlaylists.length === 0) return null;
 
-  // Calculate position based on sidebar - avoid overlap
-  // Sidebar only shows on lg+ screens, so adjustments should be lg: prefixed
   const getPositionClasses = () => {
-    if (sidebarPosition === 'right') {
-      // Move to bottom-left on desktop when sidebar is on right
-      return 'bottom-4 right-4 lg:left-4 lg:right-auto';
-    }
-    if (sidebarPosition === 'bottom') {
-      // Move higher on desktop when sidebar is at bottom
-      return 'bottom-4 right-4 lg:bottom-20';
-    }
-    // Default: bottom-right (works for left and top sidebar)
+    if (sidebarPosition === 'right') return 'bottom-4 right-4 lg:left-4 lg:right-auto';
+    if (sidebarPosition === 'bottom') return 'bottom-4 right-4 lg:bottom-20';
     return 'bottom-4 right-4';
   };
 
   return (
     <>
-      <div className={`theater-queue fixed z-40 w-72 sm:w-80 bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-sm shadow-2xl overflow-hidden ${getPositionClasses()}`}>
-        {/* Header - mobile-friendly touch targets */}
+      <div className={`theater-queue fixed z-40 w-80 bg-gray-900 border border-gray-700 shadow-2xl overflow-hidden hidden lg:block ${getPositionClasses()}`}>
+        {/* Compact Header */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-3 py-3 bg-gradient-to-r from-yellow-900/40 to-gray-900/80 border-b border-gray-700/50 flex items-center justify-between hover:from-yellow-900/60 transition-colors"
-          style={{ minHeight: '52px' }}
+          className="w-full px-4 py-3 bg-gray-800 border-b border-gray-700 flex items-center justify-between hover:bg-gray-750 transition-colors"
         >
           <div className="flex items-center gap-3">
-            {/* Queue icon with count badge */}
             <div className="relative">
-              <ListMusic size={20} className="text-yellow-400" />
+              <ListMusic size={18} className="text-accent" style={{ color: 'var(--accent-color, #eab308)' }} />
               {theaterQueue.length > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-yellow-500 text-black text-[10px] font-bold rounded-full flex items-center justify-center">
+                <span
+                  className="absolute -top-1 -right-1.5 w-4 h-4 text-[9px] font-bold flex items-center justify-center text-gray-900"
+                  style={{ background: 'var(--accent-color, #eab308)' }}
+                >
                   {theaterQueue.length}
                 </span>
               )}
             </div>
 
-            {/* Status text */}
-            <div className="text-left">
-              {isPlayingFromQueue ? (
-                <div className="flex items-center gap-2">
-                  {/* Playing animation */}
-                  <div className="flex items-end gap-0.5 h-4">
-                    <div className="w-1 bg-yellow-400 animate-pulse rounded-full" style={{ height: '40%', animationDelay: '0ms' }} />
-                    <div className="w-1 bg-yellow-400 animate-pulse rounded-full" style={{ height: '70%', animationDelay: '150ms' }} />
-                    <div className="w-1 bg-yellow-400 animate-pulse rounded-full" style={{ height: '50%', animationDelay: '300ms' }} />
-                  </div>
-                  <span className="text-yellow-400 text-sm font-mono font-medium">
-                    {currentQueueIndex + 1}/{theaterQueue.length}
-                  </span>
+            {isPlayingFromQueue ? (
+              <div className="flex items-center gap-2">
+                <div className="flex items-end gap-0.5 h-3">
+                  {[40, 70, 50].map((h, i) => (
+                    <div
+                      key={i}
+                      className="w-0.5 animate-pulse"
+                      style={{
+                        height: `${h}%`,
+                        background: 'var(--accent-color, #eab308)',
+                        animationDelay: `${i * 150}ms`
+                      }}
+                    />
+                  ))}
                 </div>
-              ) : theaterQueue.length > 0 ? (
-                <span className="text-gray-400 text-sm">
-                  {theaterQueue.length} queued
+                <span className="text-xs font-mono" style={{ color: 'var(--accent-color, #eab308)' }}>
+                  {currentQueueIndex + 1}/{theaterQueue.length}
                 </span>
-              ) : (
-                <span className="text-gray-400 text-sm">
-                  {localPlaylists.length} playlist{localPlaylists.length !== 1 ? 's' : ''}
-                </span>
-              )}
-            </div>
+              </div>
+            ) : theaterQueue.length > 0 ? (
+              <span className="text-gray-400 text-xs">{theaterQueue.length} in queue</span>
+            ) : (
+              <span className="text-gray-500 text-xs">{localPlaylists.length} saved</span>
+            )}
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Play button when not playing and has queue */}
-            {!isPlayingFromQueue && theaterQueue.length > 0 && (
+          <div className="flex items-center gap-2">
+            {theaterQueue.length > 0 && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  playQueue(0);
+                  if (isPlayingFromQueue && playerState.isPlaying) {
+                    togglePlayPause();
+                  } else {
+                    playQueue(isPlayingFromQueue ? currentQueueIndex : 0);
+                  }
                 }}
-                className="bg-yellow-600 hover:bg-yellow-500 rounded-full p-2 transition-colors"
-                title="Play queue"
-                style={{ minWidth: '36px', minHeight: '36px' }}
+                className="w-7 h-7 flex items-center justify-center transition-colors text-gray-900"
+                style={{ background: 'var(--accent-color, #eab308)' }}
               >
-                <Play size={16} className="text-black" />
+                {isPlayingFromQueue && playerState.isPlaying ? (
+                  <Pause size={14} />
+                ) : (
+                  <Play size={14} className="ml-0.5" />
+                )}
               </button>
             )}
-            {isExpanded ? (
-              <ChevronDown size={20} className="text-gray-500" />
-            ) : (
-              <ChevronUp size={20} className="text-gray-500" />
-            )}
+            {isExpanded ? <ChevronDown size={16} className="text-gray-500" /> : <ChevronUp size={16} className="text-gray-500" />}
           </div>
         </button>
 
-        {/* Tabs - Queue / Playlists */}
+        {/* Tabs */}
         {isExpanded && (localPlaylists.length > 0 || theaterQueue.length > 0) && (
-          <div className="flex border-b border-gray-700/50">
-            <button
-              onClick={() => setActiveTab('queue')}
-              className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
-                activeTab === 'queue'
-                  ? 'text-yellow-400 border-b-2 border-yellow-400 bg-yellow-500/10'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              Queue {theaterQueue.length > 0 && `(${theaterQueue.length})`}
-            </button>
-            <button
-              onClick={() => setActiveTab('playlists')}
-              className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
-                activeTab === 'playlists'
-                  ? 'text-yellow-400 border-b-2 border-yellow-400 bg-yellow-500/10'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              Playlists {localPlaylists.length > 0 && `(${localPlaylists.length})`}
-            </button>
+          <div className="flex border-b border-gray-800">
+            {['queue', 'playlists'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 px-3 py-2 text-xs font-medium uppercase tracking-wide transition-colors ${
+                  activeTab === tab
+                    ? 'border-b-2 bg-gray-800/50'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+                style={activeTab === tab ? {
+                  color: 'var(--accent-color, #eab308)',
+                  borderColor: 'var(--accent-color, #eab308)'
+                } : {}}
+              >
+                {tab} {tab === 'queue' && theaterQueue.length > 0 && `(${theaterQueue.length})`}
+                {tab === 'playlists' && localPlaylists.length > 0 && `(${localPlaylists.length})`}
+              </button>
+            ))}
           </div>
         )}
 
-        {/* Expanded content */}
+        {/* Queue Tab */}
         {isExpanded && activeTab === 'queue' && (
-          <div className="max-h-64 sm:max-h-80 overflow-y-auto">
+          <div className="max-h-72 overflow-y-auto">
             {theaterQueue.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-500 text-sm">
-                <ListMusic size={32} className="mx-auto mb-2 opacity-50" />
-                <p>Queue is empty</p>
-                <p className="text-xs mt-1">Add moments to build your queue</p>
+              <div className="px-4 py-10 text-center">
+                <ListMusic size={28} className="mx-auto mb-2 text-gray-700" />
+                <p className="text-gray-500 text-sm">Queue empty</p>
+                <p className="text-gray-600 text-xs mt-1">Add moments to start</p>
               </div>
             ) : (
-            <>
-            {/* Queue items */}
-            <div className="divide-y divide-gray-800/50">
-              {theaterQueue.map((moment, index) => (
-                <div
-                  key={moment._id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, index)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDragEnd={handleDragEnd}
-                  onTouchStart={() => setDraggedIndex(index)}
-                  onTouchEnd={handleDragEnd}
-                  className={`flex items-center gap-2 px-3 py-3 cursor-grab active:cursor-grabbing transition-colors ${
-                    currentQueueIndex === index && isPlayingFromQueue
-                      ? 'bg-yellow-900/30 border-l-2 border-yellow-500'
-                      : 'hover:bg-gray-800/50'
-                  } ${draggedIndex === index ? 'opacity-50' : ''}`}
-                  style={{ minHeight: '56px' }}
-                >
-                  {/* Drag handle - hidden on mobile, use touch to drag */}
-                  <div className="text-gray-600 hover:text-gray-400 hidden sm:block">
-                    <GripVertical size={14} />
-                  </div>
+              <>
+                <div className="divide-y divide-gray-800">
+                  {theaterQueue.map((moment, index) => (
+                    <div
+                      key={moment._id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDragEnd={handleDragEnd}
+                      className={`flex items-center gap-2 px-3 py-2.5 cursor-grab active:cursor-grabbing transition-colors ${
+                        currentQueueIndex === index && isPlayingFromQueue
+                          ? 'bg-gray-800 border-l-2'
+                          : 'hover:bg-gray-800/50'
+                      } ${draggedIndex === index ? 'opacity-50' : ''}`}
+                      style={currentQueueIndex === index && isPlayingFromQueue ? { borderColor: 'var(--accent-color, #eab308)' } : {}}
+                    >
+                      <GripVertical size={12} className="text-gray-700 hidden sm:block flex-shrink-0" />
 
-                  {/* Index / Now playing indicator */}
-                  <div className="w-6 text-center flex-shrink-0">
-                    {currentQueueIndex === index && isPlayingFromQueue ? (
-                      <div className="flex items-end justify-center gap-0.5 h-4">
-                        <div className="w-1 bg-yellow-400 animate-pulse rounded-full" style={{ height: '40%' }} />
-                        <div className="w-1 bg-yellow-400 animate-pulse rounded-full" style={{ height: '70%', animationDelay: '100ms' }} />
-                        <div className="w-1 bg-yellow-400 animate-pulse rounded-full" style={{ height: '50%', animationDelay: '200ms' }} />
+                      <div className="w-5 text-center flex-shrink-0">
+                        {currentQueueIndex === index && isPlayingFromQueue ? (
+                          <div className="flex items-end justify-center gap-0.5 h-3">
+                            {[40, 70, 50].map((h, i) => (
+                              <div
+                                key={i}
+                                className="w-0.5 animate-pulse"
+                                style={{ height: `${h}%`, background: 'var(--accent-color, #eab308)' }}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-600 text-xs font-mono">{index + 1}</span>
+                        )}
                       </div>
-                    ) : (
-                      <span className="text-gray-600 text-sm font-mono">{index + 1}</span>
-                    )}
-                  </div>
 
-                  {/* Moment info */}
-                  <button
-                    onClick={() => handlePlayFromIndex(index)}
-                    className="flex-1 min-w-0 text-left hover:text-yellow-400 transition-colors py-1"
-                  >
-                    <div className="text-white text-sm truncate">
-                      {moment.songName}
-                    </div>
-                    <div className="text-gray-500 text-xs truncate">
-                      {moment.venueName}
-                    </div>
-                  </button>
+                      <button
+                        onClick={() => handlePlayFromIndex(index)}
+                        className="flex-1 min-w-0 text-left group"
+                      >
+                        <div className="text-gray-200 text-sm truncate group-hover:text-white transition-colors">
+                          {moment.songName}
+                        </div>
+                        <div className="text-gray-500 text-xs truncate">
+                          {moment.venueName}
+                        </div>
+                      </button>
 
-                  {/* Remove button - larger touch target */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeFromQueue(moment._id);
-                    }}
-                    className="text-gray-600 hover:text-red-400 transition-colors p-2"
-                    title="Remove"
-                    style={{ minWidth: '36px', minHeight: '36px' }}
-                  >
-                    <X size={16} />
-                  </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeFromQueue(moment._id); }}
+                        className="p-1.5 text-gray-600 hover:text-red-400 transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            {/* Footer with shuffle, save, and clear buttons */}
-            <div className="px-3 py-3 bg-gray-800/30 border-t border-gray-700/50 flex items-center justify-between gap-2">
-              {/* Shuffle button */}
-              <button
-                onClick={shuffleQueue}
-                className="flex items-center gap-1 text-xs text-gray-500 hover:text-yellow-400 transition-colors px-2 py-2"
-                style={{ minHeight: '36px' }}
-                title="Shuffle queue"
-                disabled={theaterQueue.length < 2}
-              >
-                <Shuffle size={12} />
-                <span className="hidden sm:inline">Shuffle</span>
-              </button>
-
-              {/* Save as Local Playlist button (no account needed) */}
-              <button
-                onClick={() => setShowLocalSaveModal(true)}
-                className="flex items-center gap-1 text-xs text-gray-500 hover:text-green-400 transition-colors px-2 py-2"
-                style={{ minHeight: '36px' }}
-                title="Save as playlist"
-              >
-                <Save size={12} />
-                <span className="hidden sm:inline">Save</span>
-              </button>
-
-              {/* Save as Collection button - only show if logged in */}
-              {user && (
-                <button
-                  onClick={() => {
-                    console.log('Save button clicked, showing modal');
-                    setShowSaveModal(true);
-                  }}
-                  className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-400 transition-colors px-2 py-2"
-                  style={{ minHeight: '36px' }}
-                  title="Save to cloud"
-                >
-                  <Link2 size={12} />
-                  <span className="hidden sm:inline">Cloud</span>
-                </button>
-              )}
-
-              {/* Clear button */}
-              <button
-                onClick={clearQueue}
-                className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-400 transition-colors px-2 py-2"
-                style={{ minHeight: '36px' }}
-              >
-                <Trash2 size={12} />
-                <span className="hidden sm:inline">Clear</span>
-              </button>
-            </div>
-            </>
+                {/* Actions */}
+                <div className="px-3 py-2.5 bg-gray-800/50 border-t border-gray-800 flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <ActionButton icon={Shuffle} onClick={shuffleQueue} disabled={theaterQueue.length < 2} title="Shuffle" />
+                    <ActionButton icon={Save} onClick={() => setShowLocalSaveModal(true)} title="Save" color="green" />
+                    {user && <ActionButton icon={Link2} onClick={() => setShowSaveModal(true)} title="Cloud" color="blue" />}
+                  </div>
+                  <ActionButton icon={Trash2} onClick={clearQueue} title="Clear" color="red" />
+                </div>
+              </>
             )}
           </div>
         )}
 
         {/* Playlists Tab */}
         {isExpanded && activeTab === 'playlists' && (
-          <div className="max-h-64 sm:max-h-80 overflow-y-auto">
+          <div className="max-h-72 overflow-y-auto">
             {localPlaylists.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-500 text-sm">
-                <FolderOpen size={32} className="mx-auto mb-2 opacity-50" />
-                <p>No saved playlists</p>
-                <p className="text-xs mt-1">Save your queue to create a playlist</p>
+              <div className="px-4 py-10 text-center">
+                <FolderOpen size={28} className="mx-auto mb-2 text-gray-700" />
+                <p className="text-gray-500 text-sm">No playlists</p>
+                <p className="text-gray-600 text-xs mt-1">Save your queue</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-800/50">
+              <div className="divide-y divide-gray-800">
                 {localPlaylists.map((playlist) => (
-                  <div
-                    key={playlist.id}
-                    className="flex items-center gap-2 px-3 py-3 hover:bg-gray-800/50 transition-colors"
-                    style={{ minHeight: '56px' }}
-                  >
-                    {/* Playlist icon */}
-                    <div className="w-8 h-8 bg-yellow-500/20 rounded flex items-center justify-center flex-shrink-0">
-                      <ListMusic size={14} className="text-yellow-400" />
+                  <div key={playlist.id} className="flex items-center gap-2 px-3 py-2.5 hover:bg-gray-800/50 transition-colors">
+                    <div
+                      className="w-8 h-8 flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'rgba(234, 179, 8, 0.15)' }}
+                    >
+                      <ListMusic size={14} style={{ color: 'var(--accent-color, #eab308)' }} />
                     </div>
 
-                    {/* Playlist info */}
-                    <button
-                      onClick={() => handleLoadPlaylist(playlist.id)}
-                      className="flex-1 min-w-0 text-left hover:text-yellow-400 transition-colors"
-                    >
-                      <div className="text-white text-sm truncate">{playlist.name}</div>
-                      <div className="text-gray-500 text-xs">
-                        {playlist.moments.length} track{playlist.moments.length !== 1 ? 's' : ''}
-                      </div>
+                    <button onClick={() => handleLoadPlaylist(playlist.id)} className="flex-1 min-w-0 text-left group">
+                      <div className="text-gray-200 text-sm truncate group-hover:text-white">{playlist.name}</div>
+                      <div className="text-gray-500 text-xs">{playlist.moments.length} tracks</div>
                     </button>
 
-                    {/* Quick play button */}
                     <button
-                      onClick={() => {
-                        handleLoadPlaylist(playlist.id);
-                        setTimeout(() => playQueue(0), 100);
-                      }}
-                      className="p-2 text-gray-500 hover:text-yellow-400 transition-colors"
-                      title="Play playlist"
+                      onClick={() => { handleLoadPlaylist(playlist.id); setTimeout(() => playQueue(0), 100); }}
+                      className="p-1.5 text-gray-500 hover:text-white transition-colors"
                     >
-                      <Play size={16} />
+                      <Play size={14} />
                     </button>
 
-                    {/* More options */}
                     <div className="relative">
                       <button
                         onClick={() => setPlaylistMenuOpen(playlistMenuOpen === playlist.id ? null : playlist.id)}
-                        className="p-2 text-gray-500 hover:text-white transition-colors"
+                        className="p-1.5 text-gray-600 hover:text-white transition-colors"
                       >
-                        <MoreVertical size={16} />
+                        <MoreVertical size={14} />
                       </button>
 
-                      {/* Dropdown menu */}
                       {playlistMenuOpen === playlist.id && (
-                        <div className="absolute right-0 top-full mt-1 w-40 bg-gray-800 border border-gray-700 rounded shadow-xl z-10">
-                          <button
-                            onClick={() => handleAppendPlaylist(playlist.id)}
-                            className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center gap-2"
-                          >
-                            <Plus size={14} />
-                            Add to queue
-                          </button>
-                          <button
-                            onClick={() => handleCopyPlaylistLink(playlist.id)}
-                            className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center gap-2"
-                          >
-                            <Copy size={14} />
+                        <div className="absolute right-0 top-full mt-1 w-36 bg-gray-800 border border-gray-700 shadow-xl z-10">
+                          <MenuButton icon={Plus} onClick={() => handleAppendPlaylist(playlist.id)}>Add to queue</MenuButton>
+                          <MenuButton icon={Copy} onClick={() => handleCopyPlaylistLink(playlist.id)}>
                             {linkCopied ? 'Copied!' : 'Copy link'}
-                          </button>
-                          <button
-                            onClick={() => handleDeletePlaylist(playlist.id)}
-                            className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-gray-700 flex items-center gap-2"
-                          >
-                            <Trash2 size={14} />
-                            Delete
-                          </button>
+                          </MenuButton>
+                          <MenuButton icon={Trash2} onClick={() => handleDeletePlaylist(playlist.id)} danger>Delete</MenuButton>
                         </div>
                       )}
                     </div>
@@ -514,200 +382,168 @@ const TheaterQueue = ({ sidebarPosition = 'left', sidebarCollapsed = false }) =>
               </div>
             )}
 
-            {/* Create new playlist button */}
             {theaterQueue.length > 0 && (
-              <div className="px-3 py-3 bg-gray-800/30 border-t border-gray-700/50">
+              <div className="px-3 py-2.5 bg-gray-800/50 border-t border-gray-800">
                 <button
                   onClick={() => setShowLocalSaveModal(true)}
-                  className="w-full px-3 py-2 text-sm text-yellow-400 border border-yellow-500/30 rounded hover:bg-yellow-500/10 transition-colors flex items-center justify-center gap-2"
+                  className="w-full px-3 py-2 text-xs border transition-colors flex items-center justify-center gap-2"
+                  style={{
+                    color: 'var(--accent-color, #eab308)',
+                    borderColor: 'rgba(234, 179, 8, 0.3)'
+                  }}
                 >
-                  <Plus size={14} />
-                  Save current queue as playlist
+                  <Plus size={12} />
+                  Save queue as playlist
                 </button>
               </div>
             )}
           </div>
         )}
 
-        {/* Progress bar at bottom */}
+        {/* Progress bar */}
         {isPlayingFromQueue && (
           <div className="h-0.5 bg-gray-800">
             <div
-              className="h-full bg-gradient-to-r from-yellow-500 to-yellow-400 transition-all duration-300"
-              style={{ width: `${((currentQueueIndex + 1) / theaterQueue.length) * 100}%` }}
+              className="h-full transition-all duration-300"
+              style={{
+                width: `${((currentQueueIndex + 1) / theaterQueue.length) * 100}%`,
+                background: 'var(--accent-color, #eab308)'
+              }}
             />
           </div>
         )}
       </div>
 
-      {/* Save as Collection Modal - positioned as fixed overlay */}
+      {/* Save Collection Modal */}
       {showSaveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-700 rounded-sm p-6 shadow-2xl w-80 max-w-[90vw]">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-white font-medium">Save Queue as Collection</h4>
-              <button
-                onClick={closeSaveModal}
-                className="text-gray-500 hover:text-white transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {saveSuccess ? (
-              <div className="py-4">
-                <div className="flex items-center justify-center gap-2 text-green-400 mb-4">
-                  <Check size={24} />
-                  <span className="text-lg">Collection saved!</span>
-                </div>
-
-                {/* Shareable link section for public collections */}
-                {savedCollection?.isPublic && (
-                  <div className="bg-gray-800 rounded p-3 mb-4">
-                    <p className="text-xs text-gray-400 mb-2 flex items-center gap-1">
-                      <Link2 size={12} />
-                      Shareable link:
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        value={`${window.location.origin}/collection/${savedCollection._id}`}
-                        className="flex-1 px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm font-mono"
-                        onClick={(e) => e.target.select()}
-                      />
-                      <button
-                        onClick={copyShareableLink}
-                        className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-black rounded transition-colors flex items-center gap-2"
-                        style={{ minHeight: '44px' }}
-                      >
-                        {linkCopied ? <Check size={16} /> : <Copy size={16} />}
-                        {linkCopied ? 'Copied!' : 'Copy'}
-                      </button>
-                    </div>
+        <Modal onClose={closeSaveModal} title="Save to Cloud">
+          {saveSuccess ? (
+            <div className="py-4">
+              <div className="flex items-center justify-center gap-2 text-green-400 mb-4">
+                <Check size={20} />
+                <span>Saved!</span>
+              </div>
+              {savedCollection?.isPublic && (
+                <div className="bg-gray-800 p-3 mb-4">
+                  <p className="text-xs text-gray-400 mb-2 flex items-center gap-1">
+                    <Link2 size={10} /> Shareable link
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={`${window.location.origin}/collection/${savedCollection._id}`}
+                      className="flex-1 px-2 py-1.5 bg-gray-900 border border-gray-700 text-white text-xs font-mono"
+                      onClick={(e) => e.target.select()}
+                    />
+                    <button onClick={copyShareableLink} className="px-3 py-1.5 text-xs text-gray-900" style={{ background: 'var(--accent-color, #eab308)' }}>
+                      {linkCopied ? 'Copied!' : 'Copy'}
+                    </button>
                   </div>
-                )}
-
+                </div>
+              )}
+              <button onClick={closeSaveModal} className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm">Done</button>
+            </div>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={collectionName}
+                onChange={(e) => setCollectionName(e.target.value)}
+                placeholder="Collection name..."
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-white text-sm mb-3 focus:border-gray-500 focus:outline-none"
+                autoFocus
+              />
+              <label className="flex items-center gap-2 text-xs text-gray-400 mb-4 cursor-pointer">
+                <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="border-gray-600 bg-gray-800" />
+                Public (shareable)
+              </label>
+              {saveError && <div className="text-red-400 text-xs mb-3 p-2 bg-red-900/20">{saveError}</div>}
+              <div className="flex gap-2">
+                <button onClick={closeSaveModal} className="flex-1 px-3 py-2 text-gray-400 border border-gray-700 text-sm hover:text-white">Cancel</button>
                 <button
-                  onClick={closeSaveModal}
-                  className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                  onClick={handleSaveAsCollection}
+                  disabled={isSaving || !collectionName.trim()}
+                  className="flex-1 px-3 py-2 text-gray-900 text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ background: 'var(--accent-color, #eab308)' }}
                 >
-                  {isPlayingFromQueue ? 'Continue Playing' : 'Done'}
+                  {isSaving ? <><Loader2 size={14} className="animate-spin" /> Saving...</> : <>Save ({theaterQueue.length})</>}
                 </button>
               </div>
-            ) : (
-              <>
-                <input
-                  type="text"
-                  value={collectionName}
-                  onChange={(e) => setCollectionName(e.target.value)}
-                  placeholder="Collection name..."
-                  className="w-full px-3 py-3 bg-gray-800 border border-gray-700 rounded text-white mb-4 focus:border-yellow-500 focus:outline-none"
-                  autoFocus
-                />
-
-                <label className="flex items-center gap-2 text-sm text-gray-300 mb-4 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isPublic}
-                    onChange={(e) => setIsPublic(e.target.checked)}
-                    className="rounded border-gray-600 bg-gray-800"
-                  />
-                  Make public (shareable link)
-                </label>
-
-                {saveError && (
-                  <div className="text-red-400 text-sm mb-4 p-2 bg-red-900/30 rounded">{saveError}</div>
-                )}
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={closeSaveModal}
-                    className="flex-1 px-4 py-3 text-gray-400 hover:text-white border border-gray-700 rounded transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveAsCollection}
-                    disabled={isSaving || !collectionName.trim()}
-                    className="flex-1 px-4 py-3 bg-yellow-600 hover:bg-yellow-500 text-black font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save size={16} />
-                        Save ({theaterQueue.length})
-                      </>
-                    )}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+            </>
+          )}
+        </Modal>
       )}
 
-      {/* Save as Local Playlist Modal */}
+      {/* Save Local Playlist Modal */}
       {showLocalSaveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-700 rounded-sm p-6 shadow-2xl w-80 max-w-[90vw]">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-white font-medium">Save as Playlist</h4>
-              <button
-                onClick={() => {
-                  setShowLocalSaveModal(false);
-                  setLocalPlaylistName('');
-                }}
-                className="text-gray-500 hover:text-white transition-colors"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <p className="text-sm text-gray-400 mb-4">
-              Save to your device (no account needed). Your playlist will persist across sessions.
-            </p>
-
-            <input
-              type="text"
-              value={localPlaylistName}
-              onChange={(e) => setLocalPlaylistName(e.target.value)}
-              placeholder="Playlist name..."
-              className="w-full px-3 py-3 bg-gray-800 border border-gray-700 rounded text-white mb-4 focus:border-yellow-500 focus:outline-none"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSaveLocalPlaylist();
-              }}
-            />
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowLocalSaveModal(false);
-                  setLocalPlaylistName('');
-                }}
-                className="flex-1 px-4 py-3 text-gray-400 hover:text-white border border-gray-700 rounded transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveLocalPlaylist}
-                disabled={!localPlaylistName.trim()}
-                className="flex-1 px-4 py-3 bg-yellow-600 hover:bg-yellow-500 text-black font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                <Save size={16} />
-                Save ({theaterQueue.length})
-              </button>
-            </div>
+        <Modal onClose={() => { setShowLocalSaveModal(false); setLocalPlaylistName(''); }} title="Save Playlist">
+          <p className="text-xs text-gray-400 mb-3">Saved to your device. No account needed.</p>
+          <input
+            type="text"
+            value={localPlaylistName}
+            onChange={(e) => setLocalPlaylistName(e.target.value)}
+            placeholder="Playlist name..."
+            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-white text-sm mb-4 focus:border-gray-500 focus:outline-none"
+            autoFocus
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSaveLocalPlaylist(); }}
+          />
+          <div className="flex gap-2">
+            <button onClick={() => { setShowLocalSaveModal(false); setLocalPlaylistName(''); }} className="flex-1 px-3 py-2 text-gray-400 border border-gray-700 text-sm hover:text-white">Cancel</button>
+            <button
+              onClick={handleSaveLocalPlaylist}
+              disabled={!localPlaylistName.trim()}
+              className="flex-1 px-3 py-2 text-gray-900 text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{ background: 'var(--accent-color, #eab308)' }}
+            >
+              <Save size={14} /> Save ({theaterQueue.length})
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );
 };
+
+// Helper components
+const ActionButton = ({ icon: Icon, onClick, disabled, title, color }) => {
+  const colorClasses = {
+    green: 'hover:text-green-400',
+    blue: 'hover:text-blue-400',
+    red: 'hover:text-red-400',
+    default: 'hover:text-white'
+  };
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`p-1.5 text-gray-500 ${colorClasses[color] || colorClasses.default} transition-colors disabled:opacity-30`}
+    >
+      <Icon size={14} />
+    </button>
+  );
+};
+
+const MenuButton = ({ icon: Icon, onClick, children, danger }) => (
+  <button
+    onClick={onClick}
+    className={`w-full px-3 py-2 text-left text-xs hover:bg-gray-700 flex items-center gap-2 ${danger ? 'text-red-400' : 'text-gray-300'}`}
+  >
+    <Icon size={12} /> {children}
+  </button>
+);
+
+const Modal = ({ onClose, title, children }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div className="bg-gray-900 border border-gray-700 p-5 shadow-2xl w-80 max-w-[90vw]">
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="text-white text-sm font-medium">{title}</h4>
+        <button onClick={onClose} className="text-gray-500 hover:text-white"><X size={16} /></button>
+      </div>
+      {children}
+    </div>
+  </div>
+);
 
 export default TheaterQueue;

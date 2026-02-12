@@ -86,6 +86,7 @@ const UploadPanel = memo(({
                   onClick={() => {
                     setSelectedSong(song.name);
                     setShowSongPicker(false);
+                    onUploadSong?.(song, null, 0);
                   }}
                   className="w-full px-3 py-2 text-left text-white hover:bg-gray-700/50 text-sm truncate"
                 >

@@ -1,12 +1,11 @@
 // src/components/UI/DesktopSidebar.jsx
-// Sidebar for desktop - nav tabs, filters, queue preview
-// Supports left, right, top, bottom positions
+// Horizontal top/bottom bar for desktop navigation
 import React, { memo, useState } from 'react';
 import {
   Film, Calendar, Music, Video, Link2, Upload,
-  ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
+  ChevronDown,
   ListMusic, Play, Pause, SkipBack, SkipForward, Shuffle, User, LogIn, Shield,
-  Tv, Trash2, Trophy, Settings, Volume2, VolumeX
+  Tv, Trophy, Settings, Volume2, VolumeX
 } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import TopContributors from '../Community/TopContributors';
@@ -21,14 +20,13 @@ const DesktopSidebar = memo(({
   onShowAccount,
   onAdminPanelClick,
   onLoginClick,
-  isCollapsed,
-  onToggleCollapse,
   onViewUserProfile,
-  position = 'left',
-  onShowSettings
+  position = 'top',
+  onShowSettings,
+  onToggleHowToGuide
 }) => {
   const {
-    theaterQueue, currentQueueIndex, isPlayingFromQueue, playQueue, clearQueue,
+    theaterQueue, currentQueueIndex, isPlayingFromQueue,
     currentMoment, playNextInQueue, playPrevInQueue,
     togglePlayPause, playerState, toggleMute, setVolume, playRandom
   } = useTheaterQueue();
@@ -47,575 +45,247 @@ const DesktopSidebar = memo(({
     navItems.push({ id: 'umotube', label: 'Linked', icon: Tv });
   }
 
-  const isHorizontal = position === 'top' || position === 'bottom';
+  const positionClasses = position === 'bottom'
+    ? 'left-0 right-0 bottom-0 h-16 flex-row border-t'
+    : 'left-0 right-0 top-0 h-16 flex-row border-b';
 
-  // Position-specific classes
-  const getPositionClasses = () => {
-    switch (position) {
-      case 'left':
-        return `left-0 top-0 h-screen flex-col ${isCollapsed ? 'w-16' : 'w-56'} border-r`;
-      case 'right':
-        return `right-0 top-0 h-screen flex-col ${isCollapsed ? 'w-16' : 'w-56'} border-l`;
-      case 'top':
-        return 'left-0 right-0 top-0 h-16 flex-row border-b';
-      case 'bottom':
-        return 'left-0 right-0 bottom-0 h-16 flex-row border-t';
-      default:
-        return 'left-0 top-0 h-screen flex-col w-56 border-r';
-    }
-  };
-
-  // Toggle button position based on sidebar position
-  const getTogglePosition = () => {
-    switch (position) {
-      case 'left':
-        return '-right-3 top-20';
-      case 'right':
-        return '-left-3 top-20';
-      case 'top':
-        return 'left-1/2 -translate-x-1/2 -bottom-3';
-      case 'bottom':
-        return 'left-1/2 -translate-x-1/2 -top-3';
-      default:
-        return '-right-3 top-20';
-    }
-  };
-
-  const getToggleIcon = () => {
-    if (position === 'left') return isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />;
-    if (position === 'right') return isCollapsed ? <ChevronLeft size={14} /> : <ChevronRight size={14} />;
-    if (position === 'top') return <ChevronUp size={14} />;
-    if (position === 'bottom') return <ChevronDown size={14} />;
-    return <ChevronLeft size={14} />;
-  };
-
-  // Horizontal layout (top/bottom)
-  if (isHorizontal) {
-    return (
-      <div
-        className={`hidden lg:flex fixed z-30 bg-gray-900/95 backdrop-blur-sm border-gray-700/50 transition-all duration-300 items-center px-4 gap-4 ${getPositionClasses()}`}
-      >
-        {/* Logo */}
-        <h2 className="text-blue-400 font-bold text-sm whitespace-nowrap">UMO Archive</h2>
-
-        {/* Divider */}
-        <div className="w-px h-8 bg-gray-700/50" />
-
-        {/* Navigation */}
-        <div className="flex items-center gap-1">
-          {navItems.map(item => {
-            const Icon = item.icon;
-            const isActive = browseMode === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onBrowseModeChange(item.id)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-sm transition-all ${
-                  isActive
-                    ? 'bg-yellow-500/20 text-yellow-400'
-                    : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
-                }`}
-                title={item.label}
-              >
-                <Icon size={16} className={isActive ? 'text-yellow-400' : ''} />
-                <span className="text-xs font-medium hidden xl:inline">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Divider */}
-        <div className="w-px h-8 bg-gray-700/50" />
-
-        {/* Filters */}
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1">
-            <button
-              onClick={() => toggleFilter('type', 'audio')}
-              title="Audio"
-              className={`p-1.5 rounded-sm transition-all ${
-                mediaFilters.audio
-                  ? 'bg-blue-600/30 text-blue-400'
-                  : 'text-gray-500 hover:bg-gray-800/50'
-              }`}
-            >
-              <Music size={14} />
-            </button>
-            <button
-              onClick={() => toggleFilter('type', 'video')}
-              title="Video"
-              className={`p-1.5 rounded-sm transition-all ${
-                mediaFilters.video
-                  ? 'bg-blue-600/30 text-blue-400'
-                  : 'text-gray-500 hover:bg-gray-800/50'
-              }`}
-            >
-              <Video size={14} />
-            </button>
-          </div>
-          <div className="flex gap-1">
-            <button
-              onClick={() => toggleFilter('source', 'linked')}
-              title="Linked"
-              className={`p-1.5 rounded-sm transition-all ${
-                mediaFilters.linked
-                  ? 'bg-purple-600/30 text-purple-400'
-                  : 'text-gray-500 hover:bg-gray-800/50'
-              }`}
-            >
-              <Link2 size={14} />
-            </button>
-            <button
-              onClick={() => toggleFilter('source', 'uploads')}
-              title="Uploads"
-              className={`p-1.5 rounded-sm transition-all ${
-                mediaFilters.uploads
-                  ? 'bg-purple-600/30 text-purple-400'
-                  : 'text-gray-500 hover:bg-gray-800/50'
-              }`}
-            >
-              <Upload size={14} />
-            </button>
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div className="w-px h-8 bg-gray-700/50" />
-
-        {/* Now Playing Mini (horizontal) - WORKING CONTROLS */}
-        {(isPlayingFromQueue || currentMoment) && currentMoment && (
-          <>
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded">
-              {/* Song name - clickable to expand MediaControlCenter */}
-              <button
-                onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
-                className="max-w-[100px] hidden xl:block hover:text-yellow-400 transition-colors"
-                title="Open full controls"
-              >
-                <div className="text-[10px] font-medium text-white truncate">{currentMoment.songName}</div>
-              </button>
-
-              {/* WORKING Play/Pause */}
-              <button
-                onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
-                className="p-1 rounded bg-yellow-500/20 hover:bg-yellow-500/40 transition-colors"
-                title={playerState.isPlaying ? 'Pause' : 'Play'}
-              >
-                {playerState.isPlaying ? <Pause size={12} className="text-yellow-400" /> : <Play size={12} className="text-yellow-400 ml-0.5" />}
-              </button>
-
-              {/* Previous / Restart */}
-              <button onClick={() => playPrevInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Previous">
-                <SkipBack size={12} className="text-gray-400 hover:text-white" />
-              </button>
-              {/* Smart Next: shows Next if queue has more, else Random */}
-              {theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1 ? (
-                <button onClick={() => playNextInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Next in queue">
-                  <SkipForward size={12} className="text-gray-400 hover:text-white" />
-                </button>
-              ) : (
-                <button onClick={() => playRandom()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Play random">
-                  <Shuffle size={12} className="text-gray-400 hover:text-white" />
-                </button>
-              )}
-
-              {/* Volume control */}
-              <div className="flex items-center gap-1">
-                <button onClick={() => toggleMute()} className="p-1 hover:bg-gray-700/50 rounded transition-colors">
-                  {playerState.isMuted ? <VolumeX size={12} className="text-orange-400" /> : <Volume2 size={12} className="text-gray-400" />}
-                </button>
-                <input
-                  type="range" min="0" max="1" step="0.05"
-                  value={playerState.isMuted ? 0 : (playerState.volume || 1)}
-                  onChange={(e) => setVolume(parseFloat(e.target.value))}
-                  className="w-12 h-1 accent-yellow-500"
-                />
-              </div>
-
-              {/* Expand button for full controls */}
-              <button
-                onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
-                className="p-1 text-gray-500 hover:text-white transition-colors"
-                title="More controls"
-              >
-                <ChevronDown size={12} />
-              </button>
-            </div>
-            <div className="w-px h-8 bg-gray-700/50" />
-          </>
-        )}
-
-        {/* Floating Media Control for horizontal mode */}
-        {showMediaControl && !mediaControlDocked && (isPlayingFromQueue || currentMoment) && (
-          <MediaControlCenter
-            isDocked={false}
-            onDockChange={(docked) => {
-              setMediaControlDocked(docked);
-              // If docking from horizontal mode, just hide it
-              if (docked) setShowMediaControl(false);
-            }}
-            onClose={() => setShowMediaControl(false)}
-          />
-        )}
-
-        {/* Queue Count */}
-        <div className={`flex items-center gap-2 ${theaterQueue.length > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>
-          <ListMusic size={16} />
-          <span className="text-xs font-medium">{theaterQueue.length}</span>
-        </div>
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Settings Button */}
-        <button
-          onClick={onShowSettings}
-          className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 rounded-sm transition-all"
-          title="Settings"
-        >
-          <Settings size={14} />
-        </button>
-
-        {/* Account */}
-        {user ? (
-          <>
-            <button
-              onClick={onShowAccount}
-              className="flex items-center gap-2 px-2 py-1.5 text-gray-400 hover:bg-gray-800/50 hover:text-white rounded-sm transition-all"
-              title="My Account"
-            >
-              <User size={16} />
-              <span className="text-xs hidden xl:inline">{user.displayName}</span>
-            </button>
-            {(user.role === 'admin' || user.role === 'mod') && (
-              <button
-                onClick={onAdminPanelClick}
-                className="flex items-center gap-2 px-2 py-1.5 text-yellow-400 hover:bg-yellow-600/20 rounded-sm transition-all"
-                title={user.role === 'admin' ? 'Admin Panel' : 'Mod Panel'}
-              >
-                <Shield size={16} />
-              </button>
-            )}
-          </>
-        ) : (
-          <button
-            onClick={onLoginClick}
-            className="flex items-center gap-2 px-2 py-1.5 text-gray-400 hover:bg-blue-600/20 hover:text-blue-400 rounded-sm transition-all"
-            title="Login"
-          >
-            <LogIn size={16} />
-            <span className="text-xs hidden xl:inline">Login</span>
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  // Vertical layout (left/right)
   return (
     <div
-      className={`hidden lg:flex fixed z-30 bg-gray-900/95 backdrop-blur-sm border-gray-700/50 transition-all duration-300 ${getPositionClasses()}`}
+      className={`hidden lg:flex fixed z-30 bg-gray-900/95 backdrop-blur-sm border-gray-700/50 transition-all duration-300 items-center px-4 gap-4 ${positionClasses}`}
     >
-      {/* Toggle Button */}
-      <button
-        onClick={onToggleCollapse}
-        className={`absolute ${getTogglePosition()} z-40 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-full p-1.5 transition-colors`}
-        title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      >
-        <span className="text-gray-300">{getToggleIcon()}</span>
-      </button>
+      {/* Logo */}
+      <button onClick={onToggleHowToGuide} className="text-blue-400 hover:text-blue-300 font-bold text-sm whitespace-nowrap transition-colors" title="About UMO Archive">UMO Archive</button>
 
-      {/* Logo/Brand - only show when expanded */}
-      {!isCollapsed && (
-        <div className="p-4 border-b border-gray-700/50">
-          <div className="flex items-center justify-between">
-            <h2 className="text-blue-400 font-bold text-lg truncate">UMO Archive</h2>
+      {/* Divider */}
+      <div className="w-px h-8 bg-gray-700/50" />
 
-            {/* Settings Button */}
+      {/* Navigation */}
+      <div className="flex items-center gap-1">
+        {navItems.map(item => {
+          const Icon = item.icon;
+          const isActive = browseMode === item.id;
+          return (
             <button
-              onClick={onShowSettings}
-              className="p-1 text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 rounded-sm transition-all"
-              title="Settings"
+              key={item.id}
+              onClick={() => onBrowseModeChange(item.id)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-sm transition-all ${
+                isActive
+                  ? 'bg-yellow-500/20 text-yellow-400'
+                  : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
+              }`}
+              title={item.label}
             >
-              <Settings size={12} />
+              <Icon size={16} className={isActive ? 'text-yellow-400' : ''} />
+              <span className="text-xs font-medium hidden xl:inline">{item.label}</span>
             </button>
-          </div>
+          );
+        })}
+      </div>
 
-          {/* Collapsible Top Contributors */}
-          <button
-            onClick={() => setShowContributors(!showContributors)}
-            className="flex items-center gap-2 mt-3 text-[10px] text-gray-500 hover:text-gray-300 transition-colors w-full"
-          >
-            <Trophy size={10} className="text-yellow-400" />
-            <span>Top Contributors</span>
-            <ChevronDown
-              size={10}
-              className={`ml-auto transition-transform ${showContributors ? 'rotate-180' : ''}`}
-            />
-          </button>
-          {showContributors && (
-            <div className="mt-2 max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700">
-              <TopContributors onViewUserProfile={onViewUserProfile} compact />
-            </div>
-          )}
-        </div>
-      )}
+      {/* Divider */}
+      <div className="w-px h-8 bg-gray-700/50" />
 
-      {/* Navigation Tabs */}
-      <nav className="flex-shrink-0 p-2 border-b border-gray-700/50">
-        {!isCollapsed && (
-          <div className="text-[10px] uppercase tracking-wider text-gray-500 px-2 mb-2">
-            Browse
-          </div>
-        )}
-        <div className="space-y-1">
-          {navItems.map(item => {
-            const Icon = item.icon;
-            const isActive = browseMode === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onBrowseModeChange(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm transition-all ${
-                  isActive
-                    ? `bg-yellow-500/20 text-yellow-400 ${position === 'left' ? 'border-l-2' : 'border-r-2'} border-yellow-400`
-                    : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
-                } ${isCollapsed ? 'justify-center px-2' : ''}`}
-                title={isCollapsed ? item.label : undefined}
-              >
-                <Icon size={18} className={isActive ? 'text-yellow-400' : ''} />
-                {!isCollapsed && (
-                  <span className="text-sm font-medium">{item.label}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
-
-      {/* Media Filters */}
-      <div className="flex-shrink-0 p-2 border-b border-gray-700/50">
-        {!isCollapsed && (
-          <div className="text-[10px] uppercase tracking-wider text-gray-500 px-2 mb-2">
-            Filters
-          </div>
-        )}
-
-        {/* Media Type */}
-        <div className={`flex ${isCollapsed ? 'flex-col gap-1' : 'gap-1'} mb-2`}>
+      {/* Filters */}
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1">
           <button
             onClick={() => toggleFilter('type', 'audio')}
             title="Audio"
-            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-sm transition-all ${
+            className={`p-1.5 rounded-sm transition-all ${
               mediaFilters.audio
-                ? 'bg-blue-600/30 text-blue-400 border border-blue-500/50'
-                : 'text-gray-500 hover:bg-gray-800/50 border border-transparent'
-            } ${isCollapsed ? 'justify-center' : 'flex-1'}`}
+                ? 'bg-blue-600/30 text-blue-400'
+                : 'text-gray-500 hover:bg-gray-800/50'
+            }`}
           >
             <Music size={14} />
-            {!isCollapsed && <span className="text-xs">Audio</span>}
           </button>
           <button
             onClick={() => toggleFilter('type', 'video')}
             title="Video"
-            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-sm transition-all ${
+            className={`p-1.5 rounded-sm transition-all ${
               mediaFilters.video
-                ? 'bg-blue-600/30 text-blue-400 border border-blue-500/50'
-                : 'text-gray-500 hover:bg-gray-800/50 border border-transparent'
-            } ${isCollapsed ? 'justify-center' : 'flex-1'}`}
+                ? 'bg-blue-600/30 text-blue-400'
+                : 'text-gray-500 hover:bg-gray-800/50'
+            }`}
           >
             <Video size={14} />
-            {!isCollapsed && <span className="text-xs">Video</span>}
           </button>
         </div>
-
-        {/* Source Type */}
-        <div className={`flex ${isCollapsed ? 'flex-col gap-1' : 'gap-1'}`}>
+        <div className="flex gap-1">
           <button
             onClick={() => toggleFilter('source', 'linked')}
             title="Linked"
-            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-sm transition-all ${
+            className={`p-1.5 rounded-sm transition-all ${
               mediaFilters.linked
-                ? 'bg-purple-600/30 text-purple-400 border border-purple-500/50'
-                : 'text-gray-500 hover:bg-gray-800/50 border border-transparent'
-            } ${isCollapsed ? 'justify-center' : 'flex-1'}`}
+                ? 'bg-purple-600/30 text-purple-400'
+                : 'text-gray-500 hover:bg-gray-800/50'
+            }`}
           >
             <Link2 size={14} />
-            {!isCollapsed && <span className="text-xs">Linked</span>}
           </button>
           <button
             onClick={() => toggleFilter('source', 'uploads')}
             title="Uploads"
-            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-sm transition-all ${
+            className={`p-1.5 rounded-sm transition-all ${
               mediaFilters.uploads
-                ? 'bg-purple-600/30 text-purple-400 border border-purple-500/50'
-                : 'text-gray-500 hover:bg-gray-800/50 border border-transparent'
-            } ${isCollapsed ? 'justify-center' : 'flex-1'}`}
+                ? 'bg-purple-600/30 text-purple-400'
+                : 'text-gray-500 hover:bg-gray-800/50'
+            }`}
           >
             <Upload size={14} />
-            {!isCollapsed && <span className="text-xs">Uploads</span>}
           </button>
         </div>
       </div>
 
-      {/* Media Control Center - Docked */}
-      {showMediaControl && mediaControlDocked && (isPlayingFromQueue || currentMoment) && !isCollapsed && (
-        <div className="flex-shrink-0 border-b border-gray-700/50">
-          <MediaControlCenter
-            isDocked={true}
-            onDockChange={(docked) => setMediaControlDocked(docked)}
-            onClose={() => setShowMediaControl(false)}
-          />
-        </div>
-      )}
+      {/* Divider */}
+      <div className="w-px h-8 bg-gray-700/50" />
 
-      {/* Collapsed Now Playing indicator */}
-      {(isPlayingFromQueue || currentMoment) && isCollapsed && (
-        <div className="flex-shrink-0 p-2 border-b border-gray-700/50">
-          <div className="flex flex-col items-center">
+      {/* Now Playing Mini - WORKING CONTROLS */}
+      {(isPlayingFromQueue || currentMoment) && currentMoment && (
+        <>
+          <div className="flex items-center gap-1.5 px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded">
+            {/* Song name - clickable to expand MediaControlCenter */}
             <button
-              onClick={() => togglePlayPause()}
-              className="w-8 h-8 bg-yellow-500/20 rounded flex items-center justify-center border border-yellow-500/30 hover:bg-yellow-500/30 transition-colors"
+              onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
+              className="max-w-[100px] hidden xl:block hover:text-yellow-400 transition-colors"
+              title="Open full controls"
+            >
+              <div className="text-[10px] font-medium text-white truncate">{currentMoment.songName}</div>
+            </button>
+
+            {/* Play/Pause */}
+            <button
+              onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
+              className="p-1 rounded bg-yellow-500/20 hover:bg-yellow-500/40 transition-colors"
               title={playerState.isPlaying ? 'Pause' : 'Play'}
             >
               {playerState.isPlaying ? <Pause size={12} className="text-yellow-400" /> : <Play size={12} className="text-yellow-400 ml-0.5" />}
             </button>
+
+            {/* Previous / Restart */}
+            <button onClick={() => playPrevInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Previous">
+              <SkipBack size={12} className="text-gray-400 hover:text-white" />
+            </button>
+            {/* Smart Next: shows Next if queue has more, else Random */}
+            {theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1 ? (
+              <button onClick={() => playNextInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Next in queue">
+                <SkipForward size={12} className="text-gray-400 hover:text-white" />
+              </button>
+            ) : (
+              <button onClick={() => playRandom()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Play random">
+                <Shuffle size={12} className="text-gray-400 hover:text-white" />
+              </button>
+            )}
+
+            {/* Volume control */}
+            <div className="flex items-center gap-1">
+              <button onClick={() => toggleMute()} className="p-1 hover:bg-gray-700/50 rounded transition-colors">
+                {playerState.isMuted ? <VolumeX size={12} className="text-orange-400" /> : <Volume2 size={12} className="text-gray-400" />}
+              </button>
+              <input
+                type="range" min="0" max="1" step="0.05"
+                value={playerState.isMuted ? 0 : (playerState.volume || 1)}
+                onChange={(e) => setVolume(parseFloat(e.target.value))}
+                className="w-12 h-1 accent-yellow-500"
+              />
+            </div>
+
+            {/* Expand button for full controls */}
+            <button
+              onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
+              className="p-1 text-gray-500 hover:text-white transition-colors"
+              title="More controls"
+            >
+              <ChevronDown size={12} />
+            </button>
           </div>
-        </div>
+          <div className="w-px h-8 bg-gray-700/50" />
+        </>
       )}
 
-      {/* Floating Media Control Center - when popped out */}
+      {/* Floating Media Control */}
       {showMediaControl && !mediaControlDocked && (isPlayingFromQueue || currentMoment) && (
         <MediaControlCenter
           isDocked={false}
-          onDockChange={(docked) => setMediaControlDocked(docked)}
+          onDockChange={(docked) => {
+            setMediaControlDocked(docked);
+            if (docked) setShowMediaControl(false);
+          }}
           onClose={() => setShowMediaControl(false)}
         />
       )}
 
-      {/* Queue Preview */}
-      <div className="flex-1 overflow-hidden p-2">
-        {!isCollapsed && (
-          <div className="text-[10px] uppercase tracking-wider text-gray-500 px-2 mb-2 flex items-center justify-between">
-            <span>Queue</span>
-            <div className="flex items-center gap-2">
-              {theaterQueue.length > 0 && (
-                <>
-                  <span className="text-yellow-400">{theaterQueue.length}</span>
-                  <button
-                    onClick={clearQueue}
-                    className="text-gray-500 hover:text-red-400 transition-colors"
-                    title="Clear queue"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
+      {/* Queue Count */}
+      <div className={`flex items-center gap-2 ${theaterQueue.length > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>
+        <ListMusic size={16} />
+        <span className="text-xs font-medium">{theaterQueue.length}</span>
+      </div>
 
-        {isCollapsed ? (
-          // Collapsed: Just show queue count
-          <div className="flex flex-col items-center">
-            <div className={`w-8 h-8 rounded flex items-center justify-center ${
-              theaterQueue.length > 0 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-800 text-gray-500'
-            }`}>
-              <ListMusic size={16} />
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Top Contributors */}
+      <div className="relative">
+        <button
+          onClick={() => setShowContributors(!showContributors)}
+          className={`p-1.5 rounded-sm transition-all ${showContributors ? 'bg-yellow-600/20 text-yellow-400' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
+          title="Top Contributors"
+        >
+          <Trophy size={14} />
+        </button>
+        {showContributors && (
+          <div className="absolute right-0 top-full mt-2 w-72 bg-gray-900 border border-gray-700 rounded-sm shadow-xl z-50 p-3">
+            <div className="flex items-center gap-2 mb-2 text-xs text-gray-400 font-medium">
+              <Trophy size={12} className="text-yellow-400" />
+              Top Contributors
             </div>
-            {theaterQueue.length > 0 && (
-              <span className="text-[10px] text-yellow-400 mt-1">{theaterQueue.length}</span>
-            )}
-          </div>
-        ) : (
-          // Expanded: Show queue items
-          <div className="space-y-1 overflow-y-auto max-h-[300px] scrollbar-thin scrollbar-thumb-gray-700">
-            {theaterQueue.length === 0 ? (
-              <div className="text-gray-500 text-xs text-center py-4">
-                Queue empty<br />
-                <span className="text-gray-600">Click + on moments to add</span>
-              </div>
-            ) : (
-              theaterQueue.slice(0, 8).map((moment, idx) => (
-                <button
-                  key={moment._id || idx}
-                  onClick={() => playQueue(idx)}
-                  className={`w-full flex items-center gap-2 p-2 rounded-sm text-left transition-all ${
-                    isPlayingFromQueue && currentQueueIndex === idx
-                      ? 'bg-yellow-500/20 border border-yellow-500/50'
-                      : 'hover:bg-gray-800/50'
-                  }`}
-                >
-                  <div className="flex-shrink-0 w-6 h-6 bg-gray-800 rounded flex items-center justify-center">
-                    {isPlayingFromQueue && currentQueueIndex === idx ? (
-                      <Play size={10} className="text-yellow-400" />
-                    ) : (
-                      <span className="text-[10px] text-gray-500">{idx + 1}</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-white truncate">{moment.songName}</div>
-                    <div className="text-[10px] text-gray-500 truncate">{moment.venueName}</div>
-                  </div>
-                </button>
-              ))
-            )}
-            {theaterQueue.length > 8 && (
-              <div className="text-[10px] text-gray-500 text-center py-1">
-                +{theaterQueue.length - 8} more
-              </div>
-            )}
+            <div className="max-h-60 overflow-y-auto">
+              <TopContributors onViewUserProfile={onViewUserProfile} compact />
+            </div>
           </div>
         )}
       </div>
 
-      {/* Account Section */}
-      <div className="flex-shrink-0 p-2 border-t border-gray-700/50 space-y-1">
-        {user ? (
-          <>
-            <button
-              onClick={onShowAccount}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-gray-400 hover:bg-gray-800/50 hover:text-white transition-all ${
-                isCollapsed ? 'justify-center px-2' : ''
-              }`}
-              title={isCollapsed ? 'Account' : undefined}
-            >
-              <User size={18} />
-              {!isCollapsed && (
-                <div className="flex-1 min-w-0 text-left">
-                  <div className="text-xs text-white truncate">{user.displayName}</div>
-                  <div className="text-[10px] text-gray-500">My Account</div>
-                </div>
-              )}
-            </button>
-            {(user.role === 'admin' || user.role === 'mod') && (
-              <button
-                onClick={onAdminPanelClick}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-yellow-400 hover:bg-yellow-600/20 transition-all ${
-                  isCollapsed ? 'justify-center px-2' : ''
-                }`}
-                title={isCollapsed ? (user.role === 'admin' ? 'Admin Panel' : 'Mod Panel') : undefined}
-              >
-                <Shield size={18} />
-                {!isCollapsed && (
-                  <span className="text-xs font-medium">{user.role === 'admin' ? 'Admin Panel' : 'Mod Panel'}</span>
-                )}
-              </button>
-            )}
-          </>
-        ) : (
+      {/* Settings Button */}
+      <button
+        onClick={onShowSettings}
+        className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 rounded-sm transition-all"
+        title="Settings"
+      >
+        <Settings size={14} />
+      </button>
+
+      {/* Account */}
+      {user ? (
+        <>
           <button
-            onClick={onLoginClick}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-gray-400 hover:bg-blue-600/20 hover:text-blue-400 transition-all ${
-              isCollapsed ? 'justify-center px-2' : ''
-            }`}
-            title={isCollapsed ? 'Login' : undefined}
+            onClick={onShowAccount}
+            className="flex items-center gap-2 px-2 py-1.5 text-gray-400 hover:bg-gray-800/50 hover:text-white rounded-sm transition-all"
+            title="My Account"
           >
-            <LogIn size={18} />
-            {!isCollapsed && <span className="text-sm">Login</span>}
+            <User size={16} />
+            <span className="text-xs hidden xl:inline">{user.displayName}</span>
           </button>
-        )}
-      </div>
+          {(user.role === 'admin' || user.role === 'mod') && (
+            <button
+              onClick={onAdminPanelClick}
+              className="flex items-center gap-2 px-2 py-1.5 text-yellow-400 hover:bg-yellow-600/20 rounded-sm transition-all"
+              title={user.role === 'admin' ? 'Admin Panel' : 'Mod Panel'}
+            >
+              <Shield size={16} />
+            </button>
+          )}
+        </>
+      ) : (
+        <button
+          onClick={onLoginClick}
+          className="flex items-center gap-2 px-2 py-1.5 text-gray-400 hover:bg-blue-600/20 hover:text-blue-400 rounded-sm transition-all"
+          title="Login"
+        >
+          <LogIn size={16} />
+          <span className="text-xs hidden xl:inline">Login</span>
+        </button>
+      )}
     </div>
   );
 });

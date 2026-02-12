@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { slugify } from './utils/slugify';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
-import { Menu, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Music, Video, Link2, Upload, Film, Calendar, User, LogIn, Play, Pause, SkipForward, SkipBack, Shuffle, Volume2, VolumeX, Settings, ListMusic } from 'lucide-react';
+import { Menu, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Music, Video, Link2, Upload, Film, Calendar, User, LogIn, Play, Pause, SkipForward, SkipBack, Shuffle, Volume2, VolumeX, Settings, ListMusic, Trophy, Trash2 } from 'lucide-react';
 import './styles/umo-theme.css';
 
 // Import the extracted components
@@ -338,14 +338,13 @@ const MainApp = memo(() => {
         }}
         onAdminPanelClick={() => setShowAdminPanel(true)}
         onLoginClick={() => setShowLogin(true)}
-        isCollapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         onViewUserProfile={(userId) => {
           setSelectedUserId(userId);
           setShowUserProfile(true);
         }}
         position={sidebarPosition}
         onShowSettings={() => setShowSettings(true)}
+        onToggleHowToGuide={() => setShowHowToGuide(!showHowToGuide)}
       />
 
       {/* Main content area - offset for sidebar on desktop, bottom padding for mobile nav */}
@@ -703,6 +702,15 @@ const Header = memo(({
                       Login to Upload
                     </button>
                   )}
+                </div>
+
+                {/* Top Contributors / Leaderboard */}
+                <div className="border-t border-gray-600 pt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Trophy size={14} className="text-yellow-400" />
+                    <span className="text-sm font-medium text-gray-300">Top Contributors</span>
+                  </div>
+                  <TopContributors compact />
                 </div>
               </div>
             </div>
@@ -1073,7 +1081,9 @@ const MobileBottomNav = memo(({
     playPrevInQueue,
     playRandom,
     theaterQueue,
-    currentQueueIndex
+    currentQueueIndex,
+    playQueue,
+    clearQueue
   } = useTheaterQueue();
 
   return (
@@ -1101,14 +1111,25 @@ const MobileBottomNav = memo(({
               </button>
 
               {/* Song info */}
-              <div className="flex-1 min-w-0" onClick={() => setMobilePlayerExpanded(!mobilePlayerExpanded)}>
-                <div className="text-sm font-medium text-white truncate">
-                  {currentMoment.songName || 'Unknown'}
+              <button className="flex-1 min-w-0 text-left" onClick={() => setMobilePlayerExpanded(!mobilePlayerExpanded)}>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-white truncate">
+                      {currentMoment.songName || 'Unknown'}
+                    </div>
+                    <div className="text-[10px] text-gray-400 truncate">
+                      {currentMoment.venueName || currentMoment.venueCity || currentMoment.performanceDate || 'Live'}
+                    </div>
+                  </div>
+                  {/* Queue position indicator */}
+                  {theaterQueue.length > 0 && (
+                    <div className="flex items-center gap-1 px-2 py-0.5 bg-yellow-500/20 rounded text-[10px] text-yellow-400 font-mono flex-shrink-0">
+                      <ListMusic size={10} />
+                      {currentQueueIndex + 1}/{theaterQueue.length}
+                    </div>
+                  )}
                 </div>
-                <div className="text-[10px] text-gray-400 truncate">
-                  {currentMoment.venueName || currentMoment.venueCity || currentMoment.performanceDate || 'Live'}
-                </div>
-              </div>
+              </button>
 
               {/* Controls - compact */}
               <div className="flex items-center gap-1 flex-shrink-0">
@@ -1209,6 +1230,55 @@ const MobileBottomNav = memo(({
                   <span>{Math.floor(playerState.currentTime / 60)}:{String(Math.floor(playerState.currentTime % 60)).padStart(2, '0')}</span>
                   <span>{Math.floor(playerState.duration / 60)}:{String(Math.floor(playerState.duration % 60)).padStart(2, '0')}</span>
                 </div>
+
+                {/* Queue section */}
+                {theaterQueue.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <ListMusic size={12} className="text-yellow-400" />
+                        <span>Queue ({theaterQueue.length})</span>
+                      </div>
+                      <button
+                        onClick={clearQueue}
+                        className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                        title="Clear queue"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto space-y-1">
+                      {theaterQueue.slice(0, 5).map((item, idx) => (
+                        <button
+                          key={item._id || idx}
+                          onClick={() => playQueue(idx)}
+                          className={`w-full flex items-center gap-2 p-1.5 rounded text-left transition-colors ${
+                            currentQueueIndex === idx
+                              ? 'bg-yellow-500/20 border border-yellow-500/30'
+                              : 'hover:bg-white/5'
+                          }`}
+                        >
+                          <span className={`text-[10px] w-4 text-center ${currentQueueIndex === idx ? 'text-yellow-400' : 'text-gray-500'}`}>
+                            {idx + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-xs truncate ${currentQueueIndex === idx ? 'text-white' : 'text-gray-300'}`}>
+                              {item.songName}
+                            </div>
+                          </div>
+                          {currentQueueIndex === idx && (
+                            <Play size={10} className="text-yellow-400 flex-shrink-0" />
+                          )}
+                        </button>
+                      ))}
+                      {theaterQueue.length > 5 && (
+                        <div className="text-[10px] text-gray-500 text-center py-1">
+                          +{theaterQueue.length - 5} more
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

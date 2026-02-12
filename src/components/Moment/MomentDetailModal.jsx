@@ -1,6 +1,6 @@
 // src/components/Moment/MomentDetailModal.jsx - OPTIMIZED & FIXED
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { ChevronDown, ChevronUp, Clock, ListPlus, Check, Archive, ExternalLink, User, Video, FileText } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, ListPlus, Check, Archive, ExternalLink, User, Video, FileText, Trash2 } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
@@ -42,6 +42,10 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
     const momentUploaderId = moment.user._id || moment.user.id;
     return userLoggedInId === momentUploaderId;
   }, [user, moment]);
+
+  const isAdmin = React.useMemo(() => {
+    return user?.role === 'admin' || user?.email === 'solo@solo.solo' || user?.email === 'solo2@solo.solo';
+  }, [user]);
 
   // States
   const [nftStatus, setNftStatus] = useState(null);
@@ -243,6 +247,33 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
       }
     } catch (error) {
       console.error('❌ Failed to refresh moment data:', error);
+    }
+  };
+
+  // Admin delete moment
+  const [isDeleting, setIsDeleting] = useState(false);
+  const handleAdminDelete = async () => {
+    if (!window.confirm('Are you sure you want to permanently delete this moment? This action cannot be undone.')) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/moments/${moment._id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert('Moment deleted successfully.');
+        onClose();
+      } else {
+        alert(data.error || 'Failed to delete moment.');
+      }
+    } catch (err) {
+      console.error('Admin delete error:', err);
+      alert(`Failed to delete moment: ${err.message}`);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -635,6 +666,16 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
                 </button>
               )}
               <FavoriteButton momentId={moment._id} size="md" />
+              {isAdmin && (
+                <button
+                  onClick={handleAdminDelete}
+                  disabled={isDeleting}
+                  className="admin-delete-button"
+                  title="Admin: Delete this moment"
+                >
+                  {isDeleting ? '...' : <Trash2 size={14} />}
+                </button>
+              )}
               <button onClick={onClose} className="close-button">✕</button>
             </div>
           </div>
@@ -1286,6 +1327,31 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
           .close-button:hover {
             background: rgba(255, 255, 255, 0.3);
             transform: scale(1.05);
+          }
+
+          .admin-delete-button {
+            background: rgba(220, 38, 38, 0.3);
+            border: 1px solid rgba(220, 38, 38, 0.5);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+          }
+
+          .admin-delete-button:hover:not(:disabled) {
+            background: rgba(220, 38, 38, 0.6);
+            transform: scale(1.05);
+          }
+
+          .admin-delete-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
           }
 
           .nft-toggle-button {

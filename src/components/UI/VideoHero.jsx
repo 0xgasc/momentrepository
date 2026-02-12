@@ -34,6 +34,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isMinimized, setIsMinimized] = useState(false);
+  const hasAutoMinimized = useRef(false);
   const [youtubeKey, setYoutubeKey] = useState(0);
   const [trippyEffect, setTrippyEffect] = useState(false);
   const [effectIntensity, setEffectIntensity] = useState(75); // Fixed at 75%
@@ -53,6 +54,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   const ytPlayerRef = useRef(null);
   const ytProgressIntervalRef = useRef(null);
   const handleNextRef = useRef(null);
+  const handlePrevRef = useRef(null);
 
   // Mobile detection for performance optimization
   useEffect(() => {
@@ -143,6 +145,19 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     return () => clearInterval(interval);
   }, [isYouTube, isAudio, moment?._id]);
 
+  // Auto-minimize on first load once playback starts
+  useEffect(() => {
+    if (moment && isPlaying && !hasAutoMinimized.current && !isMinimized) {
+      const timer = setTimeout(() => {
+        if (!hasAutoMinimized.current) {
+          hasAutoMinimized.current = true;
+          setIsMinimized(true);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [moment, isPlaying, isMinimized]);
+
   // Theater queue context
   const {
     theaterQueue,
@@ -151,6 +166,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     addToQueue,
     isInQueue,
     playNextInQueue,
+    playPrevInQueue,
     currentMoment: queueMoment,
     registerPlayerControls,
     updatePlayerState,
@@ -620,10 +636,31 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     }
   }, [filteredMoments, moment, selectRandomMoment, isPlayingFromQueue, playNextInQueue]);
 
-  // Keep ref in sync for use in early useEffect
+  // Handle previous - go to previous in queue, or restart current track
+  const handlePrev = useCallback(() => {
+    // If more than 3 seconds in, restart current track (like Spotify)
+    const currentTime = isAudio ? audioRef.current?.currentTime :
+                        isYouTube ? ytPlayerRef.current?.getCurrentTime?.() :
+                        videoRef.current?.currentTime;
+    if (currentTime && currentTime > 3) {
+      if (isAudio && audioRef.current) audioRef.current.currentTime = 0;
+      else if (videoRef.current) videoRef.current.currentTime = 0;
+      else if (isYouTube && ytPlayerRef.current) ytPlayerRef.current.seekTo(moment?.startTime || 0);
+    } else if (isPlayingFromQueue) {
+      playPrevInQueue();
+    } else {
+      // Not in queue, just restart
+      if (isAudio && audioRef.current) audioRef.current.currentTime = 0;
+      else if (videoRef.current) videoRef.current.currentTime = 0;
+      else if (isYouTube && ytPlayerRef.current) ytPlayerRef.current.seekTo(moment?.startTime || 0);
+    }
+  }, [isAudio, isYouTube, isPlayingFromQueue, playPrevInQueue, moment?.startTime]);
+
+  // Keep refs in sync for use in early useEffect
   useEffect(() => {
     handleNextRef.current = handleNext;
-  }, [handleNext]);
+    handlePrevRef.current = handlePrev;
+  }, [handleNext, handlePrev]);
 
   // Media Session API for lock screen controls (enhanced for background playback)
   useEffect(() => {
@@ -675,22 +712,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
     // Previous track handler
     navigator.mediaSession.setActionHandler('previoustrack', () => {
-      // Seek to start if more than 3 seconds in, otherwise go to previous
-      const currentTime = isAudio ? audioRef.current?.currentTime :
-                          isYouTube ? ytPlayerRef.current?.getCurrentTime?.() :
-                          videoRef.current?.currentTime;
-      if (currentTime && currentTime > 3) {
-        // Seek to start
-        if (isAudio && audioRef.current) audioRef.current.currentTime = 0;
-        else if (videoRef.current) videoRef.current.currentTime = 0;
-        else if (isYouTube && ytPlayerRef.current) ytPlayerRef.current.seekTo(moment.startTime || 0);
-      } else {
-        // Go to previous (handled by context)
-        // This would need playPrevInQueue but we'll just restart for now
-        if (isAudio && audioRef.current) audioRef.current.currentTime = 0;
-        else if (videoRef.current) videoRef.current.currentTime = 0;
-        else if (isYouTube && ytPlayerRef.current) ytPlayerRef.current.seekTo(moment.startTime || 0);
-      }
+      handlePrevRef.current?.();
     });
 
     // Seek handler for lock screen scrubbing
@@ -1137,42 +1159,60 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     return 0;
   };
 
-  // Minimized view - mobile optimized with progress bar
-  if (isMinimized) {
-    return (
-      <>
-        {/* Persistent audio element - stays in DOM across minimize/maximize */}
-        {isAudio && moment && (
-          <audio
-            key={`audio-persistent-${moment._id}`}
-            ref={audioRef}
-            src={transformMediaUrl(moment.mediaUrl)}
-            crossOrigin="anonymous"
-            muted={isMuted}
-            preload="auto"
-            onLoadedData={() => {
-              setIsLoading(false);
-              if (audioRef.current) {
-                audioRef.current.muted = isMuted;
-                audioRef.current.volume = volume;
-                audioRef.current.play()
-                  .then(() => {
-                    setIsPlaying(true);
-                    setAutoplayBlocked(false);
-                  })
-                  .catch(() => {
-                    setAutoplayBlocked(true);
-                    setIsPlaying(false);
-                  });
-              }
-            }}
-            onEnded={handleNext}
-            onError={() => setError('Failed to load audio')}
-            className="hidden"
-          />
-        )}
+  return (
+    <>
+      {/* Persistent audio element - always in DOM across minimize/maximize */}
+      {isAudio && moment && (
+        <audio
+          key={`audio-persistent-${moment._id}`}
+          ref={audioRef}
+          src={transformMediaUrl(moment.mediaUrl)}
+          crossOrigin="anonymous"
+          muted={isMuted}
+          preload="auto"
+          onLoadedData={() => {
+            setIsLoading(false);
+            if (audioRef.current) {
+              audioRef.current.muted = isMuted;
+              audioRef.current.volume = volume;
+              audioRef.current.play()
+                .then(() => {
+                  setIsPlaying(true);
+                  setAutoplayBlocked(false);
+                })
+                .catch(() => {
+                  setAutoplayBlocked(true);
+                  setIsPlaying(false);
+                });
+            }
+          }}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onTimeUpdate={() => {
+            if (audioRef.current && registerPlayerControls) {
+              registerPlayerControls({
+                currentTime: audioRef.current.currentTime,
+                duration: audioRef.current.duration || 0,
+                isPlaying: !audioRef.current.paused,
+                isMuted: audioRef.current.muted,
+                volume: audioRef.current.volume
+              });
+            }
+          }}
+          onEnded={handleNext}
+          onError={() => setError('Failed to load audio')}
+          className="hidden"
+        />
+      )}
 
-        <div className="mb-4 sm:mb-6 bg-black/60 backdrop-blur-xl border border-white/10 rounded-sm overflow-hidden">
+      {/* Player container - clips to minimized bar when minimized, video plays behind glass */}
+      <div
+        className="relative mb-4 sm:mb-6"
+        style={isMinimized ? { height: '56px', overflow: 'hidden', borderRadius: '2px' } : undefined}
+      >
+      {/* Minimized overlay - glassy controls over the playing video */}
+      {isMinimized && (
+        <div className="absolute inset-0 z-40 bg-black/30 backdrop-blur-sm border border-white/10 rounded-sm overflow-hidden">
           {/* Progress bar at top */}
         <div className="h-1 bg-white/20 w-full">
           <div
@@ -1186,7 +1226,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           <div className="w-32 sm:w-48 flex-shrink-0 cursor-pointer" onClick={handleInfoClick}>
             {moment && (
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gray-800 rounded flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center flex-shrink-0">
                   {isAudio ? <Music size={12} className="text-yellow-400" /> : <Play size={12} className="text-yellow-400" />}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -1212,12 +1252,12 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           <div className="flex items-center gap-1 flex-shrink-0">
             <button
               onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
-              className="bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 transition-colors"
+              className="bg-white/10 hover:bg-white/20 rounded-full p-1.5 transition-colors"
             >
               {isPlaying ? <Pause size={14} className="text-white" /> : <Play size={14} className="text-white ml-0.5" />}
             </button>
             {/* Volume control group */}
-            <div className="flex items-center gap-1 bg-gray-800 rounded-full px-1.5 py-1">
+            <div className="flex items-center gap-1 bg-white/10 rounded-full px-1.5 py-1">
               <button
                 onClick={(e) => { e.stopPropagation(); toggleMute(); }}
                 className={`p-0.5 transition-colors ${isMuted ? 'text-orange-400' : 'text-white'}`}
@@ -1234,7 +1274,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
                 onChange={(e) => {
                   e.stopPropagation();
                   const newVol = parseFloat(e.target.value);
-                  setVolumeLevel(newVol); // Use setVolumeLevel to apply to media element
+                  setVolumeLevel(newVol);
                 }}
                 onClick={(e) => e.stopPropagation()}
                 className="w-12 h-1 accent-yellow-500 cursor-pointer"
@@ -1246,7 +1286,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); handleNext(); }}
-              className="bg-gray-800 hover:bg-gray-700 rounded-full p-1.5 transition-colors"
+              className="bg-white/10 hover:bg-white/20 rounded-full p-1.5 transition-colors"
             >
               <SkipForward size={14} className="text-white" />
             </button>
@@ -1259,53 +1299,21 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           </div>
         </div>
         </div>
-      </>
-    );
-  }
-
-  return (
-    <div
-      ref={containerRef}
-      className={`video-hero relative mb-4 sm:mb-6 overflow-hidden rounded-sm bg-black ${isFullscreen ? 'fullscreen-mode' : ''}`}
-      onMouseMove={resetHideTimer}
-      onMouseEnter={() => setShowControls(true)}
-      onTouchStart={resetHideTimer}
-    >
-      {/* Hidden canvas for ASCII processing */}
-      <canvas ref={canvasRef} className="hidden" />
-
-      {/* Persistent audio element - stays in DOM across minimize/maximize */}
-      {isAudio && moment && (
-        <audio
-          key={`audio-persistent-${moment._id}`}
-          ref={audioRef}
-          src={transformMediaUrl(moment.mediaUrl)}
-          crossOrigin="anonymous"
-          muted={isMuted}
-          preload="auto"
-          onLoadedData={() => {
-            setIsLoading(false);
-            if (audioRef.current) {
-              audioRef.current.muted = isMuted;
-              audioRef.current.volume = volume;
-              audioRef.current.play()
-                .then(() => {
-                  setIsPlaying(true);
-                  setAutoplayBlocked(false);
-                })
-                .catch(() => {
-                  setAutoplayBlocked(true);
-                  setIsPlaying(false);
-                });
-            }
-          }}
-          onEnded={handleNext}
-          onError={() => setError('Failed to load audio')}
-          className="hidden"
-        />
       )}
 
-      {/* Media filter moved to App.js - above hero */}
+      {/* Full-size view - always in DOM, visible through glass when minimized */}
+      <div
+        ref={containerRef}
+        className={`video-hero relative overflow-hidden rounded-sm bg-black ${isFullscreen ? 'fullscreen-mode' : ''}`}
+        style={isMinimized ? { marginTop: '-40%' } : undefined}
+        onMouseMove={resetHideTimer}
+        onMouseEnter={() => setShowControls(true)}
+        onTouchStart={resetHideTimer}
+      >
+        {/* Hidden canvas for ASCII processing */}
+        <canvas ref={canvasRef} className="hidden" />
+
+        {/* Media filter moved to App.js - above hero */}
 
       {/* Minimize button - top right, fades with controls */}
       <button
@@ -1507,6 +1515,19 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               playsInline
               preload="auto"
               onLoadedData={handleVideoLoaded}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onTimeUpdate={() => {
+                if (videoRef.current && registerPlayerControls) {
+                  registerPlayerControls({
+                    currentTime: videoRef.current.currentTime,
+                    duration: videoRef.current.duration || 0,
+                    isPlaying: !videoRef.current.paused,
+                    isMuted: videoRef.current.muted,
+                    volume: videoRef.current.volume
+                  });
+                }
+              }}
               onEnded={handleNext}
               className={`w-full ${isAsciiMode ? 'opacity-0' : ''} ${isFullscreen ? 'max-h-screen' : 'max-h-[280px] sm:max-h-[400px] md:max-h-[500px]'}`}
               style={{ objectFit: 'contain', backgroundColor: '#000' }}
@@ -1664,7 +1685,9 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         onClose={() => setShowCommentsPanel(false)}
         momentName={moment?.songName}
       />
-    </div>
+      </div>
+      </div>
+    </>
   );
 });
 
