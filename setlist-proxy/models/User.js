@@ -5,6 +5,14 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   displayName: { type: String },
   passwordHash: { type: String },
+  // OAuth authentication fields
+  authProvider: {
+    type: String,
+    enum: ['local', 'google', 'discord'],
+    default: 'local'
+  },
+  oauthId: { type: String, default: null },
+  avatarUrl: { type: String, default: null },
   role: {
     type: String,
     enum: ['user', 'mod', 'admin'],
@@ -44,7 +52,15 @@ userSchema.methods.setPassword = async function (password) {
 
 // ✅ Password checker
 userSchema.methods.validatePassword = async function (password) {
+  if (!this.passwordHash) {
+    return false; // OAuth users have no password
+  }
   return await bcrypt.compare(password, this.passwordHash);
+};
+
+// ✅ Check if user can use password login
+userSchema.methods.hasPasswordAuth = function() {
+  return this.authProvider === 'local' && !!this.passwordHash;
 };
 
 // ✅ Role checking methods
@@ -73,5 +89,8 @@ userSchema.methods.updateLastActive = function() {
   this.lastActive = new Date();
   return this.save();
 };
+
+// Index for OAuth lookups
+userSchema.index({ authProvider: 1, oauthId: 1 });
 
 module.exports = mongoose.model('User', userSchema);

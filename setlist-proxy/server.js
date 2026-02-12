@@ -21,6 +21,7 @@ const LocalPerformance = require('./models/LocalPerformance');
 const emailService = require('./services/emailService');
 const { UMOCache } = require('./utils/umoCache');
 const { ethers } = require('ethers');
+const axios = require('axios');
 const { extractVideoThumbnail } = require('./utils/videoThumbnailExtractor');
 const { generateNFTCard } = require('./utils/nftCardGenerator');
 const communityRoutes = require('./routes/community');
@@ -2276,6 +2277,14 @@ app.post('/login', authLimiter, [
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
+    // Check if user uses OAuth authentication
+    if (user.authProvider && user.authProvider !== 'local') {
+      return res.status(400).json({
+        error: `This account uses ${user.authProvider} login. Please sign in with ${user.authProvider}.`,
+        authProvider: user.authProvider
+      });
+    }
+
     const isValid = await user.validatePassword(password);
     if (!isValid) return res.status(401).json({ error: 'Invalid password' });
 
@@ -2350,6 +2359,280 @@ app.post('/change-password', authenticateToken, [
   } catch (err) {
     console.error('❌ Change password error:', err);
     res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// =============================================================================
+// OAUTH ENDPOINTS (Google & Discord)
+// =============================================================================
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5050';
+const FRONTEND_URL = process.env.OAUTH_REDIRECT_BASE_URL || 'http://localhost:3000';
+
+// Helper: Generate OAuth state token for CSRF protection
+const generateOAuthState = () => {
+  return jwt.sign({ timestamp: Date.now() }, JWT_SECRET, { expiresIn: '10m' });
+};
+
+// Helper: Verify OAuth state token
+const verifyOAuthState = (state) => {
+  try {
+    jwt.verify(state, JWT_SECRET);
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
+// =====================================================
+// GOOGLE OAUTH
+// =====================================================
+
+// Step 1: Initiate Google OAuth
+app.get('/auth/google', (req, res) => {
+  if (!GOOGLE_CLIENT_ID) {
+    return res.status(500).json({ error: 'Google OAuth not configured' });
+  }
+  const state = generateOAuthState();
+  const params = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: `${BACKEND_URL}/auth/google/callback`,
+    response_type: 'code',
+    scope: 'openid email profile',
+    state: state,
+    prompt: 'select_account'
+  });
+
+  console.log('🔐 Initiating Google OAuth flow');
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+
+// Step 2: Google OAuth Callback
+app.get('/auth/google/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+
+  // Handle OAuth errors
+  if (error) {
+    console.error('❌ Google OAuth error:', error);
+    return res.redirect(`${FRONTEND_URL}?auth_error=${encodeURIComponent(error)}`);
+  }
+
+  // Verify state for CSRF protection
+  if (!state || !verifyOAuthState(state)) {
+    console.error('❌ Google OAuth invalid state');
+    return res.redirect(`${FRONTEND_URL}?auth_error=invalid_state`);
+  }
+
+  try {
+    // Exchange code for tokens
+    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+      code,
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      redirect_uri: `${BACKEND_URL}/auth/google/callback`,
+      grant_type: 'authorization_code'
+    });
+
+    const { access_token } = tokenResponse.data;
+
+    // Get user info from Google
+    const userInfoResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+
+    const { id: googleId, email, name, picture } = userInfoResponse.data;
+    console.log(`🔐 Google OAuth: ${email}`);
+
+    // Find or create user (with auto-link logic)
+    let user = await User.findOne({ email });
+    let isNewUser = false;
+
+    if (user) {
+      // Existing user - auto-link if was local auth
+      if (user.authProvider === 'local' || !user.authProvider) {
+        console.log(`🔗 OAuth auto-link: Converting ${email} from local to google auth`);
+        user.authProvider = 'google';
+        user.oauthId = googleId;
+        user.avatarUrl = picture;
+        user.passwordHash = null; // Remove password for security
+        await user.save();
+      } else if (user.authProvider !== 'google') {
+        // Already linked to different OAuth provider
+        console.log(`❌ OAuth conflict: ${email} already linked to ${user.authProvider}`);
+        return res.redirect(`${FRONTEND_URL}?auth_error=account_linked_to_${user.authProvider}`);
+      }
+      // If already google auth, just continue
+    } else {
+      // New user - create account
+      user = new User({
+        email,
+        displayName: name || email.split('@')[0],
+        authProvider: 'google',
+        oauthId: googleId,
+        avatarUrl: picture,
+        role: 'user'
+      });
+      await user.save();
+      isNewUser = true;
+      console.log(`✅ New Google OAuth user created: ${email}`);
+
+      // Send new user notification
+      try {
+        const adminEmails = await emailService.getAdminEmails();
+        await emailService.sendNewUserRegistered(user, adminEmails);
+      } catch (emailError) {
+        console.error('📧 Email notification error:', emailError);
+      }
+    }
+
+    // Generate JWT and redirect to frontend
+    const token = generateToken(user);
+    const userData = encodeURIComponent(JSON.stringify({
+      id: user._id,
+      email: user.email,
+      displayName: user.displayName,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      authProvider: user.authProvider
+    }));
+
+    console.log(`✅ Google OAuth successful for ${email}`);
+    res.redirect(`${FRONTEND_URL}?auth_token=${token}&auth_user=${userData}`);
+
+  } catch (err) {
+    console.error('❌ Google OAuth callback error:', err.response?.data || err.message);
+    res.redirect(`${FRONTEND_URL}?auth_error=oauth_failed`);
+  }
+});
+
+// =====================================================
+// DISCORD OAUTH
+// =====================================================
+
+// Step 1: Initiate Discord OAuth
+app.get('/auth/discord', (req, res) => {
+  if (!DISCORD_CLIENT_ID) {
+    return res.status(500).json({ error: 'Discord OAuth not configured' });
+  }
+  const state = generateOAuthState();
+  const params = new URLSearchParams({
+    client_id: DISCORD_CLIENT_ID,
+    redirect_uri: `${BACKEND_URL}/auth/discord/callback`,
+    response_type: 'code',
+    scope: 'identify email',
+    state: state,
+    prompt: 'consent'
+  });
+
+  console.log('🔐 Initiating Discord OAuth flow');
+  res.redirect(`https://discord.com/api/oauth2/authorize?${params}`);
+});
+
+// Step 2: Discord OAuth Callback
+app.get('/auth/discord/callback', async (req, res) => {
+  const { code, state, error, error_description } = req.query;
+
+  if (error) {
+    console.error('❌ Discord OAuth error:', error, error_description);
+    return res.redirect(`${FRONTEND_URL}?auth_error=${encodeURIComponent(error)}`);
+  }
+
+  if (!state || !verifyOAuthState(state)) {
+    console.error('❌ Discord OAuth invalid state');
+    return res.redirect(`${FRONTEND_URL}?auth_error=invalid_state`);
+  }
+
+  try {
+    // Exchange code for tokens
+    const tokenResponse = await axios.post('https://discord.com/api/oauth2/token',
+      new URLSearchParams({
+        code,
+        client_id: DISCORD_CLIENT_ID,
+        client_secret: DISCORD_CLIENT_SECRET,
+        redirect_uri: `${BACKEND_URL}/auth/discord/callback`,
+        grant_type: 'authorization_code'
+      }),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+
+    const { access_token } = tokenResponse.data;
+
+    // Get user info from Discord
+    const userInfoResponse = await axios.get('https://discord.com/api/users/@me', {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+
+    const { id: discordId, email, username, global_name, avatar } = userInfoResponse.data;
+    console.log(`🔐 Discord OAuth: ${email || username}`);
+
+    // Discord may not provide email if user hasn't verified
+    if (!email) {
+      console.error('❌ Discord OAuth: No email provided');
+      return res.redirect(`${FRONTEND_URL}?auth_error=discord_email_required`);
+    }
+
+    // Build avatar URL
+    const avatarUrl = avatar
+      ? `https://cdn.discordapp.com/avatars/${discordId}/${avatar}.png`
+      : null;
+
+    // Find or create user (with auto-link logic)
+    let user = await User.findOne({ email });
+    let isNewUser = false;
+
+    if (user) {
+      if (user.authProvider === 'local' || !user.authProvider) {
+        console.log(`🔗 OAuth auto-link: Converting ${email} from local to discord auth`);
+        user.authProvider = 'discord';
+        user.oauthId = discordId;
+        user.avatarUrl = avatarUrl;
+        user.passwordHash = null;
+        await user.save();
+      } else if (user.authProvider !== 'discord') {
+        console.log(`❌ OAuth conflict: ${email} already linked to ${user.authProvider}`);
+        return res.redirect(`${FRONTEND_URL}?auth_error=account_linked_to_${user.authProvider}`);
+      }
+    } else {
+      user = new User({
+        email,
+        displayName: global_name || username || email.split('@')[0],
+        authProvider: 'discord',
+        oauthId: discordId,
+        avatarUrl,
+        role: 'user'
+      });
+      await user.save();
+      isNewUser = true;
+      console.log(`✅ New Discord OAuth user created: ${email}`);
+
+      try {
+        const adminEmails = await emailService.getAdminEmails();
+        await emailService.sendNewUserRegistered(user, adminEmails);
+      } catch (emailError) {
+        console.error('📧 Email notification error:', emailError);
+      }
+    }
+
+    const token = generateToken(user);
+    const userData = encodeURIComponent(JSON.stringify({
+      id: user._id,
+      email: user.email,
+      displayName: user.displayName,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      authProvider: user.authProvider
+    }));
+
+    console.log(`✅ Discord OAuth successful for ${email}`);
+    res.redirect(`${FRONTEND_URL}?auth_token=${token}&auth_user=${userData}`);
+
+  } catch (err) {
+    console.error('❌ Discord OAuth callback error:', err.response?.data || err.message);
+    res.redirect(`${FRONTEND_URL}?auth_error=oauth_failed`);
   }
 });
 
