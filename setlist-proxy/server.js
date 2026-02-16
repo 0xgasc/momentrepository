@@ -2335,6 +2335,14 @@ app.post('/change-password', authenticateToken, [
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Block OAuth users from changing password
+    if (user.authProvider && user.authProvider !== 'local') {
+      return res.status(400).json({
+        error: `This account uses ${user.authProvider} login. Password changes are managed through ${user.authProvider}.`,
+        authProvider: user.authProvider
+      });
+    }
+
     // Verify current password
     const isValid = await user.validatePassword(currentPassword);
     if (!isValid) {
