@@ -22,9 +22,12 @@ const localPerformanceSchema = new mongoose.Schema({
     required: true,
     validate: {
       validator: function(v) {
-        return /^\d{4}-\d{2}-\d{2}$/.test(v);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+        const [year, month, day] = v.split('-').map(Number);
+        const d = new Date(v);
+        return d.getFullYear() === year && d.getMonth() + 1 === month && d.getDate() === day;
       },
-      message: 'eventDate must be in YYYY-MM-DD format'
+      message: 'eventDate must be a valid calendar date in YYYY-MM-DD format'
     }
   },
 

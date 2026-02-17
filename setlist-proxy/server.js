@@ -537,10 +537,9 @@ const requireRole = (requiredRole) => {
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
-      
-      // Update last active timestamp
-      user.lastActive = new Date();
-      await user.save();
+
+      // Update last active timestamp (fire-and-forget, don't block the request)
+      User.updateOne({ _id: user._id }, { lastActive: new Date() }).catch(() => {});
       
       // Check role permissions (include configurable admin emails)
       const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
@@ -4071,7 +4070,7 @@ app.post('/moments/:momentId/view', async (req, res) => {
       momentId,
       {
         $inc: { viewCount: 1 },
-        $push: { uniqueViews: viewData }
+        $push: { uniqueViews: { $each: [viewData], $slice: -10000 } }
       },
       { new: true }
     );
