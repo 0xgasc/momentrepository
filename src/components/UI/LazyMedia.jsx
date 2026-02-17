@@ -262,7 +262,7 @@ const LazyMedia = memo(({
                 objectFit: 'contain',
                 width: '100%',
                 height: 'auto',
-                maxHeight: '60vh'
+                maxHeight: '50vh'
               })
             }}
             onLoadedData={handleLoad}

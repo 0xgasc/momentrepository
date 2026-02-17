@@ -349,7 +349,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilters = 
           style={{ backdropFilter: 'blur(4px)' }}
         >
           <div
-            className="rounded-sm shadow-xl max-w-lg w-full p-6 relative"
+            className="rounded-sm shadow-xl w-full sm:max-w-lg p-6 relative"
             onClick={(e) => e.stopPropagation()}
             style={{
               maxHeight: '90vh',

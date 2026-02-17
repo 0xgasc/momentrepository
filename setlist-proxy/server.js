@@ -46,6 +46,16 @@ let cacheRefreshStatus = {
 // Global metadata storage (in production, use database)
 global.metadataStorage = global.metadataStorage || {};
 
+// Clean up metadata entries older than 1 hour every 30 minutes
+setInterval(() => {
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  for (const key of Object.keys(global.metadataStorage)) {
+    if (global.metadataStorage[key]?.storedAt < oneHourAgo) {
+      delete global.metadataStorage[key];
+    }
+  }
+}, 30 * 60 * 1000);
+
 // Security middleware - skip for proxy routes that need cross-origin access
 const helmetMiddleware = helmet({
   contentSecurityPolicy: {
@@ -1844,7 +1854,7 @@ app.get('/cache/status', async (req, res) => {
   }
 });
 
-app.post('/cache/refresh', async (req, res) => {
+app.post('/cache/refresh', authenticateToken, requireAdmin, async (req, res) => {
   try {
     if (cacheRefreshStatus.inProgress) {
       return res.json({ 
@@ -4319,7 +4329,7 @@ app.post('/admin/refresh-cache', authenticateToken, requireAdmin, async (req, re
 
 // RARITY RECALCULATION ENDPOINT
 // =============================================================================
-app.post('/admin/recalculate-rarity', async (req, res) => {
+app.post('/admin/recalculate-rarity', authenticateToken, requireAdmin, async (req, res) => {
   try {
     console.log('🎯 Starting SIMPLIFIED rarity recalculation for all moments...');
     

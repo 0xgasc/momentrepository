@@ -782,6 +782,30 @@ const Header = memo(({
 
 Header.displayName = 'Header';
 
+// Simple error boundary for lazy-loaded components
+class ModalErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="bg-gray-900 border border-gray-700 p-6 rounded-lg text-center">
+            <p className="text-white mb-3">Failed to load. Please refresh.</p>
+            <button onClick={this.props.onClose} className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600">Close</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Main Content Router Component
 const MainContent = memo(({
   currentView,
@@ -1044,12 +1068,14 @@ const MainContent = memo(({
 
       {/* Modal for hero click */}
       {heroSelectedMoment && (
-        <React.Suspense fallback={<div>Loading...</div>}>
-          <MomentDetailModal
-            moment={heroSelectedMoment}
-            onClose={() => setHeroSelectedMoment(null)}
-          />
-        </React.Suspense>
+        <ModalErrorBoundary onClose={() => setHeroSelectedMoment(null)}>
+          <React.Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"><div className="text-white">Loading...</div></div>}>
+            <MomentDetailModal
+              moment={heroSelectedMoment}
+              onClose={() => setHeroSelectedMoment(null)}
+            />
+          </React.Suspense>
+        </ModalErrorBoundary>
       )}
     </>
   );

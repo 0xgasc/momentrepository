@@ -26,7 +26,7 @@ const VideoHeroComments = memo(({ momentId, user, token, isOpen, onClose, moment
       />
 
       {/* Panel */}
-      <div className="fixed top-0 right-0 bottom-0 w-full sm:w-96 max-w-full bg-gray-900/95 backdrop-blur-xl border-l border-gray-700/50 z-50 flex flex-col animate-slide-in-right">
+      <div className="fixed top-0 right-0 bottom-0 w-full sm:w-96 max-w-full bg-gray-900/95 backdrop-blur-xl border-l border-gray-700/50 z-50 flex flex-col animate-slide-in-right" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700/50">
           <div className="flex items-center gap-2">
