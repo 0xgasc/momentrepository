@@ -307,10 +307,10 @@ const MainApp = memo(() => {
   // Login modal overlay
   if (showLogin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="bg-white rounded-lg shadow-lg">
+      <div className="min-h-screen flex items-center justify-center bg-gray-950 p-4">
+        <div className="w-full max-w-md">
           <LoginModal onClose={() => setShowLogin(false)} />
-          <div className="p-4 border-t">
+          <div className="p-4 border-t border-gray-200">
             <button
               onClick={() => setShowLogin(false)}
               className="w-full px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
@@ -348,7 +348,7 @@ const MainApp = memo(() => {
       />
 
       {/* Main content area - offset for sidebar on desktop, bottom padding for mobile nav */}
-      <div className={`umo-container-fluid overflow-x-hidden pb-20 sm:pb-0 bg-gray-950 transition-[margin] duration-300 ease-in-out ${
+      <div className={`umo-container-fluid overflow-x-hidden pb-32 sm:pb-0 bg-gray-950 transition-[margin] duration-300 ease-in-out ${
         sidebarPosition === 'left'
           ? (sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56')
           : sidebarPosition === 'right'
@@ -484,8 +484,8 @@ const MainApp = memo(() => {
         onLoginClick={() => setShowLogin(true)}
       />
 
-      {/* Bottom padding spacer for mobile nav */}
-      <div className="sm:hidden h-20" />
+      {/* Bottom padding spacer for mobile nav + mini player */}
+      <div className="sm:hidden h-32" />
     </div>
   );
 });
@@ -1088,9 +1088,9 @@ const MobileBottomNav = memo(({
 
   return (
     <>
-      {/* Mobile Mini Player - Above Bottom Nav */}
-      {(isPlayingFromQueue || currentMoment) && currentMoment && (
-        <div className="sm:hidden fixed left-0 right-0 z-40" style={{ bottom: 'calc(52px + env(safe-area-inset-bottom, 0px))' }}>
+      {/* Mobile Mini Player - Above Bottom Nav - only when playing from queue (not hero autoplay) */}
+      {isPlayingFromQueue && currentMoment && (
+        <div className="sm:hidden fixed left-0 right-0 z-50" style={{ bottom: 'calc(52px + env(safe-area-inset-bottom, 0px))' }}>
           <div className="mx-2 mb-1 bg-black/60 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden">
             {/* Progress bar at top */}
             <div className="h-1 bg-white/20 cursor-pointer">
