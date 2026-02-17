@@ -83,8 +83,16 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
   const ytPlayerRef = useRef(null);
   const ytProgressIntervalRef = useRef(null);
 
+  // Guard against ghost clicks on mobile (touch → click fires 300ms after touch)
+  const mountTimeRef = useRef(Date.now());
+
   // Memoize onClose for use in effects
   const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  const handleOverlayClick = useCallback(() => {
+    if (Date.now() - mountTimeRef.current < 400) return; // ignore ghost clicks on open
     onClose();
   }, [onClose]);
 
@@ -639,7 +647,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
 
   return (
     <>
-      <div className={`modal-overlay ${isMobile ? 'mobile' : ''}`} onClick={onClose}>
+      <div className={`modal-overlay ${isMobile ? 'mobile' : ''}`} onClick={handleOverlayClick}>
         <div className={`trading-card-modal ${showNftPanel ? 'with-side-panel' : ''} ${isMobile ? 'mobile-modal' : ''}`} onClick={(e) => e.stopPropagation()}>
           {/* Header */}
           <div className="card-header" style={{ background: `linear-gradient(135deg, ${rarityInfo.color} 0%, #1d4ed8 100%)` }}>
@@ -1155,6 +1163,8 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
             height: 100vh;
             margin: 0;
             transform: none;
+            /* Kill 300ms tap delay on mobile */
+            touch-action: manipulation;
           }
 
           .trading-card-modal {

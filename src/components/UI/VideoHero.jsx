@@ -1291,7 +1291,8 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               <SkipForward size={14} className="text-white" />
             </button>
             <button
-              onClick={(e) => { e.stopPropagation(); setIsMinimized(false); }}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setIsMinimized(false); }}
+              onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); setIsMinimized(false); }}
               className="bg-yellow-600/50 hover:bg-yellow-600/70 rounded-full p-1.5 transition-colors"
             >
               <Maximize2 size={14} className="text-white" />
