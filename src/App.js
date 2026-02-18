@@ -790,96 +790,89 @@ const LandingPage = memo(({ user, onNavigate, onLoginClick, mediaFilters }) => {
   const ctaCards = [
     {
       mode: 'moments',
-      emoji: '🎬',
       label: 'Moments',
-      desc: 'Fan-shot clips, audio boots, and live footage from shows around the world.'
+      desc: 'Fan clips, audio recordings, and live footage from shows around the world.'
     },
     {
       mode: 'songs',
-      emoji: '🎵',
       label: 'Songs',
-      desc: 'Browse every UMO song and explore how it evolved across different performances.'
+      desc: 'Every track in the catalog — explore how each song evolved across performances.'
     },
     {
       mode: 'performances',
-      emoji: '📅',
       label: 'Shows',
-      desc: 'Full setlists, guestbooks, and community memories for every concert.'
+      desc: 'Full setlists, community guestbooks, and memories for every concert.'
     }
   ];
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      {/* Hero — reuse existing VideoHero */}
       <VideoHero
         onMomentClick={() => onNavigate('moments')}
         mediaFilters={mediaFilters}
       />
 
-      {/* Below hero content */}
-      <div className="max-w-4xl mx-auto px-4 py-10">
+      <div className="max-w-3xl mx-auto px-4 py-12">
         {/* Tagline */}
-        <div className="text-center mb-10">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-            The fan-built UMO concert archive
+        <div className="mb-10">
+          <p className="text-gray-500 text-xs uppercase tracking-widest mb-3">UMO Archive</p>
+          <h2 className="text-xl sm:text-2xl font-semibold text-white mb-3 leading-snug">
+            The fan-built Unknown Mortal Orchestra concert archive
           </h2>
-          <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto">
-            Unknown Mortal Orchestra fans capturing, cataloguing, and sharing every live moment — from basement shows to festival stages.
+          <p className="text-gray-400 text-sm max-w-xl">
+            Fans capturing, cataloguing, and preserving live moments — from small club shows to festival stages.
           </p>
         </div>
 
-        {/* CTA Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-          {ctaCards.map(({ mode, emoji, label, desc }) => (
+        {/* CTA nav */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-gray-800 border border-gray-800 mb-10">
+          {ctaCards.map(({ mode, label, desc }) => (
             <button
               key={mode}
               onClick={() => onNavigate(mode)}
-              className="group text-left bg-gray-900 border border-gray-700 hover:border-blue-500 rounded-lg p-5 transition-all hover:bg-gray-800/80"
+              className="group text-left bg-gray-900 hover:bg-gray-800 p-5 transition-colors"
             >
-              <div className="text-3xl mb-3">{emoji}</div>
-              <div className="text-lg font-semibold text-white mb-1 group-hover:text-blue-400 transition-colors">{label}</div>
-              <div className="text-gray-400 text-sm">{desc}</div>
+              <div className="text-sm font-semibold text-white mb-1.5 group-hover:text-blue-400 transition-colors">{label}</div>
+              <div className="text-gray-500 text-xs leading-relaxed">{desc}</div>
             </button>
           ))}
         </div>
 
-        {/* Auth CTA */}
-        <div className="text-center mb-10">
+        {/* Auth */}
+        <div className="border-t border-gray-800 pt-8">
           {user ? (
-            <p className="text-gray-400">
-              Welcome back, <span className="text-white font-medium">{user.displayName || user.email}</span>. Pick a section above to start exploring.
+            <p className="text-gray-500 text-sm">
+              Signed in as <span className="text-gray-300">{user.displayName || user.email}</span>
             </p>
           ) : (
-            <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 inline-block">
-              <p className="text-gray-300 mb-4 text-sm">
-                Create a free account to upload moments, sign guestbooks, and save collections.
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <p className="text-gray-500 text-sm flex-1">
+                Create an account to upload moments, sign guestbooks, and save collections.
               </p>
               <button
                 onClick={onLoginClick}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-sm font-medium transition-colors"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors flex-shrink-0"
+                style={{ borderRadius: '2px' }}
               >
-                Join the Archive
+                Sign in / Join
               </button>
             </div>
           )}
         </div>
 
-        {/* How it works */}
-        <div className="border-t border-gray-800 pt-8">
-          <h3 className="text-center text-gray-500 text-xs uppercase tracking-widest mb-6">How it works</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
-            {[
-              { n: '1', color: 'blue', title: 'Explore', body: 'Browse fan-recorded moments, full setlists, and every song in the catalog.' },
-              { n: '2', color: 'yellow', title: 'Upload', body: 'Attended a show? Share your clips, photos, and audio recordings.' },
-              { n: '3', color: 'green', title: 'Connect', body: 'Sign guestbooks, chat before upcoming shows, and build playlists.' }
-            ].map(({ n, color, title, body }) => (
-              <div key={n} className="flex flex-col items-center gap-2">
-                <div className={`w-8 h-8 rounded-full bg-${color}-900 flex items-center justify-center text-sm font-bold text-${color}-400`}>{n}</div>
-                <div className="text-white font-medium text-sm">{title}</div>
-                <div className="text-gray-500 text-xs">{body}</div>
-              </div>
-            ))}
-          </div>
+        {/* About */}
+        <div className="mt-10 border-t border-gray-800 pt-8 grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {[
+            { step: '01', title: 'Explore', body: 'Browse fan-recorded moments, setlists, and every song in the catalog.' },
+            { step: '02', title: 'Upload', body: 'Attended a show? Share your clips and audio. Approved moments join the archive.' },
+            { step: '03', title: 'Connect', body: 'Sign show guestbooks, chat before upcoming concerts, build playlists.' }
+          ].map(({ step, title, body }) => (
+            <div key={step}>
+              <p className="text-gray-700 text-xs font-mono mb-2">{step}</p>
+              <p className="text-gray-300 text-sm font-medium mb-1">{title}</p>
+              <p className="text-gray-600 text-xs leading-relaxed">{body}</p>
+            </div>
+          ))}
         </div>
       </div>
     </div>
