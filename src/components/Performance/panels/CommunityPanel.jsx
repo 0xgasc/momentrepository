@@ -37,21 +37,21 @@ const CommunityPanel = memo(({ performance, user, token, onViewUserProfile }) =>
   const [activeTab, setActiveTab] = useState(isUpcoming ? 'chat' : 'guestbook');
   const [isExpanded, setIsExpanded] = useState(isUpcoming); // Expanded for upcoming shows
 
-  // Tabs - guestbook and chat available for all shows, RSVP only for upcoming
+  // Tabs - guestbook for past shows, chat + RSVP for upcoming shows
   const tabs = [
     {
       id: 'guestbook',
       label: 'Guestbook',
       icon: PenLine,
       description: 'Sign the guestbook - share your memories!',
-      available: true
+      available: !isUpcoming
     },
     {
       id: 'chat',
       label: 'Chat',
       icon: MessageCircle,
       description: 'Chat about the show',
-      available: true
+      available: isUpcoming
     },
     {
       id: 'rsvp',

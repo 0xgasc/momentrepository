@@ -110,6 +110,7 @@ const MainApp = memo(() => {
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [initialMomentId, setInitialMomentId] = useState(null);
+  const [showLanding, setShowLanding] = useState(location.pathname === '/');
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarPosition, setSidebarPosition] = useState(() => {
@@ -292,6 +293,7 @@ const MainApp = memo(() => {
   };
 
   const handleBackToHome = () => {
+    setShowLanding(false); // going back from song/show → stay in browse, not landing
     setCurrentView('home');
     setSelectedSong(null);
     setSelectedPerformance(null);
@@ -405,6 +407,7 @@ const MainApp = memo(() => {
           showHowToGuide={showHowToGuide}
           onToggleHowToGuide={() => setShowHowToGuide(!showHowToGuide)}
           onMomentSelect={null}
+          onShowLanding={() => { setShowLanding(true); navigate('/'); }}
         />
 
 
@@ -444,6 +447,16 @@ const MainApp = memo(() => {
             navigate(`/user/${userId}`, { replace: true });
           }}
           initialMomentId={initialMomentId}
+          showLanding={showLanding}
+          onShowLanding={(mode) => {
+            if (mode) {
+              setShowLanding(false);
+              switchBrowseMode(mode);
+            } else {
+              setShowLanding(true);
+              navigate('/');
+            }
+          }}
         />
         )}
 
@@ -484,6 +497,13 @@ const MainApp = memo(() => {
             setShowUserProfile(false);
             setSelectedUserId(null);
             navigate('/', { replace: true });
+          }}
+          currentUserId={user?._id || user?.id}
+          onPerformanceSelect={(perf) => {
+            setShowUserProfile(false);
+            setSelectedUserId(null);
+            navigate('/', { replace: true });
+            handlePerformanceSelect(perf);
           }}
         />
       )}
@@ -537,7 +557,8 @@ const Header = memo(({
   badgeInfo,
   showHowToGuide,
   onToggleHowToGuide,
-  onMomentSelect
+  onMomentSelect,
+  onShowLanding
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -551,16 +572,13 @@ const Header = memo(({
         <div className="flex items-center justify-between p-3 bg-gray-900/90 backdrop-blur-sm border-b border-gray-800" style={{ borderRadius: '2px' }}>
           {/* Logo/Title */}
           <button
-            onClick={() => {
-              onToggleHowToGuide();
-            }}
+            onClick={() => onShowLanding?.()}
             className="flex-1 text-left flex items-center gap-2"
-            title="Click for site info and how to use"
+            title="UMO Archive home"
           >
             <h1 className="text-sm font-semibold text-blue-400">
               UMO Archive
             </h1>
-            {showHowToGuide ? <ChevronUp size={14} className="text-blue-400" /> : <ChevronDown size={14} className="text-blue-400" />}
           </button>
 
           {/* Notification Bell (mobile) */}
@@ -577,42 +595,6 @@ const Header = memo(({
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
-
-        {/* How to Guide - Mobile - Simplified */}
-        {showHowToGuide && (
-          <div className="mt-2 mb-4 p-3 bg-gray-800/90 border border-gray-700 rounded-sm">
-            <h3 className="text-sm font-semibold text-gray-100 mb-2">UMO Archive</h3>
-            <p className="text-gray-400 text-xs mb-3">
-              Fan-curated concert moments from Unknown Mortal Orchestra.
-            </p>
-
-            <div className="space-y-3">
-              <div className="flex items-start gap-2">
-                <div className="flex-shrink-0 w-5 h-5 bg-blue-900 rounded-full flex items-center justify-center text-xs font-bold text-blue-400">1</div>
-                <div>
-                  <div className="text-gray-200 text-xs font-medium">Watch & Explore</div>
-                  <div className="text-gray-500 text-xs">Filter by Clips, Audio, or Linked. Browse Shows & Songs.</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <div className="flex-shrink-0 w-5 h-5 bg-yellow-900 rounded-full flex items-center justify-center text-xs font-bold text-yellow-400">2</div>
-                <div>
-                  <div className="text-gray-200 text-xs font-medium">Build Playlists</div>
-                  <div className="text-gray-500 text-xs">Tap + to queue moments. Keep browsing while music plays.</div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <div className="flex-shrink-0 w-5 h-5 bg-green-900 rounded-full flex items-center justify-center text-xs font-bold text-green-400">3</div>
-                <div>
-                  <div className="text-gray-200 text-xs font-medium">Upload & Share</div>
-                  <div className="text-gray-500 text-xs">Login → My Account → Upload your concert clips.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Mobile Menu Overlay */}
         {mobileMenuOpen && (
@@ -762,59 +744,16 @@ const Header = memo(({
       <div className="hidden sm:block lg:hidden">
         <div className="flex items-center justify-center mb-4 p-3 bg-gray-900/80 backdrop-blur-sm border-b border-gray-800" style={{ borderRadius: '2px' }}>
           <button
-            onClick={() => {
-              onToggleHowToGuide();
-            }}
+            onClick={() => onShowLanding?.()}
             className="flex items-center gap-2"
-            title="Click for site info and how to use"
+            title="UMO Archive home"
           >
             <h1 className="umo-heading umo-heading--lg text-blue-400 hover:text-blue-300 transition-colors">
-              UMO - the best band in the world
+              UMO Archive
             </h1>
-            {showHowToGuide ? <ChevronUp size={16} className="text-blue-400" /> : <ChevronDown size={16} className="text-blue-400" />}
           </button>
         </div>
 
-        {showHowToGuide && (
-          <div className="mb-4 p-4 bg-gray-800/90 border border-gray-700 rounded-sm">
-            <h3 className="text-lg font-semibold text-gray-100 mb-3">UMO Archive</h3>
-            <p className="text-gray-400 text-sm mb-4">
-              Fan-curated archive of Unknown Mortal Orchestra concert moments.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-blue-900 rounded-full flex items-center justify-center text-sm font-bold text-blue-400">1</div>
-                <div>
-                  <div className="text-gray-200 font-medium mb-1 text-sm">Watch & Explore</div>
-                  <div className="text-gray-500 text-xs">
-                    Filter by Clips, Audio, or Linked content. Browse Shows, Songs, and fan uploads.
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-yellow-900 rounded-full flex items-center justify-center text-sm font-bold text-yellow-400">2</div>
-                <div>
-                  <div className="text-gray-200 font-medium mb-1 text-sm">Build Playlists</div>
-                  <div className="text-gray-500 text-xs">
-                    Click + on any moment to add to your queue. Keep browsing while music plays.
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-6 h-6 bg-green-900 rounded-full flex items-center justify-center text-sm font-bold text-green-400">3</div>
-                <div>
-                  <div className="text-gray-200 font-medium mb-1 text-sm">Upload & Share</div>
-                  <div className="text-gray-500 text-xs">
-                    Login → My Account → Upload. Your moments join the archive after approval.
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -845,6 +784,108 @@ class ModalErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
+
+// Landing Page Component — shown on first visit and when clicking the banner
+const LandingPage = memo(({ user, onNavigate, onLoginClick, mediaFilters }) => {
+  const ctaCards = [
+    {
+      mode: 'moments',
+      emoji: '🎬',
+      label: 'Moments',
+      desc: 'Fan-shot clips, audio boots, and live footage from shows around the world.'
+    },
+    {
+      mode: 'songs',
+      emoji: '🎵',
+      label: 'Songs',
+      desc: 'Browse every UMO song and explore how it evolved across different performances.'
+    },
+    {
+      mode: 'performances',
+      emoji: '📅',
+      label: 'Shows',
+      desc: 'Full setlists, guestbooks, and community memories for every concert.'
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-950 text-gray-100">
+      {/* Hero — reuse existing VideoHero */}
+      <VideoHero
+        onMomentClick={() => onNavigate('moments')}
+        mediaFilters={mediaFilters}
+      />
+
+      {/* Below hero content */}
+      <div className="max-w-4xl mx-auto px-4 py-10">
+        {/* Tagline */}
+        <div className="text-center mb-10">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+            The fan-built UMO concert archive
+          </h2>
+          <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto">
+            Unknown Mortal Orchestra fans capturing, cataloguing, and sharing every live moment — from basement shows to festival stages.
+          </p>
+        </div>
+
+        {/* CTA Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+          {ctaCards.map(({ mode, emoji, label, desc }) => (
+            <button
+              key={mode}
+              onClick={() => onNavigate(mode)}
+              className="group text-left bg-gray-900 border border-gray-700 hover:border-blue-500 rounded-lg p-5 transition-all hover:bg-gray-800/80"
+            >
+              <div className="text-3xl mb-3">{emoji}</div>
+              <div className="text-lg font-semibold text-white mb-1 group-hover:text-blue-400 transition-colors">{label}</div>
+              <div className="text-gray-400 text-sm">{desc}</div>
+            </button>
+          ))}
+        </div>
+
+        {/* Auth CTA */}
+        <div className="text-center mb-10">
+          {user ? (
+            <p className="text-gray-400">
+              Welcome back, <span className="text-white font-medium">{user.displayName || user.email}</span>. Pick a section above to start exploring.
+            </p>
+          ) : (
+            <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 inline-block">
+              <p className="text-gray-300 mb-4 text-sm">
+                Create a free account to upload moments, sign guestbooks, and save collections.
+              </p>
+              <button
+                onClick={onLoginClick}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-sm font-medium transition-colors"
+              >
+                Join the Archive
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* How it works */}
+        <div className="border-t border-gray-800 pt-8">
+          <h3 className="text-center text-gray-500 text-xs uppercase tracking-widest mb-6">How it works</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+            {[
+              { n: '1', color: 'blue', title: 'Explore', body: 'Browse fan-recorded moments, full setlists, and every song in the catalog.' },
+              { n: '2', color: 'yellow', title: 'Upload', body: 'Attended a show? Share your clips, photos, and audio recordings.' },
+              { n: '3', color: 'green', title: 'Connect', body: 'Sign guestbooks, chat before upcoming shows, and build playlists.' }
+            ].map(({ n, color, title, body }) => (
+              <div key={n} className="flex flex-col items-center gap-2">
+                <div className={`w-8 h-8 rounded-full bg-${color}-900 flex items-center justify-center text-sm font-bold text-${color}-400`}>{n}</div>
+                <div className="text-white font-medium text-sm">{title}</div>
+                <div className="text-gray-500 text-xs">{body}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+LandingPage.displayName = 'LandingPage';
 
 // Main Content Router Component
 // Back to top floating button
@@ -884,7 +925,9 @@ const MainContent = memo(({
   onShowAccount,
   onLoginClick,
   onViewUserProfile,
-  initialMomentId
+  initialMomentId,
+  showLanding,
+  onShowLanding
 }) => {
   const [heroSelectedMoment, setHeroSelectedMoment] = useState(null);
   const contentSectionRef = useRef(null);
@@ -970,6 +1013,18 @@ const MainContent = memo(({
 
   // Import MomentDetailModal for hero clicks
   const MomentDetailModal = React.lazy(() => import('./components/Moment/MomentDetailModal'));
+
+  // Landing page — shown on first visit or banner click
+  if (showLanding && currentView !== 'song' && currentView !== 'performance') {
+    return (
+      <LandingPage
+        user={user}
+        onNavigate={(mode) => onShowLanding?.(mode)}
+        onLoginClick={onLoginClick}
+        mediaFilters={mediaFilters}
+      />
+    );
+  }
 
   // Non-home views (song detail, performance detail)
   if (currentView === 'song' && selectedSong) {

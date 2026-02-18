@@ -2993,6 +2993,120 @@ app.get('/api/users/:userId/stats', async (req, res) => {
   }
 });
 
+// User content endpoints — public drilldown data
+const Guestbook = require('./models/Guestbook');
+const RSVP = require('./models/RSVP');
+const Favorite = require('./models/Favorite');
+
+// GET /api/users/:userId/moments — approved moments by user
+app.get('/api/users/:userId/moments', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const skip = parseInt(req.query.skip) || 0;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const [moments, total] = await Promise.all([
+      Moment.find({ user: userId, approvalStatus: 'approved', showInMoments: { $ne: false } })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('title mediaType song performance thumbnailUrl mediaUrl externalVideoId createdAt')
+        .lean(),
+      Moment.countDocuments({ user: userId, approvalStatus: 'approved', showInMoments: { $ne: false } })
+    ]);
+    res.json({ moments, total });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user moments' });
+  }
+});
+
+// GET /api/users/:userId/comments — comments by user on performances
+app.get('/api/users/:userId/comments', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const skip = parseInt(req.query.skip) || 0;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const [comments, total] = await Promise.all([
+      Comment.find({ user: userId, parentId: null, isDeleted: { $ne: true } })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('text performanceId momentId createdAt')
+        .lean(),
+      Comment.countDocuments({ user: userId, parentId: null, isDeleted: { $ne: true } })
+    ]);
+    res.json({ comments, total });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user comments' });
+  }
+});
+
+// GET /api/users/:userId/guestbook — guestbook signatures by user
+app.get('/api/users/:userId/guestbook', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const skip = parseInt(req.query.skip) || 0;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const [signatures, total] = await Promise.all([
+      Guestbook.find({ user: userId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('performanceId message createdAt')
+        .lean(),
+      Guestbook.countDocuments({ user: userId })
+    ]);
+    res.json({ signatures, total });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch guestbook entries' });
+  }
+});
+
+// GET /api/users/:userId/rsvps — RSVPs by user
+app.get('/api/users/:userId/rsvps', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const skip = parseInt(req.query.skip) || 0;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const [rsvps, total] = await Promise.all([
+      RSVP.find({ user: userId })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('performanceId message createdAt')
+        .lean(),
+      RSVP.countDocuments({ user: userId })
+    ]);
+    res.json({ rsvps, total });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch RSVPs' });
+  }
+});
+
+// GET /api/users/:userId/favorites — favorites (self-only)
+app.get('/api/users/:userId/favorites', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const requesterId = req.user?.userId || req.user?.id;
+    if (requesterId?.toString() !== userId?.toString()) {
+      return res.status(403).json({ error: 'Favorites are private' });
+    }
+    const skip = parseInt(req.query.skip) || 0;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const [favorites, total] = await Promise.all([
+      Favorite.find({ user: userId })
+        .sort({ addedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('moment', 'title mediaType song thumbnailUrl mediaUrl externalVideoId')
+        .lean(),
+      Favorite.countDocuments({ user: userId })
+    ]);
+    res.json({ favorites, total });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch favorites' });
+  }
+});
+
 // Admin: Get all users with roles
 app.get('/admin/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
