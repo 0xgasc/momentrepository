@@ -18,6 +18,7 @@ const Favorite = require('../models/Favorite');
 const Collection = require('../models/Collection');
 const Contact = require('../models/Contact');
 const Moment = require('../models/Moment');
+const Notification = require('../models/Notification');
 const { filterContent, sanitizeDisplayName } = require('../utils/contentFilter');
 
 // Rate limiters
@@ -325,6 +326,21 @@ router.post('/moments/:momentId/comments',
 
       await comment.save();
       await comment.populate('user', 'displayName');
+
+      // Notify moment owner (fire-and-forget, don't block response)
+      Moment.findById(momentId).select('user title').lean().then(async (parentMoment) => {
+        if (parentMoment && parentMoment.user &&
+            parentMoment.user.toString() !== req.user.userId?.toString() &&
+            parentMoment.user.toString() !== req.user.id?.toString()) {
+          await Notification.create({
+            recipient: parentMoment.user,
+            type: 'comment',
+            message: `${comment.user?.displayName || 'Someone'} commented on your moment "${parentMoment.title || 'Untitled'}"`,
+            relatedMoment: parentMoment._id,
+            fromUser: comment.user?._id || null
+          });
+        }
+      }).catch(() => {});
 
       console.log(`💬 New comment on moment ${momentId}`);
       res.status(201).json({ comment: comment.toObject({ virtuals: true }) });

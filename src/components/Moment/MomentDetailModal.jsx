@@ -958,9 +958,18 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
             <div className="uploader-info">
               <div className="flex items-center gap-2">
                 <User size={12} />
-                <span className="uploader-text">
-                  Added by {moment.user?.displayName || 'Anonymous'}
-                </span>
+                {moment.user?._id && onViewUserProfile ? (
+                  <button
+                    onClick={() => onViewUserProfile(moment.user._id)}
+                    className="uploader-text hover:underline hover:text-blue-400 transition-colors text-left"
+                  >
+                    Added by {moment.user.displayName || 'Anonymous'}
+                  </button>
+                ) : (
+                  <span className="uploader-text">
+                    Added by {moment.user?.displayName || 'Anonymous'}
+                  </span>
+                )}
                 <span className="text-gray-400">•</span>
                 <div className="flex items-center gap-1">
                   <Clock size={12} />

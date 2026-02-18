@@ -28,6 +28,7 @@ import TopContributors from './components/Community/TopContributors';
 import { TheaterQueueProvider, useTheaterQueue } from './contexts/TheaterQueueContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import SettingsPanel from './components/UI/SettingsPanel';
+import NotificationBell from './components/UI/NotificationBell';
 import { useNotifications } from './hooks';
 import { API_BASE_URL } from './components/Auth/AuthProvider';
 
@@ -194,6 +195,14 @@ const MainApp = memo(() => {
       return;
     }
 
+    // Check for /user/:id path format
+    const userMatch = pathname.match(/^\/user\/([a-f0-9]+)$/i);
+    if (userMatch) {
+      setSelectedUserId(userMatch[1]);
+      setShowUserProfile(true);
+      return;
+    }
+
     // Check for /songs path
     if (pathname === '/songs') {
       setBrowseMode('songs');
@@ -341,6 +350,7 @@ const MainApp = memo(() => {
         onViewUserProfile={(userId) => {
           setSelectedUserId(userId);
           setShowUserProfile(true);
+          navigate(`/user/${userId}`, { replace: true });
         }}
         position={sidebarPosition}
         onShowSettings={() => setShowSettings(true)}
@@ -374,6 +384,7 @@ const MainApp = memo(() => {
           badgeInfo={getBadgeInfo()}
           showHowToGuide={showHowToGuide}
           onToggleHowToGuide={() => setShowHowToGuide(!showHowToGuide)}
+          onMomentSelect={null}
         />
 
 
@@ -410,6 +421,7 @@ const MainApp = memo(() => {
           onViewUserProfile={(userId) => {
             setSelectedUserId(userId);
             setShowUserProfile(true);
+            navigate(`/user/${userId}`, { replace: true });
           }}
         />
         )}
@@ -450,6 +462,7 @@ const MainApp = memo(() => {
           onClose={() => {
             setShowUserProfile(false);
             setSelectedUserId(null);
+            navigate('/', { replace: true });
           }}
         />
       )}
@@ -502,7 +515,8 @@ const Header = memo(({
   onBrowseModeChange,
   badgeInfo,
   showHowToGuide,
-  onToggleHowToGuide
+  onToggleHowToGuide,
+  onMomentSelect
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -527,6 +541,11 @@ const Header = memo(({
             </h1>
             {showHowToGuide ? <ChevronUp size={14} className="text-blue-400" /> : <ChevronDown size={14} className="text-blue-400" />}
           </button>
+
+          {/* Notification Bell (mobile) */}
+          {user && (
+            <NotificationBell onMomentSelect={onMomentSelect} />
+          )}
 
           {/* Hamburger Menu Button */}
           <button

@@ -16,6 +16,7 @@ const { body, validationResult } = require('express-validator');
 const User = require('./models/User');
 const Moment = require('./models/Moment');
 const Comment = require('./models/Comment');
+const Notification = require('./models/Notification');
 const PlatformSettings = require('./models/PlatformSettings');
 const LocalPerformance = require('./models/LocalPerformance');
 const emailService = require('./services/emailService');
@@ -3392,16 +3393,22 @@ app.put('/moderation/moments/:momentId/approve', authenticateToken, requireMod, 
     
     console.log(`✅ Mod ${req.authenticatedUser.email} approved moment ${momentId}`);
     
-    // 📧 Send approval email to user
+    // 📧 Send approval email + in-app notification to user
     try {
       const momentWithUser = await Moment.findById(momentId).populate('user');
       await emailService.sendMomentApproved(momentWithUser, momentWithUser.user);
+      await Notification.create({
+        recipient: momentWithUser.user._id,
+        type: 'approval',
+        message: `Your moment "${momentWithUser.title || 'Untitled'}" was approved!`,
+        relatedMoment: momentWithUser._id
+      });
     } catch (emailError) {
-      console.error('📧 Email notification error:', emailError);
+      console.error('📧 Email/notification error:', emailError);
     }
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Moment approved',
       moment: {
         id: moment._id,
@@ -3426,14 +3433,20 @@ app.delete('/moderation/moments/:momentId/reject', authenticateToken, requireMod
       return res.status(404).json({ error: 'Moment not found' });
     }
     
-    // 📧 Send rejection email to user before deletion
+    // 📧 Send rejection email + in-app notification to user before deletion
     try {
       const momentWithUser = await Moment.findById(momentId).populate('user');
       await emailService.sendMomentRejected(momentWithUser, momentWithUser.user, reason);
+      await Notification.create({
+        recipient: momentWithUser.user._id,
+        type: 'rejection',
+        message: `Your moment "${momentWithUser.title || 'Untitled'}" was not approved${reason ? `: ${reason}` : '.'}`,
+        relatedMoment: momentWithUser._id
+      });
     } catch (emailError) {
-      console.error('📧 Email notification error:', emailError);
+      console.error('📧 Email/notification error:', emailError);
     }
-    
+
     // Delete the moment entirely (as per requirements)
     await Moment.findByIdAndDelete(momentId);
     
@@ -3997,6 +4010,34 @@ app.get('/notifications/counts', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('❌ Get notifications error:', err);
     res.status(500).json({ error: 'Failed to get notifications' });
+  }
+});
+
+// Get inbox notifications (comment/approval messages)
+app.get('/notifications', authenticateToken, async (req, res) => {
+  try {
+    const items = await Notification.find({ recipient: req.user.id })
+      .sort({ createdAt: -1 })
+      .limit(30)
+      .populate('fromUser', 'displayName')
+      .populate('relatedMoment', 'title contentType')
+      .lean();
+    const unreadCount = await Notification.countDocuments({ recipient: req.user.id, read: false });
+    res.json({ notifications: items, unreadCount });
+  } catch (err) {
+    console.error('❌ Get notification inbox error:', err);
+    res.status(500).json({ error: 'Failed to get notifications' });
+  }
+});
+
+// Mark all notifications as read
+app.put('/notifications/read', authenticateToken, async (req, res) => {
+  try {
+    await Notification.updateMany({ recipient: req.user.id, read: false }, { read: true });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Mark notifications read error:', err);
+    res.status(500).json({ error: 'Failed to mark notifications as read' });
   }
 });
 

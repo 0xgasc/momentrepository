@@ -11,7 +11,7 @@ const formatTimeAgo = (date) => {
   return `${Math.floor(seconds / 86400)}d ago`;
 };
 
-const CommentItem = memo(({ comment, onVote, onReply, user, depth = 0 }) => {
+const CommentItem = memo(({ comment, onVote, onReply, user, depth = 0, onViewUserProfile }) => {
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [replyText, setReplyText] = useState('');
 
@@ -67,9 +67,18 @@ const CommentItem = memo(({ comment, onVote, onReply, user, depth = 0 }) => {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
             <User size={12} />
-            <span className="font-medium text-gray-300">
-              {comment.user?.displayName || 'Anonymous'}
-            </span>
+            {comment.user?._id && onViewUserProfile ? (
+              <button
+                onClick={() => onViewUserProfile(comment.user._id)}
+                className="font-medium text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+              >
+                {comment.user.displayName || 'Anonymous'}
+              </button>
+            ) : (
+              <span className="font-medium text-gray-300">
+                {comment.user?.displayName || 'Anonymous'}
+              </span>
+            )}
             <span>·</span>
             <Clock size={12} />
             <span>{formatTimeAgo(comment.createdAt)}</span>
@@ -131,6 +140,7 @@ const CommentItem = memo(({ comment, onVote, onReply, user, depth = 0 }) => {
               onReply={onReply}
               user={user}
               depth={depth + 1}
+              onViewUserProfile={onViewUserProfile}
             />
           ))}
         </div>
@@ -141,7 +151,7 @@ const CommentItem = memo(({ comment, onVote, onReply, user, depth = 0 }) => {
 
 CommentItem.displayName = 'CommentItem';
 
-const CommentsSection = memo(({ performanceId, user, token }) => {
+const CommentsSection = memo(({ performanceId, user, token, onViewUserProfile }) => {
   const { comments, loading, fetchComments, addComment, voteComment } = useComments(performanceId, token);
   const [newComment, setNewComment] = useState('');
   const [sort, setSort] = useState('top');
@@ -229,6 +239,7 @@ const CommentsSection = memo(({ performanceId, user, token }) => {
               onVote={voteComment}
               onReply={handleReply}
               user={user}
+              onViewUserProfile={onViewUserProfile}
             />
           ))
         )}

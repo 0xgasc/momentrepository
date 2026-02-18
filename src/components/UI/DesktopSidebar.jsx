@@ -10,6 +10,7 @@ import {
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import TopContributors from '../Community/TopContributors';
 import MediaControlCenter from './MediaControlCenter';
+import NotificationBell from './NotificationBell';
 
 const DesktopSidebar = memo(({
   browseMode,
@@ -258,6 +259,7 @@ const DesktopSidebar = memo(({
       {/* Account */}
       {user ? (
         <>
+          <NotificationBell />
           <button
             onClick={onShowAccount}
             className="flex items-center gap-2 px-2 py-1.5 text-gray-400 hover:bg-gray-800/50 hover:text-white rounded-sm transition-all"
