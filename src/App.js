@@ -109,6 +109,7 @@ const MainApp = memo(() => {
   const [showContactForm, setShowContactForm] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [initialMomentId, setInitialMomentId] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarPosition, setSidebarPosition] = useState(() => {
@@ -203,6 +204,13 @@ const MainApp = memo(() => {
       return;
     }
 
+    // Check for /moment/:id path format
+    const momentMatch = pathname.match(/^\/moment\/([a-f0-9]+)$/i);
+    if (momentMatch) {
+      setInitialMomentId(momentMatch[1]);
+      return;
+    }
+
     // Check for /songs path
     if (pathname === '/songs') {
       setBrowseMode('songs');
@@ -254,7 +262,11 @@ const MainApp = memo(() => {
 
 
   // Navigation handlers with URL routing
+  // Scroll position ref for restoration when navigating back to home
+  const savedScrollY = useRef(0);
+
   const handleSongBrowseSelect = (songData) => {
+    savedScrollY.current = window.scrollY;
     const songName = songData.songName || songData.name;
     if (songName) {
       const slug = slugify(songName);
@@ -269,6 +281,7 @@ const MainApp = memo(() => {
   };
 
   const handlePerformanceSelect = (performance) => {
+    savedScrollY.current = window.scrollY;
     setSelectedPerformance(performance);
     setCurrentView('performance');
     // Use performance ID for URL
@@ -284,6 +297,13 @@ const MainApp = memo(() => {
     setSelectedPerformance(null);
     setPublicCollectionId(null);
     navigate('/');
+    // Restore scroll position after React re-renders
+    const y = savedScrollY.current;
+    if (y > 0) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => window.scrollTo(0, y));
+      });
+    }
   };
 
   const switchBrowseMode = (mode) => {
@@ -423,6 +443,7 @@ const MainApp = memo(() => {
             setShowUserProfile(true);
             navigate(`/user/${userId}`, { replace: true });
           }}
+          initialMomentId={initialMomentId}
         />
         )}
 
@@ -826,6 +847,28 @@ class ModalErrorBoundary extends React.Component {
 }
 
 // Main Content Router Component
+// Back to top floating button
+const BackToTop = memo(() => {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setVisible(window.scrollY > 400);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  if (!visible) return null;
+  return (
+    <button
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-40 w-10 h-10 bg-gray-800 border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700 rounded-full shadow-lg flex items-center justify-center transition-colors"
+      title="Back to top"
+      aria-label="Scroll to top"
+    >
+      <ChevronUp size={18} />
+    </button>
+  );
+});
+BackToTop.displayName = 'BackToTop';
+
 const MainContent = memo(({
   currentView,
   browseMode,
@@ -840,11 +883,14 @@ const MainContent = memo(({
   toggleFilter,
   onShowAccount,
   onLoginClick,
-  onViewUserProfile
+  onViewUserProfile,
+  initialMomentId
 }) => {
   const [heroSelectedMoment, setHeroSelectedMoment] = useState(null);
   const contentSectionRef = useRef(null);
   const prevBrowseModeRef = useRef(browseMode);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Theater queue for playlist import
   const { importPlaylistFromLink, playQueue } = useTheaterQueue();
@@ -862,6 +908,29 @@ const MainContent = memo(({
       }, 100);
     }
   }, [browseMode]);
+
+  // Fetch and open moment when navigating directly to /moment/:id
+  useEffect(() => {
+    if (!initialMomentId || initialMomentId === heroSelectedMoment?._id) return;
+    fetch(`${API_BASE_URL}/moments/${initialMomentId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?._id) setHeroSelectedMoment(data); })
+      .catch(() => {});
+  }, [initialMomentId]);
+
+  // Push /moment/:id to URL when modal opens via click
+  useEffect(() => {
+    if (heroSelectedMoment?._id) {
+      navigate(`/moment/${heroSelectedMoment._id}`, { replace: true });
+    }
+  }, [heroSelectedMoment?._id]);
+
+  // Close modal when URL navigates away from /moment/:id (browser back button)
+  useEffect(() => {
+    if (heroSelectedMoment && !location.pathname.startsWith('/moment/')) {
+      setHeroSelectedMoment(null);
+    }
+  }, [location.pathname]);
 
   // Handle shared playlist import from URL
   useEffect(() => {
@@ -1085,13 +1154,17 @@ const MainContent = memo(({
         <UMOTube user={user} />
       )}
 
+      {/* Back to top button */}
+      <BackToTop />
+
       {/* Modal for hero click */}
       {heroSelectedMoment && (
-        <ModalErrorBoundary onClose={() => setHeroSelectedMoment(null)}>
+        <ModalErrorBoundary onClose={() => { setHeroSelectedMoment(null); navigate('/', { replace: true }); }}>
           <React.Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"><div className="text-white">Loading...</div></div>}>
             <MomentDetailModal
               moment={heroSelectedMoment}
-              onClose={() => setHeroSelectedMoment(null)}
+              onClose={() => { setHeroSelectedMoment(null); navigate('/', { replace: true }); }}
+              onViewUserProfile={onViewUserProfile}
             />
           </React.Suspense>
         </ModalErrorBoundary>

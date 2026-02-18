@@ -43,10 +43,7 @@ const LoginModal = memo(({ onClose }) => {
 
     try {
       await login(email, password);
-      setMessage('Login successful! Refreshing page...');
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      onClose();
     } catch (err) {
       if (err.message.includes('User not found') || err.message.includes('not found')) {
         setMode('userNotFound');
@@ -79,10 +76,7 @@ const LoginModal = memo(({ onClose }) => {
 
     try {
       await register(email, password, displayName);
-      setMessage('Account created successfully! Refreshing page...');
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      onClose();
     } catch (err) {
       setError(err.message);
     } finally {
