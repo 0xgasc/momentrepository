@@ -792,8 +792,8 @@ class ModalErrorBoundary extends React.Component {
   }
 }
 
-// Landing Page Component — shown on first visit and when clicking the banner
-const LandingPage = memo(({ user, onNavigate, onLoginClick, mediaFilters }) => {
+// Landing Page Content — text, CTA cards, steps. VideoHero is rendered separately below it.
+const LandingPageContent = memo(({ user, onNavigate, onLoginClick }) => {
   const ctaCards = [
     {
       mode: 'moments',
@@ -813,13 +813,7 @@ const LandingPage = memo(({ user, onNavigate, onLoginClick, mediaFilters }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
-      <VideoHero
-        onMomentClick={() => onNavigate('moments')}
-        mediaFilters={mediaFilters}
-        noAutoMinimize
-      />
-
+    <div className="bg-gray-950 text-gray-100">
       <div className="max-w-3xl mx-auto px-4 py-12">
         {/* Tagline */}
         <div className="mb-10">
@@ -886,7 +880,7 @@ const LandingPage = memo(({ user, onNavigate, onLoginClick, mediaFilters }) => {
     </div>
   );
 });
-LandingPage.displayName = 'LandingPage';
+LandingPageContent.displayName = 'LandingPageContent';
 
 // Main Content Router Component
 // Back to top floating button
@@ -1016,18 +1010,6 @@ const MainContent = memo(({
   // Import MomentDetailModal for hero clicks
   const MomentDetailModal = React.lazy(() => import('./components/Moment/MomentDetailModal'));
 
-  // Landing page — shown on first visit or banner click
-  if (showLanding && currentView !== 'song' && currentView !== 'performance') {
-    return (
-      <LandingPage
-        user={user}
-        onNavigate={(mode) => onShowLanding?.(mode)}
-        onLoginClick={onLoginClick}
-        mediaFilters={mediaFilters}
-      />
-    );
-  }
-
   // Non-home views (song detail, performance detail)
   if (currentView === 'song' && selectedSong) {
     return (
@@ -1076,8 +1058,17 @@ const MainContent = memo(({
         </div>
       )}
 
-      {/* Media Filter Pills - Tablet only (mobile uses bottom ribbon, desktop uses sidebar) */}
-      <div className="hidden sm:flex lg:hidden justify-center mb-4">
+      {/* Landing page content — shown above VideoHero so hero ends up at bottom */}
+      {showLanding && (
+        <LandingPageContent
+          user={user}
+          onNavigate={(mode) => onShowLanding?.(mode)}
+          onLoginClick={onLoginClick}
+        />
+      )}
+
+      {/* Media Filter Pills - Tablet only (shown only in browse mode) */}
+      {!showLanding && <div className="hidden sm:flex lg:hidden justify-center mb-4">
         <div className="flex gap-3 items-center bg-gray-900/80 backdrop-blur-sm p-2 rounded-sm border border-gray-800">
           {/* Media Type Group */}
           <div className="flex gap-1 bg-gray-800 p-0.5 rounded-sm">
@@ -1130,14 +1121,16 @@ const MainContent = memo(({
             </button>
           </div>
         </div>
-      </div>
+      </div>}
 
-      {/* VideoHero - Big random clip player, persists across all home tabs */}
+      {/* VideoHero — single persistent instance; at bottom when landing, top when browsing */}
       <VideoHero
         onMomentClick={(moment) => setHeroSelectedMoment(moment)}
         mediaFilters={mediaFilters}
+        noAutoMinimize={showLanding}
       />
 
+      {!showLanding && <>
       {/* Scroll anchor for navigation clicks */}
       <div ref={contentSectionRef} className="scroll-mt-4" />
 
@@ -1211,6 +1204,7 @@ const MainContent = memo(({
       {browseMode === 'umotube' && (
         <UMOTube user={user} />
       )}
+      </>}
 
       {/* Back to top button */}
       <BackToTop />
