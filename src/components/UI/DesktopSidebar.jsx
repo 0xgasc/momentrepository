@@ -25,6 +25,7 @@ const DesktopSidebar = memo(({
   position = 'top',
   onShowSettings,
   onToggleHowToGuide,
+  onShowLanding,
   autoplayPreviews = true,
   onToggleAutoplay
 }) => {
@@ -57,7 +58,7 @@ const DesktopSidebar = memo(({
       className={`hidden lg:flex fixed z-30 bg-gray-900/95 backdrop-blur-sm border-gray-700/50 transition-all duration-300 items-center px-4 gap-4 ${positionClasses}`}
     >
       {/* Logo */}
-      <button onClick={onToggleHowToGuide} className="text-blue-400 hover:text-blue-300 font-bold text-sm whitespace-nowrap transition-colors" title="About UMO Archive">UMO Archive</button>
+      <button onClick={onShowLanding} className="text-blue-400 hover:text-blue-300 font-bold text-sm whitespace-nowrap transition-colors" title="UMO Archive home">UMO Archive</button>
 
       {/* Divider */}
       <div className="w-px h-8 bg-gray-700/50" />

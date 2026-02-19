@@ -380,6 +380,7 @@ const MainApp = memo(() => {
         position={sidebarPosition}
         onShowSettings={() => setShowSettings(true)}
         onToggleHowToGuide={() => setShowHowToGuide(!showHowToGuide)}
+        onShowLanding={() => { setShowLanding(true); navigate('/'); }}
         autoplayPreviews={autoplayPreviews}
         onToggleAutoplay={() => setAutoplayPreviews(prev => !prev)}
       />
