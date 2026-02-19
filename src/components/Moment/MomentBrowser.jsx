@@ -9,7 +9,7 @@ import MomentDetailModal from './MomentDetailModal';
 import PullToRefresh from '../UI/PullToRefresh';
 import { transformMediaUrl } from '../../utils/mediaUrl';
 
-const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilters = { audio: true, video: true, linked: true, uploads: true } }) => {
+const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilters = { audio: true, video: true, linked: true, uploads: true }, autoplayPreviews = true }) => {
   const { isWeb3Enabled } = usePlatformSettings();
   const { addToQueue, isInQueue } = useTheaterQueue();
   const [moments, setMoments] = useState([]);
@@ -290,6 +290,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilters = 
                   isWeb3Enabled={isWeb3Enabled}
                   addToQueue={addToQueue}
                   isInQueue={isInQueue}
+                  autoplayPreviews={autoplayPreviews}
                 />
               ))}
             </div>
@@ -579,7 +580,7 @@ const MomentHeader = memo(({
 MomentHeader.displayName = 'MomentHeader';
 
 // Individual Moment Card Component
-const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSelect, isWeb3Enabled, addToQueue, isInQueue }) => {
+const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSelect, isWeb3Enabled, addToQueue, isInQueue, autoplayPreviews = true }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Check if this moment is already in queue
@@ -653,15 +654,25 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
           {/* YouTube/Linked video preview */}
           {isYouTube && youtubeId ? (
             <div className="relative w-full h-full">
-              <iframe
-                src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${youtubeId}&start=${moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                title={moment.songName}
-                frameBorder="0"
-                allow="autoplay; encrypted-media"
-                loading="lazy"
-                onLoad={() => setIsLoading(false)}
-              />
+              {autoplayPreviews ? (
+                <iframe
+                  src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${youtubeId}&start=${moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  title={moment.songName}
+                  frameBorder="0"
+                  allow="autoplay; encrypted-media"
+                  loading="lazy"
+                  onLoad={() => setIsLoading(false)}
+                />
+              ) : (
+                <img
+                  src={`https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`}
+                  alt={moment.songName}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onLoad={() => setIsLoading(false)}
+                  onError={() => setIsLoading(false)}
+                />
+              )}
               {/* YouTube badge */}
               <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded">
                 YT
@@ -672,7 +683,7 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
               <video
                 src={transformMediaUrl(moment.mediaUrl)}
                 className="w-full h-full object-cover pointer-events-none"
-                autoPlay
+                autoPlay={autoplayPreviews}
                 muted
                 loop
                 playsInline

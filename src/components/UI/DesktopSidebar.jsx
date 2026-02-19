@@ -24,7 +24,9 @@ const DesktopSidebar = memo(({
   onViewUserProfile,
   position = 'top',
   onShowSettings,
-  onToggleHowToGuide
+  onToggleHowToGuide,
+  autoplayPreviews = true,
+  onToggleAutoplay
 }) => {
   const {
     theaterQueue, currentQueueIndex, isPlayingFromQueue,
@@ -246,6 +248,15 @@ const DesktopSidebar = memo(({
           </div>
         )}
       </div>
+
+      {/* Autoplay preview toggle */}
+      <button
+        onClick={onToggleAutoplay}
+        className={`p-1.5 rounded-sm transition-all ${autoplayPreviews ? 'text-blue-400 bg-blue-600/20' : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'}`}
+        title={autoplayPreviews ? 'Previews: on (click to disable autoplay)' : 'Previews: off (click to enable autoplay)'}
+      >
+        <Play size={14} />
+      </button>
 
       {/* Settings Button */}
       <button

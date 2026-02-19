@@ -127,6 +127,8 @@ const MainApp = memo(() => {
   // Public collection state (for shared collection URLs)
   const [publicCollectionId, setPublicCollectionId] = useState(null);
 
+  const [autoplayPreviews, setAutoplayPreviews] = useState(true);
+
   // Global media filters (affects hero + moments grid)
   // Two toggle groups: Media Type (audio/video) and Source (linked/uploads)
   const [mediaFilters, setMediaFilters] = useState({
@@ -378,6 +380,8 @@ const MainApp = memo(() => {
         position={sidebarPosition}
         onShowSettings={() => setShowSettings(true)}
         onToggleHowToGuide={() => setShowHowToGuide(!showHowToGuide)}
+        autoplayPreviews={autoplayPreviews}
+        onToggleAutoplay={() => setAutoplayPreviews(prev => !prev)}
       />
 
       {/* Main content area - offset for sidebar on desktop, bottom padding for mobile nav */}
@@ -437,6 +441,7 @@ const MainApp = memo(() => {
           user={user}
           mediaFilters={mediaFilters}
           toggleFilter={toggleFilter}
+          autoplayPreviews={autoplayPreviews}
           onShowAccount={() => {
             setShowMyAccount(true);
             refreshNotifications();
@@ -917,6 +922,7 @@ const MainContent = memo(({
   user,
   mediaFilters,
   toggleFilter,
+  autoplayPreviews,
   onShowAccount,
   onLoginClick,
   onViewUserProfile,
@@ -1192,6 +1198,7 @@ const MainContent = memo(({
           onSongSelect={onSongSelect}
           onPerformanceSelect={onPerformanceSelect}
           mediaFilters={mediaFilters}
+          autoplayPreviews={autoplayPreviews}
         />
       )}
       {browseMode === 'performances' && (
