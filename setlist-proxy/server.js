@@ -3009,7 +3009,7 @@ app.get('/api/users/:userId/moments', async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select('title mediaType song performance thumbnailUrl mediaUrl externalVideoId createdAt')
+        .select('title songName mediaType song performance thumbnailUrl mediaUrl externalVideoId createdAt')
         .lean(),
       Moment.countDocuments({ user: userId, approvalStatus: 'approved', showInMoments: { $ne: false } })
     ]);

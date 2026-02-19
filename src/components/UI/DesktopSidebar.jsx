@@ -55,7 +55,7 @@ const DesktopSidebar = memo(({
 
   return (
     <div
-      className={`hidden lg:flex fixed z-30 bg-gray-900/95 backdrop-blur-sm border-gray-700/50 transition-all duration-300 items-center px-4 gap-4 ${positionClasses}`}
+      className={`hidden lg:flex fixed z-50 bg-gray-900/95 backdrop-blur-sm border-gray-700/50 transition-all duration-300 items-center px-4 gap-4 ${positionClasses}`}
     >
       {/* Logo */}
       <button onClick={onShowLanding} className="text-blue-400 hover:text-blue-300 font-bold text-sm whitespace-nowrap transition-colors" title="UMO Archive home">UMO Archive</button>

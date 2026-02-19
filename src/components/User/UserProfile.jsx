@@ -1,6 +1,6 @@
 // src/components/User/UserProfile.jsx
 import React, { useState, useEffect, useCallback, memo } from 'react';
-import { X, User, Calendar, Film, Eye, MessageSquare, Award, Music, Video, Link as LinkIcon, Heart, MapPin, Clock } from 'lucide-react';
+import { X, User, Calendar, Film, Eye, MessageSquare, Award, Music, Video, Link as LinkIcon } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 
 const UserProfile = memo(({ userId, onClose, currentUserId, onPerformanceSelect }) => {
@@ -86,12 +86,12 @@ const UserProfile = memo(({ userId, onClose, currentUserId, onPerformanceSelect 
     : 'Unknown';
 
   const badges = [];
-  if (stats?.totalUploads >= 100) badges.push({ icon: '🏆', label: 'Archive Hero', color: 'bg-yellow-500/20 text-yellow-400' });
-  else if (stats?.totalUploads >= 25) badges.push({ icon: '🌟', label: 'Super Contributor', color: 'bg-purple-500/20 text-purple-400' });
-  else if (stats?.totalUploads >= 5) badges.push({ icon: '⭐', label: 'Contributor', color: 'bg-blue-500/20 text-blue-400' });
-  else if (stats?.totalUploads >= 1) badges.push({ icon: '🎬', label: 'First Upload', color: 'bg-green-500/20 text-green-400' });
+  if (stats?.totalUploads >= 100) badges.push({ label: 'Archive Hero', color: 'bg-yellow-500/20 text-yellow-400' });
+  else if (stats?.totalUploads >= 25) badges.push({ label: 'Super Contributor', color: 'bg-purple-500/20 text-purple-400' });
+  else if (stats?.totalUploads >= 5) badges.push({ label: 'Contributor', color: 'bg-blue-500/20 text-blue-400' });
+  else if (stats?.totalUploads >= 1) badges.push({ label: 'First Upload', color: 'bg-green-500/20 text-green-400' });
   if (profile?.memberSince && new Date(profile.memberSince) < new Date('2025-01-01')) {
-    badges.push({ icon: '👴', label: 'OG Member', color: 'bg-gray-500/20 text-gray-400' });
+    badges.push({ label: 'OG Member', color: 'bg-gray-500/20 text-gray-400' });
   }
 
   const tabs = [
@@ -157,8 +157,8 @@ const UserProfile = memo(({ userId, onClose, currentUserId, onPerformanceSelect 
                     {badges.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {badges.map((badge, idx) => (
-                          <span key={idx} className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 ${badge.color}`}>
-                            <span>{badge.icon}</span>{badge.label}
+                          <span key={idx} className={`px-2 py-0.5 rounded text-xs font-medium ${badge.color}`}>
+                            {badge.label}
                           </span>
                         ))}
                       </div>
@@ -298,8 +298,7 @@ const UploadsTab = memo(({ data, loading, isFavorites }) => {
             </div>
           )}
           <div className="p-2">
-            <p className="text-xs text-white font-medium truncate">{m.title || 'Untitled'}</p>
-            <p className="text-xs text-gray-400 truncate">{m.song?.name || ''}</p>
+            <p className="text-xs text-white font-medium truncate">{m.songName || m.title || 'Untitled'}</p>
           </div>
         </div>
       ))}
@@ -314,27 +313,16 @@ const CommentsTab = memo(({ data, loading, onPerformanceSelect, onClose }) => {
   const comments = data?.comments || [];
   if (!comments.length) return <div className="text-center py-10 text-gray-500 text-sm">No comments yet.</div>;
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {comments.map(c => (
-        <div key={c._id} className="bg-gray-800 rounded-lg p-3">
-          <p className="text-sm text-gray-200 mb-2 line-clamp-3">{c.text}</p>
-          {c.performanceId && (
-            <button
-              onClick={() => { onPerformanceSelect?.({ id: c.performanceId }); onClose?.(); }}
-              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
-            >
-              <MapPin size={11} />Show {c.performanceId.slice(0, 8)}…
-            </button>
-          )}
-          {c.momentId && (
-            <span className="text-xs text-gray-500 flex items-center gap-1">
-              <Video size={10} />On a moment
+        <div key={c._id} className="bg-gray-800/60 rounded p-3">
+          <p className="text-sm text-gray-200 mb-1.5 line-clamp-3">{c.text}</p>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">
+              {c.performanceId ? 'on a show' : c.momentId ? 'on a moment' : ''}
             </span>
-          )}
-          <p className="text-xs text-gray-600 mt-1">
-            <Clock size={10} className="inline mr-1" />
-            {new Date(c.createdAt).toLocaleDateString()}
-          </p>
+            <span className="text-xs text-gray-600">{new Date(c.createdAt).toLocaleDateString()}</span>
+          </div>
         </div>
       ))}
     </div>
@@ -346,23 +334,28 @@ CommentsTab.displayName = 'CommentsTab';
 const ShowsTab = memo(({ data, loading, onPerformanceSelect, onClose }) => {
   if (loading) return <TabSpinner />;
   const rsvps = data?.rsvps || [];
-  if (!rsvps.length) return <div className="text-center py-10 text-gray-500 text-sm">No shows RSVP'd yet.</div>;
+  if (!rsvps.length) return <div className="text-center py-10 text-gray-500 text-sm">No RSVPs yet.</div>;
   return (
     <div className="space-y-2">
-      {rsvps.map(r => (
-        <button
-          key={r._id}
-          onClick={() => { onPerformanceSelect?.({ id: r.performanceId }); onClose?.(); }}
-          className="w-full text-left bg-gray-800 rounded-lg p-3 hover:bg-gray-700/80 transition-colors"
-        >
-          <p className="text-sm font-medium text-white flex items-center gap-1.5">
-            <MapPin size={13} className="text-blue-400 flex-shrink-0" />
-            Show {r.performanceId?.slice(0, 8)}…
-          </p>
-          {r.message && <p className="text-xs text-gray-400 mt-0.5 truncate">"{r.message}"</p>}
-          <p className="text-xs text-gray-600 mt-1">{new Date(r.createdAt).toLocaleDateString()}</p>
-        </button>
-      ))}
+      {rsvps.map(r => {
+        const perf = r.performanceId;
+        const perfId = typeof perf === 'object' ? perf?._id : perf;
+        const venue = typeof perf === 'object' ? (perf?.venue?.name || perf?.venueName || '') : '';
+        const date = typeof perf === 'object' && perf?.eventDate
+          ? new Date(perf.eventDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+          : new Date(r.createdAt).toLocaleDateString();
+        return (
+          <button
+            key={r._id}
+            onClick={() => { onPerformanceSelect?.({ id: perfId }); onClose?.(); }}
+            className="w-full text-left bg-gray-800/60 rounded p-3 hover:bg-gray-700/60 transition-colors"
+          >
+            <p className="text-sm text-white">{venue || 'Show'}</p>
+            {r.message && <p className="text-xs text-gray-400 mt-0.5 truncate italic">{r.message}</p>}
+            <p className="text-xs text-gray-600 mt-1">{date}</p>
+          </button>
+        );
+      })}
     </div>
   );
 });
@@ -372,26 +365,30 @@ ShowsTab.displayName = 'ShowsTab';
 const GuestbookTab = memo(({ data, loading, onPerformanceSelect, onClose }) => {
   if (loading) return <TabSpinner />;
   const signatures = data?.signatures || [];
-  if (!signatures.length) return <div className="text-center py-10 text-gray-500 text-sm">No guestbook signatures yet.</div>;
+  if (!signatures.length) return <div className="text-center py-10 text-gray-500 text-sm">No guestbook entries yet.</div>;
   return (
-    <div className="space-y-3">
-      {signatures.map(sig => (
-        <div key={sig._id} className="bg-gray-800 rounded-lg p-3">
-          {sig.message && <p className="text-sm text-gray-200 mb-2 italic">"{sig.message}"</p>}
-          {sig.performanceId && (
-            <button
-              onClick={() => { onPerformanceSelect?.({ id: sig.performanceId }); onClose?.(); }}
-              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
-            >
-              <MapPin size={11} />Show {sig.performanceId.slice(0, 8)}…
-            </button>
-          )}
-          <p className="text-xs text-gray-600 mt-1">
-            <Clock size={10} className="inline mr-1" />
-            {new Date(sig.createdAt).toLocaleDateString()}
-          </p>
-        </div>
-      ))}
+    <div className="space-y-2">
+      {signatures.map(sig => {
+        const perf = sig.performanceId;
+        const perfId = typeof perf === 'object' ? perf?._id : perf;
+        const venue = typeof perf === 'object' ? (perf?.venue?.name || perf?.venueName || '') : '';
+        return (
+          <div key={sig._id} className="bg-gray-800/60 rounded p-3">
+            {sig.message && <p className="text-sm text-gray-200 mb-1.5 italic">"{sig.message}"</p>}
+            <div className="flex items-center justify-between">
+              {sig.performanceId && (
+                <button
+                  onClick={() => { onPerformanceSelect?.({ id: perfId }); onClose?.(); }}
+                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  {venue || 'View show'}
+                </button>
+              )}
+              <span className="text-xs text-gray-600 ml-auto">{new Date(sig.createdAt).toLocaleDateString()}</span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 });

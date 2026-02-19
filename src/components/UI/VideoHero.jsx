@@ -1213,7 +1213,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       >
       {/* Minimized overlay - glassy controls over the playing video */}
       {isMinimized && (
-        <div className="absolute inset-0 z-40 bg-black/30 backdrop-blur-sm border border-white/10 rounded-sm overflow-hidden">
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm border border-white/10 rounded-sm overflow-hidden">
           {/* Progress bar at top */}
         <div className="h-1 bg-white/20 w-full">
           <div
@@ -1258,7 +1258,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               {isPlaying ? <Pause size={14} className="text-white" /> : <Play size={14} className="text-white ml-0.5" />}
             </button>
             {/* Volume control group */}
-            <div className="flex items-center gap-1 bg-white/10 rounded-full px-1.5 py-1">
+            <div className="flex items-center gap-1 bg-white/10 rounded-sm px-1.5 py-1">
               <button
                 onClick={(e) => { e.stopPropagation(); toggleMute(); }}
                 className={`p-0.5 transition-colors ${isMuted ? 'text-orange-400' : 'text-white'}`}
