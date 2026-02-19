@@ -313,6 +313,7 @@ const MainApp = memo(() => {
     setSelectedSong(null);
     setSelectedPerformance(null);
     setCurrentView('home');
+    setShowLanding(false);
     // Update URL based on browse mode
     if (mode === 'songs') {
       navigate('/songs');
@@ -810,6 +811,7 @@ const LandingPage = memo(({ user, onNavigate, onLoginClick, mediaFilters }) => {
       <VideoHero
         onMomentClick={() => onNavigate('moments')}
         mediaFilters={mediaFilters}
+        noAutoMinimize
       />
 
       <div className="max-w-3xl mx-auto px-4 py-12">

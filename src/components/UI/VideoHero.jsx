@@ -14,7 +14,7 @@ const ASCII_CHARS = ' .:-=+*#%@';
 
 // Keep only trippy effect - removed redundant filter presets
 
-const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: true, linked: true, uploads: true }, customMoments = null }) => {
+const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: true, linked: true, uploads: true }, customMoments = null, noAutoMinimize = false }) => {
   const { user, token } = useAuth();
   const videoRef = useRef(null);
   const audioRef = useRef(null);
@@ -145,8 +145,9 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     return () => clearInterval(interval);
   }, [isYouTube, isAudio, moment?._id]);
 
-  // Auto-minimize on first load once playback starts
+  // Auto-minimize on first load once playback starts (disabled on landing page via noAutoMinimize)
   useEffect(() => {
+    if (noAutoMinimize) return;
     if (moment && isPlaying && !hasAutoMinimized.current && !isMinimized) {
       const timer = setTimeout(() => {
         if (!hasAutoMinimized.current) {
@@ -156,7 +157,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [moment, isPlaying, isMinimized]);
+  }, [moment, isPlaying, isMinimized, noAutoMinimize]);
 
   // Theater queue context
   const {
