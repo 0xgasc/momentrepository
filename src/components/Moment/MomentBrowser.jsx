@@ -680,22 +680,39 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
             </div>
           ) : (moment.mediaType === 'video' || moment.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/)) ? (
             <div className="relative w-full h-full">
-              <video
-                src={transformMediaUrl(moment.mediaUrl)}
-                className="w-full h-full object-cover pointer-events-none"
-                autoPlay={autoplayPreviews}
-                muted
-                loop
-                playsInline
-                preload="metadata"
-                onLoadedMetadata={(e) => {
-                  if (moment.startTime) e.target.currentTime = moment.startTime;
-                }}
-                onLoadedData={() => setIsLoading(false)}
-                onError={() => setIsLoading(false)}
-              >
-                Your browser does not support the video tag.
-              </video>
+              {autoplayPreviews ? (
+                <video
+                  key={`video-${moment._id}-play`}
+                  src={transformMediaUrl(moment.mediaUrl)}
+                  className="w-full h-full object-cover pointer-events-none"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  onLoadedMetadata={(e) => {
+                    if (moment.startTime) e.target.currentTime = moment.startTime;
+                  }}
+                  onLoadedData={() => setIsLoading(false)}
+                  onError={() => setIsLoading(false)}
+                >
+                  Your browser does not support the video tag.
+                </video>
+              ) : moment.thumbnailUrl ? (
+                <img
+                  src={transformMediaUrl(moment.thumbnailUrl)}
+                  alt={moment.songName}
+                  className="w-full h-full object-cover"
+                  onLoad={() => setIsLoading(false)}
+                  onError={() => setIsLoading(false)}
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center">
+                    <div className="w-0 h-0 border-y-[7px] border-y-transparent border-l-[12px] border-l-gray-400 ml-1" />
+                  </div>
+                </div>
+              )}
               {/* NFT Edition Badge - subtle bottom left */}
               {isWeb3Enabled() && moment.hasNFTEdition && moment.nftCardUrl && (
                 <div className="absolute bottom-2 left-2 flex items-center">
