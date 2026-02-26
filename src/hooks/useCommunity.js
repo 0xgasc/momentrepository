@@ -81,7 +81,31 @@ export const useComments = (performanceId, token) => {
     }
   }, [token, fetchComments]);
 
-  return { comments, loading, fetchComments, addComment, voteComment };
+  const deleteComment = useCallback(async (commentId) => {
+    if (!token) return { error: 'Login required' };
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/comments/${commentId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        await fetchComments();
+        return { success: true };
+      }
+      return { error: 'Failed to delete' };
+    } catch (err) {
+      return { error: 'Network error' };
+    }
+  }, [token, fetchComments]);
+
+  return { comments, loading, fetchComments, addComment, voteComment, deleteComment };
 };
 
 // Moment Comments hook - comments on individual moments
@@ -263,7 +287,7 @@ export const useRSVP = (performanceId, token) => {
     }
   }, [performanceId, token, fetchRSVPs]);
 
-  const removeRSVP = useCallback(async (anonymousId) => {
+  const removeRSVP = useCallback(async (anonymousId, rsvpId = null) => {
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/community/performances/${performanceId}/rsvp`,
@@ -273,7 +297,7 @@ export const useRSVP = (performanceId, token) => {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {})
           },
-          body: JSON.stringify({ anonymousId })
+          body: JSON.stringify({ anonymousId, rsvpId })
         }
       );
 
@@ -450,5 +474,29 @@ export const useGuestbook = (performanceId, token) => {
     }
   }, [performanceId, token, fetchSignatures]);
 
-  return { signatures, loading, fetchSignatures, addSignature };
+  const deleteSignature = useCallback(async (signatureId) => {
+    if (!token) return { error: 'Login required' };
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/guestbook/${signatureId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        await fetchSignatures();
+        return { success: true };
+      }
+      return { error: 'Failed to delete' };
+    } catch (err) {
+      return { error: 'Network error' };
+    }
+  }, [token, fetchSignatures]);
+
+  return { signatures, loading, fetchSignatures, addSignature, deleteSignature };
 };

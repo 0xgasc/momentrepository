@@ -877,7 +877,20 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     service: 'UMO Archive Backend',
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '1.0.0',
+    origin: req.get('origin'),
+    allowedOrigins: allowedOrigins
+  });
+});
+
+// API Health check endpoint - for debugging CORS and connectivity
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'UMO Archive Backend',
+    timestamp: new Date().toISOString(),
+    origin: req.get('origin'),
+    allowedOrigins: allowedOrigins
   });
 });
 

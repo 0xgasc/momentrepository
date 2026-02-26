@@ -1,6 +1,6 @@
 // src/components/Performance/panels/CommentsSection.jsx
 import React, { useState, useEffect, memo } from 'react';
-import { ChevronUp, ChevronDown, MessageSquare, Reply, Clock, User } from 'lucide-react';
+import { ChevronUp, ChevronDown, MessageSquare, Reply, Clock, User, Trash2 } from 'lucide-react';
 import { useComments } from '../../../hooks/useCommunity';
 
 const formatTimeAgo = (date) => {
@@ -11,7 +11,7 @@ const formatTimeAgo = (date) => {
   return `${Math.floor(seconds / 86400)}d ago`;
 };
 
-const CommentItem = memo(({ comment, onVote, onReply, user, depth = 0, onViewUserProfile }) => {
+const CommentItem = memo(({ comment, onVote, onReply, onDelete, user, depth = 0, onViewUserProfile }) => {
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [replyText, setReplyText] = useState('');
 
@@ -34,6 +34,15 @@ const CommentItem = memo(({ comment, onVote, onReply, user, depth = 0, onViewUse
       setShowReplyBox(false);
     }
   };
+
+  const handleDelete = () => {
+    if (window.confirm('Are you sure you want to delete this comment? This action cannot be undone.')) {
+      onDelete(comment._id);
+    }
+  };
+
+  const isAdminOrMod = user && (user.role === 'admin' || user.role === 'mod');
+  const isOwner = user && comment.user?._id && comment.user._id.toString() === user._id?.toString();
 
   const maxDepth = 3;
   const isNested = depth > 0;
@@ -90,15 +99,26 @@ const CommentItem = memo(({ comment, onVote, onReply, user, depth = 0, onViewUse
           </p>
 
           {/* Actions */}
-          {depth < maxDepth && (
-            <button
-              onClick={() => setShowReplyBox(!showReplyBox)}
-              className="flex items-center gap-1 mt-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
-            >
-              <Reply size={12} />
-              Reply
-            </button>
-          )}
+          <div className="flex items-center gap-3 mt-2">
+            {depth < maxDepth && (
+              <button
+                onClick={() => setShowReplyBox(!showReplyBox)}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                <Reply size={12} />
+                Reply
+              </button>
+            )}
+            {(isOwner || isAdminOrMod) && (
+              <button
+                onClick={handleDelete}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-400 transition-colors"
+              >
+                <Trash2 size={10} />
+                Delete
+              </button>
+            )}
+          </div>
 
           {/* Reply box */}
           {showReplyBox && (
@@ -138,6 +158,7 @@ const CommentItem = memo(({ comment, onVote, onReply, user, depth = 0, onViewUse
               comment={reply}
               onVote={onVote}
               onReply={onReply}
+              onDelete={onDelete}
               user={user}
               depth={depth + 1}
               onViewUserProfile={onViewUserProfile}
@@ -152,7 +173,7 @@ const CommentItem = memo(({ comment, onVote, onReply, user, depth = 0, onViewUse
 CommentItem.displayName = 'CommentItem';
 
 const CommentsSection = memo(({ performanceId, user, token, onViewUserProfile }) => {
-  const { comments, loading, fetchComments, addComment, voteComment } = useComments(performanceId, token);
+  const { comments, loading, fetchComments, addComment, voteComment, deleteComment } = useComments(performanceId, token);
   const [newComment, setNewComment] = useState('');
   const [sort, setSort] = useState('top');
 
@@ -179,6 +200,13 @@ const CommentsSection = memo(({ performanceId, user, token, onViewUserProfile })
     const result = await addComment(text, parentId);
     if (!result.success) {
       alert(result.error);
+    }
+  };
+
+  const handleDelete = async (commentId) => {
+    const result = await deleteComment(commentId);
+    if (!result.success) {
+      alert(result.error || 'Failed to delete comment');
     }
   };
 
@@ -238,6 +266,7 @@ const CommentsSection = memo(({ performanceId, user, token, onViewUserProfile })
               comment={comment}
               onVote={voteComment}
               onReply={handleReply}
+              onDelete={handleDelete}
               user={user}
               onViewUserProfile={onViewUserProfile}
             />

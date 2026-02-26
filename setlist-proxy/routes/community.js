@@ -206,7 +206,10 @@ router.delete('/comments/:commentId', async (req, res) => {
       return res.status(404).json({ error: 'Comment not found' });
     }
 
-    if (comment.user.toString() !== req.user.userId && req.user.role !== 'admin') {
+    const isAdminOrMod = req.user.role === 'admin' || req.user.role === 'mod';
+    const isOwner = comment.user.toString() === req.user.userId;
+
+    if (!isOwner && !isAdminOrMod) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
@@ -582,6 +585,38 @@ router.post('/performances/:performanceId/guestbook',
   }
 );
 
+// Delete guestbook signature (owner + admin/mod)
+router.delete('/guestbook/:signatureId', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Login required' });
+    }
+
+    const { signatureId } = req.params;
+    const signature = await Guestbook.findById(signatureId);
+
+    if (!signature) {
+      return res.status(404).json({ error: 'Signature not found' });
+    }
+
+    const isAdminOrMod = req.user.role === 'admin' || req.user.role === 'mod';
+    const isOwner = signature.user && signature.user.toString() === req.user.userId;
+
+    if (!isOwner && !isAdminOrMod) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    signature.isDeleted = true;
+    signature.message = '[deleted]';
+    await signature.save();
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Delete guestbook signature error:', err);
+    res.status(500).json({ error: 'Failed to delete signature' });
+  }
+});
+
 // ============================================
 // RSVP - "I'm going!" list
 // ============================================
@@ -658,8 +693,20 @@ router.post('/performances/:performanceId/rsvp', async (req, res) => {
 router.delete('/performances/:performanceId/rsvp', async (req, res) => {
   try {
     const { performanceId } = req.params;
-    const { anonymousId } = req.body;
+    const { anonymousId, rsvpId } = req.body;
 
+    const isAdminOrMod = req.user && (req.user.role === 'admin' || req.user.role === 'mod');
+
+    // Admin/mod can delete any RSVP by ID
+    if (isAdminOrMod && rsvpId) {
+      const result = await RSVP.deleteOne({ _id: rsvpId });
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ error: 'RSVP not found' });
+      }
+      return res.json({ success: true });
+    }
+
+    // Regular user can only delete their own RSVP
     const query = req.user
       ? { performanceId, user: req.user.userId }
       : { performanceId, anonymousId };

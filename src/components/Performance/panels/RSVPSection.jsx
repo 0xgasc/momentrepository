@@ -1,6 +1,6 @@
 // src/components/Performance/panels/RSVPSection.jsx
 import React, { useState, useEffect, memo } from 'react';
-import { Users, UserPlus, UserMinus, Check, Clock } from 'lucide-react';
+import { Users, UserPlus, UserMinus, Check, Clock, Trash2 } from 'lucide-react';
 import { useRSVP } from '../../../hooks/useCommunity';
 
 const formatTimeAgo = (date) => {
@@ -63,6 +63,17 @@ const RSVPSection = memo(({ performanceId, user, token }) => {
       alert(result.error);
     }
   };
+
+  const handleDelete = async (rsvpId) => {
+    if (window.confirm('Are you sure you want to delete this RSVP? This action cannot be undone.')) {
+      const result = await removeRSVP(null, rsvpId);
+      if (!result.success) {
+        alert(result.error || 'Failed to delete RSVP');
+      }
+    }
+  };
+
+  const isAdminOrMod = user && (user.role === 'admin' || user.role === 'mod');
 
   if (loading) {
     return (
@@ -177,9 +188,20 @@ const RSVPSection = memo(({ performanceId, user, token }) => {
                 {rsvp.message && (
                   <p className="text-sm text-gray-400 mt-0.5">{rsvp.message}</p>
                 )}
-                <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-                  <Clock size={10} />
-                  {formatTimeAgo(rsvp.createdAt)}
+                <div className="flex items-center gap-3 mt-1">
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <Clock size={10} />
+                    {formatTimeAgo(rsvp.createdAt)}
+                  </div>
+                  {isAdminOrMod && (
+                    <button
+                      onClick={() => handleDelete(rsvp._id)}
+                      className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 size={10} />
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

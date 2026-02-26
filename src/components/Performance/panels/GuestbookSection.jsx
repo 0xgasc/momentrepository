@@ -1,6 +1,6 @@
 // src/components/Performance/panels/GuestbookSection.jsx
 import React, { useState, useEffect, memo } from 'react';
-import { PenLine, Clock, UserX } from 'lucide-react';
+import { PenLine, Clock, UserX, Trash2 } from 'lucide-react';
 import { useGuestbook } from '../../../hooks/useCommunity';
 
 const formatTimeAgo = (date) => {
@@ -12,12 +12,21 @@ const formatTimeAgo = (date) => {
   return new Date(date).toLocaleDateString();
 };
 
-const SignatureItem = memo(({ signature, onViewUserProfile }) => {
+const SignatureItem = memo(({ signature, onViewUserProfile, onDelete, user }) => {
   const isAnon = signature.isAnonymous || !signature.user;
   const displayName = isAnon
     ? (signature.displayName || 'Anonymous Fan')
     : (signature.user?.displayName || signature.displayName || 'Fan');
   const canClickUser = !isAnon && signature.user?._id && onViewUserProfile;
+
+  const handleDelete = () => {
+    if (window.confirm('Are you sure you want to delete this signature? This action cannot be undone.')) {
+      onDelete(signature._id);
+    }
+  };
+
+  const isAdminOrMod = user && (user.role === 'admin' || user.role === 'mod');
+  const isOwner = user && signature.user?._id && signature.user._id.toString() === user._id?.toString();
 
   return (
     <div className="signature-item py-3 border-b border-gray-800/30 last:border-b-0">
@@ -60,6 +69,17 @@ const SignatureItem = memo(({ signature, onViewUserProfile }) => {
               "{signature.message}"
             </p>
           )}
+
+          {/* Delete button */}
+          {(isOwner || isAdminOrMod) && (
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-400 transition-colors mt-2"
+            >
+              <Trash2 size={10} />
+              Delete
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -69,7 +89,7 @@ const SignatureItem = memo(({ signature, onViewUserProfile }) => {
 SignatureItem.displayName = 'SignatureItem';
 
 const GuestbookSection = memo(({ performanceId, user, token, onViewUserProfile }) => {
-  const { signatures, loading, fetchSignatures, addSignature } = useGuestbook(performanceId, token);
+  const { signatures, loading, fetchSignatures, addSignature, deleteSignature } = useGuestbook(performanceId, token);
   const [message, setMessage] = useState('');
   const [anonName, setAnonName] = useState('');
   const [signAsAnon, setSignAsAnon] = useState(!user);
@@ -98,6 +118,13 @@ const GuestbookSection = memo(({ performanceId, user, token, onViewUserProfile }
       setAnonName('');
     } else {
       alert(result.error || 'Failed to sign guestbook');
+    }
+  };
+
+  const handleDelete = async (signatureId) => {
+    const result = await deleteSignature(signatureId);
+    if (!result.success) {
+      alert(result.error || 'Failed to delete signature');
     }
   };
 
@@ -190,7 +217,13 @@ const GuestbookSection = memo(({ performanceId, user, token, onViewUserProfile }
               {signatures.length} {signatures.length === 1 ? 'signature' : 'signatures'}
             </p>
             {signatures.map(sig => (
-              <SignatureItem key={sig._id} signature={sig} onViewUserProfile={onViewUserProfile} />
+              <SignatureItem
+                key={sig._id}
+                signature={sig}
+                onViewUserProfile={onViewUserProfile}
+                onDelete={handleDelete}
+                user={user}
+              />
             ))}
           </>
         )}
