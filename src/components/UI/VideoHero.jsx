@@ -1291,14 +1291,17 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
             >
               <SkipForward size={14} className="text-white" />
             </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setIsMinimized(false); }}
-              onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); setIsMinimized(false); }}
-              className="bg-yellow-600/50 hover:bg-yellow-600/70 rounded-full p-1.5 transition-colors cursor-pointer relative z-10"
-              title="Expand player"
-            >
-              <Maximize2 size={14} className="text-white" />
-            </button>
+            {/* Only show maximize button when NOT in landing mode (landing uses overlay toggle instead) */}
+            {!noAutoMinimize && (
+              <button
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); setIsMinimized(false); }}
+                onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); setIsMinimized(false); }}
+                className="bg-yellow-600/50 hover:bg-yellow-600/70 rounded-full p-1.5 transition-colors cursor-pointer relative z-10"
+                title="Expand player"
+              >
+                <Maximize2 size={14} className="text-white" />
+              </button>
+            )}
           </div>
         </div>
         </div>
