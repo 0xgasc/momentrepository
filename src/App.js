@@ -215,10 +215,19 @@ const MainApp = memo(() => {
       return;
     }
 
+    // Check for /moments path
+    if (pathname === '/moments') {
+      setBrowseMode('moments');
+      setCurrentView('home');
+      setShowLanding(false);
+      return;
+    }
+
     // Check for /songs path
     if (pathname === '/songs') {
       setBrowseMode('songs');
       setCurrentView('home');
+      setShowLanding(false);
       return;
     }
 
@@ -226,6 +235,7 @@ const MainApp = memo(() => {
     if (pathname === '/shows') {
       setBrowseMode('performances');
       setCurrentView('home');
+      setShowLanding(false);
       return;
     }
 
@@ -1167,11 +1177,10 @@ const MainContent = memo(({
           )}
         </div>
       ) : (
-        /* Browse mode - VideoHero without overlay */
+        /* Browse mode - VideoHero without overlay, allows auto-minimize and expand */
         <VideoHero
           onMomentClick={(moment) => setHeroSelectedMoment(moment)}
           mediaFilters={mediaFilters}
-          noAutoMinimize={showLanding}
         />
       )}
 
