@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { slugify } from './utils/slugify';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
-import { Menu, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Music, Video, Link2, Upload, Film, Calendar, User, LogIn, Play, Pause, SkipForward, SkipBack, Shuffle, Volume2, VolumeX, Settings, ListMusic, Trophy, Trash2 } from 'lucide-react';
+import { Menu, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Music, Video, Link2, Upload, Film, Calendar, User, LogIn, Play, Pause, SkipForward, SkipBack, Shuffle, Volume2, VolumeX, Settings, ListMusic, Trophy, Trash2, Eye, EyeOff } from 'lucide-react';
 import './styles/umo-theme.css';
 
 // Import the extracted components
@@ -111,6 +111,7 @@ const MainApp = memo(() => {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [initialMomentId, setInitialMomentId] = useState(null);
   const [showLanding, setShowLanding] = useState(location.pathname === '/');
+  const [showLandingOverlay, setShowLandingOverlay] = useState(true); // Toggle for landing page overlay
   const [showSettings, setShowSettings] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarPosition, setSidebarPosition] = useState(() => {
@@ -793,7 +794,7 @@ class ModalErrorBoundary extends React.Component {
 }
 
 // Landing Page Content — text, CTA cards, steps. VideoHero is rendered separately below it.
-const LandingPageContent = memo(({ user, onNavigate, onLoginClick }) => {
+const LandingPageContent = memo(({ user, onNavigate, onLoginClick, onToggleOverlay, overlayVisible }) => {
   const ctaCards = [
     {
       mode: 'moments',
@@ -813,7 +814,20 @@ const LandingPageContent = memo(({ user, onNavigate, onLoginClick }) => {
   ];
 
   return (
-    <div className="bg-gray-950 text-gray-100">
+    <div className="text-gray-100 relative">
+      {/* Toggle Overlay Button */}
+      <button
+        onClick={onToggleOverlay}
+        className="absolute top-3 right-3 z-50 bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full p-2.5 transition-all group"
+        title={overlayVisible ? "Show video" : "Show info"}
+      >
+        {overlayVisible ? (
+          <EyeOff size={18} className="text-white group-hover:text-blue-400 transition-colors" />
+        ) : (
+          <Eye size={18} className="text-white group-hover:text-blue-400 transition-colors" />
+        )}
+      </button>
+
       <div className="max-w-3xl mx-auto px-4 py-12">
         {/* Tagline */}
         <div className="mb-10">
@@ -1058,15 +1072,6 @@ const MainContent = memo(({
         </div>
       )}
 
-      {/* Landing page content — shown above VideoHero so hero ends up at bottom */}
-      {showLanding && (
-        <LandingPageContent
-          user={user}
-          onNavigate={(mode) => onShowLanding?.(mode)}
-          onLoginClick={onLoginClick}
-        />
-      )}
-
       {/* Media Filter Pills - Tablet only (shown only in browse mode) */}
       {!showLanding && <div className="hidden sm:flex lg:hidden justify-center mb-4">
         <div className="flex gap-3 items-center bg-gray-900/80 backdrop-blur-sm p-2 rounded-sm border border-gray-800">
@@ -1123,12 +1128,48 @@ const MainContent = memo(({
         </div>
       </div>}
 
-      {/* VideoHero — single persistent instance; at bottom when landing, top when browsing */}
-      <VideoHero
-        onMomentClick={(moment) => setHeroSelectedMoment(moment)}
-        mediaFilters={mediaFilters}
-        noAutoMinimize={showLanding}
-      />
+      {/* VideoHero with Landing Page Overlay */}
+      {showLanding ? (
+        <div className="relative">
+          {/* VideoHero — background video */}
+          <VideoHero
+            onMomentClick={(moment) => setHeroSelectedMoment(moment)}
+            mediaFilters={mediaFilters}
+            noAutoMinimize={showLanding}
+          />
+
+          {/* Landing page content overlay — absolute positioned over VideoHero */}
+          {showLandingOverlay && (
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm overflow-y-auto pointer-events-auto transition-opacity duration-300">
+              <LandingPageContent
+                user={user}
+                onNavigate={(mode) => onShowLanding?.(mode)}
+                onLoginClick={onLoginClick}
+                onToggleOverlay={() => setShowLandingOverlay(false)}
+                overlayVisible={true}
+              />
+            </div>
+          )}
+
+          {/* Floating button to bring overlay back when hidden */}
+          {!showLandingOverlay && (
+            <button
+              onClick={() => setShowLandingOverlay(true)}
+              className="absolute top-3 right-3 z-50 bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full p-2.5 transition-all group"
+              title="Show info"
+            >
+              <Eye size={18} className="text-white group-hover:text-blue-400 transition-colors" />
+            </button>
+          )}
+        </div>
+      ) : (
+        /* Browse mode - VideoHero without overlay */
+        <VideoHero
+          onMomentClick={(moment) => setHeroSelectedMoment(moment)}
+          mediaFilters={mediaFilters}
+          noAutoMinimize={showLanding}
+        />
+      )}
 
       {!showLanding && <>
       {/* Scroll anchor for navigation clicks */}
