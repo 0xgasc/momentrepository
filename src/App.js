@@ -465,6 +465,8 @@ const MainApp = memo(() => {
               navigate('/');
             }
           }}
+          showLandingOverlay={showLandingOverlay}
+          setShowLandingOverlay={setShowLandingOverlay}
         />
         )}
 
@@ -937,7 +939,9 @@ const MainContent = memo(({
   onViewUserProfile,
   initialMomentId,
   showLanding,
-  onShowLanding
+  onShowLanding,
+  showLandingOverlay,
+  setShowLandingOverlay
 }) => {
   const [heroSelectedMoment, setHeroSelectedMoment] = useState(null);
   const contentSectionRef = useRef(null);
