@@ -23,10 +23,10 @@ const CreditsFooter = memo(({ onContactClick }) => (
     <div className="max-w-7xl mx-auto px-4">
       {/* Social Links Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        <SocialLink icon={Globe} label="Official Website" href="https://unknownmortalorchestra.com" />
-        <SocialLink icon={MessageCircle} label="Discord" href="#" />
-        <SocialLink icon={ExternalLink} label="Reddit" href="#" />
-        <SocialLink icon={ExternalLink} label="Instagram" href="#" />
+        <SocialLink icon={Globe} label="Official Website" href="https://www.unknownmortalorchestra.com/" />
+        <SocialLink icon={MessageCircle} label="Discord" href="https://discord.gg/9MzfYFeW2p" />
+        <SocialLink icon={ExternalLink} label="Reddit" href="https://www.reddit.com/r/UMOband/" />
+        <SocialLink icon={ExternalLink} label="Instagram" href="https://www.instagram.com/unknownmortalorchestra/" />
         <SocialLink icon={Archive} label="Archive.org" href="#" />
       </div>
 
