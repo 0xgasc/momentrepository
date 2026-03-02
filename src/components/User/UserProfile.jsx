@@ -299,37 +299,10 @@ const UploadsTab = memo(({ data, loading, isFavorites, onMomentClick, onClose })
       {moments.map((m, i) => {
         if (!m) return null;
 
-        // Debug: Log the first moment to see structure
-        if (i === 0) {
-          console.log('First moment data:', m);
-          console.log('Thumbnail fields:', {
-            thumbnailUrl: m.thumbnailUrl,
-            thumbnail: m.thumbnail,
-            thumbnailURL: m.thumbnailURL
-          });
-          console.log('Venue fields:', {
-            venueName: m.venueName,
-            'venue?.name': m.venue?.name,
-            'performance?.venue?.name': m.performance?.venue?.name,
-            'performance?.venueName': m.performance?.venueName,
-            performanceId: m.performanceId
-          });
-        }
-
-        // Handle different thumbnail field names
-        const thumbnail = m.thumbnailUrl || m.thumbnail || m.thumbnailURL;
-
-        // Handle different venue field structures
-        const venue = m.venueName
-          || m.venue?.name
-          || m.performance?.venue?.name
-          || m.performance?.venueName
-          || (typeof m.performanceId === 'object' ? m.performanceId?.venue?.name || m.performanceId?.venueName : null);
-
-        // Handle different date field structures
-        const eventDate = m.eventDate
-          || m.performance?.eventDate
-          || (typeof m.performanceId === 'object' ? m.performanceId?.eventDate : null);
+        // API returns thumbnailUrl, venueName, and performanceDate directly
+        const thumbnail = m.thumbnailUrl;
+        const venue = m.venueName;
+        const eventDate = m.performanceDate;
 
         return (
           <button
