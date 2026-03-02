@@ -1073,12 +1073,13 @@ const MainContent = memo(({
         songData={selectedSong}
         onBack={onBack}
         onPerformanceSelect={onPerformanceSelect}
+        autoplayPreviews={autoplayPreviews}
       />
     );
   }
 
   if (currentView === 'performance' && selectedPerformance) {
-    return <PerformanceDetail performance={selectedPerformance} onBack={onBack} onViewUserProfile={onViewUserProfile} onNavigateToSong={onSongSelect} />;
+    return <PerformanceDetail performance={selectedPerformance} onBack={onBack} onViewUserProfile={onViewUserProfile} onNavigateToSong={onSongSelect} autoplayPreviews={autoplayPreviews} />;
   }
 
   // Home view - Hero persists above navigation tabs

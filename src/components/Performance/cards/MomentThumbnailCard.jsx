@@ -109,7 +109,8 @@ const MomentThumbnailCard = memo(({
   moment,
   onClick,
   showSongName = true,
-  compact = false
+  compact = false,
+  autoplayPreviews = true
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const { isInQueue, addToQueue } = useTheaterQueue();
@@ -167,21 +168,30 @@ const MomentThumbnailCard = memo(({
           (() => {
             const ytId = getYouTubeId(moment);
             return ytId ? (
-              <iframe
-                src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&start=${moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                title={moment.songName}
-                frameBorder="0"
-                allow="autoplay; encrypted-media"
-                loading="lazy"
-                onLoad={() => setIsLoading(false)}
-              />
+              autoplayPreviews ? (
+                <iframe
+                  src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&start=${moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  title={moment.songName}
+                  frameBorder="0"
+                  allow="autoplay; encrypted-media"
+                  loading="lazy"
+                  onLoad={() => setIsLoading(false)}
+                />
+              ) : (
+                <img
+                  src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
+                  alt={moment.songName}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onLoad={() => setIsLoading(false)}
+                />
+              )
             ) : null;
           })()
         ) : moment.mediaType === 'video' && moment.mediaUrl && !isYouTubeMoment(moment) ? (
           <video
             src={transformMediaUrl(moment.mediaUrl)}
-            autoPlay
+            autoPlay={autoplayPreviews}
             loop
             muted
             playsInline

@@ -6,7 +6,8 @@ import MomentThumbnailCard from '../cards/MomentThumbnailCard';
 const MediaGalleryPanel = memo(({
   moments = [],
   onSelectMoment,
-  title = 'Media Gallery'
+  title = 'Media Gallery',
+  autoplayPreviews = true
 }) => {
   const scrollRef = useRef(null);
   const [showAll, setShowAll] = useState(false);
@@ -58,6 +59,7 @@ const MediaGalleryPanel = memo(({
               key={moment._id}
               moment={moment}
               onClick={onSelectMoment}
+              autoplayPreviews={autoplayPreviews}
             />
           ))}
         </div>

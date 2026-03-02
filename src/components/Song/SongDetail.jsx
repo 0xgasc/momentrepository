@@ -11,7 +11,7 @@ import { Play, ListPlus, Check, Music } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import { transformMediaUrl } from '../../utils/mediaUrl';
 
-const SongDetail = memo(({ songData: initialSongData, onBack, onPerformanceSelect }) => {
+const SongDetail = memo(({ songData: initialSongData, onBack, onPerformanceSelect, autoplayPreviews = true }) => {
   const [selectedMoment, setSelectedMoment] = useState(null);
   const [uploadingMoment, setUploadingMoment] = useState(null);
   const [viewMode, setViewMode] = useState('chronological');
@@ -304,14 +304,22 @@ const SongDetail = memo(({ songData: initialSongData, onBack, onPerformanceSelec
                           moment.mediaUrl?.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([a-zA-Z0-9_-]{11})/)?.[1];
                         return ytId ? (
                           <>
-                            <iframe
-                              src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&start=${moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
-                              className="absolute inset-0 w-full h-full pointer-events-none"
-                              title={moment.songName}
-                              frameBorder="0"
-                              allow="autoplay; encrypted-media"
-                              loading="lazy"
-                            />
+                            {autoplayPreviews ? (
+                              <iframe
+                                src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&start=${moment.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
+                                className="absolute inset-0 w-full h-full pointer-events-none"
+                                title={moment.songName}
+                                frameBorder="0"
+                                allow="autoplay; encrypted-media"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <img
+                                src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
+                                alt={moment.songName}
+                                className="absolute inset-0 w-full h-full object-cover"
+                              />
+                            )}
                             <div className="absolute top-1 right-1 px-1 py-0.5 bg-red-600 text-white text-[8px] font-bold rounded z-10">YT</div>
                           </>
                         ) : null;
@@ -324,7 +332,7 @@ const SongDetail = memo(({ songData: initialSongData, onBack, onPerformanceSelec
                             src={transformMediaUrl(moment.mediaUrl)}
                             className="w-full h-full object-cover"
                             muted
-                            autoPlay
+                            autoPlay={autoplayPreviews}
                             loop
                             playsInline
                             preload="auto"
