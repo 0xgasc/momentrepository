@@ -296,30 +296,49 @@ const UploadsTab = memo(({ data, loading, isFavorites, onMomentClick, onClose })
 
   return (
     <div className="grid grid-cols-2 gap-3">
-      {moments.map((m, i) => m && (
-        <button
-          key={m._id || i}
-          onClick={() => handleMomentClick(m)}
-          className="bg-gray-800 rounded-lg overflow-hidden hover:bg-gray-700 transition-colors text-left"
-        >
-          {m.thumbnailUrl ? (
-            <img src={m.thumbnailUrl} alt={m.title || 'Moment'} className="w-full aspect-video object-cover" loading="lazy" />
-          ) : (
-            <div className="w-full aspect-video bg-gray-700 flex items-center justify-center">
-              {m.mediaType === 'audio' ? <Music size={24} className="text-gray-500" /> : <Video size={24} className="text-gray-500" />}
-            </div>
-          )}
-          <div className="p-2 space-y-1">
-            <p className="text-xs text-white font-medium truncate">{m.songName || m.title || 'Untitled'}</p>
-            <p className="text-[10px] text-gray-500 truncate">{m.venueName || 'Unknown venue'}</p>
-            {m.eventDate && (
-              <p className="text-[10px] text-gray-600">
-                {new Date(m.eventDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-              </p>
+      {moments.map((m, i) => {
+        if (!m) return null;
+
+        // Handle different thumbnail field names
+        const thumbnail = m.thumbnailUrl || m.thumbnail || m.thumbnailURL;
+
+        // Handle different venue field structures
+        const venue = m.venueName
+          || m.venue?.name
+          || m.performance?.venue?.name
+          || m.performance?.venueName
+          || (typeof m.performanceId === 'object' ? m.performanceId?.venue?.name || m.performanceId?.venueName : null);
+
+        // Handle different date field structures
+        const eventDate = m.eventDate
+          || m.performance?.eventDate
+          || (typeof m.performanceId === 'object' ? m.performanceId?.eventDate : null);
+
+        return (
+          <button
+            key={m._id || i}
+            onClick={() => handleMomentClick(m)}
+            className="bg-gray-800 rounded-lg overflow-hidden hover:bg-gray-700 transition-colors text-left"
+          >
+            {thumbnail ? (
+              <img src={thumbnail} alt={m.title || 'Moment'} className="w-full aspect-video object-cover" loading="lazy" />
+            ) : (
+              <div className="w-full aspect-video bg-gray-700 flex items-center justify-center">
+                {m.mediaType === 'audio' ? <Music size={24} className="text-gray-500" /> : <Video size={24} className="text-gray-500" />}
+              </div>
             )}
-          </div>
-        </button>
-      ))}
+            <div className="p-2 space-y-1">
+              <p className="text-xs text-white font-medium truncate">{m.songName || m.title || 'Untitled'}</p>
+              <p className="text-[10px] text-gray-500 truncate">{venue || 'Unknown venue'}</p>
+              {eventDate && (
+                <p className="text-[10px] text-gray-600">
+                  {new Date(eventDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                </p>
+              )}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 });
