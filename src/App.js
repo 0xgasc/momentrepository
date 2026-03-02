@@ -534,6 +534,7 @@ const MainApp = memo(() => {
             setShowUserProfile(false);
             setSelectedUserId(null);
           }}
+          autoplayPreviews={autoplayPreviews}
         />
       )}
 

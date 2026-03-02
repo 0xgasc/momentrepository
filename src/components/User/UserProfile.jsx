@@ -1,9 +1,10 @@
 // src/components/User/UserProfile.jsx
 import React, { useState, useEffect, useCallback, memo } from 'react';
-import { X, User, Calendar, Film, Eye, MessageSquare, Award, Music, Video, Link as LinkIcon } from 'lucide-react';
+import { X, User, Calendar, Film, Eye, MessageSquare, Award, Music, Video, Link as LinkIcon, Loader2 } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
+import { transformMediaUrl } from '../../utils/mediaUrl';
 
-const UserProfile = memo(({ userId, onClose, currentUserId, onPerformanceSelect, onMomentClick }) => {
+const UserProfile = memo(({ userId, onClose, currentUserId, onPerformanceSelect, onMomentClick, autoplayPreviews = true }) => {
   const [profile, setProfile] = useState(null);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -210,7 +211,7 @@ const UserProfile = memo(({ userId, onClose, currentUserId, onPerformanceSelect,
                 <OverviewTab stats={stats} />
               )}
               {activeTab === 'uploads' && (
-                <UploadsTab data={tabData.uploads} loading={tabLoading.uploads} onMomentClick={onMomentClick} onClose={onClose} />
+                <UploadsTab data={tabData.uploads} loading={tabLoading.uploads} onMomentClick={onMomentClick} onClose={onClose} autoplayPreviews={autoplayPreviews} />
               )}
               {activeTab === 'comments' && (
                 <CommentsTab data={tabData.comments} loading={tabLoading.comments} onPerformanceSelect={onPerformanceSelect} onClose={onClose} />
@@ -222,7 +223,7 @@ const UserProfile = memo(({ userId, onClose, currentUserId, onPerformanceSelect,
                 <GuestbookTab data={tabData.guestbook} loading={tabLoading.guestbook} onPerformanceSelect={onPerformanceSelect} onClose={onClose} />
               )}
               {activeTab === 'favorites' && isOwnProfile && (
-                <UploadsTab data={tabData.favorites ? { moments: tabData.favorites.favorites?.map(f => f.moment).filter(Boolean) } : null} loading={tabLoading.favorites} isFavorites onMomentClick={onMomentClick} onClose={onClose} />
+                <UploadsTab data={tabData.favorites ? { moments: tabData.favorites.favorites?.map(f => f.moment).filter(Boolean) } : null} loading={tabLoading.favorites} isFavorites onMomentClick={onMomentClick} onClose={onClose} autoplayPreviews={autoplayPreviews} />
               )}
             </div>
           </>
@@ -277,8 +278,8 @@ const OverviewTab = memo(({ stats }) => {
 });
 OverviewTab.displayName = 'OverviewTab';
 
-// Uploads/Favorites tab — grid of moments
-const UploadsTab = memo(({ data, loading, isFavorites, onMomentClick, onClose }) => {
+// Uploads/Favorites tab — grid of moments with video previews
+const UploadsTab = memo(({ data, loading, isFavorites, onMomentClick, onClose, autoplayPreviews = true }) => {
   if (loading) return <TabSpinner />;
   const moments = data?.moments || [];
   if (!moments.length) return (
@@ -299,10 +300,13 @@ const UploadsTab = memo(({ data, loading, isFavorites, onMomentClick, onClose })
       {moments.map((m, i) => {
         if (!m) return null;
 
-        // API returns thumbnailUrl, venueName, and performanceDate directly
-        const thumbnail = m.thumbnailUrl;
         const venue = m.venueName;
         const eventDate = m.performanceDate;
+
+        // Check if it's a YouTube video
+        const isYouTube = m.mediaSource === 'youtube' || m.externalVideoId;
+        const youtubeId = m.externalVideoId;
+        const hasVideoMedia = m.mediaType === 'video' || m.fileName?.toLowerCase().match(/\.(mov|mp4|webm)$/);
 
         return (
           <button
@@ -310,13 +314,66 @@ const UploadsTab = memo(({ data, loading, isFavorites, onMomentClick, onClose })
             onClick={() => handleMomentClick(m)}
             className="bg-gray-800 rounded-lg overflow-hidden hover:bg-gray-700 transition-colors text-left"
           >
-            {thumbnail ? (
-              <img src={thumbnail} alt={m.title || 'Moment'} className="w-full aspect-video object-cover" loading="lazy" />
-            ) : (
-              <div className="w-full aspect-video bg-gray-700 flex items-center justify-center">
-                {m.mediaType === 'audio' ? <Music size={24} className="text-gray-500" /> : <Video size={24} className="text-gray-500" />}
-              </div>
-            )}
+            {/* Video Preview */}
+            <div className="relative aspect-video bg-gray-900">
+              {/* YouTube video */}
+              {isYouTube && youtubeId ? (
+                autoplayPreviews ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${youtubeId}&start=${m.startTime || 0}&playsinline=1&modestbranding=1&rel=0`}
+                    className="absolute inset-0 w-full h-full pointer-events-none"
+                    title={m.songName}
+                    frameBorder="0"
+                    allow="autoplay; encrypted-media"
+                    loading="lazy"
+                  />
+                ) : (
+                  <img
+                    src={`https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`}
+                    alt={m.songName}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                )
+              ) : hasVideoMedia ? (
+                /* Regular video */
+                autoplayPreviews ? (
+                  <video
+                    key={`video-${m._id}`}
+                    src={transformMediaUrl(m.mediaUrl)}
+                    className="w-full h-full object-cover pointer-events-none"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    onLoadedMetadata={(e) => {
+                      if (m.startTime) e.target.currentTime = m.startTime;
+                    }}
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                ) : m.thumbnailUrl ? (
+                  <img
+                    src={transformMediaUrl(m.thumbnailUrl)}
+                    alt={m.songName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center">
+                      <div className="w-0 h-0 border-y-[7px] border-y-transparent border-l-[12px] border-l-gray-400 ml-1" />
+                    </div>
+                  </div>
+                )
+              ) : (
+                /* Audio or unknown */
+                <div className="w-full h-full bg-gray-700 flex items-center justify-center">
+                  <Music size={24} className="text-gray-500" />
+                </div>
+              )}
+            </div>
+
+            {/* Info */}
             <div className="p-2 space-y-1">
               <p className="text-xs text-white font-medium truncate">{m.songName || m.title || 'Untitled'}</p>
               <p className="text-[10px] text-gray-500 truncate">{venue || 'Unknown venue'}</p>
