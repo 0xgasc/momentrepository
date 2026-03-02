@@ -1066,20 +1066,40 @@ const MainContent = memo(({
   // Import MomentDetailModal for hero clicks
   const MomentDetailModal = React.lazy(() => import('./components/Moment/MomentDetailModal'));
 
-  // Non-home views (song detail, performance detail)
+  // Non-home views (song detail, performance detail) - include VideoHero so it can be expanded
   if (currentView === 'song' && selectedSong) {
     return (
-      <SongDetail
-        songData={selectedSong}
-        onBack={onBack}
-        onPerformanceSelect={onPerformanceSelect}
-        autoplayPreviews={autoplayPreviews}
-      />
+      <>
+        <VideoHero
+          onMomentClick={(moment) => setHeroSelectedMoment(moment)}
+          mediaFilters={mediaFilters}
+        />
+        <SongDetail
+          songData={selectedSong}
+          onBack={onBack}
+          onPerformanceSelect={onPerformanceSelect}
+          autoplayPreviews={autoplayPreviews}
+        />
+      </>
     );
   }
 
   if (currentView === 'performance' && selectedPerformance) {
-    return <PerformanceDetail performance={selectedPerformance} onBack={onBack} onViewUserProfile={onViewUserProfile} onNavigateToSong={onSongSelect} autoplayPreviews={autoplayPreviews} />;
+    return (
+      <>
+        <VideoHero
+          onMomentClick={(moment) => setHeroSelectedMoment(moment)}
+          mediaFilters={mediaFilters}
+        />
+        <PerformanceDetail
+          performance={selectedPerformance}
+          onBack={onBack}
+          onViewUserProfile={onViewUserProfile}
+          onNavigateToSong={onSongSelect}
+          autoplayPreviews={autoplayPreviews}
+        />
+      </>
+    );
   }
 
   // Home view - Hero persists above navigation tabs
