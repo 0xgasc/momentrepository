@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, memo } from 'react';
 import { X, User, Calendar, Film, Eye, MessageSquare, Award, Music, Video, Link as LinkIcon } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 
-const UserProfile = memo(({ userId, onClose, currentUserId, onPerformanceSelect }) => {
+const UserProfile = memo(({ userId, onClose, currentUserId, onPerformanceSelect, onMomentClick }) => {
   const [profile, setProfile] = useState(null);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -210,7 +210,7 @@ const UserProfile = memo(({ userId, onClose, currentUserId, onPerformanceSelect 
                 <OverviewTab stats={stats} />
               )}
               {activeTab === 'uploads' && (
-                <UploadsTab data={tabData.uploads} loading={tabLoading.uploads} />
+                <UploadsTab data={tabData.uploads} loading={tabLoading.uploads} onMomentClick={onMomentClick} onClose={onClose} />
               )}
               {activeTab === 'comments' && (
                 <CommentsTab data={tabData.comments} loading={tabLoading.comments} onPerformanceSelect={onPerformanceSelect} onClose={onClose} />
@@ -222,7 +222,7 @@ const UserProfile = memo(({ userId, onClose, currentUserId, onPerformanceSelect 
                 <GuestbookTab data={tabData.guestbook} loading={tabLoading.guestbook} onPerformanceSelect={onPerformanceSelect} onClose={onClose} />
               )}
               {activeTab === 'favorites' && isOwnProfile && (
-                <UploadsTab data={tabData.favorites ? { moments: tabData.favorites.favorites?.map(f => f.moment).filter(Boolean) } : null} loading={tabLoading.favorites} isFavorites />
+                <UploadsTab data={tabData.favorites ? { moments: tabData.favorites.favorites?.map(f => f.moment).filter(Boolean) } : null} loading={tabLoading.favorites} isFavorites onMomentClick={onMomentClick} onClose={onClose} />
               )}
             </div>
           </>
@@ -278,7 +278,7 @@ const OverviewTab = memo(({ stats }) => {
 OverviewTab.displayName = 'OverviewTab';
 
 // Uploads/Favorites tab — grid of moments
-const UploadsTab = memo(({ data, loading, isFavorites }) => {
+const UploadsTab = memo(({ data, loading, isFavorites, onMomentClick, onClose }) => {
   if (loading) return <TabSpinner />;
   const moments = data?.moments || [];
   if (!moments.length) return (
@@ -286,10 +286,22 @@ const UploadsTab = memo(({ data, loading, isFavorites }) => {
       {isFavorites ? 'No favorited moments yet.' : 'No approved uploads yet.'}
     </div>
   );
+
+  const handleMomentClick = (moment) => {
+    if (onMomentClick) {
+      onMomentClick(moment);
+      onClose?.();
+    }
+  };
+
   return (
     <div className="grid grid-cols-2 gap-3">
       {moments.map((m, i) => m && (
-        <div key={m._id || i} className="bg-gray-800 rounded-lg overflow-hidden">
+        <button
+          key={m._id || i}
+          onClick={() => handleMomentClick(m)}
+          className="bg-gray-800 rounded-lg overflow-hidden hover:bg-gray-700 transition-colors text-left"
+        >
           {m.thumbnailUrl ? (
             <img src={m.thumbnailUrl} alt={m.title || 'Moment'} className="w-full aspect-video object-cover" loading="lazy" />
           ) : (
@@ -297,10 +309,16 @@ const UploadsTab = memo(({ data, loading, isFavorites }) => {
               {m.mediaType === 'audio' ? <Music size={24} className="text-gray-500" /> : <Video size={24} className="text-gray-500" />}
             </div>
           )}
-          <div className="p-2">
+          <div className="p-2 space-y-1">
             <p className="text-xs text-white font-medium truncate">{m.songName || m.title || 'Untitled'}</p>
+            <p className="text-[10px] text-gray-500 truncate">{m.venueName || 'Unknown venue'}</p>
+            {m.eventDate && (
+              <p className="text-[10px] text-gray-600">
+                {new Date(m.eventDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+              </p>
+            )}
           </div>
-        </div>
+        </button>
       ))}
     </div>
   );

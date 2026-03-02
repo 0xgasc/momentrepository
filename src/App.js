@@ -69,6 +69,9 @@ const queryClient = new QueryClient();
 
 // Main App Component with Clean Navigation
 const MainApp = memo(() => {
+  // Lazy load MomentDetailModal
+  const MomentDetailModal = React.lazy(() => import('./components/Moment/MomentDetailModal'));
+
   // Router hooks
   const navigate = useNavigate();
   const location = useLocation();
@@ -109,6 +112,7 @@ const MainApp = memo(() => {
   const [showContactForm, setShowContactForm] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [selectedMoment, setSelectedMoment] = useState(null);
   const [initialMomentId, setInitialMomentId] = useState(null);
   const [showLanding, setShowLanding] = useState(location.pathname === '/');
   const [showLandingOverlay, setShowLandingOverlay] = useState(true); // Toggle for landing page overlay
@@ -525,7 +529,30 @@ const MainApp = memo(() => {
             navigate('/', { replace: true });
             handlePerformanceSelect(perf);
           }}
+          onMomentClick={(moment) => {
+            setSelectedMoment(moment);
+            setShowUserProfile(false);
+            setSelectedUserId(null);
+          }}
         />
+      )}
+
+      {/* Moment Detail Modal (from UserProfile uploads) */}
+      {selectedMoment && (
+        <React.Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"><div className="text-white">Loading...</div></div>}>
+          <MomentDetailModal
+            moment={selectedMoment}
+            onClose={() => {
+              setSelectedMoment(null);
+              navigate('/', { replace: true });
+            }}
+            onViewUserProfile={(userId) => {
+              setSelectedUserId(userId);
+              setShowUserProfile(true);
+              navigate(`/user/${userId}`, { replace: true });
+            }}
+          />
+        </React.Suspense>
       )}
 
       {/* Settings Panel */}
