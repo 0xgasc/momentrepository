@@ -147,60 +147,60 @@ const DesktopSidebar = memo(({
       {/* Now Playing Mini - WORKING CONTROLS */}
       {(isPlayingFromQueue || currentMoment) && currentMoment && (
         <>
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded">
+          <div className="flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-1.5 lg:py-2 bg-yellow-500/10 border border-yellow-500/30 rounded">
             {/* Song name - clickable to expand MediaControlCenter */}
             <button
               onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
-              className="max-w-[100px] hidden xl:block hover:text-yellow-400 transition-colors"
+              className="max-w-[120px] lg:max-w-[180px] xl:max-w-[240px] hidden lg:block hover:text-yellow-400 transition-colors"
               title="Open full controls"
             >
-              <div className="text-[10px] font-medium text-white truncate">{currentMoment.songName}</div>
+              <div className="text-xs lg:text-sm font-medium text-white truncate">{currentMoment.songName}</div>
             </button>
 
             {/* Play/Pause */}
             <button
               onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
-              className="p-1 rounded bg-yellow-500/20 hover:bg-yellow-500/40 transition-colors"
+              className="p-1.5 lg:p-2 rounded bg-yellow-500/20 hover:bg-yellow-500/40 transition-colors"
               title={playerState.isPlaying ? 'Pause' : 'Play'}
             >
-              {playerState.isPlaying ? <Pause size={12} className="text-yellow-400" /> : <Play size={12} className="text-yellow-400 ml-0.5" />}
+              {playerState.isPlaying ? <Pause size={16} className="text-yellow-400" /> : <Play size={16} className="text-yellow-400 ml-0.5" />}
             </button>
 
             {/* Previous / Restart */}
-            <button onClick={() => playPrevInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Previous">
-              <SkipBack size={12} className="text-gray-400 hover:text-white" />
+            <button onClick={() => playPrevInQueue()} className="p-1.5 lg:p-2 hover:bg-gray-700/50 rounded transition-colors" title="Previous">
+              <SkipBack size={16} className="text-gray-400 hover:text-white" />
             </button>
             {/* Smart Next: shows Next if queue has more, else Random */}
             {theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1 ? (
-              <button onClick={() => playNextInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Next in queue">
-                <SkipForward size={12} className="text-gray-400 hover:text-white" />
+              <button onClick={() => playNextInQueue()} className="p-1.5 lg:p-2 hover:bg-gray-700/50 rounded transition-colors" title="Next in queue">
+                <SkipForward size={16} className="text-gray-400 hover:text-white" />
               </button>
             ) : (
-              <button onClick={() => playRandom()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Play random">
-                <Shuffle size={12} className="text-gray-400 hover:text-white" />
+              <button onClick={() => playRandom()} className="p-1.5 lg:p-2 hover:bg-gray-700/50 rounded transition-colors" title="Play random">
+                <Shuffle size={16} className="text-gray-400 hover:text-white" />
               </button>
             )}
 
             {/* Volume control */}
-            <div className="flex items-center gap-1">
-              <button onClick={() => toggleMute()} className="p-1 hover:bg-gray-700/50 rounded transition-colors">
-                {playerState.isMuted ? <VolumeX size={12} className="text-orange-400" /> : <Volume2 size={12} className="text-gray-400" />}
+            <div className="flex items-center gap-1.5 lg:gap-2">
+              <button onClick={() => toggleMute()} className="p-1.5 lg:p-2 hover:bg-gray-700/50 rounded transition-colors">
+                {playerState.isMuted ? <VolumeX size={16} className="text-orange-400" /> : <Volume2 size={16} className="text-gray-400" />}
               </button>
               <input
                 type="range" min="0" max="1" step="0.05"
                 value={playerState.isMuted ? 0 : (playerState.volume || 1)}
                 onChange={(e) => setVolume(parseFloat(e.target.value))}
-                className="w-12 h-1 accent-yellow-500"
+                className="w-16 lg:w-20 xl:w-24 h-1.5 accent-yellow-500"
               />
             </div>
 
             {/* Expand button for full controls */}
             <button
               onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
-              className="p-1 text-gray-500 hover:text-white transition-colors"
+              className="p-1.5 lg:p-2 text-gray-500 hover:text-white transition-colors"
               title="More controls"
             >
-              <ChevronDown size={12} />
+              <ChevronDown size={16} />
             </button>
           </div>
           <div className="w-px h-8 bg-gray-700/50" />
