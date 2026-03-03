@@ -560,16 +560,6 @@ const MediaControlCenter = memo(({
             <span className="text-[8px] mt-0.5">Fav</span>
           </button>
 
-          {/* Comments */}
-          <button
-            onClick={() => openComments?.()}
-            className="p-2 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-blue-900/40 transition-colors flex flex-col items-center"
-            title="Comments"
-          >
-            <MessageSquare size={14} />
-            <span className="text-[8px] mt-0.5">Chat</span>
-          </button>
-
           {/* Info */}
           <button
             onClick={() => openInfo?.()}

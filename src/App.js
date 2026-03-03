@@ -1080,6 +1080,18 @@ const MainContent = memo(({
           onPerformanceSelect={onPerformanceSelect}
           autoplayPreviews={autoplayPreviews}
         />
+        {/* Modal for hero click */}
+        {heroSelectedMoment && (
+          <ModalErrorBoundary onClose={() => { setHeroSelectedMoment(null); navigate('/', { replace: true }); }}>
+            <React.Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"><div className="text-white">Loading...</div></div>}>
+              <MomentDetailModal
+                moment={heroSelectedMoment}
+                onClose={() => { setHeroSelectedMoment(null); navigate('/', { replace: true }); }}
+                onViewUserProfile={onViewUserProfile}
+              />
+            </React.Suspense>
+          </ModalErrorBoundary>
+        )}
       </>
     );
   }
@@ -1098,6 +1110,18 @@ const MainContent = memo(({
           onNavigateToSong={onSongSelect}
           autoplayPreviews={autoplayPreviews}
         />
+        {/* Modal for hero click */}
+        {heroSelectedMoment && (
+          <ModalErrorBoundary onClose={() => { setHeroSelectedMoment(null); navigate('/', { replace: true }); }}>
+            <React.Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"><div className="text-white">Loading...</div></div>}>
+              <MomentDetailModal
+                moment={heroSelectedMoment}
+                onClose={() => { setHeroSelectedMoment(null); navigate('/', { replace: true }); }}
+                onViewUserProfile={onViewUserProfile}
+              />
+            </React.Suspense>
+          </ModalErrorBoundary>
+        )}
       </>
     );
   }
