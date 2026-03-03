@@ -1013,19 +1013,19 @@ const MainContent = memo(({
       .catch(() => {});
   }, [initialMomentId]);
 
-  // Push /moment/:id to URL when modal opens via click
+  // Push /moment/:id to URL when modal opens via click (only if not already there)
   useEffect(() => {
-    if (heroSelectedMoment?._id) {
+    if (heroSelectedMoment?._id && !location.pathname.startsWith(`/moment/${heroSelectedMoment._id}`)) {
       navigate(`/moment/${heroSelectedMoment._id}`, { replace: true });
     }
-  }, [heroSelectedMoment?._id]);
+  }, [heroSelectedMoment?._id, location.pathname, navigate]);
 
   // Close modal when URL navigates away from /moment/:id (browser back button)
   useEffect(() => {
     if (heroSelectedMoment && !location.pathname.startsWith('/moment/')) {
       setHeroSelectedMoment(null);
     }
-  }, [location.pathname]);
+  }, [location.pathname, heroSelectedMoment]);
 
   // Handle shared playlist import from URL
   useEffect(() => {

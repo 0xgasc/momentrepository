@@ -1213,7 +1213,11 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       >
       {/* Minimized overlay - glassy controls over the playing video */}
       {isMinimized && (
-        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm border border-white/10 rounded-sm overflow-hidden">
+        <div
+          className="absolute inset-0 bg-black/30 backdrop-blur-sm border border-white/10 rounded-sm overflow-hidden cursor-pointer"
+          onClick={() => setIsMinimized(false)}
+          title="Click to expand player"
+        >
           {/* Progress bar at top */}
         <div className="h-1 bg-white/20 w-full">
           <div
