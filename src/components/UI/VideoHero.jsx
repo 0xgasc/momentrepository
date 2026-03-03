@@ -1218,8 +1218,8 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           onClick={() => setIsMinimized(false)}
           title="Click to expand player"
         >
-          {/* Progress bar at top */}
-        <div className="h-1 bg-white/20 w-full">
+          {/* Progress bar at top - pointer-events-none so it doesn't block clicks */}
+        <div className="h-1 bg-white/20 w-full pointer-events-none">
           <div
             className="h-full bg-yellow-500 transition-all duration-200"
             style={{ width: `${getMinimizedProgress()}%` }}
@@ -1228,7 +1228,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
         <div className="flex items-center px-3 sm:px-4 py-2 sm:py-3 gap-3">
           {/* Fixed width info section */}
-          <div className="w-32 sm:w-48 flex-shrink-0 cursor-pointer" onClick={handleInfoClick}>
+          <div className="w-32 sm:w-48 flex-shrink-0 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleInfoClick(); }}>
             {moment && (
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center flex-shrink-0">
