@@ -1480,8 +1480,13 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
                       },
                       onStateChange: (e) => {
                         if (e.data === window.YT.PlayerState.ENDED) handleNext();
-                        // Also mark as loaded once video starts playing
-                        if (e.data === window.YT.PlayerState.PLAYING) setIsYtLoading(false);
+                        // Update playing state based on YouTube player state
+                        if (e.data === window.YT.PlayerState.PLAYING) {
+                          setIsYtLoading(false);
+                          setIsPlaying(true);
+                        } else if (e.data === window.YT.PlayerState.PAUSED) {
+                          setIsPlaying(false);
+                        }
                       }
                     }
                   });
