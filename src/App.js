@@ -31,6 +31,7 @@ import SettingsPanel from './components/UI/SettingsPanel';
 import NotificationBell from './components/UI/NotificationBell';
 import { useNotifications } from './hooks';
 import { API_BASE_URL } from './components/Auth/AuthProvider';
+import MomentDetailModal from './components/Moment/MomentDetailModal';
 
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -1064,9 +1065,6 @@ const MainContent = memo(({
     }
   }, []); // Only on mount
 
-  // Import MomentDetailModal for hero clicks
-  const MomentDetailModal = React.lazy(() => import('./components/Moment/MomentDetailModal'));
-
   // Memoized callback to prevent infinite render loop
   const handleMomentClick = React.useCallback((moment) => {
     setHeroSelectedMoment(moment);
@@ -1094,18 +1092,16 @@ const MainContent = memo(({
               navigate(-1);
             }
           }}>
-            <React.Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"><div className="text-white">Loading...</div></div>}>
-              <MomentDetailModal
-                moment={heroSelectedMoment}
-                onClose={() => {
-                  setHeroSelectedMoment(null);
-                  if (location.pathname.startsWith('/moment/')) {
-                    navigate(-1);
-                  }
-                }}
-                onViewUserProfile={onViewUserProfile}
-              />
-            </React.Suspense>
+            <MomentDetailModal
+              moment={heroSelectedMoment}
+              onClose={() => {
+                setHeroSelectedMoment(null);
+                if (location.pathname.startsWith('/moment/')) {
+                  navigate(-1);
+                }
+              }}
+              onViewUserProfile={onViewUserProfile}
+            />
           </ModalErrorBoundary>
         )}
       </>
@@ -1134,18 +1130,16 @@ const MainContent = memo(({
               navigate(-1);
             }
           }}>
-            <React.Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"><div className="text-white">Loading...</div></div>}>
-              <MomentDetailModal
-                moment={heroSelectedMoment}
-                onClose={() => {
-                  setHeroSelectedMoment(null);
-                  if (location.pathname.startsWith('/moment/')) {
-                    navigate(-1);
-                  }
-                }}
-                onViewUserProfile={onViewUserProfile}
-              />
-            </React.Suspense>
+            <MomentDetailModal
+              moment={heroSelectedMoment}
+              onClose={() => {
+                setHeroSelectedMoment(null);
+                if (location.pathname.startsWith('/moment/')) {
+                  navigate(-1);
+                }
+              }}
+              onViewUserProfile={onViewUserProfile}
+            />
           </ModalErrorBoundary>
         )}
       </>
@@ -1370,18 +1364,16 @@ const MainContent = memo(({
             navigate(-1);
           }
         }}>
-          <React.Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"><div className="text-white">Loading...</div></div>}>
-            <MomentDetailModal
-              moment={heroSelectedMoment}
-              onClose={() => {
-                setHeroSelectedMoment(null);
-                if (location.pathname.startsWith('/moment/')) {
-                  navigate(-1);
-                }
-              }}
-              onViewUserProfile={onViewUserProfile}
-            />
-          </React.Suspense>
+          <MomentDetailModal
+            moment={heroSelectedMoment}
+            onClose={() => {
+              setHeroSelectedMoment(null);
+              if (location.pathname.startsWith('/moment/')) {
+                navigate(-1);
+              }
+            }}
+            onViewUserProfile={onViewUserProfile}
+          />
         </ModalErrorBoundary>
       )}
     </>
