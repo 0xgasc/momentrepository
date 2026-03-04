@@ -971,7 +971,8 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         setShowCommentsPanel(true);
       },
       openInfo: () => {
-        if (moment && onMomentClick) {
+        const activeMoment = queueMoment || moment;
+        if (activeMoment && onMomentClick) {
           // Pause media when opening info modal to avoid audio conflicts
           if (isAudio && audioRef.current) {
             audioRef.current.pause();
@@ -981,7 +982,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
             videoRef.current.pause();
           }
           setIsPlaying(false);
-          onMomentClick(moment);
+          onMomentClick(activeMoment);
         }
       },
       playNext: handleNext,
