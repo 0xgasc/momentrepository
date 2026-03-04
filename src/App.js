@@ -1067,12 +1067,17 @@ const MainContent = memo(({
   // Import MomentDetailModal for hero clicks
   const MomentDetailModal = React.lazy(() => import('./components/Moment/MomentDetailModal'));
 
+  // Memoized callback to prevent infinite render loop
+  const handleMomentClick = React.useCallback((moment) => {
+    setHeroSelectedMoment(moment);
+  }, []);
+
   // Non-home views (song detail, performance detail) - include VideoHero so it can be expanded
   if (currentView === 'song' && selectedSong) {
     return (
       <>
         <VideoHero
-          onMomentClick={(moment) => setHeroSelectedMoment(moment)}
+          onMomentClick={handleMomentClick}
           mediaFilters={mediaFilters}
         />
         <SongDetail
@@ -1111,7 +1116,7 @@ const MainContent = memo(({
     return (
       <>
         <VideoHero
-          onMomentClick={(moment) => setHeroSelectedMoment(moment)}
+          onMomentClick={handleMomentClick}
           mediaFilters={mediaFilters}
         />
         <PerformanceDetail
@@ -1241,7 +1246,7 @@ const MainContent = memo(({
         <div className="relative">
           {/* VideoHero — background video */}
           <VideoHero
-            onMomentClick={(moment) => setHeroSelectedMoment(moment)}
+            onMomentClick={handleMomentClick}
             mediaFilters={mediaFilters}
             noAutoMinimize={showLanding}
           />
@@ -1273,7 +1278,7 @@ const MainContent = memo(({
       ) : (
         /* Browse mode - VideoHero without overlay, allows auto-minimize and expand */
         <VideoHero
-          onMomentClick={(moment) => setHeroSelectedMoment(moment)}
+          onMomentClick={handleMomentClick}
           mediaFilters={mediaFilters}
         />
       )}
