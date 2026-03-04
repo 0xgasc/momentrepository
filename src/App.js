@@ -1359,11 +1359,21 @@ const MainContent = memo(({
 
       {/* Modal for hero click */}
       {heroSelectedMoment && (
-        <ModalErrorBoundary onClose={() => { setHeroSelectedMoment(null); navigate('/', { replace: true }); }}>
+        <ModalErrorBoundary onClose={() => {
+          setHeroSelectedMoment(null);
+          if (location.pathname.startsWith('/moment/')) {
+            navigate(-1);
+          }
+        }}>
           <React.Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"><div className="text-white">Loading...</div></div>}>
             <MomentDetailModal
               moment={heroSelectedMoment}
-              onClose={() => { setHeroSelectedMoment(null); navigate('/', { replace: true }); }}
+              onClose={() => {
+                setHeroSelectedMoment(null);
+                if (location.pathname.startsWith('/moment/')) {
+                  navigate(-1);
+                }
+              }}
               onViewUserProfile={onViewUserProfile}
             />
           </React.Suspense>
