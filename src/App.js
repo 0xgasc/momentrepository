@@ -485,8 +485,10 @@ const MainApp = memo(() => {
         />
         )}
 
-        {/* Credits Footer */}
-        <CreditsFooter onContactClick={() => setShowContactForm(true)} />
+        {/* Credits Footer - only on landing page */}
+        {showLanding && (
+          <CreditsFooter onContactClick={() => setShowContactForm(true)} />
+        )}
       </div>
       
       {/* Account Panels */}

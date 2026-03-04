@@ -124,14 +124,15 @@ const CompactContributorRow = memo(({ contributor, rank, onViewUserProfile }) =>
   const rankColor = rankColors[rank] || 'text-gray-500';
 
   return (
-    <div className="flex items-center gap-2 py-1 px-1 rounded hover:bg-gray-800/30 transition-colors">
-      <span className={`w-4 text-center text-xs font-bold ${rankColor}`}>
+    <button
+      onClick={() => onViewUserProfile && onViewUserProfile(contributor._id)}
+      className="w-full flex items-center gap-2 py-2 px-1 rounded hover:bg-gray-800/30 active:bg-gray-700/50 transition-colors text-left touch-manipulation"
+      style={{ WebkitTapHighlightColor: 'transparent' }}
+    >
+      <span className={`w-4 text-center text-xs font-bold ${rankColor} flex-shrink-0`}>
         {rank}
       </span>
-      <button
-        onClick={() => onViewUserProfile && onViewUserProfile(contributor._id)}
-        className="flex-1 min-w-0 text-left"
-      >
+      <div className="flex-1 min-w-0">
         <span className="text-xs text-white hover:text-blue-400 transition-colors truncate block">
           {contributor.displayName}
         </span>
@@ -145,13 +146,17 @@ const CompactContributorRow = memo(({ contributor, rank, onViewUserProfile }) =>
             {formatNumber(contributor.totalViews)}
           </span>
         </span>
-      </button>
-      {contributor.badges.length > 0 && (
-        <span className="text-xs" title={contributor.badges[0]?.label}>
-          {contributor.badges[0]?.icon}
+      </div>
+      {contributor.badges && contributor.badges.length > 0 && (
+        <span
+          className="text-sm flex-shrink-0"
+          title={contributor.badges[0]?.label}
+          aria-label={contributor.badges[0]?.label}
+        >
+          {contributor.badges[0]?.icon || ''}
         </span>
       )}
-    </div>
+    </button>
   );
 });
 
@@ -167,20 +172,21 @@ const ContributorRow = memo(({ contributor, rank, onViewUserProfile }) => {
   const rankColor = rankColors[rank] || 'text-gray-500';
 
   return (
-    <div className="flex items-center gap-3 py-2 px-2 rounded hover:bg-gray-800/30 transition-colors">
+    <button
+      onClick={() => onViewUserProfile && onViewUserProfile(contributor._id)}
+      className="w-full flex items-center gap-3 py-2 px-2 rounded hover:bg-gray-800/30 active:bg-gray-700/50 transition-colors text-left touch-manipulation"
+      style={{ WebkitTapHighlightColor: 'transparent' }}
+    >
       {/* Rank */}
-      <span className={`w-6 text-center font-bold ${rankColor}`}>
+      <span className={`w-6 text-center font-bold ${rankColor} flex-shrink-0`}>
         {rank}
       </span>
 
       {/* User Info */}
       <div className="flex-1 min-w-0">
-        <button
-          onClick={() => onViewUserProfile && onViewUserProfile(contributor._id)}
-          className="font-medium text-white hover:text-blue-400 transition-colors truncate block"
-        >
+        <span className="font-medium text-white hover:text-blue-400 transition-colors truncate block">
           {contributor.displayName}
-        </button>
+        </span>
         <div className="flex items-center gap-3 text-xs text-gray-500">
           <span className="flex items-center gap-1">
             <Film size={10} />
@@ -200,18 +206,19 @@ const ContributorRow = memo(({ contributor, rank, onViewUserProfile }) => {
       </div>
 
       {/* Badges */}
-      <div className="flex items-center gap-1">
-        {contributor.badges.slice(0, 3).map(badge => (
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {contributor.badges && contributor.badges.slice(0, 3).map((badge, idx) => (
           <span
-            key={badge.id}
+            key={badge.id || idx}
             title={badge.label}
+            aria-label={badge.label}
             className="text-sm"
           >
-            {badge.icon}
+            {badge.icon || ''}
           </span>
         ))}
       </div>
-    </div>
+    </button>
   );
 });
 

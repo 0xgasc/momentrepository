@@ -1217,6 +1217,10 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         <div
           className="absolute inset-0 bg-black/30 backdrop-blur-sm border border-white/10 rounded-sm overflow-hidden cursor-pointer"
           onClick={() => setIsMinimized(false)}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            setIsMinimized(false);
+          }}
           title="Click to expand player"
         >
           {/* Progress bar at top - pointer-events-none so it doesn't block clicks */}
@@ -1301,10 +1305,11 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               <button
                 onClick={(e) => { e.stopPropagation(); e.preventDefault(); setIsMinimized(false); }}
                 onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); setIsMinimized(false); }}
-                className="bg-yellow-600/50 hover:bg-yellow-600/70 rounded-full p-1.5 transition-colors cursor-pointer relative z-10"
+                className="bg-yellow-600/50 hover:bg-yellow-600/70 active:bg-yellow-600/90 rounded-full p-2 sm:p-1.5 transition-colors cursor-pointer relative z-10"
+                style={{ minWidth: '44px', minHeight: '44px' }}
                 title="Expand player"
               >
-                <Maximize2 size={14} className="text-white" />
+                <Maximize2 size={18} className="text-white sm:w-[14px] sm:h-[14px]" />
               </button>
             )}
           </div>
