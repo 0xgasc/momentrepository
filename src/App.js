@@ -1025,7 +1025,8 @@ const MainContent = memo(({
     if (heroSelectedMoment && !location.pathname.startsWith('/moment/')) {
       setHeroSelectedMoment(null);
     }
-  }, [location.pathname, heroSelectedMoment]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]); // Only react to pathname changes, not heroSelectedMoment changes
 
   // Handle shared playlist import from URL
   useEffect(() => {
