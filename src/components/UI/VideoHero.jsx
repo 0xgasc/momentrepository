@@ -614,6 +614,12 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
   // Handle next
   const handleNext = useCallback(() => {
+    console.log('🎲 handleNext called', {
+      filteredMomentsLength: filteredMoments.length,
+      isPlayingFromQueue,
+      currentMoment: moment?._id
+    });
+
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -624,16 +630,22 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     }
 
     if (isPlayingFromQueue) {
+      console.log('📼 Playing from queue');
       playNextInQueue();
     } else if (filteredMoments.length > 0) {
       const next = selectRandomMoment(filteredMoments, moment);
+      console.log('🎯 Selected next moment:', next?._id);
       if (next) {
         setMoment(next);
         setIsYouTube(next._isYouTube);
         setIsAudio(next._isAudio);
         setIsPlaying(true);
         setYoutubeKey(prev => prev + 1);
+      } else {
+        console.warn('⚠️ selectRandomMoment returned null');
       }
+    } else {
+      console.warn('⚠️ No filtered moments available');
     }
   }, [filteredMoments, moment, selectRandomMoment, isPlayingFromQueue, playNextInQueue]);
 
