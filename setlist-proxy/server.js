@@ -909,46 +909,71 @@ app.get('/proxy/irys/:txId', async (req, res) => {
 
   try {
     const fetch = (await import('node-fetch')).default;
+
+    // Forward Range header if present (for video seeking)
+    const fetchHeaders = {
+      'User-Agent': 'UMO-Archive-Proxy/1.0'
+    };
+    if (req.headers.range) {
+      fetchHeaders['Range'] = req.headers.range;
+      console.log(`  → Range request: ${req.headers.range}`);
+    }
+
     const response = await fetch(irysUrl, {
       timeout: 30000,
-      headers: {
-        'User-Agent': 'UMO-Archive-Proxy/1.0'
-      }
+      headers: fetchHeaders
     });
 
     if (!response.ok) {
-      console.error(`❌ Irys proxy failed: ${response.status} for ${txId}`);
-      return res.status(response.status).json({ error: 'Failed to fetch from Irys' });
+      console.error(`❌ Irys proxy failed: ${response.status} ${response.statusText} for ${txId}`);
+      return res.status(response.status).json({
+        error: 'Failed to fetch from Irys',
+        status: response.status,
+        statusText: response.statusText
+      });
     }
 
     // Forward content type and other relevant headers
     const contentType = response.headers.get('content-type');
     const contentLength = response.headers.get('content-length');
+    const contentRange = response.headers.get('content-range');
+    const acceptRanges = response.headers.get('accept-ranges');
+
+    // Set response status (206 for range requests, 200 for full)
+    res.status(response.status);
 
     if (contentType) res.setHeader('Content-Type', contentType);
     if (contentLength) res.setHeader('Content-Length', contentLength);
-
-    // Remove any restrictive headers that might have been set
-    res.removeHeader('Cross-Origin-Embedder-Policy');
-    res.removeHeader('Cross-Origin-Opener-Policy');
-    res.removeHeader('Cross-Origin-Resource-Policy');
-    res.removeHeader('Content-Security-Policy');
-    res.removeHeader('X-Frame-Options');
+    if (contentRange) res.setHeader('Content-Range', contentRange);
+    if (acceptRanges) res.setHeader('Accept-Ranges', acceptRanges);
 
     // CORS and embedding headers - required for video/audio playback cross-origin
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
-    res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
 
-    // Stream the response
-    response.body.pipe(res);
+    console.log(`✅ Irys proxy success: ${response.status} ${contentType || 'unknown'} (${contentLength || 'unknown size'})`);
+
+    // Stream the response - use proper piping with error handling
+    response.body.on('error', (err) => {
+      console.error(`❌ Stream error for ${txId}:`, err.message);
+      if (!res.headersSent) {
+        res.status(502).json({ error: 'Stream error' });
+      }
+    });
+
+    response.body.pipe(res).on('error', (err) => {
+      console.error(`❌ Pipe error for ${txId}:`, err.message);
+    });
+
   } catch (error) {
-    console.error(`❌ Irys proxy error for ${txId}:`, error.message);
-    res.status(502).json({ error: 'Proxy error', message: error.message });
+    console.error(`❌ Irys proxy error for ${txId}:`, error.message, error.stack);
+    if (!res.headersSent) {
+      res.status(502).json({ error: 'Proxy error', message: error.message });
+    }
   }
 });
 
