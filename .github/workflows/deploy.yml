@@ -33,9 +33,9 @@ jobs:
     - name: Build for production
       run: npm run build:mobile
       env:
+        CI: false
         GENERATE_SOURCEMAP: false
         INLINE_RUNTIME_CHUNK: false
-        DISABLE_ESLINT_PLUGIN: true
         
     - name: Analyze bundle size
       run: npm run build:analyze

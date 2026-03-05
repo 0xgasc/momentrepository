@@ -1,6 +1,6 @@
 // src/components/UI/VideoHero.jsx - Hero player for random video/audio clips
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
-import { Play, Pause, Music, Loader2, Volume2, VolumeX, SkipForward, Minimize2, Maximize2, ListMusic } from 'lucide-react';
+import { Play, Pause, Music, Loader2, ListMusic } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import UMOEffect from './UMOEffect';
@@ -165,7 +165,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     currentQueueIndex,
     isPlayingFromQueue,
     addToQueue,
-    isInQueue,
     playNextInQueue,
     playPrevInQueue,
     currentMoment: queueMoment,
@@ -1227,8 +1226,8 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onTimeUpdate={() => {
-            if (audioRef.current && registerPlayerControls) {
-              registerPlayerControls({
+            if (audioRef.current && updatePlayerState) {
+              updatePlayerState({
                 currentTime: audioRef.current.currentTime,
                 duration: audioRef.current.duration || 0,
                 isPlaying: !audioRef.current.paused,
@@ -1316,17 +1315,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
         {/* Media filter moved to App.js - above hero */}
 
-      {/* Minimize button - top right, fades with controls */}
-      <button
-        onClick={() => setIsMinimized(true)}
-        className={`absolute top-2 right-2 sm:top-3 sm:right-3 z-30 bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full p-2 transition-all duration-300 ${
-          showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
-        style={{ minWidth: '36px', minHeight: '36px' }}
-        title="Minimize"
-      >
-        <Minimize2 size={14} className="text-white" />
-      </button>
+      {/* Minimize button removed - use ribbon controls instead */}
 
       {/* Loading spinner overlay */}
       {((isYouTube && isYtLoading) || (!isYouTube && !isAudio && isLoading)) && (
@@ -1524,8 +1513,8 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
               onTimeUpdate={() => {
-                if (videoRef.current && registerPlayerControls) {
-                  registerPlayerControls({
+                if (videoRef.current && updatePlayerState) {
+                  updatePlayerState({
                     currentTime: videoRef.current.currentTime,
                     duration: videoRef.current.duration || 0,
                     isPlaying: !videoRef.current.paused,
