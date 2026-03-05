@@ -3,14 +3,14 @@
 import React, { memo, useState } from 'react';
 import {
   Film, Calendar, Music, Video, Link2, Upload,
-  ChevronDown,
+  ChevronDown, Minimize2, Maximize2,
   ListMusic, Play, Pause, SkipBack, SkipForward, Shuffle, User, LogIn, Shield,
   Tv, Trophy, Settings, Volume2, VolumeX
 } from 'lucide-react';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import TopContributors from '../Community/TopContributors';
 import MediaControlCenter from './MediaControlCenter';
-import NotificationBell from './NotificationBell';
+// NotificationBell removed
 
 const DesktopSidebar = memo(({
   browseMode,
@@ -32,7 +32,7 @@ const DesktopSidebar = memo(({
   const {
     theaterQueue, currentQueueIndex, isPlayingFromQueue,
     currentMoment, playNextInQueue, playPrevInQueue,
-    togglePlayPause, playerState, toggleMute, setVolume, playRandom
+    togglePlayPause, playerState, toggleMute, setVolume, playRandom, toggleMinimize
   } = useTheaterQueue();
   const [showContributors, setShowContributors] = useState(false);
   const [mediaControlDocked, setMediaControlDocked] = useState(true);
@@ -194,6 +194,15 @@ const DesktopSidebar = memo(({
               />
             </div>
 
+            {/* Minimize/Maximize player toggle */}
+            <button
+              onClick={() => toggleMinimize?.()}
+              className={`p-1.5 rounded transition-colors ${playerState.isMinimized ? 'bg-yellow-500/20 text-yellow-400' : 'hover:bg-gray-700/50 text-gray-400 hover:text-white'}`}
+              title={playerState.isMinimized ? 'Expand player' : 'Minimize player'}
+            >
+              {playerState.isMinimized ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
+            </button>
+
             {/* Expand button for full controls */}
             <button
               onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
@@ -271,7 +280,6 @@ const DesktopSidebar = memo(({
       {/* Account */}
       {user ? (
         <>
-          <NotificationBell />
           <button
             onClick={onShowAccount}
             className="flex items-center gap-2 px-2 py-1.5 text-gray-400 hover:bg-gray-800/50 hover:text-white rounded-sm transition-all"

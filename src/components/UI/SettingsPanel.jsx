@@ -2,9 +2,9 @@
 import React, { useState, memo } from 'react';
 import {
   Settings, X, PanelTop, PanelBottom,
-  Palette, Save, Check, Loader2, LogIn
+  Save, Check, Loader2, LogIn
 } from 'lucide-react';
-import { useTheme, presetColors } from '../../contexts/ThemeContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const SettingsPanel = memo(({
   isOpen,
@@ -15,14 +15,10 @@ const SettingsPanel = memo(({
   onLoginClick
 }) => {
   const {
-    accentColor,
-    setAccentColor,
     saveToAccount,
     isSyncing
   } = useTheme();
 
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [customColor, setCustomColor] = useState(accentColor);
   const [saveStatus, setSaveStatus] = useState(null); // 'success' | 'error' | null
 
   // Handle save to account
@@ -38,13 +34,6 @@ const SettingsPanel = memo(({
       setSaveStatus('error');
       setTimeout(() => setSaveStatus(null), 2000);
     }
-  };
-
-  // Handle custom color change
-  const handleCustomColorChange = (e) => {
-    const color = e.target.value;
-    setCustomColor(color);
-    setAccentColor(color);
   };
 
   if (!isOpen) return null;
@@ -101,77 +90,7 @@ const SettingsPanel = memo(({
             </div>
           </div>
 
-          {/* Accent Color */}
-          <div>
-            <label className="text-xs uppercase tracking-wider text-gray-500 mb-2 block">
-              <Palette size={12} className="inline mr-1" />
-              Accent Color
-            </label>
-
-            {/* Preset Colors */}
-            <div className="flex flex-wrap gap-3 mb-3">
-              {presetColors.map(preset => (
-                <button
-                  key={preset.color}
-                  onClick={() => setAccentColor(preset.color)}
-                  className={`w-10 h-10 rounded-full transition-all border-2 ${
-                    accentColor === preset.color
-                      ? 'ring-2 ring-white ring-offset-2 ring-offset-gray-900 scale-110 border-white'
-                      : 'border-gray-600 hover:scale-105 hover:border-gray-400'
-                  }`}
-                  style={{ background: preset.color }}
-                  title={preset.name}
-                />
-              ))}
-            </div>
-
-            {/* Custom Color Picker */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowColorPicker(!showColorPicker)}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition-colors"
-              >
-                <div
-                  className="w-4 h-4 rounded-full border border-gray-600"
-                  style={{ backgroundColor: accentColor }}
-                />
-                Custom Color
-              </button>
-              {showColorPicker && (
-                <input
-                  type="color"
-                  value={customColor}
-                  onChange={handleCustomColorChange}
-                  className="w-10 h-10 rounded cursor-pointer bg-transparent border-0"
-                />
-              )}
-              <span className="text-xs text-gray-500 font-mono">{accentColor}</span>
-            </div>
-          </div>
-
-          {/* Preview */}
-          <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
-            <div className="text-xs text-gray-500 mb-2">Preview</div>
-            <div className="flex items-center gap-3">
-              <div
-                className="px-3 py-1.5 rounded text-sm font-medium"
-                style={{
-                  backgroundColor: `${accentColor}33`,
-                  color: accentColor,
-                  border: `1px solid ${accentColor}80`
-                }}
-              >
-                Active Tab
-              </div>
-              <div
-                className="w-3 h-3 rounded-full animate-pulse"
-                style={{ backgroundColor: accentColor }}
-              />
-              <span style={{ color: accentColor }} className="text-sm">
-                Accent Text
-              </span>
-            </div>
-          </div>
+          {/* Accent Color section removed */}
 
           {/* Save Button */}
           <div className="pt-2 border-t border-gray-700">
@@ -187,9 +106,9 @@ const SettingsPanel = memo(({
                     : ''
                 }`}
                 style={!saveStatus ? {
-                  backgroundColor: `${accentColor}33`,
-                  color: accentColor,
-                  border: `1px solid ${accentColor}80`
+                  backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                  color: '#eab308',
+                  border: '1px solid rgba(234, 179, 8, 0.5)'
                 } : {}}
               >
                 {isSyncing ? (

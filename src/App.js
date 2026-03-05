@@ -28,7 +28,7 @@ import TopContributors from './components/Community/TopContributors';
 import { TheaterQueueProvider, useTheaterQueue } from './contexts/TheaterQueueContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import SettingsPanel from './components/UI/SettingsPanel';
-import NotificationBell from './components/UI/NotificationBell';
+// NotificationBell removed
 import { useNotifications } from './hooks';
 import { API_BASE_URL } from './components/Auth/AuthProvider';
 import MomentDetailModal from './components/Moment/MomentDetailModal';
@@ -629,10 +629,7 @@ const Header = memo(({
             </h1>
           </button>
 
-          {/* Notification Bell (mobile) */}
-          {user && (
-            <NotificationBell onMomentSelect={onMomentSelect} />
-          )}
+          {/* Notification Bell removed */}
 
           {/* Hamburger Menu Button */}
           <button
