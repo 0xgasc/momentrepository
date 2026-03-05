@@ -141,6 +141,12 @@ export const TheaterQueueProvider = ({ children }) => {
     }
   }, []);
 
+  const toggleMinimize = useCallback(() => {
+    if (playerControlsRef.current?.toggleMinimize) {
+      playerControlsRef.current.toggleMinimize();
+    }
+  }, []);
+
   const openComments = useCallback(() => {
     if (playerControlsRef.current?.openComments) {
       playerControlsRef.current.openComments();
@@ -473,10 +479,14 @@ export const TheaterQueueProvider = ({ children }) => {
     toggleEffect,
     setEffectIntensity,
     togglePiPMode,
+    toggleMinimize,
     openComments,
     openInfo,
     playNext,
-    playRandom
+    playRandom,
+
+    // Player state flags
+    isMinimized: playerControlsRef.current?.isMinimized || false
   };
 
   return (

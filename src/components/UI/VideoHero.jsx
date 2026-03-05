@@ -1014,7 +1014,12 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         } catch (err) {
           // PiP not supported or failed
         }
-      }
+      },
+      toggleMinimize: () => {
+        console.log('🔽 toggleMinimize called, current:', isMinimized);
+        setIsMinimized(prev => !prev);
+      },
+      isMinimized
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registerPlayerControls, isAudio, isYouTube, isPlaying, isMuted, isFullscreen, isMinimized, seekTo, setVolumeLevel, moment, onMomentClick, handleNext]);
