@@ -147,11 +147,11 @@ const DesktopSidebar = memo(({
       {/* Now Playing Mini - WORKING CONTROLS */}
       {(isPlayingFromQueue || currentMoment) && currentMoment && (
         <>
-          <div className="flex items-center gap-2 px-2.5 py-1 bg-gray-800/40 rounded">
-            {/* Song name - clickable to expand MediaControlCenter */}
+          <div className="flex items-center gap-2 px-2.5 py-1 bg-gray-800/40 rounded" style={{ minWidth: '420px' }}>
+            {/* Song name - fixed width to prevent layout shift */}
             <button
               onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
-              className="max-w-[120px] lg:max-w-[160px] xl:max-w-[200px] hidden lg:block hover:text-yellow-400 transition-colors"
+              className="w-[140px] lg:w-[160px] xl:w-[200px] flex-shrink-0 hidden lg:block hover:text-yellow-400 transition-colors text-left"
               title="Open full controls"
             >
               <div className="text-xs font-medium text-white truncate">{currentMoment.songName}</div>
