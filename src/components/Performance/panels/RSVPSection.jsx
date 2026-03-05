@@ -85,7 +85,7 @@ const RSVPSection = memo(({ performanceId, user, token }) => {
 
   return (
     <div className="rsvp-section">
-      {/* Counter */}
+      {/* Simple RSVP Checkbox */}
       <div className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-green-900/30 to-emerald-900/30 rounded-sm border border-green-800/50">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-green-500/20 rounded-sm">
@@ -94,53 +94,64 @@ const RSVPSection = memo(({ performanceId, user, token }) => {
           <div>
             <div className="text-2xl font-bold text-white">{count}</div>
             <div className="text-sm text-green-400">
-              {count === 1 ? 'person' : 'people'} going
+              {count === 1 ? 'person' : 'people'} attending
             </div>
           </div>
         </div>
 
-        {currentRsvp ? (
-          <button
-            onClick={handleRemoveRSVP}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-sm transition-colors border border-red-600/50"
-          >
-            <UserMinus size={16} />
-            Cancel RSVP
-          </button>
+        {/* Simple toggle checkbox for logged-in users */}
+        {user ? (
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={!!currentRsvp}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  handleRSVP();
+                } else {
+                  handleRemoveRSVP();
+                }
+              }}
+              className="w-5 h-5 rounded border-2 border-green-500 bg-gray-900 checked:bg-green-600 checked:border-green-600 cursor-pointer"
+            />
+            <span className="text-white group-hover:text-green-400 transition-colors">
+              {currentRsvp ? "I'm attending" : "Attend this show"}
+            </span>
+          </label>
         ) : (
-          <button
-            onClick={handleRSVP}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-sm transition-colors"
-          >
-            <UserPlus size={16} />
-            I'm Going!
-          </button>
+          /* Anonymous users - show button that opens form */
+          currentRsvp ? (
+            <button
+              onClick={handleRemoveRSVP}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-sm transition-colors border border-red-600/50"
+            >
+              <UserMinus size={16} />
+              Cancel RSVP
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-sm transition-colors"
+            >
+              <UserPlus size={16} />
+              I'm Going!
+            </button>
+          )
         )}
       </div>
 
-      {/* Anonymous form */}
+      {/* Simplified anonymous form - name only, no message */}
       {showForm && !user && !currentRsvp && (
         <div className="mb-4 p-4 bg-gray-800/50 rounded-sm border border-gray-700">
           <div className="mb-3">
-            <label className="block text-sm text-gray-400 mb-1">Display name</label>
+            <label className="block text-sm text-gray-400 mb-1">Your name</label>
             <input
               type="text"
               value={anonName}
               onChange={(e) => setAnonName(e.target.value)}
-              placeholder="Your name..."
+              placeholder="Enter your name..."
               className="w-full bg-gray-900/50 border border-gray-700 rounded-sm px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
               maxLength={50}
-            />
-          </div>
-          <div className="mb-3">
-            <label className="block text-sm text-gray-400 mb-1">Message (optional)</label>
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Can't wait for this show!"
-              className="w-full bg-gray-900/50 border border-gray-700 rounded-sm px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
-              maxLength={200}
             />
           </div>
           <div className="flex gap-2">
