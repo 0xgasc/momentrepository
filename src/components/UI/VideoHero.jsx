@@ -1244,112 +1244,55 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         className="relative mb-4 sm:mb-6"
         style={isMinimized ? { height: '56px', overflow: 'hidden', borderRadius: '2px' } : undefined}
       >
-      {/* Minimized overlay - glassy controls over the playing video */}
+      {/* Minimized overlay - simple info bar, NO controls (use ribbon instead) */}
       {isMinimized && (
         <div
-          className="absolute inset-0 bg-black/30 backdrop-blur-sm border border-white/10 rounded-sm overflow-hidden"
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm border border-white/10 rounded-sm overflow-hidden cursor-pointer hover:bg-black/50 transition-colors"
           title="Click to expand player"
+          onClick={() => setIsMinimized(false)}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            setIsMinimized(false);
+          }}
         >
-          {/* Clickable background area - expands player when clicked */}
-          <div
-            className="absolute inset-0 cursor-pointer pointer-events-auto"
-            onClick={() => setIsMinimized(false)}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              setIsMinimized(false);
-            }}
-            style={{ zIndex: 1 }}
-          />
-
-          {/* Progress bar at top - above clickable layer */}
-        <div className="h-1 bg-white/20 w-full relative pointer-events-none" style={{ zIndex: 2 }}>
-          <div
-            className="h-full bg-yellow-500 transition-all duration-200"
-            style={{ width: `${getMinimizedProgress()}%` }}
-          />
-        </div>
-
-        <div className="relative flex items-center px-3 sm:px-4 py-2 sm:py-3 gap-3 pointer-events-none" style={{ zIndex: 2 }}>
-          {/* Fixed width info section */}
-          <div className="w-32 sm:w-48 flex-shrink-0 cursor-pointer pointer-events-auto" onClick={(e) => { e.stopPropagation(); handleInfoClick(); }}>
-            {moment && (
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center flex-shrink-0">
-                  {isAudio ? <Music size={12} className="text-yellow-400" /> : <Play size={12} className="text-yellow-400" />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-white font-medium text-xs truncate">{moment.songName}</h3>
-                  <p className="text-gray-500 text-[10px] truncate">{moment.venueName}</p>
-                </div>
-              </div>
-            )}
+          {/* Progress bar at top */}
+          <div className="h-1 bg-white/20 w-full relative">
+            <div
+              className="h-full bg-yellow-500 transition-all duration-200"
+              style={{ width: `${getMinimizedProgress()}%` }}
+            />
           </div>
 
-          {/* Spacer */}
-          <div className="flex-1" />
-
-          {/* Queue indicator */}
-          {isPlayingFromQueue && (
-            <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-yellow-900/30 border border-yellow-700/50 rounded pointer-events-none">
-              <ListMusic size={10} className="text-yellow-400" />
-              <span className="text-yellow-400 text-[10px] font-mono">{currentQueueIndex + 1}/{theaterQueue.length}</span>
-            </div>
-          )}
-
-          {/* Controls - fixed size */}
-          <div className="flex items-center gap-1 flex-shrink-0 pointer-events-auto">
-            <button
-              onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
-              className="bg-white/10 hover:bg-white/20 rounded-full p-1.5 transition-colors"
+          <div className="relative flex items-center px-3 sm:px-4 py-2 sm:py-3 gap-3">
+            {/* Song info section - click to view details */}
+            <div
+              className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); handleInfoClick(); }}
             >
-              {isPlaying ? <Pause size={14} className="text-white" /> : <Play size={14} className="text-white ml-0.5" />}
-            </button>
-            {/* Volume control group */}
-            <div className="flex items-center gap-1 bg-white/10 rounded-sm px-1.5 py-1">
-              <button
-                onClick={(e) => { e.stopPropagation(); toggleMute(); }}
-                className={`p-0.5 transition-colors ${isMuted ? 'text-orange-400' : 'text-white'}`}
-                title={isMuted ? 'Unmute' : 'Mute'}
-              >
-                {isMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
-              </button>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={isMuted ? 0 : volume}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  const newVol = parseFloat(e.target.value);
-                  setVolumeLevel(newVol);
-                }}
-                onClick={(e) => e.stopPropagation()}
-                className="w-12 h-1 accent-yellow-500 cursor-pointer"
-                style={{
-                  WebkitAppearance: 'none',
-                  background: `linear-gradient(to right, #eab308 0%, #eab308 ${(isMuted ? 0 : volume) * 100}%, #374151 ${(isMuted ? 0 : volume) * 100}%, #374151 100%)`
-                }}
-              />
+              {moment && (
+                <>
+                  <div className="w-8 h-8 bg-white/10 rounded flex items-center justify-center flex-shrink-0">
+                    {isAudio ? <Music size={12} className="text-yellow-400" /> : <Play size={12} className="text-yellow-400" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-white font-medium text-xs truncate">{moment.songName}</h3>
+                    <p className="text-gray-500 text-[10px] truncate">{moment.venueName}</p>
+                  </div>
+                </>
+              )}
             </div>
-            <button
-              onClick={(e) => { e.stopPropagation(); handleNext(); }}
-              className="bg-white/10 hover:bg-white/20 rounded-full p-1.5 transition-colors"
-            >
-              <SkipForward size={14} className="text-white" />
-            </button>
-            {/* Only show maximize button when NOT in landing mode (landing uses overlay toggle instead) */}
-            {!noAutoMinimize && (
-              <button
-                onClick={(e) => { e.stopPropagation(); e.preventDefault(); setIsMinimized(false); }}
-                onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); setIsMinimized(false); }}
-                className="bg-yellow-600/50 hover:bg-yellow-600/70 active:bg-yellow-600/90 rounded-full p-2 sm:p-1.5 transition-colors cursor-pointer relative z-10"
-                style={{ minWidth: '44px', minHeight: '44px' }}
-                title="Expand player"
-              >
-                <Maximize2 size={18} className="text-white sm:w-[14px] sm:h-[14px]" />
-              </button>
+
+            {/* Queue indicator */}
+            {isPlayingFromQueue && (
+              <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-yellow-900/30 border border-yellow-700/50 rounded pointer-events-none">
+                <ListMusic size={10} className="text-yellow-400" />
+                <span className="text-yellow-400 text-[10px] font-mono">{currentQueueIndex + 1}/{theaterQueue.length}</span>
+              </div>
             )}
+
+          {/* Visual hint: Use ribbon controls (NO controls in minimized view) */}
+          <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] text-gray-400 pointer-events-none">
+            Use ribbon controls →
           </div>
         </div>
         </div>
