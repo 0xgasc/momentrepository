@@ -1032,7 +1032,11 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         }
       },
       toggleMinimize: () => {
-        setIsMinimized(prev => !prev);
+        console.log('🔽 VideoHero toggleMinimize called, current:', isMinimized);
+        setIsMinimized(prev => {
+          console.log('🔽 Setting isMinimized from', prev, 'to', !prev);
+          return !prev;
+        });
       }
     });
   // CRITICAL: Minimal deps - only re-register when these essential functions change

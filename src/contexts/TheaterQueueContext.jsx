@@ -143,8 +143,12 @@ export const TheaterQueueProvider = ({ children }) => {
   }, []);
 
   const toggleMinimize = useCallback(() => {
+    console.log('🎛️ Context toggleMinimize called, playerControls exist?', !!playerControlsRef.current?.toggleMinimize);
     if (playerControlsRef.current?.toggleMinimize) {
+      console.log('🎛️ Calling playerControls.toggleMinimize');
       playerControlsRef.current.toggleMinimize();
+    } else {
+      console.warn('⚠️ playerControls.toggleMinimize not available!');
     }
     setPlayerState(prev => ({ ...prev, isMinimized: !prev.isMinimized }));
   }, []);

@@ -225,7 +225,10 @@ const MediaControlCenter = memo(({
           </button>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => toggleMinimize?.()}
+              onClick={() => {
+                console.log('🖱️ Minimize button clicked in docked ribbon');
+                toggleMinimize?.();
+              }}
               className={`p-1 transition-colors ${playerState.isMinimized ? 'text-yellow-400' : 'text-gray-500 hover:text-white'}`}
               title={playerState.isMinimized ? "Expand player" : "Minimize player"}
             >
@@ -424,7 +427,10 @@ const MediaControlCenter = memo(({
         </div>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => toggleMinimize?.()}
+            onClick={() => {
+              console.log('🖱️ Minimize button clicked in floating ribbon');
+              toggleMinimize?.();
+            }}
             className={`p-1 transition-colors ${playerState.isMinimized ? 'text-yellow-400' : 'text-gray-500 hover:text-white'}`}
             title={playerState.isMinimized ? "Expand player" : "Minimize player"}
           >
