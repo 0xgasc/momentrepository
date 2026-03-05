@@ -41,7 +41,9 @@ const userSchema = new mongoose.Schema({
       accentColor: { type: String, default: '#eab308' },
       extraDark: { type: Boolean, default: false }
     }
-  }
+  },
+  // Shows attended tracking (RSVPs, guestbook signatures, and uploads)
+  showsAttended: [{ type: String }] // Array of performance IDs
 }, { timestamps: true });
 
 // ✅ Password setter
@@ -88,6 +90,24 @@ userSchema.methods.canAssignRoles = function() {
 userSchema.methods.updateLastActive = function() {
   this.lastActive = new Date();
   return this.save();
+};
+
+// ✅ Shows attended tracking
+userSchema.methods.addShowAttended = function(performanceId) {
+  if (!performanceId) return;
+  // Add to array if not already present (Set behavior)
+  if (!this.showsAttended.includes(performanceId)) {
+    this.showsAttended.push(performanceId);
+  }
+};
+
+userSchema.methods.removeShowAttended = function(performanceId) {
+  if (!performanceId) return;
+  this.showsAttended = this.showsAttended.filter(id => id !== performanceId);
+};
+
+userSchema.methods.hasAttendedShow = function(performanceId) {
+  return this.showsAttended.includes(performanceId);
 };
 
 // Index for OAuth lookups

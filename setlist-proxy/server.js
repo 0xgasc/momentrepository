@@ -2989,6 +2989,7 @@ app.get('/api/users/:userId/stats', async (req, res) => {
         totalViews,
         totalCommentsReceived,
         firstCaptures,
+        showsAttended: user.showsAttended?.length || 0,
         mediaBreakdown: mediaBreakdown.reduce((acc, { _id, count }) => {
           if (_id) acc[_id] = count;
           return acc;
@@ -3517,9 +3518,24 @@ app.put('/moderation/moments/:momentId/approve', authenticateToken, requireMod, 
     moment.reviewedBy = req.user.id;
     moment.reviewedAt = new Date();
     await moment.save();
-    
+
+    // Track show as attended for uploader
+    if (moment.user && moment.performanceId) {
+      try {
+        const User = require('./models/User');
+        const user = await User.findById(moment.user);
+        if (user) {
+          user.addShowAttended(moment.performanceId);
+          await user.save();
+          console.log(`📊 User ${user.email} attended ${moment.performanceId} (via upload)`);
+        }
+      } catch (err) {
+        console.error('❌ Error tracking show attended:', err);
+      }
+    }
+
     console.log(`✅ Mod ${req.authenticatedUser.email} approved moment ${momentId}`);
-    
+
     // 📧 Send approval email + in-app notification to user
     try {
       const momentWithUser = await Moment.findById(momentId).populate('user');

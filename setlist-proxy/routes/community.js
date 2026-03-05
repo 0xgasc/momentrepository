@@ -21,6 +21,37 @@ const Moment = require('../models/Moment');
 const Notification = require('../models/Notification');
 const { filterContent, sanitizeDisplayName } = require('../utils/contentFilter');
 
+// Helper function to update show attended status
+// Checks if user has any connection to performance (RSVP, guestbook, or uploads)
+// Adds or removes from showsAttended accordingly
+async function updateShowAttendedStatus(userId, performanceId) {
+  try {
+    const User = require('../models/User');
+    const user = await User.findById(userId);
+    if (!user) return;
+
+    // Check if user has any connection to this performance
+    const [hasRSVP, hasGuestbook, hasUpload] = await Promise.all([
+      RSVP.findOne({ performanceId, user: userId }),
+      Guestbook.findOne({ performanceId, user: userId, isDeleted: { $ne: true } }),
+      Moment.findOne({ performanceId, user: userId, approvalStatus: 'approved' })
+    ]);
+
+    const shouldAttend = hasRSVP || hasGuestbook || hasUpload;
+
+    if (shouldAttend) {
+      user.addShowAttended(performanceId);
+    } else {
+      user.removeShowAttended(performanceId);
+    }
+
+    await user.save();
+    console.log(`📊 Updated show attended status for user ${userId}: ${performanceId} = ${shouldAttend}`);
+  } catch (err) {
+    console.error('❌ Error updating show attended status:', err);
+  }
+}
+
 // Rate limiters
 const chatLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -549,12 +580,19 @@ router.post('/performances/:performanceId/guestbook',
         }
       }
 
-      // Get and sanitize display name
+      // Get and sanitize display name + track show attended
       let finalDisplayName = displayName || 'Anonymous Fan';
       if (req.user && !isAnonymous) {
         const User = require('../models/User');
         const user = await User.findById(req.user.userId);
         finalDisplayName = user?.displayName || 'Fan';
+
+        // Track show as attended
+        if (user) {
+          user.addShowAttended(performanceId);
+          await user.save();
+          console.log(`📊 User ${user.email} attended ${performanceId}`);
+        }
       } else if (displayName) {
         const nameResult = sanitizeDisplayName(displayName);
         if (!nameResult.valid) {
@@ -610,6 +648,11 @@ router.delete('/guestbook/:signatureId', async (req, res) => {
     signature.message = '[deleted]';
     await signature.save();
 
+    // Update show attended status if user owned this signature
+    if (signature.user) {
+      await updateShowAttendedStatus(signature.user.toString(), signature.performanceId);
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error('❌ Delete guestbook signature error:', err);
@@ -663,12 +706,19 @@ router.post('/performances/:performanceId/rsvp', async (req, res) => {
       return res.status(400).json({ error: 'Already RSVPed to this show' });
     }
 
-    // Get user display name if logged in
+    // Get user display name if logged in and track show attended
     let userDisplayName = displayName || 'Anonymous';
     if (req.user) {
       const User = require('../models/User');
       const user = await User.findById(req.user.userId);
       userDisplayName = user?.displayName || user?.email?.split('@')[0] || 'User';
+
+      // Track show as attended
+      if (user) {
+        user.addShowAttended(performanceId);
+        await user.save();
+        console.log(`📊 User ${user.email} now attending ${performanceId}`);
+      }
     }
 
     const rsvp = new RSVP({
@@ -699,10 +749,17 @@ router.delete('/performances/:performanceId/rsvp', async (req, res) => {
 
     // Admin/mod can delete any RSVP by ID
     if (isAdminOrMod && rsvpId) {
-      const result = await RSVP.deleteOne({ _id: rsvpId });
-      if (result.deletedCount === 0) {
+      const rsvp = await RSVP.findById(rsvpId);
+      if (!rsvp) {
         return res.status(404).json({ error: 'RSVP not found' });
       }
+
+      // Update show attended tracking if user owned this RSVP
+      if (rsvp.user) {
+        await updateShowAttendedStatus(rsvp.user, rsvp.performanceId);
+      }
+
+      await RSVP.deleteOne({ _id: rsvpId });
       return res.json({ success: true });
     }
 
@@ -715,6 +772,11 @@ router.delete('/performances/:performanceId/rsvp', async (req, res) => {
 
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'RSVP not found' });
+    }
+
+    // Update show attended tracking for logged-in users
+    if (req.user) {
+      await updateShowAttendedStatus(req.user.userId, performanceId);
     }
 
     res.json({ success: true });
