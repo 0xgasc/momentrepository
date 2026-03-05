@@ -1018,8 +1018,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       toggleMinimize: () => {
         console.log('🔽 toggleMinimize called, current:', isMinimized);
         setIsMinimized(prev => !prev);
-      },
-      isMinimized
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registerPlayerControls, isAudio, isYouTube, isPlaying, isMuted, isFullscreen, isMinimized, seekTo, setVolumeLevel, moment, onMomentClick, handleNext]);
@@ -1047,12 +1046,13 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       isMuted,
       isFullscreen,
       isPiPMode: isPiPActive,
+      isMinimized,
       currentTime,
       duration,
       effectMode: isYouTube ? (trippyEffect ? 'trippy' : null) : (isAsciiMode ? 'ascii' : null),
       effectIntensity
     });
-  }, [isPlaying, isMuted, isFullscreen, isPiPActive, ytProgress, nativeProgress, isYouTube, trippyEffect, isAsciiMode, effectIntensity, updatePlayerState, moment?.startTime, moment?.endTime]);
+  }, [isPlaying, isMuted, isFullscreen, isPiPActive, isMinimized, ytProgress, nativeProgress, isYouTube, trippyEffect, isAsciiMode, effectIntensity, updatePlayerState, moment?.startTime, moment?.endTime]);
 
   // Listen for PiP exit
   useEffect(() => {

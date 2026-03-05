@@ -32,8 +32,7 @@ const MediaControlCenter = memo(({
     addToQueue,
     isInQueue,
     openComments,
-    openInfo,
-    isMinimized
+    openInfo
   } = useTheaterQueue();
 
   // Dragging state
@@ -227,10 +226,10 @@ const MediaControlCenter = memo(({
           <div className="flex items-center gap-1">
             <button
               onClick={() => toggleMinimize?.()}
-              className={`p-1 transition-colors ${isMinimized ? 'text-yellow-400' : 'text-gray-500 hover:text-white'}`}
-              title={isMinimized ? "Expand player" : "Minimize player"}
+              className={`p-1 transition-colors ${playerState.isMinimized ? 'text-yellow-400' : 'text-gray-500 hover:text-white'}`}
+              title={playerState.isMinimized ? "Expand player" : "Minimize player"}
             >
-              {isMinimized ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
+              {playerState.isMinimized ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
             </button>
             <button
               onClick={() => togglePiPMode?.()}
@@ -426,10 +425,10 @@ const MediaControlCenter = memo(({
         <div className="flex items-center gap-1">
           <button
             onClick={() => toggleMinimize?.()}
-            className={`p-1 transition-colors ${isMinimized ? 'text-yellow-400' : 'text-gray-500 hover:text-white'}`}
-            title={isMinimized ? "Expand player" : "Minimize player"}
+            className={`p-1 transition-colors ${playerState.isMinimized ? 'text-yellow-400' : 'text-gray-500 hover:text-white'}`}
+            title={playerState.isMinimized ? "Expand player" : "Minimize player"}
           >
-            {isMinimized ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
+            {playerState.isMinimized ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
           </button>
           <button
             onClick={() => togglePiPMode?.()}

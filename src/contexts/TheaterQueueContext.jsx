@@ -51,7 +51,8 @@ export const TheaterQueueProvider = ({ children }) => {
     isFullscreen: false,
     effectMode: null, // 'ascii' | 'trippy' | null
     effectIntensity: 75, // Fixed at 75% (no slider)
-    isPiPMode: false
+    isPiPMode: false,
+    isMinimized: false
   });
 
   // Player controls ref - VideoHero registers its controls here
@@ -145,6 +146,7 @@ export const TheaterQueueProvider = ({ children }) => {
     if (playerControlsRef.current?.toggleMinimize) {
       playerControlsRef.current.toggleMinimize();
     }
+    setPlayerState(prev => ({ ...prev, isMinimized: !prev.isMinimized }));
   }, []);
 
   const openComments = useCallback(() => {
@@ -483,10 +485,7 @@ export const TheaterQueueProvider = ({ children }) => {
     openComments,
     openInfo,
     playNext,
-    playRandom,
-
-    // Player state flags
-    isMinimized: playerControlsRef.current?.isMinimized || false
+    playRandom
   };
 
   return (
