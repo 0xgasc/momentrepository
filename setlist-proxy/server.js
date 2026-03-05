@@ -3574,15 +3574,28 @@ app.delete('/moderation/moments/:momentId/reject', authenticateToken, requireMod
       console.error('📧 Email/notification error:', emailError);
     }
 
+    // Cascade delete: if this is a parent moment (linked media with children), delete all children
+    let childrenDeleted = 0;
+    if (moment.externalVideoId && moment.showInMoments === false) {
+      const deleteResult = await Moment.deleteMany({
+        externalVideoId: moment.externalVideoId,
+        _id: { $ne: momentId },
+        showInMoments: true
+      });
+      childrenDeleted = deleteResult.deletedCount;
+      console.log(`🗑️ Cascade delete: removed ${childrenDeleted} child moments`);
+    }
+
     // Delete the moment entirely (as per requirements)
     await Moment.findByIdAndDelete(momentId);
-    
+
     console.log(`❌ Mod ${req.authenticatedUser.email} rejected and deleted moment ${momentId}: ${reason}`);
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: 'Moment rejected and deleted',
-      reason: reason || 'No reason provided'
+      reason: reason || 'No reason provided',
+      childrenDeleted
     });
   } catch (error) {
     console.error('❌ Moment rejection error:', error);
@@ -3894,12 +3907,29 @@ app.delete('/moments/:momentId', authenticateToken, async (req, res) => {
     if (moment.approvalStatus === 'approved') {
       return res.status(403).json({ error: 'Cannot delete approved moments' });
     }
-    
+
+    // Cascade delete: if this is a parent moment (linked media with children), delete all children
+    let childrenDeleted = 0;
+    if (moment.externalVideoId && moment.showInMoments === false) {
+      const deleteResult = await Moment.deleteMany({
+        externalVideoId: moment.externalVideoId,
+        _id: { $ne: momentId },
+        showInMoments: true,
+        user: userId // Only delete user's own children
+      });
+      childrenDeleted = deleteResult.deletedCount;
+      console.log(`🗑️ Cascade delete: removed ${childrenDeleted} child moments`);
+    }
+
     // Delete the moment
     await Moment.findByIdAndDelete(momentId);
-    
+
     console.log(`🗑️ User ${userId} withdrew moment ${momentId} (${moment.approvalStatus})`);
-    res.json({ success: true, message: 'Moment deleted successfully' });
+    res.json({
+      success: true,
+      message: 'Moment deleted successfully',
+      childrenDeleted
+    });
     
   } catch (error) {
     console.error('❌ Delete moment error:', error);
@@ -4797,10 +4827,28 @@ app.delete('/admin/moments/:momentId', authenticateToken, requireAdmin, async (r
       return res.status(404).json({ error: 'Moment not found' });
     }
 
+    // Cascade delete: if this is a parent moment (linked media with children), delete all children
+    let childrenDeleted = 0;
+    if (moment.externalVideoId && moment.showInMoments === false) {
+      // This is a parent moment - delete all children with same externalVideoId
+      const deleteResult = await Moment.deleteMany({
+        externalVideoId: moment.externalVideoId,
+        _id: { $ne: momentId }, // Don't include the parent in this query
+        showInMoments: true // Only delete children (showInMoments: true)
+      });
+      childrenDeleted = deleteResult.deletedCount;
+      console.log(`🗑️ Cascade delete: removed ${childrenDeleted} child moments with externalVideoId ${moment.externalVideoId}`);
+    }
+
+    // Delete the parent moment
     await Moment.findByIdAndDelete(momentId);
 
-    console.log(`🗑️ Admin ${req.authenticatedUser.email} deleted moment ${momentId} (${moment.songName})`);
-    res.json({ success: true, message: 'Moment deleted successfully' });
+    console.log(`🗑️ Admin ${req.authenticatedUser.email} deleted moment ${momentId} (${moment.songName})${childrenDeleted > 0 ? ` and ${childrenDeleted} children` : ''}`);
+    res.json({
+      success: true,
+      message: 'Moment deleted successfully',
+      childrenDeleted
+    });
 
   } catch (error) {
     console.error('❌ Admin delete moment error:', error);

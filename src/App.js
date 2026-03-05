@@ -70,9 +70,6 @@ const queryClient = new QueryClient();
 
 // Main App Component with Clean Navigation
 const MainApp = memo(() => {
-  // Lazy load MomentDetailModal
-  const MomentDetailModal = React.lazy(() => import('./components/Moment/MomentDetailModal'));
-
   // Router hooks
   const navigate = useNavigate();
   const location = useLocation();
