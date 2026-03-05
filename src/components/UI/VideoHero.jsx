@@ -909,51 +909,67 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     }
   }, [isAudio, isYouTube, isMuted]);
 
-  // Register player controls with context
+  // Register player controls with context - CRITICAL: Keep deps minimal to avoid re-creating controls
   useEffect(() => {
     registerPlayerControls({
       togglePlayPause: () => {
-        if (isAudio && audioRef.current) {
-          if (isPlaying) {
+        // Read current state from refs/DOM instead of closures to avoid stale state
+        if (audioRef.current) {
+          if (audioRef.current.paused) {
+            audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+          } else {
             audioRef.current.pause();
             setIsPlaying(false);
-          } else {
-            audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
           }
-        } else if (isYouTube && ytPlayerRef.current) {
+        } else if (ytPlayerRef.current) {
           try {
-            if (isPlaying) {
+            const playerState = ytPlayerRef.current.getPlayerState?.();
+            if (playerState === 1) { // Playing
               ytPlayerRef.current.pauseVideo();
+              setIsPlaying(false);
             } else {
               ytPlayerRef.current.playVideo();
+              setIsPlaying(true);
             }
-            setIsPlaying(!isPlaying);
-          } catch (e) {}
+          } catch (e) {
+            console.warn('YT player error:', e);
+          }
         } else if (videoRef.current) {
-          if (isPlaying) {
+          if (videoRef.current.paused) {
+            videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+          } else {
             videoRef.current.pause();
             setIsPlaying(false);
-          } else {
-            videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
           }
         }
       },
       seekTo,
       setVolume: setVolumeLevel,
       toggleMute: () => {
-        const newMuted = !isMuted;
-        setIsMuted(newMuted);
-        if (isAudio && audioRef.current) audioRef.current.muted = newMuted;
-        else if (isYouTube && ytPlayerRef.current) {
+        // Read current muted state from DOM
+        if (audioRef.current) {
+          audioRef.current.muted = !audioRef.current.muted;
+          setIsMuted(audioRef.current.muted);
+        } else if (ytPlayerRef.current) {
           try {
-            if (newMuted) ytPlayerRef.current.mute();
-            else ytPlayerRef.current.unMute();
-          } catch (e) {}
-        } else if (videoRef.current) videoRef.current.muted = newMuted;
+            if (ytPlayerRef.current.isMuted?.()) {
+              ytPlayerRef.current.unMute();
+              setIsMuted(false);
+            } else {
+              ytPlayerRef.current.mute();
+              setIsMuted(true);
+            }
+          } catch (e) {
+            console.warn('YT mute error:', e);
+          }
+        } else if (videoRef.current) {
+          videoRef.current.muted = !videoRef.current.muted;
+          setIsMuted(videoRef.current.muted);
+        }
       },
       toggleFullscreen: () => {
         if (!containerRef.current) return;
-        if (!isFullscreen) {
+        if (!document.fullscreenElement) {
           if (containerRef.current.requestFullscreen) {
             containerRef.current.requestFullscreen();
           } else if (containerRef.current.webkitRequestFullscreen) {
@@ -986,9 +1002,9 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         const activeMoment = queueMoment || moment;
         if (activeMoment && onMomentClick) {
           // Pause media when opening info modal to avoid audio conflicts
-          if (isAudio && audioRef.current) {
+          if (audioRef.current) {
             audioRef.current.pause();
-          } else if (isYouTube && ytPlayerRef.current) {
+          } else if (ytPlayerRef.current) {
             try { ytPlayerRef.current.pauseVideo(); } catch (e) {}
           } else if (videoRef.current) {
             videoRef.current.pause();
@@ -997,8 +1013,8 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           onMomentClick(activeMoment);
         }
       },
-      playNext: handleNext,
-      playRandom: handleNext,
+      playNext: handleNextRef.current,
+      playRandom: handleNextRef.current,
       togglePiP: async () => {
         try {
           // For native video elements, use browser PiP API
@@ -1016,12 +1032,11 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         }
       },
       toggleMinimize: () => {
-        console.log('🔽 toggleMinimize called, current:', isMinimized);
         setIsMinimized(prev => !prev);
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registerPlayerControls, isAudio, isYouTube, isPlaying, isMuted, isFullscreen, isMinimized, seekTo, setVolumeLevel, moment, onMomentClick, handleNext]);
+  // CRITICAL: Minimal deps - only re-register when these essential functions change
+  }, [registerPlayerControls, seekTo, setVolumeLevel, moment, onMomentClick]);
 
   // Update player state in context when local state changes
   useEffect(() => {
