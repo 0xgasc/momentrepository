@@ -852,10 +852,10 @@ const LandingPageContent = memo(({ user, onNavigate, onLoginClick, onToggleOverl
 
   return (
     <div className="text-gray-100 relative">
-      {/* Toggle Overlay Button */}
+      {/* Toggle Overlay Button (desktop only — no hero video on mobile) */}
       <button
         onClick={onToggleOverlay}
-        className="absolute top-3 right-3 z-50 bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full p-2.5 transition-all group"
+        className="hidden sm:block absolute top-3 right-3 z-50 bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full p-2.5 transition-all group"
         title={overlayVisible ? "Show video" : "Show info"}
       >
         {overlayVisible ? (
@@ -1234,31 +1234,44 @@ const MainContent = memo(({
       {/* VideoHero with Landing Page Overlay */}
       {showLanding ? (
         <div className="relative">
-          {/* VideoHero — background video */}
+          {/* VideoHero — background video (hidden on mobile) */}
           <VideoHero
             onMomentClick={handleMomentClick}
             mediaFilters={mediaFilters}
             noAutoMinimize={showLanding}
           />
 
-          {/* Landing page content overlay — absolute positioned over VideoHero */}
+          {/* Landing page content — absolute overlay on desktop, static block on mobile */}
           {showLandingOverlay && (
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm overflow-y-auto pointer-events-auto transition-opacity duration-300">
-              <LandingPageContent
-                user={user}
-                onNavigate={(mode) => onShowLanding?.(mode)}
-                onLoginClick={onLoginClick}
-                onToggleOverlay={() => setShowLandingOverlay(false)}
-                overlayVisible={true}
-              />
-            </div>
+            <>
+              {/* Desktop: absolute overlay on top of VideoHero */}
+              <div className="hidden sm:block absolute inset-0 bg-black/70 backdrop-blur-sm overflow-y-auto pointer-events-auto transition-opacity duration-300">
+                <LandingPageContent
+                  user={user}
+                  onNavigate={(mode) => onShowLanding?.(mode)}
+                  onLoginClick={onLoginClick}
+                  onToggleOverlay={() => setShowLandingOverlay(false)}
+                  overlayVisible={true}
+                />
+              </div>
+              {/* Mobile: static block (no hero behind it) */}
+              <div className="sm:hidden bg-gray-950">
+                <LandingPageContent
+                  user={user}
+                  onNavigate={(mode) => onShowLanding?.(mode)}
+                  onLoginClick={onLoginClick}
+                  onToggleOverlay={() => {}}
+                  overlayVisible={false}
+                />
+              </div>
+            </>
           )}
 
-          {/* Floating button to bring overlay back when hidden */}
+          {/* Floating button to bring overlay back when hidden (desktop only) */}
           {!showLandingOverlay && (
             <button
               onClick={() => setShowLandingOverlay(true)}
-              className="absolute top-3 right-3 z-50 bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full p-2.5 transition-all group"
+              className="hidden sm:block absolute top-3 right-3 z-50 bg-black/60 hover:bg-black/80 backdrop-blur-sm border border-white/20 rounded-full p-2.5 transition-all group"
               title="Show info"
             >
               <Eye size={18} className="text-white group-hover:text-blue-400 transition-colors" />
