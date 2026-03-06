@@ -1,6 +1,6 @@
 // src/components/UI/VideoHero.jsx - Hero player for random video/audio clips
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
-import { Play, Pause, Music, Loader2, ListMusic, SkipForward } from 'lucide-react';
+import { Play, Pause, Music, Loader2, ListMusic } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import UMOEffect from './UMOEffect';
@@ -157,9 +157,9 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     return () => clearInterval(interval);
   }, [isYouTube, isAudio, moment?._id]);
 
-  // Auto-minimize on first load once playback starts (disabled on landing page and mobile)
+  // Auto-minimize on first load once playback starts (disabled on landing page via noAutoMinimize)
   useEffect(() => {
-    if (noAutoMinimize || isMobile) return;
+    if (noAutoMinimize) return;
     if (moment && isPlaying && !hasAutoMinimized.current && !isMinimized) {
       const timer = setTimeout(() => {
         if (!hasAutoMinimized.current) {
@@ -169,7 +169,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [moment, isPlaying, isMinimized, noAutoMinimize, isMobile]);
+  }, [moment, isPlaying, isMinimized, noAutoMinimize]);
 
   // Theater queue context
   const {
@@ -1313,9 +1313,9 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         />
       )}
 
-      {/* Player container - clips to minimized bar when minimized, video plays behind glass */}
+      {/* Player container - hidden on mobile (mini player handles controls there) */}
       <div
-        className="relative mb-4 sm:mb-6"
+        className="hidden sm:block relative mb-4 sm:mb-6"
         style={isMinimized ? { height: '56px', overflow: 'hidden', borderRadius: '2px' } : undefined}
       >
       {/* Minimized overlay - simple info bar, NO controls (use ribbon instead) */}
@@ -1356,26 +1356,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               )}
             </div>
 
-            {/* Mobile inline controls - play/pause and next */}
-            <div className="flex sm:hidden items-center gap-1">
-              <button
-                onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
-                className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
-              >
-                {isPlaying
-                  ? <Pause size={16} className="text-yellow-400" />
-                  : <Play size={16} className="text-yellow-400 ml-0.5" />
-                }
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
-              >
-                <SkipForward size={14} className="text-gray-400" />
-              </button>
-            </div>
-
-            {/* Queue indicator (desktop) */}
+            {/* Queue indicator */}
             {isPlayingFromQueue && (
               <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-yellow-900/30 border border-yellow-700/50 rounded pointer-events-none">
                 <ListMusic size={10} className="text-yellow-400" />
@@ -1383,7 +1364,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               </div>
             )}
 
-          {/* Visual hint: Use ribbon controls (desktop only) */}
+          {/* Visual hint: Use ribbon controls */}
           <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] text-gray-400 pointer-events-none">
             Use ribbon controls →
           </div>
