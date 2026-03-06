@@ -56,6 +56,15 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   const handleNextRef = useRef(null);
   const handlePrevRef = useRef(null);
 
+  // YouTube bar drag/hover state
+  const [ytDragging, setYtDragging] = useState(false);
+  const [ytDragProgress, setYtDragProgress] = useState(0);
+  const [ytHoverPos, setYtHoverPos] = useState(null);
+  const ytDraggingRef = useRef(false);
+  const ytBarRef = useRef(null);
+  // Track if any seeker is being dragged (to suppress auto-hide)
+  const seekerDraggingRef = useRef(false);
+
   // Mobile detection for performance optimization
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -83,7 +92,10 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
         if (ytPlayerRef.current && typeof ytPlayerRef.current.getCurrentTime === 'function') {
           const currentTime = ytPlayerRef.current.getCurrentTime() || 0;
           const duration = ytPlayerRef.current.getDuration() || 0;
-          setYtProgress({ currentTime, duration });
+          // Skip state update during drag to prevent playhead snap-back
+          if (!ytDraggingRef.current) {
+            setYtProgress({ currentTime, duration });
+          }
 
           // Check if we've reached the moment's end time
           if (moment?.endTime && currentTime >= moment.endTime) {
@@ -560,12 +572,24 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
   // Auto-hide controls after 2 seconds of no interaction
   const resetHideTimer = useCallback(() => {
+    if (seekerDraggingRef.current) return; // Don't hide during drag
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     setShowControls(true);
     hideTimerRef.current = setTimeout(() => {
-      setShowControls(false);
+      if (!seekerDraggingRef.current) setShowControls(false);
     }, 2000);
   }, []);
+
+  // Handle drag state from WaveformPlayer or YouTube bar
+  const handleSeekerDragState = useCallback((dragging) => {
+    seekerDraggingRef.current = dragging;
+    if (dragging) {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      setShowControls(true);
+    } else {
+      resetHideTimer();
+    }
+  }, [resetHideTimer]);
 
   // Start hide timer when playing
   useEffect(() => {
@@ -1079,20 +1103,67 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     return () => document.removeEventListener('leavepictureinpicture', handlePiPExit);
   }, []);
 
-  // Handle YouTube seek
-  // eslint-disable-next-line no-unused-vars
-  const handleYtSeek = useCallback((e) => {
+  // YouTube bar: get progress 0-1 from mouse/touch event
+  const getYtProgressFromEvent = useCallback((e) => {
+    if (!ytBarRef.current) return null;
+    const rect = ytBarRef.current.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }, []);
+
+  // YouTube bar drag start
+  const handleYtDragStart = useCallback((e) => {
     if (!ytPlayerRef.current || !ytProgress.duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percentage = clickX / rect.width;
-    const seekTime = percentage * ytProgress.duration;
-    try {
-      ytPlayerRef.current.seekTo(seekTime, true);
-    } catch (err) {
-      console.log('YT seek error:', err);
-    }
-  }, [ytProgress.duration]);
+    e.preventDefault();
+    e.stopPropagation();
+    ytDraggingRef.current = true;
+    setYtDragging(true);
+    const percent = getYtProgressFromEvent(e);
+    if (percent !== null) setYtDragProgress(percent);
+    handleSeekerDragState(true);
+  }, [ytProgress.duration, getYtProgressFromEvent, handleSeekerDragState]);
+
+  // YouTube bar drag listeners (window-level)
+  useEffect(() => {
+    if (!ytDragging) return;
+
+    const segmentStart = moment?.startTime || 0;
+    const segmentEnd = moment?.endTime || ytProgress.duration;
+    const segmentDuration = segmentEnd - segmentStart;
+
+    const handleMove = (e) => {
+      e.preventDefault();
+      const percent = getYtProgressFromEvent(e);
+      if (percent !== null) setYtDragProgress(percent);
+    };
+
+    const handleEnd = () => {
+      const finalProgress = ytDragProgress;
+      ytDraggingRef.current = false;
+      setYtDragging(false);
+      handleSeekerDragState(false);
+
+      // Commit seek
+      const seekTime = segmentStart + (finalProgress * segmentDuration);
+      try {
+        ytPlayerRef.current?.seekTo(seekTime, true);
+      } catch (err) {
+        // Seek error
+      }
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+  }, [ytDragging, ytDragProgress, ytProgress.duration, moment?.startTime, moment?.endTime, getYtProgressFromEvent, handleSeekerDragState]);
 
   // Handle info click - pause playback before opening modal
   const handleInfoClick = (e) => {
@@ -1412,13 +1483,15 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           )}
 
           {/* Waveform seeker at bottom - always visible for audio */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 z-30">
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 z-30" onClick={(e) => e.stopPropagation()}>
             <WaveformPlayer
               audioRef={audioRef}
               moment={moment}
               isPlaying={isPlaying}
               isVideo={false}
               simple={false}
+              onSeek={seekTo}
+              onDragStateChange={handleSeekerDragState}
             />
           </div>
         </div>
@@ -1604,7 +1677,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
       {/* Minimal overlay with waveform only - controls moved to MediaControlCenter */}
       {!isYouTube && moment && showControls && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 z-30">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 z-30" onClick={(e) => e.stopPropagation()}>
           <WaveformPlayer
             audioRef={isAudio ? audioRef : null}
             videoRef={!isAudio ? videoRef : null}
@@ -1612,58 +1685,91 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
             isPlaying={isPlaying}
             isVideo={!isAudio}
             simple={!isAudio}
+            onSeek={seekTo}
+            onDragStateChange={handleSeekerDragState}
           />
         </div>
       )}
 
       {/* YouTube progress bar overlay only */}
       {isYouTube && ytProgress.duration > 0 && showControls && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 z-30">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 z-30" onClick={(e) => e.stopPropagation()}>
           {(() => {
             const segmentStart = moment?.startTime || 0;
             const segmentEnd = moment?.endTime || ytProgress.duration;
             const segmentDuration = segmentEnd - segmentStart;
             const relativeTime = Math.max(0, ytProgress.currentTime - segmentStart);
-            const progressPercent = segmentDuration > 0 ? Math.min(100, (relativeTime / segmentDuration) * 100) : 0;
+            const actualProgress = segmentDuration > 0 ? Math.min(1, relativeTime / segmentDuration) : 0;
+            const displayProg = ytDragging ? ytDragProgress : actualProgress;
+            const displayPercent = displayProg * 100;
             const formatTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+            const tooltipPos = ytDragging ? ytDragProgress : ytHoverPos;
 
             return (
               <div className="space-y-2">
                 {/* Time display */}
                 <div className="flex items-center justify-between text-[11px] text-white/80 font-mono px-0.5">
-                  <span>{formatTime(relativeTime)}</span>
+                  <span>{formatTime(ytDragging ? ytDragProgress * segmentDuration : relativeTime)}</span>
                   <span>{formatTime(segmentDuration)}</span>
                 </div>
-                {/* Progress bar */}
+                {/* Progress bar with larger hit target */}
                 <div
-                  className="relative h-1 bg-white/20 rounded-full cursor-pointer group hover:h-1.5 transition-all"
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const clickX = e.clientX - rect.left;
-                    const percentage = clickX / rect.width;
-                    const seekTime = segmentStart + (percentage * segmentDuration);
-                    try {
-                      ytPlayerRef.current?.seekTo(seekTime, true);
-                    } catch (err) {
-                      // Seek error
+                  ref={ytBarRef}
+                  className="relative py-3 cursor-pointer group select-none"
+                  onMouseDown={handleYtDragStart}
+                  onTouchStart={handleYtDragStart}
+                  onMouseMove={(e) => {
+                    if (!ytDraggingRef.current) {
+                      const percent = getYtProgressFromEvent(e);
+                      if (percent !== null) setYtHoverPos(percent);
                     }
                   }}
+                  onMouseLeave={() => {
+                    if (!ytDraggingRef.current) setYtHoverPos(null);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {/* Buffer indicator (fake for now) */}
-                  <div
-                    className="absolute top-0 left-0 h-full bg-white/30 rounded-full"
-                    style={{ width: `${Math.min(100, progressPercent + 15)}%` }}
-                  />
-                  {/* Progress fill */}
-                  <div
-                    className="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all duration-100"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                  {/* Playhead */}
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity scale-0 group-hover:scale-100"
-                    style={{ left: `calc(${progressPercent}% - 6px)` }}
-                  />
+                  {/* Time tooltip on hover/drag */}
+                  {tooltipPos !== null && segmentDuration > 0 && (
+                    <div
+                      className="absolute z-50 px-2 py-0.5 bg-black/90 text-white text-[11px] font-mono rounded shadow-lg border border-white/10 pointer-events-none whitespace-nowrap"
+                      style={{
+                        left: `${tooltipPos * 100}%`,
+                        top: '-4px',
+                        transform: 'translateX(-50%)'
+                      }}
+                    >
+                      {formatTime(tooltipPos * segmentDuration)}
+                    </div>
+                  )}
+                  {/* Thin bar track */}
+                  <div className="relative h-1 bg-white/20 rounded-full group-hover:h-1.5 transition-all">
+                    {/* Buffer indicator */}
+                    <div
+                      className="absolute top-0 left-0 h-full bg-white/30 rounded-full"
+                      style={{ width: `${Math.min(100, displayPercent + 15)}%` }}
+                    />
+                    {/* Progress fill */}
+                    <div
+                      className="absolute top-0 left-0 h-full bg-red-500 rounded-full"
+                      style={{ width: `${displayPercent}%`, transition: ytDragging ? 'none' : 'width 0.1s ease' }}
+                    />
+                    {/* Hover line */}
+                    {ytHoverPos !== null && !ytDragging && (
+                      <div
+                        className="absolute top-0 bottom-0 w-px bg-white/50 pointer-events-none"
+                        style={{ left: `${ytHoverPos * 100}%` }}
+                      />
+                    )}
+                    {/* Playhead dot */}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full shadow-lg transition-opacity scale-0 group-hover:scale-100"
+                      style={{
+                        left: `calc(${displayPercent}% - 6px)`,
+                        opacity: ytDragging ? 1 : undefined
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             );

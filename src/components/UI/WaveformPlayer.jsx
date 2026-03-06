@@ -1,5 +1,5 @@
 // src/components/UI/WaveformPlayer.jsx
-// SoundCloud-style waveform player with timed comments
+// SoundCloud-style waveform player with timed comments, drag-to-scrub, time tooltip
 import React, { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
 import { Send, X } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
@@ -31,7 +31,7 @@ const formatTime = (seconds) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
-const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, isVideo = false, externalTime, externalDuration, simple = false }) => {
+const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, onDragStateChange, isVideo = false, externalTime, externalDuration, simple = false }) => {
   // Support both audio and video elements, or external time for YouTube
   const mediaRef = videoRef || audioRef;
   const isExternalTime = externalTime !== undefined || externalDuration !== undefined;
@@ -47,12 +47,24 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
   const [commentInputPos, setCommentInputPos] = useState(0);
   const [commentText, setCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Drag-to-scrub state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragProgress, setDragProgress] = useState(0);
+  const isDraggingRef = useRef(false);
+
+  // Hover state for time tooltip
+  const [hoverPos, setHoverPos] = useState(null);
+
   const waveformRef = useRef(null);
   const lastUpdateRef = useRef(0); // For throttling updates
   const { user } = useAuth();
 
   // Destructure for easier access
   const { progress, currentTime, duration } = playbackState;
+
+  // Display progress: use drag position during drag, otherwise actual progress
+  const displayProgress = isDragging ? dragProgress : progress;
 
   // Generate consistent waveform based on moment ID
   const waveformData = useMemo(() => {
@@ -64,13 +76,11 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
 
   // RESET playback state immediately when moment changes
   useEffect(() => {
-    // Reset to zero state when switching tracks
     setPlaybackState({
       progress: 0,
       currentTime: 0,
       duration: 0
     });
-    // Also reset throttle ref so first update comes through immediately
     lastUpdateRef.current = 0;
   }, [moment?._id]);
 
@@ -83,7 +93,6 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
         const response = await fetch(`${API_BASE_URL}/moments/${moment._id}/timestamp-comments`);
         if (response.ok) {
           const data = await response.json();
-          // Handle both array and { comments: [] } response formats
           const commentsArray = data.comments || data;
           setComments(Array.isArray(commentsArray) ? commentsArray : []);
         }
@@ -97,9 +106,9 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
 
   // Update from external time props (for YouTube) - throttled to reduce glitching
   useEffect(() => {
+    if (isDraggingRef.current) return; // Don't update during drag
     if (isExternalTime && externalDuration > 0) {
       const now = Date.now();
-      // Throttle updates to max 4 per second for smooth animation
       if (now - lastUpdateRef.current < 250) return;
       lastUpdateRef.current = now;
 
@@ -113,14 +122,14 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
 
   // Update progress from media currentTime (for audio/video elements)
   useEffect(() => {
-    if (isExternalTime) return; // Skip if using external time
+    if (isExternalTime) return;
     const media = mediaRef?.current;
     if (!media) return;
 
     const updateProgress = () => {
+      if (isDraggingRef.current) return; // Don't update during drag
       if (media.duration && !isNaN(media.duration)) {
         const now = Date.now();
-        // Throttle updates to max 4 per second
         if (now - lastUpdateRef.current < 250) return;
         lastUpdateRef.current = now;
 
@@ -142,7 +151,6 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
     media.addEventListener('timeupdate', updateProgress);
     media.addEventListener('loadedmetadata', handleLoadedMetadata);
 
-    // Initial values
     if (media.duration && !isNaN(media.duration)) {
       setPlaybackState({
         progress: media.currentTime / media.duration,
@@ -155,37 +163,85 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
       media.removeEventListener('timeupdate', updateProgress);
       media.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [mediaRef, isExternalTime, moment?._id]); // Added moment._id to re-attach listeners on track change
+  }, [mediaRef, isExternalTime, moment?._id]);
 
-  // Handle click to seek
-  const handleSeek = useCallback((e) => {
-    if (!waveformRef.current || !duration) return;
-    // For external time (YouTube), we need mediaRef OR onSeek callback
-    if (!isExternalTime && !mediaRef?.current) return;
-
+  // Get progress 0-1 from a mouse/touch event
+  const getProgressFromEvent = useCallback((e) => {
+    if (!waveformRef.current) return null;
     const rect = waveformRef.current.getBoundingClientRect();
-    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const newTime = percent * duration;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }, []);
 
-    // Update media element if available
-    if (mediaRef?.current) {
-      mediaRef.current.currentTime = newTime;
-    }
+  // Drag start handler
+  const handleDragStart = useCallback((e) => {
+    if (!duration) return;
+    e.preventDefault();
+    e.stopPropagation();
+    isDraggingRef.current = true;
+    setIsDragging(true);
+    const percent = getProgressFromEvent(e);
+    if (percent !== null) setDragProgress(percent);
+    onDragStateChange?.(true);
+  }, [duration, getProgressFromEvent, onDragStateChange]);
 
-    // Update local state immediately for responsiveness
-    setPlaybackState(prev => ({
-      ...prev,
-      progress: percent,
-      currentTime: newTime
-    }));
+  // Window-level drag listeners
+  useEffect(() => {
+    if (!isDragging) return;
 
-    // Callback for external handling (YouTube seek)
-    if (onSeek) onSeek(newTime);
-  }, [mediaRef, duration, onSeek, isExternalTime]);
+    const handleMove = (e) => {
+      e.preventDefault();
+      const percent = getProgressFromEvent(e);
+      if (percent !== null) setDragProgress(percent);
+    };
+
+    const handleEnd = () => {
+      const finalProgress = dragProgress;
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      onDragStateChange?.(false);
+
+      // Commit the seek
+      const newTime = finalProgress * duration;
+      if (mediaRef?.current) {
+        mediaRef.current.currentTime = newTime;
+      }
+      setPlaybackState(prev => ({
+        ...prev,
+        progress: finalProgress,
+        currentTime: newTime
+      }));
+      if (onSeek) onSeek(newTime);
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+  }, [isDragging, dragProgress, duration, mediaRef, onSeek, getProgressFromEvent, onDragStateChange]);
+
+  // Hover handler
+  const handleMouseMove = useCallback((e) => {
+    if (isDraggingRef.current) return;
+    const percent = getProgressFromEvent(e);
+    if (percent !== null) setHoverPos(percent);
+  }, [getProgressFromEvent]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (!isDraggingRef.current) setHoverPos(null);
+  }, []);
 
   // Handle double-click to add comment
   const handleDoubleClick = useCallback((e) => {
     if (!user || !waveformRef.current || !duration) return;
+    e.stopPropagation();
 
     const rect = waveformRef.current.getBoundingClientRect();
     const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -235,22 +291,43 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
     setCommentText('');
   };
 
+  // Tooltip position (drag takes priority over hover)
+  const tooltipPos = isDragging ? dragProgress : hoverPos;
+
   return (
     <div className="waveform-player w-full">
       {/* Time display - smaller for simple mode */}
       <div className={`flex justify-between text-gray-400 font-mono ${simple ? 'text-[10px] mb-1' : 'text-xs mb-2'}`}>
-        <span>{formatTime(currentTime)}</span>
+        <span>{formatTime(isDragging ? dragProgress * duration : currentTime)}</span>
         <span>{formatTime(duration)}</span>
       </div>
 
       {/* Waveform/Progress container */}
       <div
         ref={waveformRef}
-        className={`relative cursor-pointer select-none ${simple ? 'h-6' : 'h-16'}`}
-        onClick={handleSeek}
+        className={`relative cursor-pointer select-none ${simple ? 'h-8 py-1' : 'h-16'}`}
+        onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
         onDoubleClick={handleDoubleClick}
-        title={user ? "Click to seek, double-click to add comment" : "Click to seek"}
+        onClick={(e) => e.stopPropagation()}
+        title={user ? "Drag to seek, double-click to add comment" : "Drag to seek"}
       >
+        {/* Time tooltip on hover/drag */}
+        {tooltipPos !== null && duration > 0 && (
+          <div
+            className="absolute z-50 px-2 py-0.5 bg-black/90 text-white text-[11px] font-mono rounded shadow-lg border border-white/10 pointer-events-none whitespace-nowrap"
+            style={{
+              left: `${tooltipPos * 100}%`,
+              top: simple ? '-22px' : '-26px',
+              transform: 'translateX(-50%)'
+            }}
+          >
+            {formatTime(tooltipPos * duration)}
+          </div>
+        )}
+
         {simple ? (
           /* Simple mode: mini waveform style for video */
           <>
@@ -258,7 +335,8 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
             <div className="absolute inset-0 flex items-end gap-[2px] px-1">
               {Array.from({ length: 48 }).map((_, i) => {
                 const barProgress = i / 48;
-                const isPlayed = barProgress < progress;
+                const isPlayed = barProgress < displayProgress;
+                const isHoverAhead = hoverPos !== null && !isDragging && barProgress >= displayProgress && barProgress < hoverPos;
                 // Create wave-like heights
                 const height = 30 + Math.sin(i * 0.5) * 20 + Math.cos(i * 0.3) * 15 + (i % 3) * 10;
                 return (
@@ -267,6 +345,8 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
                     className={`flex-1 rounded-sm transition-all duration-150 ${
                       isPlayed
                         ? 'bg-gradient-to-t from-purple-500 via-fuchsia-400 to-cyan-400'
+                        : isHoverAhead
+                        ? 'bg-white/25'
                         : 'bg-white/40'
                     }`}
                     style={{ height: `${Math.min(100, height)}%` }}
@@ -276,9 +356,16 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
             </div>
             {/* Playhead line */}
             <div
-              className="absolute top-0 bottom-0 w-0.5 bg-white z-10"
-              style={{ left: `${progress * 100}%` }}
+              className="absolute top-0 bottom-0 w-0.5 bg-white z-10 shadow-lg shadow-white/30"
+              style={{ left: `${displayProgress * 100}%` }}
             />
+            {/* Hover line */}
+            {hoverPos !== null && !isDragging && (
+              <div
+                className="absolute top-0 bottom-0 w-px bg-white/40 z-10 pointer-events-none"
+                style={{ left: `${hoverPos * 100}%` }}
+              />
+            )}
           </>
         ) : (
           /* Full waveform mode: bars for audio */
@@ -287,7 +374,8 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
             <div className="absolute inset-0 flex items-end justify-between gap-px">
               {waveformData.map((height, i) => {
                 const barProgress = i / waveformData.length;
-                const isPlayed = barProgress < progress;
+                const isPlayed = barProgress < displayProgress;
+                const isHoverAhead = hoverPos !== null && !isDragging && barProgress >= displayProgress && barProgress < hoverPos;
 
                 return (
                   <div
@@ -295,6 +383,8 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
                     className={`flex-1 rounded-t-sm transition-colors duration-100 ${
                       isPlayed
                         ? 'bg-gradient-to-t from-purple-500 via-cyan-400 to-emerald-400'
+                        : isHoverAhead
+                        ? 'bg-white/25'
                         : 'bg-white/50'
                     }`}
                     style={{ height: `${height * 100}%` }}
@@ -306,8 +396,15 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, is
             {/* Progress indicator line */}
             <div
               className="absolute top-0 bottom-0 w-0.5 bg-white pointer-events-none z-10 shadow-lg shadow-white/50"
-              style={{ left: `${progress * 100}%` }}
+              style={{ left: `${displayProgress * 100}%` }}
             />
+            {/* Hover line */}
+            {hoverPos !== null && !isDragging && (
+              <div
+                className="absolute top-0 bottom-0 w-px bg-white/40 z-10 pointer-events-none"
+                style={{ left: `${hoverPos * 100}%` }}
+              />
+            )}
           </>
         )}
 
