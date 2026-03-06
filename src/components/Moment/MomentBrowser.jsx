@@ -630,10 +630,10 @@ const MomentCard = memo(({ moment, onSongSelect, onPerformanceSelect, onMomentSe
           className="relative aspect-video bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
           onClick={() => onMomentSelect(moment)}
         >
-          {/* Add to Queue Button - appears on hover */}
+          {/* Add to Queue Button - appears on hover, hidden on mobile */}
           <button
             onClick={handleAddToQueue}
-            className={`absolute bottom-2 right-2 z-10 rounded-full p-2 transition-all duration-200 ${
+            className={`absolute bottom-2 right-2 z-10 rounded-full p-2 transition-all duration-200 hidden sm:block ${
               momentInQueue
                 ? 'bg-yellow-600/90 text-white'
                 : 'bg-black/70 text-white opacity-0 group-hover:opacity-100 hover:bg-yellow-600/90'

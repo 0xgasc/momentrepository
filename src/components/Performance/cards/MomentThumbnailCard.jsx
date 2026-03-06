@@ -262,13 +262,13 @@ const MomentThumbnailCard = memo(({
           </div>
         )}
 
-        {/* Add to Queue button */}
+        {/* Add to Queue button - hidden on mobile */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             if (!inQueue) addToQueue(moment);
           }}
-          className={`absolute bottom-1 left-1 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all z-20 ${
+          className={`absolute bottom-1 left-1 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all z-20 hidden sm:block ${
             inQueue
               ? 'bg-green-600/90 cursor-default'
               : 'bg-blue-600/90 hover:bg-blue-700/90'

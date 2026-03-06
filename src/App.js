@@ -1410,9 +1410,9 @@ const MobileBottomNav = memo(({
 
   return (
     <>
-      {/* Mobile Mini Player - Above Bottom Nav - shows for ALL playback */}
+      {/* Mini Player - hidden on mobile (browse-only) and desktop (sidebar controls) */}
       {currentMoment && (
-        <div className="sm:hidden fixed left-0 right-0 z-50" style={{ bottom: 'calc(52px + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="hidden sm:block lg:hidden fixed left-0 right-0 z-50" style={{ bottom: 'calc(52px + env(safe-area-inset-bottom, 0px))' }}>
           <div className="mx-2 mb-1 bg-black/60 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden">
             {/* Progress bar at top - tap to seek */}
             <div

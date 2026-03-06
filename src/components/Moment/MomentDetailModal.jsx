@@ -997,7 +997,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
             <div className="download-section">
               <button
                 onClick={() => addToQueue(moment)}
-                className={`queue-button ${isInQueue(moment._id) ? 'in-queue' : ''}`}
+                className={`queue-button hidden sm:inline-flex ${isInQueue(moment._id) ? 'in-queue' : ''}`}
                 disabled={isInQueue(moment._id)}
               >
                 {isInQueue(moment._id) ? (

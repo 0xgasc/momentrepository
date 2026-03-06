@@ -390,7 +390,7 @@ const SongDetail = memo(({ songData: initialSongData, onBack, onPerformanceSelec
                         if (!inQueue) addToQueue(moment);
                       }}
                       disabled={inQueue}
-                      className={`w-full px-2 py-1 text-xs rounded flex items-center justify-center gap-1 transition-colors ${
+                      className={`w-full px-2 py-1 text-xs rounded items-center justify-center gap-1 transition-colors hidden sm:flex ${
                         inQueue
                           ? 'bg-green-100 text-green-700 cursor-default'
                           : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
