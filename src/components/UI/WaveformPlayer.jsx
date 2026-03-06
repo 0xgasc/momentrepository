@@ -331,10 +331,8 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, on
         {simple ? (
           /* Simple mode: mini waveform style for video */
           <>
-            {/* Dark backdrop so bars are visible over any video */}
-            <div className="absolute inset-0 bg-black/40 rounded-sm" />
             {/* Bars */}
-            <div className="absolute inset-0 flex items-end gap-[2px] px-1">
+            <div className="absolute inset-0 flex items-end gap-[2px]">
               {Array.from({ length: 48 }).map((_, i) => {
                 const barProgress = i / 48;
                 const isPlayed = barProgress < displayProgress;
@@ -348,19 +346,14 @@ const WaveformPlayer = memo(({ audioRef, videoRef, moment, isPlaying, onSeek, on
                       isPlayed
                         ? 'bg-gradient-to-t from-purple-500 via-fuchsia-400 to-cyan-400'
                         : isHoverAhead
-                        ? 'bg-white/40'
-                        : 'bg-white/20'
+                        ? 'bg-white/60'
+                        : 'bg-white/30'
                     }`}
                     style={{ height: `${Math.min(100, height)}%` }}
                   />
                 );
               })}
             </div>
-            {/* Played region overlay glow */}
-            <div
-              className="absolute inset-y-0 left-0 bg-gradient-to-r from-purple-500/10 to-transparent pointer-events-none rounded-sm"
-              style={{ width: `${displayProgress * 100}%` }}
-            />
             {/* Playhead line */}
             <div
               className="absolute top-0 bottom-0 w-0.5 bg-white z-10 shadow-lg shadow-white/50"

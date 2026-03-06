@@ -1677,7 +1677,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
       {/* Minimal overlay with waveform only - controls moved to MediaControlCenter */}
       {!isYouTube && moment && showControls && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 z-30" onClick={(e) => e.stopPropagation()}>
+        <div className="absolute bottom-0 left-0 right-0 bg-gray-900/90 backdrop-blur-sm border-t border-white/10 px-3 py-2 z-30" onClick={(e) => e.stopPropagation()}>
           <WaveformPlayer
             audioRef={isAudio ? audioRef : null}
             videoRef={!isAudio ? videoRef : null}
