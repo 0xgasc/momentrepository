@@ -27,6 +27,13 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <title>UMO Archive</title>
+    <!-- Tailwind CSS - load before React to prevent flash of unstyled content -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Hide root until styles are ready -->
+    <style>
+      #root { opacity: 0; transition: opacity 0.15s ease-in; }
+      #root.ready { opacity: 1; }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

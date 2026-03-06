@@ -4,26 +4,8 @@ import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import App from './App';
 
-// Tailwind CSS via CDN (PostCSS not configured)
-const tailwindScript = document.createElement('script');
-tailwindScript.src = 'https://cdn.tailwindcss.com';
-document.head.appendChild(tailwindScript);
-
-// Service Worker disabled temporarily due to infinite loop
-// TODO: Fix and re-enable service worker
-/*
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        console.log('🎵 UMO Archive SW registered:', registration.scope);
-      })
-      .catch((error) => {
-        console.log('❌ SW registration failed:', error);
-      });
-  });
-}
-*/
+// Tailwind CSS is loaded via <script> in public/index.html <head>
+// so it's available before React renders (prevents flash of unstyled content)
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -33,3 +15,8 @@ root.render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+// Reveal the app once React has rendered
+requestAnimationFrame(() => {
+  document.getElementById('root')?.classList.add('ready');
+});
