@@ -147,69 +147,68 @@ const DesktopSidebar = memo(({
       {/* Now Playing Mini - WORKING CONTROLS */}
       {(isPlayingFromQueue || currentMoment) && currentMoment && (
         <>
-          <div className="flex items-center gap-2 px-2.5 py-1 bg-gray-800/40 rounded" style={{ minWidth: '420px' }}>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-800/40 rounded flex-shrink-0">
             {/* Song name - fixed width to prevent layout shift */}
             <button
               onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
-              className="w-[140px] lg:w-[160px] xl:w-[200px] flex-shrink-0 hidden lg:block hover:text-yellow-400 transition-colors text-left"
+              className="w-[120px] lg:w-[150px] xl:w-[180px] flex-shrink-0 hidden lg:block hover:text-yellow-400 transition-colors text-left"
               title="Open full controls"
             >
               <div className="text-xs font-medium text-white truncate">{currentMoment.songName}</div>
             </button>
 
-            {/* Play/Pause */}
-            <button
-              onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
-              className="p-1 rounded bg-yellow-500/20 hover:bg-yellow-500/40 transition-colors"
-              title={playerState.isPlaying ? 'Pause' : 'Play'}
-            >
-              {playerState.isPlaying ? <Pause size={14} className="text-yellow-400" /> : <Play size={14} className="text-yellow-400 ml-0.5" />}
-            </button>
-
-            {/* Previous / Restart */}
-            <button onClick={() => playPrevInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Previous">
-              <SkipBack size={14} className="text-gray-400 hover:text-white" />
-            </button>
-            {/* Smart Next: shows Next if queue has more, else Random */}
-            {theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1 ? (
-              <button onClick={() => playNextInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Next in queue">
-                <SkipForward size={14} className="text-gray-400 hover:text-white" />
+            {/* Transport controls */}
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <button onClick={() => playPrevInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Previous">
+                <SkipBack size={13} className="text-gray-400 hover:text-white" />
               </button>
-            ) : (
-              <button onClick={() => playRandom()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Play random">
-                <Shuffle size={14} className="text-gray-400 hover:text-white" />
+              <button
+                onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
+                className="p-1.5 rounded bg-yellow-500/20 hover:bg-yellow-500/40 transition-colors flex-shrink-0"
+                title={playerState.isPlaying ? 'Pause' : 'Play'}
+              >
+                {playerState.isPlaying ? <Pause size={14} className="text-yellow-400" /> : <Play size={14} className="text-yellow-400 ml-0.5" />}
               </button>
-            )}
+              {theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1 ? (
+                <button onClick={() => playNextInQueue()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Next in queue">
+                  <SkipForward size={13} className="text-gray-400 hover:text-white" />
+                </button>
+              ) : (
+                <button onClick={() => playRandom()} className="p-1 hover:bg-gray-700/50 rounded transition-colors" title="Play random">
+                  <Shuffle size={13} className="text-gray-400 hover:text-white" />
+                </button>
+              )}
+            </div>
 
             {/* Volume control */}
-            <div className="flex items-center gap-1.5">
-              <button onClick={() => toggleMute()} className="p-1 hover:bg-gray-700/50 rounded transition-colors">
-                {playerState.isMuted ? <VolumeX size={14} className="text-orange-400" /> : <Volume2 size={14} className="text-gray-400" />}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button onClick={() => toggleMute()} className="p-1 hover:bg-gray-700/50 rounded transition-colors flex-shrink-0">
+                {playerState.isMuted ? <VolumeX size={13} className="text-orange-400" /> : <Volume2 size={13} className="text-gray-400" />}
               </button>
               <input
                 type="range" min="0" max="1" step="0.05"
                 value={playerState.isMuted ? 0 : (playerState.volume || 1)}
                 onChange={(e) => setVolume(parseFloat(e.target.value))}
-                className="w-14 lg:w-16 xl:w-20 h-1 accent-yellow-500"
+                className="w-12 lg:w-14 h-1 accent-yellow-500 flex-shrink-0"
               />
             </div>
 
             {/* Minimize/Maximize player toggle */}
             <button
               onClick={() => toggleMinimize?.()}
-              className={`p-1.5 rounded transition-colors ${playerState.isMinimized ? 'bg-yellow-500/20 text-yellow-400' : 'hover:bg-gray-700/50 text-gray-400 hover:text-white'}`}
+              className={`p-1 rounded transition-colors flex-shrink-0 ${playerState.isMinimized ? 'bg-yellow-500/20 text-yellow-400' : 'hover:bg-gray-700/50 text-gray-400 hover:text-white'}`}
               title={playerState.isMinimized ? 'Expand player' : 'Minimize player'}
             >
-              {playerState.isMinimized ? <Maximize2 size={14} /> : <Minimize2 size={14} />}
+              {playerState.isMinimized ? <Maximize2 size={13} /> : <Minimize2 size={13} />}
             </button>
 
             {/* Expand button for full controls */}
             <button
               onClick={() => { setMediaControlDocked(false); setShowMediaControl(true); }}
-              className="p-1 text-gray-500 hover:text-white transition-colors"
+              className="p-1 text-gray-500 hover:text-white transition-colors flex-shrink-0"
               title="More controls"
             >
-              <ChevronDown size={14} />
+              <ChevronDown size={13} />
             </button>
           </div>
           <div className="w-px h-8 bg-gray-700/50" />
