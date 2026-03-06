@@ -1401,6 +1401,7 @@ const MobileBottomNav = memo(({
     playNextInQueue,
     playPrevInQueue,
     playRandom,
+    seekTo,
     theaterQueue,
     currentQueueIndex,
     playQueue,
@@ -1409,14 +1410,21 @@ const MobileBottomNav = memo(({
 
   return (
     <>
-      {/* Mobile Mini Player - Above Bottom Nav - only when playing from queue (not hero autoplay) */}
-      {isPlayingFromQueue && currentMoment && (
+      {/* Mobile Mini Player - Above Bottom Nav - shows for ALL playback */}
+      {currentMoment && (
         <div className="sm:hidden fixed left-0 right-0 z-50" style={{ bottom: 'calc(52px + env(safe-area-inset-bottom, 0px))' }}>
           <div className="mx-2 mb-1 bg-black/60 backdrop-blur-xl border border-white/10 rounded-lg shadow-2xl overflow-hidden">
-            {/* Progress bar at top */}
-            <div className="h-1 bg-white/20 cursor-pointer">
+            {/* Progress bar at top - tap to seek */}
+            <div
+              className="h-1.5 bg-white/20 cursor-pointer"
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                if (playerState.duration > 0) seekTo(fraction * playerState.duration);
+              }}
+            >
               <div
-                className="h-full bg-gradient-to-r from-yellow-500 to-orange-500 transition-all duration-300"
+                className="h-full bg-gradient-to-r from-yellow-500 to-orange-500 transition-all duration-300 pointer-events-none"
                 style={{ width: `${(playerState.currentTime / playerState.duration) * 100 || 0}%` }}
               />
             </div>
@@ -1493,7 +1501,7 @@ const MobileBottomNav = memo(({
                 {/* Full transport controls */}
                 <div className="flex items-center justify-center gap-4 mb-3">
                   <button
-                    onClick={() => playPrevInQueue()}
+                    onClick={() => isPlayingFromQueue ? playPrevInQueue() : seekTo(0)}
                     className="p-2 hover:bg-white/10 rounded-full transition-colors"
                   >
                     <SkipBack size={20} className="text-gray-300" />

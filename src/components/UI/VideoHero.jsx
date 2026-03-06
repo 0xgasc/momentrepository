@@ -1,6 +1,6 @@
 // src/components/UI/VideoHero.jsx - Hero player for random video/audio clips
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
-import { Play, Pause, Music, Loader2, ListMusic } from 'lucide-react';
+import { Play, Pause, Music, Loader2, ListMusic, SkipForward } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import UMOEffect from './UMOEffect';
@@ -157,9 +157,9 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     return () => clearInterval(interval);
   }, [isYouTube, isAudio, moment?._id]);
 
-  // Auto-minimize on first load once playback starts (disabled on landing page via noAutoMinimize)
+  // Auto-minimize on first load once playback starts (disabled on landing page and mobile)
   useEffect(() => {
-    if (noAutoMinimize) return;
+    if (noAutoMinimize || isMobile) return;
     if (moment && isPlaying && !hasAutoMinimized.current && !isMinimized) {
       const timer = setTimeout(() => {
         if (!hasAutoMinimized.current) {
@@ -169,7 +169,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [moment, isPlaying, isMinimized, noAutoMinimize]);
+  }, [moment, isPlaying, isMinimized, noAutoMinimize, isMobile]);
 
   // Theater queue context
   const {
@@ -1356,7 +1356,26 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               )}
             </div>
 
-            {/* Queue indicator */}
+            {/* Mobile inline controls - play/pause and next */}
+            <div className="flex sm:hidden items-center gap-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
+                className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
+              >
+                {isPlaying
+                  ? <Pause size={16} className="text-yellow-400" />
+                  : <Play size={16} className="text-yellow-400 ml-0.5" />
+                }
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <SkipForward size={14} className="text-gray-400" />
+              </button>
+            </div>
+
+            {/* Queue indicator (desktop) */}
             {isPlayingFromQueue && (
               <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-yellow-900/30 border border-yellow-700/50 rounded pointer-events-none">
                 <ListMusic size={10} className="text-yellow-400" />
@@ -1364,7 +1383,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
               </div>
             )}
 
-          {/* Visual hint: Use ribbon controls (NO controls in minimized view) */}
+          {/* Visual hint: Use ribbon controls (desktop only) */}
           <div className="hidden sm:flex items-center gap-1 px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] text-gray-400 pointer-events-none">
             Use ribbon controls →
           </div>
