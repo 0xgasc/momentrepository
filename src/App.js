@@ -1499,10 +1499,16 @@ const MobileBottomNav = memo(({
                 </button>
                 {/* Next/Random */}
                 <button
-                  onClick={() => theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1 ? playNextInQueue() : playRandom()}
+                  onClick={() => {
+                    if (theaterQueue.length > 0) {
+                      currentQueueIndex < theaterQueue.length - 1 ? playNextInQueue() : playQueue(0);
+                    } else {
+                      playRandom();
+                    }
+                  }}
                   className="p-2 hover:bg-white/10 rounded-full transition-colors"
                 >
-                  {theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1
+                  {theaterQueue.length > 0
                     ? <SkipForward size={16} className="text-gray-400" />
                     : <Shuffle size={16} className="text-gray-400" />
                   }
@@ -1531,10 +1537,16 @@ const MobileBottomNav = memo(({
                     }
                   </button>
                   <button
-                    onClick={() => theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1 ? playNextInQueue() : playRandom()}
+                    onClick={() => {
+                      if (theaterQueue.length > 0) {
+                        currentQueueIndex < theaterQueue.length - 1 ? playNextInQueue() : playQueue(0);
+                      } else {
+                        playRandom();
+                      }
+                    }}
                     className="p-2 hover:bg-white/10 rounded-full transition-colors"
                   >
-                    {theaterQueue.length > 0 && currentQueueIndex < theaterQueue.length - 1
+                    {theaterQueue.length > 0
                       ? <SkipForward size={20} className="text-gray-300" />
                       : <Shuffle size={20} className="text-gray-300" />
                     }

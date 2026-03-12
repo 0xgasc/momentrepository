@@ -77,6 +77,7 @@ export const TheaterQueueProvider = ({ children }) => {
   useEffect(() => {
     if (theaterQueue.length > 0 && currentQueueIndex >= 0 && currentQueueIndex < theaterQueue.length) {
       setCurrentMoment(theaterQueue[currentQueueIndex]);
+      setIsPlayingFromQueue(true); // resume queue state - isPlayingFromQueue isn't persisted so we infer it
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
