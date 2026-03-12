@@ -1,9 +1,9 @@
 import React, { useState, useEffect, memo, useMemo, useRef } from 'react';
-import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { slugify } from './utils/slugify';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
-import { Menu, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Music, Video, Link2, Upload, Film, Calendar, User, LogIn, Play, Pause, SkipForward, SkipBack, Shuffle, Volume2, VolumeX, Settings, ListMusic, Trophy, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Menu, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Music, Video, Link2, Upload, Film, Calendar, User, LogIn, Play, Pause, SkipForward, SkipBack, Shuffle, Volume2, VolumeX, ListMusic, Trophy, Trash2, Eye, EyeOff } from 'lucide-react';
 import './styles/umo-theme.css';
 
 // Import the extracted components
@@ -115,7 +115,7 @@ const MainApp = memo(() => {
   const [showLanding, setShowLanding] = useState(location.pathname === '/');
   const [showLandingOverlay, setShowLandingOverlay] = useState(true); // Toggle for landing page overlay
   const [showSettings, setShowSettings] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed] = useState(false);
   const [sidebarPosition, setSidebarPosition] = useState(() => {
     // Load from localStorage or default to 'top'
     return localStorage.getItem('umo-sidebar-position') || 'top';
@@ -166,7 +166,7 @@ const MainApp = memo(() => {
     });
   };
 
-  const { user, logout, loading } = useAuth();
+  const { user, loading } = useAuth();
 
   // Handle URL-based navigation on mount and location changes
   useEffect(() => {
@@ -270,7 +270,7 @@ const MainApp = memo(() => {
         setPublicCollectionId(null);
       }
     }
-  }, [location.pathname, location.search]);
+  }, [location.pathname, location.search]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // Notifications hook
   const { getBadgeInfo, refreshNotifications } = useNotifications(API_BASE_URL);
@@ -1008,7 +1008,7 @@ const MainContent = memo(({
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data?._id) setHeroSelectedMoment(data); })
       .catch(() => {});
-  }, [initialMomentId]);
+  }, [initialMomentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Push /moment/:id to URL when modal opens via click (only if not already there)
   useEffect(() => {
@@ -1059,7 +1059,7 @@ const MainContent = memo(({
           }
         });
     }
-  }, []); // Only on mount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Memoized callback to prevent infinite render loop
   const handleMomentClick = React.useCallback((moment) => {

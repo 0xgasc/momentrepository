@@ -78,7 +78,7 @@ export const TheaterQueueProvider = ({ children }) => {
     if (theaterQueue.length > 0 && currentQueueIndex >= 0 && currentQueueIndex < theaterQueue.length) {
       setCurrentMoment(theaterQueue[currentQueueIndex]);
     }
-  }, []); // Only on mount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Register player controls from VideoHero
   const registerPlayerControls = useCallback((controls) => {

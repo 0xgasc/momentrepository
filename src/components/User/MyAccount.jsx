@@ -1,6 +1,6 @@
 // src/components/User/MyAccount.jsx
 import React, { useState, useEffect, memo, useCallback } from 'react';
-import { Upload, Eye, MessageCircle, Heart, Folder, Plus, Trash2, Play, Loader2, Globe, Lock, Share2, Check, Link, Edit3, Search, X, Music } from 'lucide-react';
+import { Upload, Eye, MessageCircle, Heart, Folder, Plus, Trash2, Play, Loader2, Globe, Lock, Check, Link, Edit3, Search, X, Music } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useUserStats } from '../../hooks/useUserStats';
 import { useFavorites } from '../../hooks/useFavorites';

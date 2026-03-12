@@ -1,6 +1,6 @@
 // src/components/User/UserProfile.jsx
 import React, { useState, useEffect, useCallback, memo } from 'react';
-import { X, User, Calendar, Film, Eye, MessageSquare, Award, Music, Video, Link as LinkIcon, Loader2 } from 'lucide-react';
+import { X, User, Calendar, Film, Eye, MessageSquare, Award, Music, Video, Link as LinkIcon } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import { transformMediaUrl } from '../../utils/mediaUrl';
 

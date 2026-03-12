@@ -176,7 +176,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     theaterQueue,
     currentQueueIndex,
     isPlayingFromQueue,
-    addToQueue,
     playNextInQueue,
     playPrevInQueue,
     currentMoment: queueMoment,
@@ -609,23 +608,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     }
   }, [isPlaying]);
 
-  // Toggle fullscreen
-  const toggleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().then(() => {
-        setIsFullscreen(true);
-      }).catch(err => {
-        console.log('Fullscreen error:', err);
-      });
-    } else {
-      document.exitFullscreen().then(() => {
-        setIsFullscreen(false);
-      });
-    }
-  }, []);
-
   // Listen for fullscreen changes
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -827,12 +809,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [isPlaying, isAudio, isYouTube]);
 
-  // Add to queue
-  const handleAddToQueue = useCallback(() => {
-    if (moment) {
-      addToQueue(moment);
-    }
-  }, [moment, addToQueue]);
 
   // Toggle play/pause
   const togglePlayPause = () => {
@@ -865,27 +841,6 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   };
 
   // Toggle mute
-  const toggleMute = () => {
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-
-    if (isAudio && audioRef.current) {
-      audioRef.current.muted = newMuted;
-    } else if (isYouTube && ytPlayerRef.current) {
-      try {
-        if (newMuted) {
-          ytPlayerRef.current.mute();
-        } else {
-          ytPlayerRef.current.unMute();
-        }
-      } catch (e) {
-        console.log('YT mute error:', e);
-      }
-    } else if (videoRef.current) {
-      videoRef.current.muted = newMuted;
-    }
-  };
-
   // Seek to specific time (segment-relative for YouTube with custom times)
   const seekTo = useCallback((time) => {
     if (isAudio && audioRef.current) {
@@ -1063,7 +1018,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       }
     });
   // CRITICAL: Minimal deps - only re-register when these essential functions change
-  }, [registerPlayerControls, seekTo, setVolumeLevel, moment, onMomentClick]);
+  }, [registerPlayerControls, seekTo, setVolumeLevel, moment, onMomentClick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update player state in context when local state changes
   useEffect(() => {

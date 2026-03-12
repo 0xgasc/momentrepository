@@ -1,7 +1,7 @@
 /* global BigInt */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAccount, useConnect, useWaitForTransactionReceipt, useWriteContract, useReadContract } from 'wagmi';
-import { Zap, Rocket, Palette, Wrench, Clock, RefreshCw, CheckCircle, Music, Upload, Settings } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 import UMOMomentsERC1155Contract from '../../contracts/UMOMomentsERC1155.json';
 import UMOMomentsERC1155V2Contract from '../../contracts/UMOMomentsERC1155V2.json';
