@@ -15,6 +15,7 @@ import PerformanceDetail from './components/Performance/PerformanceDetail';
 import MomentBrowser from './components/Moment/MomentBrowser';
 import LoginModal from './components/Auth/LoginModal';
 import CreditsFooter from './components/UI/CreditsFooter';
+import CookieConsent from './components/UI/CookieConsent';
 import ContactForm from './components/Contact/ContactForm';
 import UserProfile from './components/User/UserProfile';
 import MyAccount from './components/User/MyAccount';
@@ -1758,6 +1759,7 @@ export default function App() {
             <ThemeProvider>
               <TheaterQueueProvider>
                 <MainApp />
+                <CookieConsent />
               </TheaterQueueProvider>
             </ThemeProvider>
           </AuthProvider>

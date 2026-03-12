@@ -20,6 +20,7 @@ const MediaControlCenter = memo(({
     currentQueueIndex,
     playNextInQueue,
     playPrevInQueue,
+    playQueue,
     playerState,
     togglePlayPause,
     toggleMute,
@@ -142,10 +143,23 @@ const MediaControlCenter = memo(({
 
   // Handle next/random
   const handleNext = () => {
-    if (hasQueue && !isAtQueueEnd) {
-      playNextInQueue();
+    if (hasQueue) {
+      if (!isAtQueueEnd) {
+        playNextInQueue();
+      } else {
+        playQueue(0); // loop back to start of queue
+      }
     } else {
       playRandom?.();
+    }
+  };
+
+  // Handle prev — restart current track if not in queue or at queue start
+  const handlePrev = () => {
+    if (isPlayingFromQueue) {
+      playPrevInQueue(); // handles index 0 → seekTo(0) internally
+    } else {
+      seekTo(0);
     }
   };
 
@@ -281,13 +295,9 @@ const MediaControlCenter = memo(({
             {/* Main Controls */}
             <div className="flex items-center justify-center gap-1 mb-2">
               <button
-                onClick={playPrevInQueue}
-                disabled={currentQueueIndex <= 0}
-                className={`p-1.5 rounded-full transition-all ${
-                  currentQueueIndex <= 0
-                    ? 'text-gray-600 cursor-not-allowed'
-                    : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
-                }`}
+                onClick={handlePrev}
+                className="p-1.5 rounded-full text-gray-300 hover:text-white hover:bg-gray-700/50 transition-all"
+                title={isPlayingFromQueue && currentQueueIndex > 0 ? 'Previous' : 'Restart'}
               >
                 <SkipBack size={14} />
               </button>
@@ -306,9 +316,9 @@ const MediaControlCenter = memo(({
               <button
                 onClick={handleNext}
                 className="p-1.5 rounded-full text-gray-300 hover:text-white hover:bg-gray-700/50 transition-all"
-                title={hasQueue && !isAtQueueEnd ? 'Next' : 'Random'}
+                title={hasQueue ? (isAtQueueEnd ? 'Loop to start' : 'Next') : 'Random'}
               >
-                {hasQueue && !isAtQueueEnd ? (
+                {hasQueue ? (
                   <SkipForward size={14} />
                 ) : (
                   <Shuffle size={14} />
@@ -493,13 +503,9 @@ const MediaControlCenter = memo(({
         {/* Main Controls */}
         <div className="flex items-center justify-center gap-2 mb-3">
           <button
-            onClick={playPrevInQueue}
-            disabled={currentQueueIndex <= 0}
-            className={`p-2 rounded-full transition-all ${
-              currentQueueIndex <= 0
-                ? 'text-gray-600 cursor-not-allowed'
-                : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
-            }`}
+            onClick={handlePrev}
+            className="p-2 rounded-full text-gray-300 hover:text-white hover:bg-gray-700/50 transition-all"
+            title={isPlayingFromQueue && currentQueueIndex > 0 ? 'Previous' : 'Restart'}
           >
             <SkipBack size={18} />
           </button>
@@ -518,9 +524,9 @@ const MediaControlCenter = memo(({
           <button
             onClick={handleNext}
             className="p-2 rounded-full text-gray-300 hover:text-white hover:bg-gray-700/50 transition-all"
-            title={hasQueue && !isAtQueueEnd ? 'Next' : 'Random'}
+            title={hasQueue ? (isAtQueueEnd ? 'Loop to start' : 'Next') : 'Random'}
           >
-            {hasQueue && !isAtQueueEnd ? (
+            {hasQueue ? (
               <SkipForward size={18} />
             ) : (
               <Shuffle size={18} />
