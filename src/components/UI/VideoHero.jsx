@@ -1,6 +1,6 @@
 // src/components/UI/VideoHero.jsx - Hero player for random video/audio clips
 import React, { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
-import { Play, Pause, Music, Loader2, ListMusic } from 'lucide-react';
+import { Play, Pause, Music, Loader2, ListMusic, SkipForward } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useTheaterQueue } from '../../contexts/TheaterQueueContext';
 import UMOEffect from './UMOEffect';
@@ -157,9 +157,9 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     return () => clearInterval(interval);
   }, [isYouTube, isAudio, moment?._id]);
 
-  // Auto-minimize on first load once playback starts (disabled on landing page via noAutoMinimize)
+  // Auto-minimize on first load once playback starts (disabled on landing page via noAutoMinimize, and on mobile)
   useEffect(() => {
-    if (noAutoMinimize) return;
+    if (noAutoMinimize || isMobile) return;
     if (moment && isPlaying && !hasAutoMinimized.current && !isMinimized) {
       const timer = setTimeout(() => {
         if (!hasAutoMinimized.current) {
@@ -1309,6 +1309,30 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
                   </div>
                 </>
               )}
+            </div>
+
+            {/* Mobile inline controls — play/pause + next, only on small screens */}
+            <div
+              className="flex sm:hidden items-center gap-1 flex-shrink-0"
+              onTouchEnd={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={(e) => { e.stopPropagation(); togglePlayPause(); }}
+                className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isPlaying
+                  ? <Pause size={16} className="text-yellow-400" />
+                  : <Play size={16} className="text-yellow-400 ml-0.5" />
+                }
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleNextRef.current?.(); }}
+                className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
+                aria-label="Next"
+              >
+                <SkipForward size={14} className="text-gray-400" />
+              </button>
             </div>
 
             {/* Queue indicator */}
