@@ -91,7 +91,7 @@
     "typescript": "^5.8.3"
   },
   "browser": {
-    "@react-native-async-storage/async-storage": false
+    "@react-native-async-storage/async-storage": "./src/polyfills/asyncStorage.js"
   },
   "bundlesize": [
     {
