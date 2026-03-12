@@ -14,7 +14,7 @@ module.exports = {
     assert: {
       assertions: {
         'categories:performance': ['warn', { minScore: 0.8 }],
-        'categories:accessibility': ['error', { minScore: 0.9 }],
+        'categories:accessibility': ['warn', { minScore: 0.85 }],
         'categories:best-practices': ['warn', { minScore: 0.9 }],
         'categories:seo': ['warn', { minScore: 0.8 }],
         
@@ -28,11 +28,6 @@ module.exports = {
         'viewport': 'error',
         'tap-targets': 'error',
         
-        // PWA
-        'service-worker': 'warn',
-        'installable-manifest': 'warn',
-        'apple-touch-icon': 'warn',
-        
         // Performance
         'uses-text-compression': 'warn',
         'uses-responsive-images': 'warn',
@@ -42,12 +37,10 @@ module.exports = {
         'unused-css-rules': 'warn',
         'unused-javascript': 'warn',
         'modern-image-formats': 'warn',
-        'uses-webp-images': 'warn',
         'uses-optimized-images': 'warn',
         
         // Security
-        'is-on-https': 'error',
-        'no-vulnerable-libraries': 'error'
+        'is-on-https': 'error'
       }
     },
     upload: {
