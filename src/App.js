@@ -64,6 +64,7 @@ const wagmiConfig = createConfig({
     [baseSepolia.id]: http(),
     [base.id]: http(),
   },
+  multiInjectedProviderDiscovery: false, // don't scan for all injected wallets on load
 });
 
 const queryClient = new QueryClient();
