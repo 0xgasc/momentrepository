@@ -41,6 +41,20 @@ const PerformanceDetail = memo(({ performance, onBack, onViewUserProfile, onNavi
             // Upcoming shows return { show }, cached returns { performance: ... }
             let perfData = isUpcoming ? data.show : data.performance;
             if (perfData) {
+              // If upcoming show has been linked to a real performance, redirect
+              if (isUpcoming && perfData.linkedPerformanceId) {
+                console.log('🔗 Upcoming show linked to performance, redirecting:', perfData.linkedPerformanceId);
+                window.history.replaceState({}, '', `/show/${perfData.linkedPerformanceId}`);
+                // Re-fetch as the real performance
+                const perfResponse = await fetch(`${API_BASE_URL}/cached/performance/${perfData.linkedPerformanceId}`);
+                if (perfResponse.ok) {
+                  const perfResult = await perfResponse.json();
+                  if (perfResult.performance) {
+                    setFullPerformance(perfResult.performance);
+                    return;
+                  }
+                }
+              }
               // Ensure upcoming shows have the correct ID format
               if (isUpcoming && perfData._id) {
                 perfData = { ...perfData, id: `upcoming-${perfData._id}` };
