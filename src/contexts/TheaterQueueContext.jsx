@@ -233,6 +233,7 @@ export const TheaterQueueProvider = ({ children }) => {
     }
     setCurrentQueueIndex(nextIdx);
     setCurrentMoment(theaterQueue[nextIdx]);
+    setIsPlayingFromQueue(true); // ensure queue mode is active regardless of how this was called
     return theaterQueue[nextIdx];
   }, [theaterQueue, currentQueueIndex]);
 
@@ -248,6 +249,7 @@ export const TheaterQueueProvider = ({ children }) => {
     const prevIdx = currentQueueIndex - 1;
     setCurrentQueueIndex(prevIdx);
     setCurrentMoment(theaterQueue[prevIdx]);
+    setIsPlayingFromQueue(true);
     return theaterQueue[prevIdx];
   }, [theaterQueue, currentQueueIndex]);
 
