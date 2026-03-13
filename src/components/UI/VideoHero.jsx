@@ -642,8 +642,13 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
     if (isPlayingFromQueue) {
       console.log('📼 Playing from queue');
-      playNextInQueue();
-    } else if (filteredMoments.length > 0) {
+      const nextQueueMoment = playNextInQueue();
+      if (nextQueueMoment) return; // queue sync effect will load it
+      // Queue exhausted — fall through to random
+      console.log('📼 Queue exhausted, switching to random');
+    }
+
+    if (filteredMoments.length > 0) {
       const next = selectRandomMoment(filteredMoments, moment);
       console.log('🎯 Selected next moment:', next?._id);
       if (next) {
