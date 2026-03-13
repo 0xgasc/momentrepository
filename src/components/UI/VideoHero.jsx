@@ -426,6 +426,25 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     }
   }, [isPlayingFromQueue, queueMoment, currentQueueIndex, detectContentType]);
 
+  // When queue ends (isPlayingFromQueue flips false), auto-switch to random playback
+  // This runs as an effect so filteredMoments is always the latest value
+  const prevIsPlayingFromQueueRef = useRef(isPlayingFromQueue);
+  useEffect(() => {
+    const wasPlaying = prevIsPlayingFromQueueRef.current;
+    prevIsPlayingFromQueueRef.current = isPlayingFromQueue;
+    if (wasPlaying && !isPlayingFromQueue && filteredMoments.length > 0) {
+      console.log('📼 Queue ended, auto-switching to random');
+      const next = selectRandomMoment(filteredMoments, moment);
+      if (next) {
+        setMoment(next);
+        setIsYouTube(next._isYouTube);
+        setIsAudio(next._isAudio);
+        setIsPlaying(true);
+        setYoutubeKey(prev => prev + 1);
+      }
+    }
+  }, [isPlayingFromQueue, filteredMoments, selectRandomMoment, moment]);
+
   // Ensure playback continues after moment change (fixes skip stopping bug)
   useEffect(() => {
     if (!moment || isYouTube) return;
@@ -644,8 +663,9 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
       console.log('📼 Playing from queue');
       const nextQueueMoment = playNextInQueue();
       if (nextQueueMoment) return; // queue sync effect will load it
-      // Queue exhausted — fall through to random
-      console.log('📼 Queue exhausted, switching to random');
+      // Queue exhausted — effect watching isPlayingFromQueue handles random fallback
+      console.log('📼 Queue exhausted, effect will handle random switch');
+      return;
     }
 
     if (filteredMoments.length > 0) {
