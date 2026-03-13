@@ -93,6 +93,7 @@ app.use((req, res, next) => {
   return helmetMiddleware(req, res, next);
 });
 
+app.set('trust proxy', 1); // Trust first proxy (Railway)
 app.use(compression());
 app.use(mongoSanitize());
 
@@ -154,7 +155,8 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
       'https://www.umoarchive.com',
       'https://momentrepository-production.up.railway.app',
       'https://umo-live.xyz',
-      'https://www.umo-live.xyz'
+      'https://www.umo-live.xyz',
+      'https://umo.livemoments.online'
     ];
 
 console.log('🔐 CORS allowed origins:', allowedOrigins);
