@@ -154,10 +154,10 @@ const MomentThumbnailCard = memo(({
       onClick={() => onClick?.(moment)}
       className={`
         relative group flex flex-col
-        w-full min-w-[140px] max-w-[180px]
+        w-full min-w-[100px] sm:min-w-[140px] max-w-[180px]
         bg-gradient-to-br ${rarity.bg} ${rarity.border} border
         rounded-sm overflow-hidden
-        hover:scale-[1.02] hover:shadow-lg hover:shadow-black/20
+        active:scale-[0.97] sm:hover:scale-[1.02] sm:hover:shadow-lg sm:hover:shadow-black/20
         transition-all duration-200
       `}
     >
@@ -284,9 +284,9 @@ const MomentThumbnailCard = memo(({
       </div>
 
       {/* Info */}
-      <div className="p-2.5 flex-1 flex flex-col justify-center">
+      <div className="p-1.5 sm:p-2.5 flex-1 flex flex-col justify-center">
         {showSongName && (
-          <span className="text-white text-sm font-medium truncate">
+          <span className="text-white text-[11px] sm:text-sm font-medium truncate">
             {moment.songName}
           </span>
         )}

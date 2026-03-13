@@ -31,29 +31,29 @@ const MediaGalleryPanel = memo(({
   const hasMore = moments.length > 12;
 
   return (
-    <div className="media-gallery-panel bg-gray-900/50 rounded-sm p-4 mb-6 border border-gray-800/50">
+    <div className="media-gallery-panel bg-gray-900/30 rounded-sm px-3 py-3 sm:p-4 mb-6 border border-gray-800/40">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Film size={18} className="text-blue-400" />
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
-          <span className="text-sm text-gray-500">({moments.length})</span>
+          <Film size={16} className="text-blue-400" />
+          <h3 className="text-sm sm:text-lg font-semibold text-white">{title}</h3>
+          <span className="text-xs text-gray-500">({moments.length})</span>
         </div>
 
         {hasMore && (
           <button
             onClick={() => setShowAll(!showAll)}
-            className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+            className="flex items-center gap-1.5 text-xs sm:text-sm text-blue-400 hover:text-blue-300 transition-colors"
           >
             <Grid size={14} />
-            {showAll ? 'Show less' : `View all ${moments.length}`}
+            {showAll ? 'Less' : `All ${moments.length}`}
           </button>
         )}
       </div>
 
       {showAll ? (
         // Grid view when expanded
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
           {displayMoments.map((moment) => (
             <MomentThumbnailCard
               key={moment._id}
@@ -65,11 +65,11 @@ const MediaGalleryPanel = memo(({
         </div>
       ) : (
         // Horizontal scroll view
-        <div className="relative">
-          {/* Left scroll button */}
+        <div className="relative group/carousel">
+          {/* Left scroll button - desktop only */}
           <button
             onClick={() => scroll('left')}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-black/70 hover:bg-black/90 rounded-full flex items-center justify-center text-white transition-colors shadow-lg"
+            className="hidden sm:flex absolute left-0 top-1/2 z-10 w-8 h-8 bg-black/70 hover:bg-black/90 rounded-full items-center justify-center text-white transition-all opacity-0 group-hover/carousel:opacity-100 shadow-lg"
             style={{ transform: 'translate(-50%, -50%)' }}
           >
             <ChevronLeft size={18} />
@@ -78,11 +78,11 @@ const MediaGalleryPanel = memo(({
           {/* Scrollable container */}
           <div
             ref={scrollRef}
-            className="flex gap-3 overflow-x-auto scrollbar-hide pb-2"
-            style={{ scrollSnapType: 'x mandatory' }}
+            className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1"
+            style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
           >
             {displayMoments.map((moment) => (
-              <div key={moment._id} className="flex-shrink-0 w-[140px]" style={{ scrollSnapAlign: 'start' }}>
+              <div key={moment._id} className="flex-shrink-0 w-[110px] sm:w-[140px]" style={{ scrollSnapAlign: 'start' }}>
                 <MomentThumbnailCard
                   moment={moment}
                   onClick={onSelectMoment}
@@ -94,18 +94,18 @@ const MediaGalleryPanel = memo(({
             {hasMore && !showAll && (
               <button
                 onClick={() => setShowAll(true)}
-                className="flex-shrink-0 w-[140px] aspect-video bg-gray-800/50 border border-gray-700/50 rounded-sm flex flex-col items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
+                className="flex-shrink-0 w-[110px] sm:w-[140px] aspect-video bg-gray-800/50 border border-gray-700/50 rounded-sm flex flex-col items-center justify-center gap-1 hover:bg-gray-800 transition-colors"
               >
-                <span className="text-2xl font-bold text-gray-400">+{moments.length - 12}</span>
-                <span className="text-xs text-gray-500">more</span>
+                <span className="text-xl sm:text-2xl font-bold text-gray-400">+{moments.length - 12}</span>
+                <span className="text-[10px] sm:text-xs text-gray-500">more</span>
               </button>
             )}
           </div>
 
-          {/* Right scroll button */}
+          {/* Right scroll button - desktop only */}
           <button
             onClick={() => scroll('right')}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-black/70 hover:bg-black/90 rounded-full flex items-center justify-center text-white transition-colors shadow-lg"
+            className="hidden sm:flex absolute right-0 top-1/2 z-10 w-8 h-8 bg-black/70 hover:bg-black/90 rounded-full items-center justify-center text-white transition-all opacity-0 group-hover/carousel:opacity-100 shadow-lg"
             style={{ transform: 'translate(50%, -50%)' }}
           >
             <ChevronRight size={18} />
