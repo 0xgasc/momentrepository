@@ -1858,11 +1858,12 @@ const MigrationTab = memo(({ moments, setMoments, total, setTotal, token }) => {
   const [message, setMessage] = useState('');
   const [bulkJson, setBulkJson] = useState('');
   const [bulkMode, setBulkMode] = useState(false);
+  const [sortOrder, setSortOrder] = useState('oldest');
 
   const fetchMoments = useCallback(async (pageNum = 1) => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/admin/moments/all?page=${pageNum}&limit=20`, {
+      const response = await fetch(`${API_BASE_URL}/admin/moments/all?page=${pageNum}&limit=50&sort=${sortOrder}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -1878,7 +1879,7 @@ const MigrationTab = memo(({ moments, setMoments, total, setTotal, token }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, setMoments, setTotal]);
+  }, [token, setMoments, setTotal, sortOrder]);
 
   useEffect(() => {
     fetchMoments(1);
@@ -1971,9 +1972,17 @@ const MigrationTab = memo(({ moments, setMoments, total, setTotal, token }) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-lg font-semibold">Media Migration Tool</h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={sortOrder}
+            onChange={(e) => { setSortOrder(e.target.value); }}
+            className="px-3 py-1.5 text-sm rounded bg-gray-200 text-gray-700 border-0"
+          >
+            <option value="oldest">Oldest first</option>
+            <option value="newest">Newest first</option>
+          </select>
           <button
             onClick={() => setBulkMode(!bulkMode)}
             className={`px-3 py-1.5 text-sm rounded ${bulkMode ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}`}
@@ -2035,7 +2044,9 @@ const MigrationTab = memo(({ moments, setMoments, total, setTotal, token }) => {
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900 truncate">{moment.songName || 'Unknown Song'}</div>
                       <div className="text-sm text-gray-600">{moment.venueName}, {moment.venueCity}</div>
-                      <div className="text-xs text-gray-400 mt-1">ID: {moment._id}</div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        ID: {moment._id} · Uploaded: {moment.createdAt ? new Date(moment.createdAt).toLocaleDateString() : 'N/A'}
+                      </div>
 
                       {editingId === moment._id ? (
                         <div className="mt-2 flex gap-2">

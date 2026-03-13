@@ -3521,12 +3521,13 @@ app.get('/debug/user', authenticateToken, async (req, res) => {
 // Admin: Get all moments for migration (with pagination)
 app.get('/admin/moments/all', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { page = 1, limit = 50 } = req.query;
+    const { page = 1, limit = 50, sort = 'oldest' } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sortOrder = sort === 'newest' ? -1 : 1;
 
     const moments = await Moment.find({})
       .populate('user', 'email displayName')
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: sortOrder })
       .skip(skip)
       .limit(parseInt(limit))
       .select('_id songName venueName venueCity mediaUrl mediaType fileName createdAt approvalStatus');
