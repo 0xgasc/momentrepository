@@ -55,6 +55,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
   const ytProgressIntervalRef = useRef(null);
   const handleNextRef = useRef(null);
   const handlePrevRef = useRef(null);
+  const isPlayingFromQueueRef = useRef(false); // tracks live value for async callbacks
 
   // YouTube bar drag/hover state
   const [ytDragging, setYtDragging] = useState(false);
@@ -203,6 +204,11 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
     return availableMoments[randomIndex];
   }, []);
 
+  // Keep ref in sync so async fetch callbacks can read the live value
+  useEffect(() => {
+    isPlayingFromQueueRef.current = isPlayingFromQueue;
+  }, [isPlayingFromQueue]);
+
   // Sync the currently playing moment to context for MediaControlCenter
   useEffect(() => {
     if (moment && !isPlayingFromQueue) {
@@ -303,14 +309,14 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
       setAllMoments(withTypes);
 
-      if (withTypes.length > 0) {
+      if (withTypes.length > 0 && !isPlayingFromQueueRef.current) {
         const videos = withTypes.filter(m => !m._isAudio);
         const toSelect = videos.length > 0 ? videos : withTypes;
         const selected = selectRandomMoment(toSelect);
         setMoment(selected);
         setIsYouTube(selected._isYouTube);
         setIsAudio(selected._isAudio);
-      } else {
+      } else if (withTypes.length === 0) {
         setError('No content available');
       }
       setIsLoading(false);
@@ -343,7 +349,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
 
         setAllMoments(withTypes);
 
-        if (withTypes.length > 0) {
+        if (withTypes.length > 0 && !isPlayingFromQueueRef.current) {
           // Prefer video content over audio for hero
           const videos = withTypes.filter(m => !m._isAudio);
           const toSelect = videos.length > 0 ? videos : withTypes;
@@ -351,7 +357,7 @@ const VideoHero = memo(({ onMomentClick, mediaFilters = { audio: true, video: tr
           setMoment(selected);
           setIsYouTube(selected._isYouTube);
           setIsAudio(selected._isAudio);
-        } else {
+        } else if (withTypes.length === 0) {
           setError('No content available');
         }
       } catch (err) {
