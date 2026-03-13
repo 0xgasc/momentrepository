@@ -2045,7 +2045,13 @@ const MigrationTab = memo(({ moments, setMoments, total, setTotal, token }) => {
                       <div className="font-medium text-gray-900 truncate">{moment.songName || 'Unknown Song'}</div>
                       <div className="text-sm text-gray-600">{moment.venueName}, {moment.venueCity}</div>
                       <div className="text-xs text-gray-400 mt-1">
-                        ID: {moment._id} · Uploaded: {moment.createdAt ? new Date(moment.createdAt).toLocaleDateString() : 'N/A'}
+                        ID: {moment._id}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        Created: {moment.createdAt ? new Date(moment.createdAt).toLocaleDateString() : 'N/A'}
+                        {moment.updatedAt && moment.updatedAt !== moment.createdAt && (
+                          <> · Updated: {new Date(moment.updatedAt).toLocaleDateString()}</>
+                        )}
                       </div>
 
                       {editingId === moment._id ? (

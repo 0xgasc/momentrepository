@@ -3530,7 +3530,7 @@ app.get('/admin/moments/all', authenticateToken, requireAdmin, async (req, res) 
       .sort({ createdAt: sortOrder })
       .skip(skip)
       .limit(parseInt(limit))
-      .select('_id songName venueName venueCity mediaUrl mediaType fileName createdAt approvalStatus');
+      .select('_id songName venueName venueCity mediaUrl mediaType fileName createdAt updatedAt approvalStatus');
 
     const total = await Moment.countDocuments({});
 
