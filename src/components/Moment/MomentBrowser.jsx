@@ -22,7 +22,7 @@ const MomentBrowser = memo(({ onSongSelect, onPerformanceSelect, mediaFilters = 
 
   // Search and sort state
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('random');
+  const [sortBy, setSortBy] = useState('newest');
   const [sortDirection, setSortDirection] = useState('desc');
   const [randomSeed, setRandomSeed] = useState(() => Math.random());
 
