@@ -17,19 +17,22 @@ router.get('/', async (req, res) => {
   try {
     const { includesPast = 'false' } = req.query;
 
+    // Use start of today (UTC) so shows remain "upcoming" for their entire day
+    const startOfToday = new Date();
+    startOfToday.setUTCHours(0, 0, 0, 0);
+
     const query = { isActive: true, isCancelled: false };
     if (includesPast === 'false') {
-      query.eventDate = { $gte: new Date() };
+      query.eventDate = { $gte: startOfToday };
     }
 
     const shows = await UpcomingShow.find(query)
       .sort({ eventDate: 1 })
       .lean();
 
-    // Separate into upcoming and past
-    const now = new Date();
-    const upcoming = shows.filter(s => new Date(s.eventDate) >= now);
-    const past = shows.filter(s => new Date(s.eventDate) < now);
+    // Separate into upcoming and past using start of today
+    const upcoming = shows.filter(s => new Date(s.eventDate) >= startOfToday);
+    const past = shows.filter(s => new Date(s.eventDate) < startOfToday);
 
     res.json({
       upcoming,
