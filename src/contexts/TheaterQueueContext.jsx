@@ -225,7 +225,8 @@ export const TheaterQueueProvider = ({ children }) => {
     if (theaterQueue.length === 0) return null;
     const nextIdx = currentQueueIndex + 1;
     if (nextIdx >= theaterQueue.length) {
-      // Queue finished
+      // Queue finished — clear everything so next button reverts to shuffle
+      setTheaterQueue([]);
       setIsPlayingFromQueue(false);
       setCurrentQueueIndex(-1);
       setCurrentMoment(null);
