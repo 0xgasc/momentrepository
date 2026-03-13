@@ -1,10 +1,51 @@
 // src/components/Moment/UploadModal.jsx - SIMPLIFIED with removed fields
-import React, { useState, memo, useEffect } from 'react';
-import { API_BASE_URL } from '../Auth/AuthProvider';
+import React, { useState, memo, useEffect, useCallback } from 'react';
+import { API_BASE_URL, useAuth } from '../Auth/AuthProvider';
 import * as tus from 'tus-js-client';
 // Removed styles import - now using UMO design system
 
 const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.email === 'solo@solo.solo' || user?.email === 'solo2@solo.solo';
+
+  // "Upload as" state for admin proxy account feature
+  const [uploadAsUserId, setUploadAsUserId] = useState(null);
+  const [proxyAccounts, setProxyAccounts] = useState([]);
+  const [inlineProxyName, setInlineProxyName] = useState(null);
+  const [creatingProxy, setCreatingProxy] = useState(false);
+
+  // Fetch proxy accounts if admin
+  useEffect(() => {
+    if (!isAdmin) return;
+    const token = localStorage.getItem('token');
+    fetch(`${API_BASE_URL}/admin/proxy-accounts`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setProxyAccounts(data.proxyAccounts || []); })
+      .catch(() => {});
+  }, [isAdmin]);
+
+  // Create proxy account inline
+  const createProxyInline = useCallback(async (name) => {
+    if (!name.trim()) return;
+    setCreatingProxy(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/admin/proxy-accounts`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: name.trim() })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProxyAccounts(prev => [data.user, ...prev]);
+        setUploadAsUserId(data.user.id || data.user._id);
+        setInlineProxyName(null);
+      }
+    } catch (e) { /* ignore */ }
+    setCreatingProxy(false);
+  }, []);
   const [step, setStep] = useState(uploadingMoment?.performanceId ? 'form' : 'selectPerformance');
   const [file, setFile] = useState(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState(null);
@@ -333,6 +374,7 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
       setUploadStage('Saving moment metadata...');
 
       const momentPayload = {
+        ...(uploadAsUserId ? { uploadAsUserId } : {}),
         performanceId: selectedPerformance?.id || uploadingMoment?.performanceId || `custom-${Date.now()}`,
         performanceDate: formData.performanceDate,
         venueName: formData.venueName,
@@ -431,7 +473,7 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
         )}
 
         {step === 'form' && (
-          <SimplifiedUploadForm 
+          <SimplifiedUploadForm
             formData={formData}
             file={file}
             filePreviewUrl={filePreviewUrl}
@@ -444,6 +486,14 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
             onFileSelect={handleFileSelect}
             onUpload={handleUpload}
             onClose={onClose}
+            isAdmin={isAdmin}
+            proxyAccounts={proxyAccounts}
+            uploadAsUserId={uploadAsUserId}
+            setUploadAsUserId={setUploadAsUserId}
+            inlineProxyName={inlineProxyName}
+            setInlineProxyName={setInlineProxyName}
+            createProxyInline={createProxyInline}
+            creatingProxy={creatingProxy}
           />
         )}
 
@@ -475,19 +525,27 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
 UploadModal.displayName = 'UploadModal';
 
 // ✅ SIMPLIFIED: Context-aware upload form with removed fields
-const SimplifiedUploadForm = memo(({ 
-  formData, 
-  file, 
+const SimplifiedUploadForm = memo(({
+  formData,
+  file,
   filePreviewUrl,
   error,
   uploadingMoment,
   isSongUpload,
   isOtherContentUpload,
-  onInputChange, 
+  onInputChange,
   onArrayToggle,
-  onFileSelect, 
-  onUpload, 
-  onClose
+  onFileSelect,
+  onUpload,
+  onClose,
+  isAdmin,
+  proxyAccounts,
+  uploadAsUserId,
+  setUploadAsUserId,
+  inlineProxyName,
+  setInlineProxyName,
+  createProxyInline,
+  creatingProxy
 }) => {
   const [showDetails, setShowDetails] = useState(false);
   
@@ -610,6 +668,54 @@ const SimplifiedUploadForm = memo(({
           )}
         </p>
       </div>
+
+      {/* Upload As — admin only */}
+      {isAdmin && (
+        <div className="bg-yellow-900/20 border border-yellow-500/30 p-4 mb-6" style={{ borderRadius: '4px' }}>
+          <label className="block text-sm font-medium text-yellow-400 mb-2">Upload as</label>
+          <div className="flex gap-2 items-center">
+            <select
+              value={uploadAsUserId || ''}
+              onChange={(e) => setUploadAsUserId(e.target.value || null)}
+              className="umo-input flex-1"
+            >
+              <option value="">Myself</option>
+              {proxyAccounts.map((pa) => (
+                <option key={pa._id} value={pa._id}>
+                  {pa.displayName} {pa.proxyClaimed ? '(claimed)' : ''}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setInlineProxyName(inlineProxyName === null ? '' : null)}
+              className="text-yellow-400 hover:text-yellow-300 text-sm whitespace-nowrap"
+            >
+              {inlineProxyName !== null ? 'Cancel' : '+ New person'}
+            </button>
+          </div>
+          {inlineProxyName !== null && (
+            <div className="flex gap-2 mt-2">
+              <input
+                type="text"
+                value={inlineProxyName}
+                onChange={(e) => setInlineProxyName(e.target.value)}
+                placeholder="Display name..."
+                className="umo-input flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => createProxyInline(inlineProxyName)}
+                disabled={creatingProxy || !inlineProxyName || !inlineProxyName.trim()}
+                className="px-3 py-2 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-black text-sm font-medium"
+                style={{ borderRadius: '4px' }}
+              >
+                {creatingProxy ? 'Creating...' : 'Create'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && <div className="umo-card p-4 mb-4 bg-red-900/20 border-red-500/30"><p className="umo-text-primary">{error}</p></div>}
 

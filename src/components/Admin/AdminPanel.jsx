@@ -32,6 +32,7 @@ const AdminPanel = memo(({ onClose }) => {
   const [youtubeMoments, setYoutubeMoments] = useState([]);
   const [contactMessages, setContactMessages] = useState([]);
   const [contactNewCount, setContactNewCount] = useState(0);
+  const [proxyAccounts, setProxyAccounts] = useState([]);
 
   const fetchAdminData = useCallback(async () => {
     try {
@@ -96,6 +97,17 @@ const AdminPanel = memo(({ onClose }) => {
         }
       }
 
+      // Fetch proxy accounts (admin only)
+      if (isAdmin) {
+        const proxyResponse = await fetch(`${API_BASE_URL}/admin/proxy-accounts`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (proxyResponse.ok) {
+          const proxyData = await proxyResponse.json();
+          setProxyAccounts(proxyData.proxyAccounts || []);
+        }
+      }
+
     } catch (error) {
       setError('Failed to load admin data');
     } finally {
@@ -106,6 +118,30 @@ const AdminPanel = memo(({ onClose }) => {
   useEffect(() => {
     fetchAdminData();
   }, [fetchAdminData]);
+
+  const createProxyAccount = async (displayName) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/proxy-accounts`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ displayName })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setProxyAccounts(prev => [data.user, ...prev]);
+        return data.user;
+      } else {
+        setError(data.error || 'Failed to create proxy account');
+        return null;
+      }
+    } catch (err) {
+      setError('Failed to create proxy account');
+      return null;
+    }
+  };
 
   const assignRole = async (userId, newRole) => {
     try {
@@ -306,11 +342,13 @@ const AdminPanel = memo(({ onClose }) => {
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[70vh] bg-white">
 {activeTab === 'users' && isAdmin && (
-            <UsersTab 
-              users={users} 
+            <UsersTab
+              users={users}
               assignRole={assignRole}
               getRoleDisplay={getRoleDisplay}
               formatDate={formatDate}
+              proxyAccounts={proxyAccounts}
+              createProxyAccount={createProxyAccount}
             />
           )}
           
@@ -369,9 +407,19 @@ const AdminPanel = memo(({ onClose }) => {
 });
 
 // Users management tab
-const UsersTab = memo(({ users, assignRole, getRoleDisplay, formatDate }) => {
+const UsersTab = memo(({ users, assignRole, getRoleDisplay, formatDate, proxyAccounts, createProxyAccount }) => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [newRole, setNewRole] = useState('');
+  const [proxyName, setProxyName] = useState('');
+  const [proxyCreating, setProxyCreating] = useState(false);
+
+  const handleCreateProxy = async () => {
+    if (!proxyName.trim() || proxyCreating) return;
+    setProxyCreating(true);
+    await createProxyAccount(proxyName.trim());
+    setProxyName('');
+    setProxyCreating(false);
+  };
 
   const roleStats = users.reduce((stats, user) => {
     stats[user.role] = (stats[user.role] || 0) + 1;
@@ -380,6 +428,53 @@ const UsersTab = memo(({ users, assignRole, getRoleDisplay, formatDate }) => {
 
   return (
     <div className="space-y-6">
+      {/* Proxy Accounts Section */}
+      <div className="border border-yellow-200 bg-yellow-50 rounded-sm p-4 space-y-4">
+        <h3 className="text-lg font-semibold text-yellow-900">Proxy Accounts</h3>
+        <p className="text-sm text-yellow-700">Create accounts on behalf of others. They can claim with password "umo123".</p>
+
+        {/* Create form */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={proxyName}
+            onChange={(e) => setProxyName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateProxy()}
+            placeholder="Display name (e.g. DJ Taper)"
+            className="flex-1 border border-yellow-300 rounded px-3 py-1.5 text-sm bg-white"
+            maxLength={50}
+          />
+          <button
+            onClick={handleCreateProxy}
+            disabled={!proxyName.trim() || proxyCreating}
+            className="bg-yellow-600 text-white px-4 py-1.5 rounded text-sm hover:bg-yellow-700 disabled:opacity-50"
+          >
+            {proxyCreating ? 'Creating...' : 'Create'}
+          </button>
+        </div>
+
+        {/* Proxy list */}
+        {proxyAccounts.length > 0 && (
+          <div className="space-y-2">
+            {proxyAccounts.map(proxy => (
+              <div key={proxy._id || proxy.id} className="flex items-center justify-between bg-white border border-yellow-200 rounded px-3 py-2">
+                <div>
+                  <span className="font-medium text-sm">{proxy.displayName}</span>
+                  <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
+                    proxy.proxyClaimed
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-yellow-100 text-yellow-700'
+                  }`}>
+                    {proxy.proxyClaimed ? 'Claimed' : 'Unclaimed'}
+                  </span>
+                </div>
+                <span className="text-xs text-gray-500">{formatDate(proxy.createdAt)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {Object.entries(roleStats).map(([role, count]) => {

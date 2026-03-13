@@ -26,7 +26,14 @@ const LoginModal = memo(({ onClose }) => {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('login');
   const [message, setMessage] = useState('');
-  const { login, register, loginWithGoogle, loginWithDiscord, oauthError, clearOauthError } = useAuth();
+  const [claimToken, setClaimToken] = useState(null);
+  const [claimStep, setClaimStep] = useState(1); // 1 = authenticate, 2 = set credentials
+  const [claimDisplayName, setClaimDisplayName] = useState('');
+  const [claimPassword, setClaimPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const { login, register, loginWithGoogle, loginWithDiscord, oauthError, clearOauthError, claimAccount, finalizeClaimAccount } = useAuth();
 
   // Show OAuth errors from URL callback
   useEffect(() => {
@@ -45,7 +52,9 @@ const LoginModal = memo(({ onClose }) => {
       await login(email, password);
       onClose();
     } catch (err) {
-      if (err.message.includes('User not found') || err.message.includes('not found')) {
+      if (err.message.includes('claimed yet') || err.message.includes('claim flow')) {
+        switchToClaim();
+      } else if (err.message.includes('User not found') || err.message.includes('not found')) {
         setMode('userNotFound');
         setError('');
         setMessage('');
@@ -78,6 +87,47 @@ const LoginModal = memo(({ onClose }) => {
       await register(email, password, displayName);
       onClose();
     } catch (err) {
+      if (err.message.includes('reserved') || err.message.includes('claim')) {
+        switchToClaim(displayName);
+      } else {
+        setError(err.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClaimStep1 = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const token = await claimAccount(claimDisplayName, claimPassword);
+      setClaimToken(token);
+      setClaimStep(2);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClaimStep2 = async () => {
+    setLoading(true);
+    setError('');
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters');
+      setLoading(false);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+    try {
+      await finalizeClaimAccount(claimToken, newEmail, newPassword);
+      onClose();
+    } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -90,6 +140,9 @@ const LoginModal = memo(({ onClose }) => {
       handleLogin();
     } else if (mode === 'register' || mode === 'userNotFound') {
       handleRegister();
+    } else if (mode === 'claim') {
+      if (claimStep === 1) handleClaimStep1();
+      else handleClaimStep2();
     }
   };
 
@@ -110,6 +163,19 @@ const LoginModal = memo(({ onClose }) => {
     setDisplayName('');
   };
 
+  const switchToClaim = (prefillName = '') => {
+    setMode('claim');
+    setClaimStep(1);
+    setClaimToken(null);
+    setClaimDisplayName(prefillName);
+    setClaimPassword('');
+    setNewEmail('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setError('');
+    setMessage('');
+  };
+
   const startOver = () => {
     setMode('login');
     setError('');
@@ -117,52 +183,59 @@ const LoginModal = memo(({ onClose }) => {
     setEmail('');
     setPassword('');
     setDisplayName('');
+    setClaimToken(null);
+    setClaimStep(1);
   };
 
   return (
     <div className="bg-white p-8 rounded-sm shadow-lg w-full max-w-md">
       <div className="text-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900">
-          {mode === 'login' ? 'Welcome Back' :
-           mode === 'userNotFound' ? 'Create Account' :
+          {mode === 'claim' ? (claimStep === 1 ? 'Claim Your Account' : 'Set Your Credentials') :
+           mode === 'login' ? 'Welcome Back' :
            'Create Account'}
         </h2>
         <p className="text-gray-600 mt-2">
-          {mode === 'login' ? 'Sign in to upload and manage your UMO moments' :
+          {mode === 'claim' ? (claimStep === 1 ? 'Enter your display name and claim password' : 'Choose your email and password') :
+           mode === 'login' ? 'Sign in to upload and manage your UMO moments' :
            mode === 'userNotFound' ? 'Set up your new account to get started' :
            'Join the UMO community and start collecting moments'}
         </p>
       </div>
 
-      {/* OAuth Buttons */}
-      <div className="space-y-3 mb-6">
-        <button
-          onClick={loginWithGoogle}
-          disabled={loading}
-          className="w-full flex items-center justify-center bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-sm hover:bg-gray-50 disabled:opacity-50 transition-colors"
-        >
-          <GoogleIcon />
-          Continue with Google
-        </button>
-        <button
-          onClick={loginWithDiscord}
-          disabled={loading}
-          className="w-full flex items-center justify-center bg-[#5865F2] text-white py-2 px-4 rounded-sm hover:bg-[#4752C4] disabled:opacity-50 transition-colors"
-        >
-          <DiscordIcon />
-          Continue with Discord
-        </button>
-      </div>
+      {/* OAuth Buttons — hidden in claim mode */}
+      {mode !== 'claim' && (
+        <>
+          <div className="space-y-3 mb-6">
+            <button
+              onClick={loginWithGoogle}
+              disabled={loading}
+              className="w-full flex items-center justify-center bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-sm hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              <GoogleIcon />
+              Continue with Google
+            </button>
+            <button
+              onClick={loginWithDiscord}
+              disabled={loading}
+              className="w-full flex items-center justify-center bg-[#5865F2] text-white py-2 px-4 rounded-sm hover:bg-[#4752C4] disabled:opacity-50 transition-colors"
+            >
+              <DiscordIcon />
+              Continue with Discord
+            </button>
+          </div>
 
-      {/* Divider */}
-      <div className="relative mb-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300"></div>
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white text-gray-500">or continue with email</span>
-        </div>
-      </div>
+          {/* Divider */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">or continue with email</span>
+            </div>
+          </div>
+        </>
+      )}
 
       {message && (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 text-center">
@@ -187,76 +260,199 @@ const LoginModal = memo(({ onClose }) => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {(mode === 'register' || mode === 'userNotFound') && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Display Name *
-            </label>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="How others will see you"
-              required
-            />
-          </div>
-        )}
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Email *
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="your@email.com"
-            required
-            disabled={mode === 'userNotFound' && loading}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Password *
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder={mode === 'login' ? 'Enter your password' : 'Create a password (min 8 characters)'}
-            required
-            minLength={mode !== 'login' ? 8 : undefined}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading || !email || !password || ((mode === 'register' || mode === 'userNotFound') && !displayName)}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? (
-            <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              {mode === 'login' ? 'Signing In...' : 'Creating Account...'}
-            </div>
+        {mode === 'claim' ? (
+          claimStep === 1 ? (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Display Name *
+                </label>
+                <input
+                  type="text"
+                  value={claimDisplayName}
+                  onChange={(e) => setClaimDisplayName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  placeholder="Your display name on UMO"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Claim Password *
+                </label>
+                <input
+                  type="password"
+                  value={claimPassword}
+                  onChange={(e) => setClaimPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  placeholder="Enter the claim password"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading || !claimDisplayName || !claimPassword}
+                className="w-full bg-yellow-600 text-white py-2 px-4 rounded-sm hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Verifying...
+                  </div>
+                ) : 'Verify & Continue'}
+              </button>
+            </>
           ) : (
-            mode === 'login' ? 'Sign In' : 'Create Account'
-          )}
-        </button>
+            <>
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-2 text-center text-sm">
+                Verified! Now set your real login credentials.
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  placeholder="your@email.com"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Password *
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  placeholder="Create a password (min 8 characters)"
+                  required
+                  minLength={8}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirm Password *
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  placeholder="Confirm your password"
+                  required
+                  minLength={8}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading || !newEmail || !newPassword || !confirmPassword}
+                className="w-full bg-yellow-600 text-white py-2 px-4 rounded-sm hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Claiming Account...
+                  </div>
+                ) : 'Claim Account'}
+              </button>
+            </>
+          )
+        ) : (
+          <>
+            {(mode === 'register' || mode === 'userNotFound') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Display Name *
+                </label>
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="How others will see you"
+                  required
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email *
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="your@email.com"
+                required
+                disabled={mode === 'userNotFound' && loading}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Password *
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={mode === 'login' ? 'Enter your password' : 'Create a password (min 8 characters)'}
+                required
+                minLength={mode !== 'login' ? 8 : undefined}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !email || !password || ((mode === 'register' || mode === 'userNotFound') && !displayName)}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  {mode === 'login' ? 'Signing In...' : 'Creating Account...'}
+                </div>
+              ) : (
+                mode === 'login' ? 'Sign In' : 'Create Account'
+              )}
+            </button>
+          </>
+        )}
       </form>
 
-      <div className="text-center mt-6">
+      <div className="text-center mt-6 space-y-2">
         {mode === 'login' ? (
+          <>
+            <button
+              onClick={switchToRegister}
+              className="text-blue-600 hover:text-blue-800 underline block w-full"
+              disabled={loading}
+            >
+              Don't have an account? Create one
+            </button>
+            <button
+              onClick={() => switchToClaim()}
+              className="text-yellow-600 hover:text-yellow-800 underline block w-full text-sm"
+              disabled={loading}
+            >
+              Have an account to claim?
+            </button>
+          </>
+        ) : mode === 'claim' ? (
           <button
-            onClick={switchToRegister}
-            className="text-blue-600 hover:text-blue-800 underline"
+            onClick={startOver}
+            className="text-gray-600 hover:text-gray-800 underline"
             disabled={loading}
           >
-            Don't have an account? Create one
+            Back to sign in
           </button>
         ) : mode === 'userNotFound' ? (
           <button
@@ -267,13 +463,22 @@ const LoginModal = memo(({ onClose }) => {
             Try different email address
           </button>
         ) : (
-          <button
-            onClick={switchToLogin}
-            className="text-blue-600 hover:text-blue-800 underline"
-            disabled={loading}
-          >
-            Already have an account? Sign in
-          </button>
+          <>
+            <button
+              onClick={switchToLogin}
+              className="text-blue-600 hover:text-blue-800 underline block w-full"
+              disabled={loading}
+            >
+              Already have an account? Sign in
+            </button>
+            <button
+              onClick={() => switchToClaim()}
+              className="text-yellow-600 hover:text-yellow-800 underline block w-full text-sm"
+              disabled={loading}
+            >
+              Have an account to claim?
+            </button>
+          </>
         )}
       </div>
     </div>

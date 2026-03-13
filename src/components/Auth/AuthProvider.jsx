@@ -139,6 +139,41 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const claimAccount = async (displayName, claimPassword) => {
+    const response = await fetch(`${API_BASE_URL}/claim-account`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName, claimPassword }),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Claim failed');
+    }
+    const data = await response.json();
+    return data.claimToken;
+  };
+
+  const finalizeClaimAccount = async (claimToken, email, password) => {
+    const response = await fetch(`${API_BASE_URL}/claim-account/finalize`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${claimToken}`,
+      },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Finalization failed');
+    }
+    const data = await response.json();
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    setToken(data.token);
+    setUser(data.user);
+    return data;
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -157,7 +192,9 @@ export const AuthProvider = ({ children }) => {
       loginWithGoogle,
       loginWithDiscord,
       oauthError,
-      clearOauthError
+      clearOauthError,
+      claimAccount,
+      finalizeClaimAccount
     }}>
       {children}
     </AuthContext.Provider>

@@ -43,7 +43,11 @@ const userSchema = new mongoose.Schema({
     }
   },
   // Shows attended tracking (RSVPs, guestbook signatures, and uploads)
-  showsAttended: [{ type: String }] // Array of performance IDs
+  showsAttended: [{ type: String }], // Array of performance IDs
+  // Proxy account fields (admin creates on behalf of someone)
+  isProxy: { type: Boolean, default: false },
+  proxyClaimed: { type: Boolean, default: false },
+  proxyCreatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, { timestamps: true });
 
 // ✅ Password setter
@@ -110,7 +114,14 @@ userSchema.methods.hasAttendedShow = function(performanceId) {
   return this.showsAttended.includes(performanceId);
 };
 
+// ✅ Proxy account helper
+userSchema.methods.isUnclaimedProxy = function() {
+  return this.isProxy && !this.proxyClaimed;
+};
+
 // Index for OAuth lookups
 userSchema.index({ authProvider: 1, oauthId: 1 });
+// Index for proxy account lookups
+userSchema.index({ isProxy: 1, displayName: 1 });
 
 module.exports = mongoose.model('User', userSchema);

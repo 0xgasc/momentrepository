@@ -501,6 +501,10 @@ const authenticateToken = (req, res, next) => {
       console.log('🔐 Token verification failed:', err.message);
       return sendAuthError(403, 'Invalid or expired token. Please log in again.');
     }
+    // Reject claim-mode tokens from being used on normal endpoints
+    if (user.claimMode) {
+      return sendAuthError(403, 'Claim tokens cannot be used for this endpoint.');
+    }
     req.user = user;
     next();
   });
@@ -2291,6 +2295,19 @@ app.post('/register', authLimiter, [
     let user = await User.findOne({ email });
     let isNewUser = false;
     if (!user) {
+      // Check if displayName is reserved by an unclaimed proxy account
+      const proxyConflict = await User.findOne({
+        displayName: new RegExp(`^${displayName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
+        isProxy: true,
+        proxyClaimed: false
+      });
+      if (proxyConflict) {
+        return res.status(409).json({
+          error: 'This display name is reserved. If this is your account, claim it instead.',
+          claimAvailable: true
+        });
+      }
+
       user = new User({ email, displayName });
       await user.setPassword(password);
       await user.save();
@@ -2324,6 +2341,14 @@ app.post('/login', authLimiter, [
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Block unclaimed proxy accounts from normal login
+    if (user.isProxy && !user.proxyClaimed) {
+      return res.status(403).json({
+        error: 'This account hasn\'t been claimed yet. Use the claim flow instead.',
+        claimAvailable: true
+      });
+    }
 
     // Check if user uses OAuth authentication
     if (user.authProvider && user.authProvider !== 'local') {
@@ -2415,6 +2440,113 @@ app.post('/change-password', authenticateToken, [
   } catch (err) {
     console.error('❌ Change password error:', err);
     res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// =============================================================================
+// ACCOUNT CLAIM FLOW (for proxy accounts)
+// =============================================================================
+
+// Step 1: Authenticate with displayName + claim password → get short-lived claim token
+app.post('/claim-account', authLimiter, [
+  body('displayName').isLength({ min: 2, max: 50 }).trim().withMessage('Display name required'),
+  body('claimPassword').notEmpty().withMessage('Claim password required'),
+  handleValidationErrors
+], async (req, res) => {
+  const { displayName, claimPassword } = req.body;
+  try {
+    // Find unclaimed proxy account by displayName (case-insensitive)
+    const user = await User.findOne({
+      displayName: new RegExp(`^${displayName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
+      isProxy: true,
+      proxyClaimed: false
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'No unclaimed account found with that name' });
+    }
+
+    const isValid = await user.validatePassword(claimPassword);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid claim password' });
+    }
+
+    // Generate short-lived claim token (15 min) — only valid for /claim-account/finalize
+    const claimToken = jwt.sign({
+      id: user._id,
+      claimMode: true
+    }, JWT_SECRET, { expiresIn: '15m' });
+
+    console.log(`🔑 Claim token issued for proxy account "${displayName}"`);
+    res.json({
+      claimToken,
+      userId: user._id,
+      displayName: user.displayName
+    });
+  } catch (err) {
+    console.error('❌ Claim account error:', err);
+    res.status(500).json({ error: 'Claim failed' });
+  }
+});
+
+// Middleware: Verify claim token (must have claimMode: true)
+const authenticateClaimToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Claim token required' });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (!decoded.claimMode) {
+      return res.status(403).json({ error: 'Invalid token type — claim token required' });
+    }
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(403).json({ error: 'Claim token expired or invalid' });
+  }
+};
+
+// Step 2: Finalize claim — set real email + password
+app.post('/claim-account/finalize', authenticateClaimToken, [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  handleValidationErrors
+], async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || !user.isProxy || user.proxyClaimed) {
+      return res.status(400).json({ error: 'Account cannot be claimed' });
+    }
+
+    // Check email not already taken
+    const emailTaken = await User.findOne({ email, _id: { $ne: user._id } });
+    if (emailTaken) {
+      return res.status(409).json({ error: 'That email is already registered' });
+    }
+
+    // Finalize the claim
+    user.email = email;
+    await user.setPassword(password);
+    user.proxyClaimed = true;
+    await user.save();
+
+    // Generate normal auth token — user is now logged in
+    const token = generateToken(user);
+    console.log(`✅ Proxy account "${user.displayName}" claimed by ${email}`);
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role
+      }
+    });
+  } catch (err) {
+    console.error('❌ Claim finalize error:', err);
+    res.status(500).json({ error: 'Failed to finalize claim' });
   }
 });
 
@@ -3209,6 +3341,81 @@ app.put('/admin/users/:userId/role', authenticateToken, requireAdmin, async (req
   }
 });
 
+// ============================================================
+// Proxy Accounts — admin creates accounts on behalf of others
+// ============================================================
+
+// Admin: Create a proxy account
+app.post('/admin/proxy-accounts', authenticateToken, requireAdmin, [
+  body('displayName').isLength({ min: 2, max: 50 }).trim().withMessage('Display name must be 2-50 characters'),
+  handleValidationErrors
+], async (req, res) => {
+  const { displayName } = req.body;
+  try {
+    // Check for existing proxy with same displayName (case-insensitive)
+    const existing = await User.findOne({
+      displayName: new RegExp(`^${displayName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
+      isProxy: true,
+      proxyClaimed: false
+    });
+    if (existing) {
+      return res.status(409).json({ error: 'A proxy account with that name already exists' });
+    }
+
+    // Generate placeholder email from displayName
+    const slug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const placeholderEmail = `${slug}.proxy@unclaimed.umo`;
+
+    // Ensure email uniqueness (in case slug collides)
+    let finalEmail = placeholderEmail;
+    const emailExists = await User.findOne({ email: finalEmail });
+    if (emailExists) {
+      finalEmail = `${slug}-${Date.now()}.proxy@unclaimed.umo`;
+    }
+
+    const user = new User({
+      email: finalEmail,
+      displayName,
+      authProvider: 'local',
+      role: 'user',
+      isProxy: true,
+      proxyCreatedBy: req.user.id
+    });
+    await user.setPassword('umo123');
+    await user.save();
+
+    console.log(`👤 Proxy account created: "${displayName}" by admin ${req.user.email}`);
+    res.status(201).json({
+      user: {
+        id: user._id,
+        displayName: user.displayName,
+        email: user.email,
+        isProxy: user.isProxy,
+        proxyClaimed: user.proxyClaimed,
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('❌ Proxy account creation error:', error);
+    res.status(500).json({ error: 'Failed to create proxy account' });
+  }
+});
+
+// Admin: List all proxy accounts
+app.get('/admin/proxy-accounts', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const proxies = await User.find({ isProxy: true })
+      .select('_id displayName isProxy proxyClaimed createdAt proxyCreatedBy')
+      .populate('proxyCreatedBy', 'displayName')
+      .sort({ createdAt: -1 });
+
+    res.json({ proxyAccounts: proxies });
+  } catch (error) {
+    console.error('❌ Proxy accounts fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch proxy accounts' });
+  }
+});
+
 // Admin/Mod: Get platform settings (mods can access for cache refresh)
 app.get('/admin/settings', authenticateToken, requireMod, async (req, res) => {
   try {
@@ -3424,10 +3631,19 @@ app.post('/admin/moments/bulk-migrate', authenticateToken, requireAdmin, async (
 // Creates multiple song moments from a single YouTube video with timestamps
 app.post('/admin/moments/batch', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { moments } = req.body;
+    const { moments, uploadAsUserId } = req.body;
 
     if (!Array.isArray(moments) || moments.length === 0) {
       return res.status(400).json({ error: 'moments array is required' });
+    }
+
+    // Resolve effective user for attribution
+    let effectiveUserId = req.user.id;
+    if (uploadAsUserId) {
+      const target = await User.findById(uploadAsUserId);
+      if (!target) return res.status(404).json({ error: 'Target user not found' });
+      effectiveUserId = uploadAsUserId;
+      console.log(`👤 Batch upload on behalf of "${target.displayName}" (${uploadAsUserId})`);
     }
 
     const createdMoments = [];
@@ -3467,7 +3683,7 @@ app.post('/admin/moments/batch', authenticateToken, requireAdmin, async (req, re
           endTime: momentData.endTime || null,
           mediaType: 'video',
           showInMoments: true, // Child moments should show in Moments browser
-          user: req.user.id,
+          user: effectiveUserId,
           approvalStatus: 'approved', // Admin-created moments are auto-approved
           reviewedBy: req.user.id,
           reviewedAt: new Date()
@@ -4004,17 +4220,32 @@ app.post('/upload-moment', authenticateToken, async (req, res) => {
     guestAppearances,
     crowdReaction,
     uniqueElements,
-    contentType
+    contentType,
+    uploadAsUserId
   } = req.body;
-  
+
   const userId = req.user.id;
+
+  // Admin "upload as" — credit a different user (e.g. proxy account)
+  let effectiveUserId = userId;
+  if (uploadAsUserId) {
+    const caller = await User.findById(userId);
+    const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
+    if (!caller?.isAdmin() && !adminEmails.includes(caller?.email)) {
+      return res.status(403).json({ error: 'Only admins can upload on behalf of others' });
+    }
+    const target = await User.findById(uploadAsUserId);
+    if (!target) return res.status(404).json({ error: 'Target user not found' });
+    effectiveUserId = uploadAsUserId;
+    console.log(`👤 Admin uploading on behalf of "${target.displayName}" (${uploadAsUserId})`);
+  }
 
   console.log('💾 Received moment upload request:', {
     performanceId,
     songName,
     venueName,
     venueCity,
-    userId,
+    userId: effectiveUserId,
     contentType
   });
 
@@ -4024,7 +4255,7 @@ app.post('/upload-moment', authenticateToken, async (req, res) => {
 
   try {
     const moment = new Moment({
-      user: userId,
+      user: effectiveUserId,
       performanceId,
       performanceDate,
       venueName,
