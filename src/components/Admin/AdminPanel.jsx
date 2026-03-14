@@ -2009,7 +2009,7 @@ const MigrationTab = memo(({ moments, setMoments, total, setTotal, token }) => {
           <div className="bg-gray-50 p-4 rounded-sm">
             <h4 className="font-medium mb-2">Bulk Migration</h4>
             <p className="text-sm text-gray-600 mb-3">
-              Paste JSON array with format: <code className="bg-gray-200 px-1 rounded">[{`{ "momentId": "...", "mediaUrl": "..." }`}]</code>
+              Paste JSON array (accepts exported format or <code className="bg-gray-200 px-1 rounded">{`{ "momentId": "...", "mediaUrl": "..." }`}</code>)
             </p>
             <textarea
               value={bulkJson}

@@ -3596,7 +3596,12 @@ app.post('/admin/moments/bulk-migrate', authenticateToken, requireAdmin, async (
 
     for (const update of updates) {
       try {
-        const updateData = { mediaUrl: update.mediaUrl };
+        const newUrl = update.mediaUrl || update.newUrl || update.currentUrl;
+        if (!newUrl) {
+          results.failed.push({ momentId: update.momentId, error: 'No mediaUrl/newUrl/currentUrl provided' });
+          continue;
+        }
+        const updateData = { mediaUrl: newUrl, updatedAt: new Date() };
         if (update.mediaType) {
           updateData.mediaType = update.mediaType;
         }
