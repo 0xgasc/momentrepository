@@ -291,6 +291,13 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
           onError: (error) => {
             console.error('❌ Tus upload error:', error);
             clearInterval(progressInterval);
+            // If server returned 404 (file lost after deploy), restart upload from scratch
+            if (error.message && error.message.includes('response code: 404')) {
+              console.log('🔄 Server lost upload (likely redeployed), restarting...');
+              upload.url = null; // Clear cached URL so tus creates a new upload
+              upload.start();
+              return;
+            }
             reject(new Error(`Upload failed: ${error.message}. Your upload can be resumed if you try again.`));
           },
           onProgress: (bytesUploaded, bytesTotal) => {
