@@ -6214,16 +6214,10 @@ const initializeCache = async () => {
         : `http://localhost:${PORT}`;
 
       if (umoCache.cache) {
-        // STALE-WHILE-REVALIDATE: Serve existing cache immediately, refresh in background
+        // STALE-WHILE-REVALIDATE: Serve existing cache immediately, always refresh in background
         console.log('🔄 Cache stale but usable - refreshing in background...');
 
-        const hasNewShows = await umoCache.checkForNewShows(API_BASE_URL, umoCache.cache.stats.totalPerformances);
-        if (!hasNewShows) {
-          console.log('✅ No new shows detected, using existing cache');
-          return;
-        }
-
-        // Start background refresh (don't await)
+        // Always rebuild — checkForNewShows misses updated/edited setlists
         console.log('🏗️ Starting background cache refresh...');
         umoCache.buildFreshCache(API_BASE_URL)
           .then(() => console.log('✅ Background cache refresh complete'))
@@ -6245,35 +6239,25 @@ const initializeCache = async () => {
   }
 };
 
-const scheduleDailyRefresh = () => {
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(3, 0, 0, 0); // 3 AM
-  
-  const msUntilRefresh = tomorrow.getTime() - now.getTime();
-  
-  setTimeout(async () => {
-    console.log('🕐 Daily cache refresh triggered');
-    try {
-      const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN 
-      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-      : `http://localhost:${PORT}`;
-      const hasNewShows = await umoCache.checkForNewShows(API_BASE_URL, umoCache.cache?.stats?.totalPerformances || 0);
-      if (hasNewShows) {
-        console.log('📅 New shows detected, refreshing cache...');
-        await umoCache.buildFreshCache(API_BASE_URL);
-      } else {
-        console.log('✅ No new shows, skipping refresh');
-      }
-    } catch (err) {
-      console.error('❌ Daily refresh failed:', err);
-    }
-    
-    scheduleDailyRefresh();
-  }, msUntilRefresh);
+const schedulePeriodicRefresh = () => {
+  const REFRESH_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
 
-  console.log(`⏰ Next cache refresh scheduled for ${tomorrow.toLocaleString()}`);
+  setInterval(async () => {
+    console.log('🕐 Periodic cache refresh triggered');
+    try {
+      const API_BASE_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+        : `http://localhost:${PORT}`;
+      // Always rebuild — checkForNewShows misses updated setlists (same total count)
+      console.log('📅 Rebuilding cache...');
+      await umoCache.buildFreshCache(API_BASE_URL);
+      console.log('✅ Periodic cache refresh complete');
+    } catch (err) {
+      console.error('❌ Periodic refresh failed:', err);
+    }
+  }, REFRESH_INTERVAL);
+
+  console.log(`⏰ Cache will refresh every 6 hours`);
 };
 
 // Schedule weekly Irys URL refresh (Sunday 4 AM)
@@ -6438,6 +6422,6 @@ server.listen(PORT, '0.0.0.0', () => {
 
   // Initialize cache after server starts
   initializeCache();
-  scheduleDailyRefresh();
+  schedulePeriodicRefresh();
   scheduleWeeklyIrysRefresh();
 });
