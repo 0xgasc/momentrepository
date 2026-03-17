@@ -2004,11 +2004,26 @@ app.get('/cached/performances', async (req, res) => {
         searchQuery: city
       });
     } else {
-      const performances = await umoCache.getPerformances();
+      const allPerformances = await umoCache.getPerformances();
+
+      // Filter out future shows — "Latest Performances" should only show today and past
+      // eventDate format from setlist.fm: DD-MM-YYYY
+      const today = new Date();
+      today.setHours(23, 59, 59, 999); // Include all of today
+      const performances = allPerformances.filter(p => {
+        if (!p.eventDate) return true;
+        const parts = p.eventDate.split('-');
+        if (parts.length === 3) {
+          const showDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+          return showDate <= today;
+        }
+        return true;
+      });
+
       const startIndex = (parseInt(page) - 1) * parseInt(limit);
       const endIndex = startIndex + parseInt(limit);
       const paginatedPerformances = performances.slice(startIndex, endIndex);
-      
+
       res.json({
         performances: paginatedPerformances,
         pagination: {
@@ -4801,6 +4816,73 @@ app.post('/admin/refresh-cache', authenticateToken, requireAdmin, async (req, re
   } catch (error) {
     console.error('❌ Cache refresh error:', error);
     res.status(500).json({ error: 'Failed to refresh cache' });
+  }
+});
+
+// Admin: Inject a single setlist by setlist.fm ID into the cache
+app.post('/admin/cache/inject-setlist', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { setlistId } = req.body;
+    if (!setlistId) return res.status(400).json({ error: 'setlistId is required' });
+
+    console.log(`🔄 Fetching setlist ${setlistId} from setlist.fm...`);
+
+    const response = await fetch(`https://api.setlist.fm/rest/1.0/setlist/${setlistId}`, {
+      headers: {
+        Accept: 'application/json',
+        'x-api-key': process.env.SETLIST_FM_API_KEY,
+        'User-Agent': 'UMORepository/1.0'
+      }
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: `setlist.fm returned ${response.status}` });
+    }
+
+    const setlist = await response.json();
+    console.log(`✅ Fetched setlist: ${setlist.venue?.name} - ${setlist.eventDate}`);
+
+    // Load current cache
+    if (!umoCache.cache) await umoCache.loadCache();
+    if (!umoCache.cache) return res.status(500).json({ error: 'No cache available' });
+
+    // Check if already in cache
+    const existingIdx = umoCache.cache.performances.findIndex(p => p.id === setlist.id);
+    if (existingIdx >= 0) {
+      // Update existing
+      umoCache.cache.performances[existingIdx] = setlist;
+      console.log(`🔄 Updated existing cache entry for ${setlist.id}`);
+    } else {
+      // Insert and re-sort
+      umoCache.cache.performances.push(setlist);
+      umoCache.cache.performances.sort((a, b) => {
+        const parseDate = (d) => {
+          if (!d) return new Date(0);
+          const parts = d.split('-');
+          return parts.length === 3 ? new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])) : new Date(d);
+        };
+        return parseDate(b.eventDate) - parseDate(a.eventDate);
+      });
+      umoCache.cache.stats.totalPerformances = umoCache.cache.performances.length;
+      console.log(`➕ Added new cache entry for ${setlist.id}`);
+    }
+
+    await umoCache.saveCache(umoCache.cache);
+
+    res.json({
+      success: true,
+      action: existingIdx >= 0 ? 'updated' : 'added',
+      setlist: {
+        id: setlist.id,
+        venue: setlist.venue?.name,
+        city: setlist.venue?.city?.name,
+        date: setlist.eventDate,
+        songs: setlist.sets?.set?.reduce((acc, s) => acc + (s.song?.length || 0), 0) || 0
+      }
+    });
+  } catch (error) {
+    console.error('❌ Inject setlist error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
