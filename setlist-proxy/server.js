@@ -489,7 +489,7 @@ const authenticateToken = (req, res, next) => {
   // Helper to send error with explicit CORS headers (for long uploads)
   const sendAuthError = (status, message) => {
     const origin = req.headers.origin;
-    if (origin && allowedOrigins.includes(origin)) {
+    if (origin) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
@@ -6396,9 +6396,9 @@ app.use(
 app.use((err, req, res, next) => {
   console.error('🚨 Global error handler:', err.message);
 
-  // Ensure CORS headers are set for error responses
+  // Always set CORS headers for error responses (matches origin: true config)
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
+  if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
