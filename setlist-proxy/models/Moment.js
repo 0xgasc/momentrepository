@@ -95,7 +95,7 @@ const momentSchema = new mongoose.Schema({
   // ✅ CRITICAL FIX: Added contentType field
   contentType: {
     type: String,
-    enum: ['song', 'intro', 'outro', 'jam', 'crowd', 'other', 'full-show'],
+    enum: ['song', 'intro', 'outro', 'jam', 'crowd', 'other', 'full-show', 'improv'],
     default: 'song'
   },
   
