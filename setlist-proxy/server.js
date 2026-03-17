@@ -1984,9 +1984,18 @@ app.get('/cache/refresh/status', async (req, res) => {
 app.get('/cached/performances', async (req, res) => {
   try {
     const { page = 1, limit = 20, city } = req.query;
-    
+
+    // If cache is still building, tell the frontend to retry
+    if (!umoCache.cache && umoCache.isLoading) {
+      return res.status(503).json({
+        error: 'Cache is building',
+        cacheBuilding: true,
+        retryAfter: 10
+      });
+    }
+
     let result;
-    
+
     if (city) {
       result = await umoCache.searchPerformancesByCity(city, parseInt(page), parseInt(limit));
       console.log(`🔍 Search "${city}" page ${page}: ${result.results.length}/${result.totalResults} results`);

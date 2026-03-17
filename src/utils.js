@@ -234,25 +234,36 @@ export const fetchUMOSetlists = async (page = 1, apiBaseUrl) => {
     console.log(`📡 Cache URL: ${url}`);
     
     const response = await safeFetch(url);
+
+    // If cache is still building, auto-retry after delay
+    if (response.status === 503) {
+      const retryData = await response.json();
+      if (retryData.cacheBuilding) {
+        console.log('⏳ Cache is building, retrying in 10s...');
+        await new Promise(r => setTimeout(r, 10000));
+        return fetchUMOSetlists(page, apiBaseUrl);
+      }
+    }
+
     const data = await response.json();
-    
+
     console.log(`📋 Cache data received:`, {
-      total: data.pagination.total,
-      performanceCount: data.performances.length,
-      page: data.pagination.page,
+      total: data.pagination?.total,
+      performanceCount: data.performances?.length,
+      page: data.pagination?.page,
       fromCache: data.fromCache,
       lastUpdated: data.lastUpdated
     });
 
     // Transform to match original setlist.fm API format
     return {
-      setlist: data.performances,
-      total: data.pagination.total,
-      page: data.pagination.page,
+      setlist: data.performances || [],
+      total: data.pagination?.total || 0,
+      page: data.pagination?.page || 1,
       fromCache: data.fromCache,
-      hasMore: data.pagination.hasMore
+      hasMore: data.pagination?.hasMore || false
     };
-    
+
   } catch (error) {
     console.error(`❌ Error fetching cached UMO setlists:`, error);
     throw error;
