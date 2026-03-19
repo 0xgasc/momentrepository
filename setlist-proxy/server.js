@@ -246,15 +246,38 @@ async function initTusServer() {
 
     EVENTS = tusServerModule.EVENTS;
 
+    const fileStore = new fileStoreModule.FileStore({
+      directory: tusUploadDir,
+      expirationPeriodInMilliseconds: 30 * 60 * 1000, // 30 min expiry for incomplete uploads
+    });
+
     tusServer = new tusServerModule.Server({
       path: '/tus-upload',
-      datastore: new fileStoreModule.FileStore({ directory: tusUploadDir }),
-      maxSize: 6 * 1024 * 1024 * 1024, // 6GB
+      datastore: fileStore,
+      maxSize: 2 * 1024 * 1024 * 1024, // 2GB
       respectForwardedHeaders: true,
     });
 
+    // Run expiration cleanup every 15 minutes
+    setInterval(() => {
+      fileStore.deleteExpired?.().then((count) => {
+        if (count > 0) console.log(`🧹 Tus: cleaned up ${count} expired uploads`);
+      }).catch(() => {});
+    }, 15 * 60 * 1000);
+
     tusServer.on(EVENTS.POST_FINISH, (req, res, upload) => {
-      console.log(`✅ Tus upload complete: ${upload.id}, size: ${upload.size} bytes`);
+      const sizeMB = (upload.size / (1024 * 1024)).toFixed(1);
+      console.log(`✅ Tus upload complete: ${upload.id}, size: ${sizeMB}MB`);
+
+      // Log disk usage of temp dir
+      try {
+        const files = fs.readdirSync(tusUploadDir);
+        const totalBytes = files.reduce((sum, f) => {
+          try { return sum + fs.statSync(path.join(tusUploadDir, f)).size; } catch { return sum; }
+        }, 0);
+        console.log(`📊 Temp dir: ${files.length} files, ${(totalBytes / (1024 * 1024)).toFixed(1)}MB total`);
+      } catch {}
+
       completedTusUploads.set(upload.id, {
         filePath: path.join(tusUploadDir, upload.id),
         size: upload.size,
