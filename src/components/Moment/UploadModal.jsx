@@ -346,6 +346,32 @@ const UploadModal = memo(({ uploadingMoment, onClose, refreshNotifications }) =>
 
               if (!response.ok) {
                 const errorData = await response.json();
+                if (errorData.retryable) {
+                  // Auto-retry once after 5 seconds
+                  console.log('⏳ Irys upload failed, auto-retrying in 5s...');
+                  setUploadStage('Storage upload failed, retrying...');
+                  await new Promise(r => setTimeout(r, 5000));
+
+                  const retryResponse = await fetch(`${API_BASE_URL}/tus-upload/complete`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ uploadId, originalFilename: file.name })
+                  });
+
+                  if (!retryResponse.ok) {
+                    const retryError = await retryResponse.json();
+                    reject(new Error(retryError.error || 'Upload to storage failed after retry'));
+                    return;
+                  }
+
+                  const retryData = await retryResponse.json();
+                  console.log('✅ Retry succeeded:', retryData.fileUri);
+                  resolve(retryData);
+                  return;
+                }
                 reject(new Error(errorData.error || 'Failed to process upload'));
                 return;
               }

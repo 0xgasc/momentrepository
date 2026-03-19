@@ -436,9 +436,20 @@ app.post('/tus-upload/complete', async (req, res) => {
       return res.status(404).json({ error: 'Upload file not found on server' });
     }
 
-    // Upload to Irys
+    // Upload to Irys (has internal retry logic: 3 attempts)
     console.log(`🚀 Uploading to Irys...`);
-    const result = await uploadFileToIrysFromPath(uploadInfo.filePath, originalFilename);
+    let result;
+    try {
+      result = await uploadFileToIrysFromPath(uploadInfo.filePath, originalFilename);
+    } catch (irysErr) {
+      // Keep the upload info so the user can retry
+      console.error(`❌ Irys upload failed after retries: ${irysErr.message}`);
+      return res.status(502).json({
+        error: 'Upload to permanent storage failed. You can retry.',
+        retryable: true,
+        uploadId
+      });
+    }
 
     console.log(`✅ Irys upload complete: ${result.url}`);
 
@@ -3872,18 +3883,18 @@ app.put('/admin/moments/:momentId/reassign', authenticateToken, requireAdmin, as
     const targetUser = await User.findById(userId);
     if (!targetUser) return res.status(404).json({ error: 'Target user not found' });
 
-    const moment = await Moment.findById(momentId);
+    const moment = await Moment.findByIdAndUpdate(
+      momentId,
+      { $set: { user: userId } },
+      { new: true }
+    );
     if (!moment) return res.status(404).json({ error: 'Moment not found' });
 
-    const oldUserId = moment.user;
-    moment.user = userId;
-    await moment.save();
-
-    console.log(`🔄 Moment ${momentId} reassigned from ${oldUserId} to ${userId} (${targetUser.displayName})`);
+    console.log(`🔄 Moment ${momentId} reassigned to ${userId} (${targetUser.displayName})`);
     res.json({ success: true, newUser: { _id: targetUser._id, displayName: targetUser.displayName } });
   } catch (error) {
-    console.error('❌ Reassign error:', error);
-    res.status(500).json({ error: 'Failed to reassign moment' });
+    console.error('❌ Reassign error:', error.message, error.stack);
+    res.status(500).json({ error: error.message || 'Failed to reassign moment' });
   }
 });
 
