@@ -309,36 +309,58 @@ const AdminPanel = memo(({ onClose }) => {
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="flex border-b overflow-x-auto scrollbar-hide">
-          {[
-            ...(isAdmin ? [{ key: 'users', label: 'Users', shortLabel: 'Users', count: users.length }] : []),
-            { key: 'moderation', label: 'Pending Review', shortLabel: 'Review', count: pendingMoments.length },
-            ...(isAdmin ? [{ key: 'youtube', label: 'YouTube Moments', shortLabel: 'YouTube', count: youtubeMoments.length || null }] : []),
-            ...(isAdmin ? [{ key: 'shows', label: 'Upcoming Shows', shortLabel: 'Shows', count: null }] : []),
-            ...(isAdmin ? [{ key: 'migration', label: 'Media Migration', shortLabel: 'Migrate', count: migrationTotal || null }] : []),
-            ...(isAdmin ? [{ key: 'contacts', label: 'Contact Messages', shortLabel: 'Msgs', count: contactNewCount || null }] : []),
-            ...(isAdmin ? [{ key: 'settings', label: 'Settings', shortLabel: 'Settings', count: null }] : [])
-          ].map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-3 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
-                activeTab === tab.key
-                  ? 'border-purple-500 text-purple-600 bg-purple-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <span className="sm:hidden">{tab.shortLabel}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
-              {tab.count > 0 && (
-                <span className="ml-1 sm:ml-2 bg-gray-200 text-gray-700 rounded-full px-1.5 sm:px-2 py-0.5 text-xs">
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        {/* Tabs - Desktop: horizontal ribbon, Mobile: dropdown */}
+        {(() => {
+          const tabs = [
+            ...(isAdmin ? [{ key: 'users', label: 'Users', count: users.length }] : []),
+            { key: 'moderation', label: 'Review', count: pendingMoments.length },
+            ...(isAdmin ? [{ key: 'youtube', label: 'YouTube', count: youtubeMoments.length || null }] : []),
+            ...(isAdmin ? [{ key: 'shows', label: 'Shows', count: null }] : []),
+            ...(isAdmin ? [{ key: 'migration', label: 'Migration', count: migrationTotal || null }] : []),
+            ...(isAdmin ? [{ key: 'contacts', label: 'Messages', count: contactNewCount || null }] : []),
+            ...(isAdmin ? [{ key: 'settings', label: 'Settings', count: null }] : [])
+          ];
+          const activeLabel = tabs.find(t => t.key === activeTab)?.label || 'Select';
+          return (
+            <>
+              {/* Mobile: dropdown select */}
+              <div className="md:hidden border-b px-3 py-2">
+                <select
+                  value={activeTab}
+                  onChange={(e) => setActiveTab(e.target.value)}
+                  className="w-full px-3 py-2 text-sm font-medium border border-gray-300 rounded bg-white text-gray-700"
+                >
+                  {tabs.map(tab => (
+                    <option key={tab.key} value={tab.key}>
+                      {tab.label}{tab.count > 0 ? ` (${tab.count})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* Desktop: horizontal tab ribbon */}
+              <div className="hidden md:flex border-b">
+                {tabs.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`px-4 lg:px-5 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      activeTab === tab.key
+                        ? 'border-purple-500 text-purple-600 bg-purple-50'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {tab.label}
+                    {tab.count > 0 && (
+                      <span className="ml-1.5 bg-gray-200 text-gray-700 rounded-full px-1.5 py-0.5 text-xs">
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </>
+          );
+        })()}
 
         {/* Content */}
         <div className="p-3 sm:p-6 overflow-y-auto max-h-[75vh] sm:max-h-[70vh] bg-white">
@@ -354,11 +376,14 @@ const AdminPanel = memo(({ onClose }) => {
           )}
           
           {activeTab === 'moderation' && (
-            <ModerationTab 
+            <ModerationTab
               pendingMoments={pendingMoments}
               approveMoment={approveMoment}
               rejectMoment={rejectMoment}
               formatDate={formatDate}
+              users={users}
+              proxyAccounts={proxyAccounts}
+              isAdmin={isAdmin}
             />
           )}
           
@@ -557,9 +582,11 @@ const UsersTab = memo(({ users, assignRole, getRoleDisplay, formatDate, proxyAcc
 });
 
 // Content moderation tab
-const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, formatDate }) => {
+const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, formatDate, users = [], proxyAccounts = [], isAdmin }) => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejectingMoment, setRejectingMoment] = useState(null);
+  const [reassigningMoment, setReassigningMoment] = useState(null);
+  const [reassignUserId, setReassignUserId] = useState('');
   const [expandedMoment, setExpandedMoment] = useState(null);
   const [editingMoment, setEditingMoment] = useState(null);
   const [editedMetadata, setEditedMetadata] = useState({});
@@ -1046,8 +1073,79 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
                         Edit Fields
                       </button>
                     )}
+
+                    {/* Reassign uploader button - admin only */}
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          setReassigningMoment(reassigningMoment === moment._id ? null : moment._id);
+                          setReassignUserId('');
+                        }}
+                        className="bg-orange-500 text-white px-3 sm:px-4 py-2 rounded text-sm hover:bg-orange-600 flex items-center gap-1"
+                      >
+                        Reassign
+                      </button>
+                    )}
                   </div>
-                  
+
+                  {/* Reassign uploader form */}
+                  {reassigningMoment === moment._id && (
+                    <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Assign to user:
+                      </label>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <select
+                          value={reassignUserId}
+                          onChange={(e) => setReassignUserId(e.target.value)}
+                          className="flex-1 p-2 border border-gray-300 rounded text-sm"
+                        >
+                          <option value="">Select a user...</option>
+                          <optgroup label="Proxy accounts (claimable)">
+                            {proxyAccounts.filter(p => !p.proxyClaimed).map(p => (
+                              <option key={p._id} value={p._id}>{p.displayName} (unclaimed)</option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="All users">
+                            {users.map(u => (
+                              <option key={u._id} value={u._id}>{u.displayName || u.email}</option>
+                            ))}
+                          </optgroup>
+                        </select>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              if (!reassignUserId) return;
+                              try {
+                                const res = await fetch(`${API_BASE_URL}/admin/moments/${moment._id}/reassign`, {
+                                  method: 'PUT',
+                                  headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ userId: reassignUserId })
+                                });
+                                if (res.ok) {
+                                  const data = await res.json();
+                                  moment.user = data.newUser;
+                                  setReassigningMoment(null);
+                                  setReassignUserId('');
+                                }
+                              } catch (err) { console.error(err); }
+                            }}
+                            disabled={!reassignUserId}
+                            className="bg-orange-600 text-white px-3 py-2 rounded text-sm hover:bg-orange-700 disabled:opacity-50 whitespace-nowrap"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => { setReassigningMoment(null); setReassignUserId(''); }}
+                            className="bg-gray-500 text-white px-3 py-2 rounded text-sm hover:bg-gray-600"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {rejectingMoment === moment._id && (
                     <div className="mt-3 p-3 bg-white border rounded">
                       <label className="block text-sm font-medium text-gray-700 mb-1">

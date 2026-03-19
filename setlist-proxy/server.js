@@ -3861,6 +3861,32 @@ app.put('/moderation/moments/:momentId/approve', authenticateToken, requireMod, 
   }
 });
 
+// Admin: Reassign moment to a different user
+app.put('/admin/moments/:momentId/reassign', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+    const targetUser = await User.findById(userId);
+    if (!targetUser) return res.status(404).json({ error: 'Target user not found' });
+
+    const moment = await Moment.findById(momentId);
+    if (!moment) return res.status(404).json({ error: 'Moment not found' });
+
+    const oldUserId = moment.user;
+    moment.user = userId;
+    await moment.save();
+
+    console.log(`🔄 Moment ${momentId} reassigned from ${oldUserId} to ${userId} (${targetUser.displayName})`);
+    res.json({ success: true, newUser: { _id: targetUser._id, displayName: targetUser.displayName } });
+  } catch (error) {
+    console.error('❌ Reassign error:', error);
+    res.status(500).json({ error: 'Failed to reassign moment' });
+  }
+});
+
 // Mod/Admin: Reject and delete moment
 app.delete('/moderation/moments/:momentId/reject', authenticateToken, requireMod, async (req, res) => {
   try {
