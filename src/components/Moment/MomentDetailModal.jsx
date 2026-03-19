@@ -1,5 +1,6 @@
 // src/components/Moment/MomentDetailModal.jsx - OPTIMIZED & FIXED
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Clock, ListPlus, Check, Archive, ExternalLink, User, Video, FileText, Trash2 } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { usePlatformSettings } from '../../contexts/PlatformSettingsContext';
@@ -13,6 +14,7 @@ import FavoriteButton from '../UI/FavoriteButton';
 import { transformMediaUrl } from '../../utils/mediaUrl';
 
 const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProfile }) => {
+  const navigate = useNavigate();
   const { user, token } = useAuth();
   const { isWeb3Enabled } = usePlatformSettings();
   const { addToQueue, isInQueue } = useTheaterQueue();
@@ -958,10 +960,17 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
             <div className="uploader-info">
               <div className="flex items-center gap-2">
                 <User size={12} />
-                {moment.user?._id && onViewUserProfile ? (
+                {moment.user?._id ? (
                   <button
-                    onClick={() => onViewUserProfile(moment.user._id)}
-                    className="uploader-text hover:underline hover:text-blue-400 transition-colors text-left"
+                    onClick={() => {
+                      if (onViewUserProfile) {
+                        onViewUserProfile(moment.user._id);
+                      } else {
+                        onClose?.();
+                        navigate(`/user/${moment.user._id}`);
+                      }
+                    }}
+                    className="uploader-text hover:underline hover:text-blue-400 transition-colors text-left cursor-pointer"
                   >
                     Added by {moment.user.displayName || 'Anonymous'}
                   </button>

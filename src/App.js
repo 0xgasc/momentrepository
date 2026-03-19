@@ -887,8 +887,8 @@ const LandingPageContent = memo(({ user, onNavigate, onLoginClick, onToggleOverl
               onClick={() => onNavigate(mode)}
               className="group text-left bg-gray-900 hover:bg-gray-800 p-5 transition-colors"
             >
-              <div className="text-sm font-semibold text-white mb-1.5 group-hover:text-blue-400 transition-colors">{label}</div>
-              <div className="text-gray-500 text-xs leading-relaxed">{desc}</div>
+              <div className="text-base font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">{label}</div>
+              <div className="text-gray-500 text-sm leading-relaxed">{desc}</div>
             </button>
           ))}
         </div>

@@ -280,17 +280,17 @@ const AdminPanel = memo(({ onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-sm shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-gray-300" style={{ backgroundColor: 'white' }}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 sm:p-4">
+      <div className="bg-white rounded-t-lg sm:rounded-sm shadow-xl w-full sm:max-w-6xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden border border-gray-300" style={{ backgroundColor: 'white' }}>
         {/* Header */}
-        <div className="bg-gray-100 px-6 py-4 border-b border-gray-300 flex items-center justify-between" style={{ backgroundColor: '#e5e7eb' }}>
+        <div className="bg-gray-100 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-300 flex items-center justify-between" style={{ backgroundColor: '#e5e7eb' }}>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Admin Panel</h2>
-            <p className="text-sm text-gray-600">User management & content moderation</p>
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Admin Panel</h2>
+            <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">User management & content moderation</p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+            className="text-gray-400 hover:text-gray-600 text-2xl font-bold w-10 h-10 flex items-center justify-center"
           >
             ×
           </button>
@@ -310,28 +310,29 @@ const AdminPanel = memo(({ onClose }) => {
         )}
 
         {/* Tabs */}
-        <div className="flex border-b overflow-x-auto">
+        <div className="flex border-b overflow-x-auto scrollbar-hide">
           {[
-            ...(isAdmin ? [{ key: 'users', label: 'Users', count: users.length }] : []),
-            { key: 'moderation', label: 'Pending Review', count: pendingMoments.length },
-            ...(isAdmin ? [{ key: 'youtube', label: 'YouTube Moments', count: youtubeMoments.length || null }] : []),
-            ...(isAdmin ? [{ key: 'shows', label: 'Upcoming Shows', count: null }] : []),
-            ...(isAdmin ? [{ key: 'migration', label: 'Media Migration', count: migrationTotal || null }] : []),
-            ...(isAdmin ? [{ key: 'contacts', label: 'Contact Messages', count: contactNewCount || null }] : []),
-            ...(isAdmin ? [{ key: 'settings', label: 'Settings', count: null }] : [])
+            ...(isAdmin ? [{ key: 'users', label: 'Users', shortLabel: 'Users', count: users.length }] : []),
+            { key: 'moderation', label: 'Pending Review', shortLabel: 'Review', count: pendingMoments.length },
+            ...(isAdmin ? [{ key: 'youtube', label: 'YouTube Moments', shortLabel: 'YouTube', count: youtubeMoments.length || null }] : []),
+            ...(isAdmin ? [{ key: 'shows', label: 'Upcoming Shows', shortLabel: 'Shows', count: null }] : []),
+            ...(isAdmin ? [{ key: 'migration', label: 'Media Migration', shortLabel: 'Migrate', count: migrationTotal || null }] : []),
+            ...(isAdmin ? [{ key: 'contacts', label: 'Contact Messages', shortLabel: 'Msgs', count: contactNewCount || null }] : []),
+            ...(isAdmin ? [{ key: 'settings', label: 'Settings', shortLabel: 'Settings', count: null }] : [])
           ].map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`px-3 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.key
                   ? 'border-purple-500 text-purple-600 bg-purple-50'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              {tab.label}
+              <span className="sm:hidden">{tab.shortLabel}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
               {tab.count > 0 && (
-                <span className="ml-2 bg-gray-200 text-gray-700 rounded-full px-2 py-1 text-xs">
+                <span className="ml-1 sm:ml-2 bg-gray-200 text-gray-700 rounded-full px-1.5 sm:px-2 py-0.5 text-xs">
                   {tab.count}
                 </span>
               )}
@@ -340,7 +341,7 @@ const AdminPanel = memo(({ onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[70vh] bg-white">
+        <div className="p-3 sm:p-6 overflow-y-auto max-h-[75vh] sm:max-h-[70vh] bg-white">
 {activeTab === 'users' && isAdmin && (
             <UsersTab
               users={users}
@@ -498,13 +499,13 @@ const UsersTab = memo(({ users, assignRole, getRoleDisplay, formatDate, proxyAcc
         {users.map(user => {
           const roleDisplay = getRoleDisplay(user.role);
           return (
-            <div key={user._id} className="border border-gray-200 rounded-sm p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div>
-                      <h4 className="font-medium text-gray-900">{user.displayName || user.email}</h4>
-                      <p className="text-sm text-gray-600">{user.email}</p>
+            <div key={user._id} className="border border-gray-200 rounded-sm p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
+                    <div className="min-w-0">
+                      <h4 className="font-medium text-gray-900 truncate">{user.displayName || user.email}</h4>
+                      <p className="text-sm text-gray-600 truncate">{user.email}</p>
                     </div>
                     <div className={`px-2 py-1 rounded-full text-xs font-medium ${roleDisplay.color} bg-gray-100`}>
                       {roleDisplay.label}
@@ -518,8 +519,8 @@ const UsersTab = memo(({ users, assignRole, getRoleDisplay, formatDate, proxyAcc
                     )}
                   </div>
                 </div>
-                
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <select
                     value={selectedUser === user._id ? newRole : user.role}
                     onChange={(e) => {
@@ -684,15 +685,15 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
       ) : (
         <div className="space-y-4">
           {pendingMoments.map(moment => (
-            <div key={moment._id} className="border border-gray-200 rounded-sm p-4 bg-yellow-50">
-              <div className="flex items-start gap-4">
+            <div key={moment._id} className="border border-gray-200 rounded-sm p-3 sm:p-4 bg-yellow-50">
+              <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
                 {/* Media Preview */}
                 {moment.mediaUrl && (
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 w-full sm:w-auto">
                     {moment.mediaType === 'video' ? (
                       <video
                         src={transformMediaUrl(moment.mediaUrl)}
-                        className="w-32 h-24 object-cover rounded border"
+                        className="w-full sm:w-32 h-32 sm:h-24 object-cover rounded border"
                         controls
                         preload="metadata"
                       />
@@ -700,10 +701,10 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
                       <img
                         src={transformMediaUrl(moment.mediaUrl)}
                         alt="Moment preview"
-                        className="w-32 h-24 object-cover rounded border"
+                        className="w-full sm:w-32 h-32 sm:h-24 object-cover rounded border"
                       />
                     ) : (
-                      <div className="w-32 h-24 bg-gray-200 rounded border flex items-center justify-center">
+                      <div className="w-full sm:w-32 h-16 sm:h-24 bg-gray-200 rounded border flex items-center justify-center">
                         <span className="text-gray-500 text-xs">Audio</span>
                       </div>
                     )}
@@ -739,7 +740,7 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
                   {/* Expanded metadata view */}
                   {expandedMoment === moment._id && (
                     <div className="mt-3 p-3 bg-gray-50 rounded border">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                         {/* Media URL - clickable link */}
                         <div className="col-span-2">
                           <strong>Media URL:</strong>{' '}
@@ -1018,31 +1019,31 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
                     </div>
                   )}
 
-                  <div className="flex items-center gap-2 mt-3">
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
                     <button
                       onClick={() => approveMoment(moment._id)}
-                      className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 flex items-center gap-1"
+                      className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded text-sm hover:bg-green-700 flex items-center gap-1"
                       disabled={editingMoment === moment._id || editingYouTubeMoment === moment._id}
                     >
-                      ✅ Approve
+                      Approve
                     </button>
 
                     <button
                       onClick={() => setRejectingMoment(moment._id)}
-                      className="bg-red-600 text-white px-4 py-2 rounded text-sm hover:bg-red-700 flex items-center gap-1"
+                      className="bg-red-600 text-white px-3 sm:px-4 py-2 rounded text-sm hover:bg-red-700 flex items-center gap-1"
                       disabled={editingMoment === moment._id || editingYouTubeMoment === moment._id}
                     >
-                      ❌ Reject
+                      Reject
                     </button>
 
                     {/* Edit Core Fields button for YouTube moments */}
                     {moment.mediaSource === 'youtube' && !editingYouTubeMoment && (
                       <button
                         onClick={() => startYouTubeEdit(moment)}
-                        className="bg-purple-600 text-white px-4 py-2 rounded text-sm hover:bg-purple-700 flex items-center gap-1"
+                        className="bg-purple-600 text-white px-3 sm:px-4 py-2 rounded text-sm hover:bg-purple-700 flex items-center gap-1"
                         disabled={editingMoment === moment._id}
                       >
-                        ✏️ Edit Core Fields
+                        Edit Fields
                       </button>
                     )}
                   </div>
