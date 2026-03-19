@@ -162,7 +162,7 @@ const MomentThumbnailCard = memo(({
       `}
     >
       {/* Thumbnail / Preview area */}
-      <div className="relative aspect-video bg-gray-900/50 flex items-center justify-center overflow-hidden">
+      <div className="relative aspect-video bg-gray-900 flex items-center justify-center overflow-hidden">
         {isYouTubeMoment(moment) ? (
           /* YouTube embed preview - autoplay muted */
           (() => {
@@ -191,27 +191,28 @@ const MomentThumbnailCard = memo(({
         ) : moment.mediaType === 'video' && moment.mediaUrl && !isYouTubeMoment(moment) ? (
           <video
             src={transformMediaUrl(moment.mediaUrl)}
-            autoPlay={autoplayPreviews}
+            autoPlay
             loop
             muted
             playsInline
-            className="absolute inset-0 w-full h-full object-cover"
+            preload="auto"
+            className="absolute inset-0 w-full h-full object-cover z-10"
+            onLoadedData={(e) => {
+              setIsLoading(false);
+              // Force play in case autoplay was blocked
+              e.target.play().catch(() => {});
+            }}
             onLoadedMetadata={(e) => {
               if (moment.startTime) e.target.currentTime = moment.startTime;
             }}
-            onLoadedData={() => setIsLoading(false)}
             onError={(e) => {
               setIsLoading(false);
               e.target.style.display = 'none';
-              e.target.nextSibling.style.display = 'flex';
             }}
           />
         ) : null}
-        {/* Fallback - use thumbnailUrl if available, otherwise show icon */}
-        <div
-          className="absolute inset-0 bg-gray-800 items-center justify-center"
-          style={{ display: (isYouTubeMoment(moment) || (moment.mediaType === 'video' && moment.mediaUrl)) ? 'none' : 'flex' }}
-        >
+        {/* Fallback / loading state - always visible behind video as poster */}
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
           {moment.thumbnailUrl ? (
             <img
               src={transformMediaUrl(moment.thumbnailUrl)}
@@ -219,7 +220,14 @@ const MomentThumbnailCard = memo(({
               className="absolute inset-0 w-full h-full object-cover"
             />
           ) : (
-            <MediaIcon size={24} className="text-gray-500" />
+            <div className="flex flex-col items-center gap-1">
+              <MediaIcon size={20} className="text-gray-600" />
+              {hasMedia && isLoading && (
+                <div className="w-8 h-0.5 bg-gray-700 rounded overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded animate-pulse" style={{ width: '60%' }} />
+                </div>
+              )}
+            </div>
           )}
         </div>
         {/* Audio badge for archive moments */}
@@ -229,9 +237,9 @@ const MomentThumbnailCard = memo(({
           </div>
         )}
 
-        {/* Loading spinner */}
-        {hasMedia && isLoading && (
-          <div className="absolute inset-0 bg-gray-900/80 flex items-center justify-center z-10">
+        {/* Loading spinner - only for YouTube (video uses inline loading) */}
+        {isYouTubeMoment(moment) && isLoading && (
+          <div className="absolute inset-0 bg-gray-900/80 flex items-center justify-center z-20">
             <Loader2 size={20} className="text-white animate-spin" />
           </div>
         )}
