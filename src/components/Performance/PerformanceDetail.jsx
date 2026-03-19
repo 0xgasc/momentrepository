@@ -1,5 +1,6 @@
 // src/components/Performance/PerformanceDetail.jsx - Dashboard Layout Refactor
 import React, { useState, useEffect, memo } from 'react';
+import { Upload } from 'lucide-react';
 import { useAuth, API_BASE_URL } from '../Auth/AuthProvider';
 import { useMoments, useNotifications } from '../../hooks';
 import MomentDetailModal from '../Moment/MomentDetailModal';
@@ -222,7 +223,7 @@ const PerformanceDetail = memo(({ performance, onBack, onViewUserProfile, onNavi
 
         {/* Upload Panel - Only show on show day or after */}
         {isShowDayOrPast && (
-          <div className="lg:col-span-1">
+          <div id="upload-panel" className="lg:col-span-1">
             <UploadPanel
               performance={fullPerformance}
               songs={allSongs}
@@ -233,6 +234,20 @@ const PerformanceDetail = memo(({ performance, onBack, onViewUserProfile, onNavi
           </div>
         )}
       </div>
+
+      {/* Sticky mobile upload button - visible only on small screens when uploads are allowed */}
+      {isShowDayOrPast && (
+        <button
+          onClick={() => {
+            const el = document.getElementById('upload-panel');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }}
+          className="lg:hidden fixed bottom-6 right-6 z-40 bg-gradient-to-r from-blue-500 to-purple-600 text-white px-5 py-3 rounded-full shadow-lg shadow-blue-500/25 flex items-center gap-2 text-sm font-medium"
+        >
+          <Upload size={18} />
+          Upload a Moment
+        </button>
+      )}
 
       {/* Modals */}
       {uploadingMoment && user && (
