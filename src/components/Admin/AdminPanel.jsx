@@ -384,6 +384,7 @@ const AdminPanel = memo(({ onClose }) => {
               users={users}
               proxyAccounts={proxyAccounts}
               isAdmin={isAdmin}
+              createProxyAccount={createProxyAccount}
             />
           )}
           
@@ -582,11 +583,13 @@ const UsersTab = memo(({ users, assignRole, getRoleDisplay, formatDate, proxyAcc
 });
 
 // Content moderation tab
-const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, formatDate, users = [], proxyAccounts = [], isAdmin }) => {
+const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, formatDate, users = [], proxyAccounts = [], isAdmin, createProxyAccount }) => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejectingMoment, setRejectingMoment] = useState(null);
   const [reassigningMoment, setReassigningMoment] = useState(null);
   const [reassignUserId, setReassignUserId] = useState('');
+  const [newProxyName, setNewProxyName] = useState('');
+  const [creatingProxy, setCreatingProxy] = useState(false);
   const [expandedMoment, setExpandedMoment] = useState(null);
   const [editingMoment, setEditingMoment] = useState(null);
   const [editedMetadata, setEditedMetadata] = useState({});
@@ -1090,10 +1093,40 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
 
                   {/* Reassign uploader form */}
                   {reassigningMoment === moment._id && (
-                    <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded space-y-3">
+                      <label className="block text-sm font-medium text-gray-700">
                         Assign to user:
                       </label>
+
+                      {/* Quick create proxy account */}
+                      {isAdmin && createProxyAccount && (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newProxyName}
+                            onChange={(e) => setNewProxyName(e.target.value)}
+                            placeholder="New claimable account name..."
+                            className="flex-1 p-2 border border-orange-300 rounded text-sm bg-white"
+                          />
+                          <button
+                            onClick={async () => {
+                              if (!newProxyName.trim()) return;
+                              setCreatingProxy(true);
+                              const created = await createProxyAccount(newProxyName.trim());
+                              setCreatingProxy(false);
+                              if (created) {
+                                setReassignUserId(created._id);
+                                setNewProxyName('');
+                              }
+                            }}
+                            disabled={!newProxyName.trim() || creatingProxy}
+                            className="bg-orange-600 text-white px-3 py-2 rounded text-sm hover:bg-orange-700 disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {creatingProxy ? '...' : '+ Create'}
+                          </button>
+                        </div>
+                      )}
+
                       <div className="flex flex-col sm:flex-row gap-2">
                         <select
                           value={reassignUserId}
