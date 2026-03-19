@@ -266,16 +266,39 @@ const uploadFileToIrysFromPath = async (filePath, filename) => {
     console.log(`   - Content-Type: ${contentType}`);
 
     console.log(`🚀 Uploading ${filename} from path...`);
-    const receipt = await irysUploader.upload(buffer, {
-      tags: [
-        { name: 'Content-Type', value: contentType },
-        { name: 'Filename', value: filename },
-        { name: 'Original-Size', value: buffer.length.toString() },
-        { name: 'Original-MD5', value: originalHash },
-        { name: 'Upload-Timestamp', value: new Date().toISOString() },
-        { name: 'Upload-Method', value: 'tus-resumable' }
-      ]
-    });
+
+    const uploadTags = [
+      { name: 'Content-Type', value: contentType },
+      { name: 'Filename', value: filename },
+      { name: 'Original-Size', value: buffer.length.toString() },
+      { name: 'Original-MD5', value: originalHash },
+      { name: 'Upload-Timestamp', value: new Date().toISOString() },
+      { name: 'Upload-Method', value: 'tus-resumable' }
+    ];
+
+    // Retry up to 3 times with increasing timeout
+    let receipt;
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const timeoutMs = 120000 * attempt; // 2min, 4min, 6min
+        console.log(`   Attempt ${attempt}/${maxRetries} (timeout: ${timeoutMs / 1000}s)...`);
+
+        receipt = await Promise.race([
+          irysUploader.upload(buffer, { tags: uploadTags }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`Irys upload timed out after ${timeoutMs / 1000}s`)), timeoutMs)
+          )
+        ]);
+        break; // success
+      } catch (retryErr) {
+        console.error(`   ❌ Attempt ${attempt} failed: ${retryErr.message}`);
+        if (attempt === maxRetries) throw retryErr;
+        const waitMs = 5000 * attempt;
+        console.log(`   ⏳ Waiting ${waitMs / 1000}s before retry...`);
+        await new Promise(r => setTimeout(r, waitMs));
+      }
+    }
 
     const arweaveUrl = `https://devnet.irys.xyz/${receipt.id}`;
     console.log(`✅ Upload complete: ${arweaveUrl}`);
