@@ -57,13 +57,15 @@ const rarityConfig = {
   }
 };
 
+// Check if mediaType is a video type (handles both 'video' and 'video/quicktime', 'video/mp4', etc.)
+const isVideoType = (mediaType) => mediaType === 'video' || mediaType?.startsWith('video/');
+const isAudioType = (mediaType) => mediaType === 'audio' || mediaType?.startsWith('audio/');
+
 // Media type icons
 const getMediaIcon = (mediaType) => {
-  switch (mediaType) {
-    case 'video': return Film;
-    case 'audio': return Mic;
-    default: return Music;
-  }
+  if (isVideoType(mediaType)) return Film;
+  if (isAudioType(mediaType)) return Mic;
+  return Music;
 };
 
 // Check if this is an archive.org moment
@@ -118,7 +120,7 @@ const MomentThumbnailCard = memo(({
   const rarity = rarityConfig[moment.rarityTier] || rarityConfig.basic;
   const duration = formatDuration(moment.duration);
   const MediaIcon = getMediaIcon(moment.mediaType);
-  const hasMedia = isYouTubeMoment(moment) || (moment.mediaType === 'video' && moment.mediaUrl);
+  const hasMedia = isYouTubeMoment(moment) || (isVideoType(moment.mediaType) && moment.mediaUrl);
 
   if (compact) {
     // Compact version for inline song lists
@@ -188,7 +190,7 @@ const MomentThumbnailCard = memo(({
               )
             ) : null;
           })()
-        ) : moment.mediaType === 'video' && moment.mediaUrl && !isYouTubeMoment(moment) ? (
+        ) : isVideoType(moment.mediaType) && moment.mediaUrl && !isYouTubeMoment(moment) ? (
           <video
             src={transformMediaUrl(moment.mediaUrl)}
             autoPlay
