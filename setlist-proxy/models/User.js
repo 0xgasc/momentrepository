@@ -47,7 +47,10 @@ const userSchema = new mongoose.Schema({
   // Proxy account fields (admin creates on behalf of someone)
   isProxy: { type: Boolean, default: false },
   proxyClaimed: { type: Boolean, default: false },
-  proxyCreatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+  proxyCreatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  // Password reset
+  resetToken: { type: String, default: null },
+  resetTokenExpiry: { type: Date, default: null }
 }, { timestamps: true });
 
 // ✅ Password setter

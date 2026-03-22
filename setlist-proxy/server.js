@@ -23,6 +23,7 @@ const emailService = require('./services/emailService');
 const { UMOCache } = require('./utils/umoCache');
 const { ethers } = require('ethers');
 const axios = require('axios');
+const crypto = require('crypto');
 const { extractVideoThumbnail } = require('./utils/videoThumbnailExtractor');
 const { generateNFTCard } = require('./utils/nftCardGenerator');
 const communityRoutes = require('./routes/community');
@@ -72,13 +73,21 @@ const helmetMiddleware = helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https:"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https:", "wss:"],
+      scriptSrc: ["'self'", "'unsafe-inline'"], // CRA requires unsafe-inline
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: [
+        "'self'",
+        "https://momentrepository-production.up.railway.app",
+        "https://*.railway.app",
+        "https://*.archive.org",
+        "https://archive.org"
+      ],
       fontSrc: ["'self'", "https:"],
       objectSrc: ["'none'"],
-      mediaSrc: ["'self'", "https:"],
-      frameSrc: ["'self'"],
+      mediaSrc: ["'self'", "https:", "blob:"],
+      frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
     },
   },
   crossOriginEmbedderPolicy: false,
@@ -333,7 +342,7 @@ app.all('/tus-upload', async (req, res) => {
   res.header('Tus-Resumable', '1.0.0');
   res.header('Tus-Version', '1.0.0');
   res.header('Tus-Extension', 'creation,creation-with-upload,termination,concatenation');
-  res.header('Tus-Max-Size', String(6 * 1024 * 1024 * 1024));
+  res.header('Tus-Max-Size', String(2 * 1024 * 1024 * 1024));
 
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
@@ -380,16 +389,16 @@ app.all('/tus-upload/:id', async (req, res, next) => {
 // END TUS SERVER SETUP
 // =====================================================
 
-app.use(express.json({ limit: '6gb' }));
-app.use(express.urlencoded({ limit: '6gb', extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Multer configuration for large files
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage,
   limits: {
-    fileSize: 6 * 1024 * 1024 * 1024, // 6GB limit
-    fieldSize: 6 * 1024 * 1024 * 1024,
+    fileSize: 500 * 1024 * 1024, // 500MB limit (large uploads use tus instead)
+    fieldSize: 10 * 1024 * 1024, // 10MB
     fields: 10,
     files: 1,
     parts: 1000
@@ -402,10 +411,10 @@ const upload = multer({
     });
 
     // Check file size
-    const maxSize = 6 * 1024 * 1024 * 1024; // 6GB
+    const maxSize = 500 * 1024 * 1024; // 500MB
     if (file.size && file.size > maxSize) {
-      console.error(`❌ File too large: ${(file.size / 1024 / 1024 / 1024).toFixed(2)}GB exceeds 6GB limit`);
-      return cb(new Error('File exceeds 6GB limit'), false);
+      console.error(`❌ File too large: ${(file.size / 1024 / 1024).toFixed(0)}MB exceeds 500MB limit`);
+      return cb(new Error('File exceeds 500MB limit. Use resumable upload for larger files.'), false);
     }
 
     // Check allowed file types
@@ -572,6 +581,9 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
+
+// Escape regex metacharacters in user input to prevent ReDoS
+const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Validation middleware
 const handleValidationErrors = (req, res, next) => {
@@ -2128,14 +2140,15 @@ app.get('/cached/performances/search', async (req, res) => {
     }
 
     const queryLower = query.toLowerCase();
+    const escapedQuery = escapeRegExp(query);
 
     // Search local performances first
     const localResults = await LocalPerformance.find({
       $or: [
-        { 'venue.name': { $regex: query, $options: 'i' } },
-        { 'venue.city': { $regex: query, $options: 'i' } },
-        { 'venue.country': { $regex: query, $options: 'i' } },
-        { eventDate: { $regex: query } }
+        { 'venue.name': { $regex: escapedQuery, $options: 'i' } },
+        { 'venue.city': { $regex: escapedQuery, $options: 'i' } },
+        { 'venue.country': { $regex: escapedQuery, $options: 'i' } },
+        { eventDate: { $regex: escapedQuery } }
       ]
     }).lean();
 
@@ -2532,6 +2545,75 @@ app.post('/change-password', authenticateToken, [
   } catch (err) {
     console.error('❌ Change password error:', err);
     res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// Password reset: request a reset token
+app.post('/forgot-password', authLimiter, [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  handleValidationErrors
+], async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    // Always return success to prevent email enumeration
+    if (!user || (user.isProxy && !user.proxyClaimed)) {
+      return res.json({ success: true, message: 'If that email exists, a reset link has been generated.' });
+    }
+
+    // Generate reset token (32 bytes = 64 hex chars)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetToken = resetToken;
+    user.resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await user.save();
+
+    // Log the token (email service is disabled, so admin can manually share)
+    console.log(`🔑 Password reset token for ${email}: ${resetToken} (expires in 1 hour)`);
+
+    res.json({ success: true, message: 'If that email exists, a reset link has been generated.' });
+  } catch (err) {
+    console.error('❌ Forgot password error:', err);
+    res.status(500).json({ error: 'Failed to process password reset request' });
+  }
+});
+
+// Password reset: use token to set new password
+app.post('/reset-password', authLimiter, [
+  body('token').notEmpty().withMessage('Reset token is required'),
+  body('newPassword').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  handleValidationErrors
+], async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    const user = await User.findOne({
+      resetToken: token,
+      resetTokenExpiry: { $gt: new Date() } // Token not expired
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    await user.setPassword(newPassword);
+    user.resetToken = null;
+    user.resetTokenExpiry = null;
+    await user.save();
+
+    console.log(`✅ Password reset completed for ${user.email}`);
+
+    // Generate login token so user is immediately logged in
+    const authToken = generateToken(user);
+    res.json({
+      success: true,
+      message: 'Password reset successfully',
+      token: authToken,
+      user: { _id: user._id, email: user.email, displayName: user.displayName, role: user.role }
+    });
+  } catch (err) {
+    console.error('❌ Reset password error:', err);
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 
@@ -4098,11 +4180,11 @@ app.post('/upload-file', uploadLimiter, authenticateToken, (req, res, next) => {
       isBuffer: Buffer.isBuffer(req.file.buffer)
     });
 
-    if (req.file.size > 6 * 1024 * 1024 * 1024) {
-      console.error(`❌ File too large: ${fileSizeGB}GB exceeds 6GB limit`);
-      return res.status(413).json({ 
-        error: 'File too large', 
-        details: `File size ${fileSizeGB}GB exceeds 6GB limit` 
+    if (req.file.size > 500 * 1024 * 1024) {
+      console.error(`❌ File too large: ${fileSizeGB}GB exceeds 500MB limit`);
+      return res.status(413).json({
+        error: 'File too large',
+        details: `File size exceeds 500MB limit. Use resumable upload for larger files.` 
       });
     }
 
@@ -4881,7 +4963,6 @@ app.get('/moments/song/:songName', async (req, res) => {
     console.log(`🎵 Fetching moments for song: "${decodedSongName}"`);
 
     // Escape special regex characters for safe case-insensitive matching
-    const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const escapedName = escapeRegExp(decodedSongName);
 
     // Use case-insensitive regex for matching (fixes issue where "Hunnybee" != "hunnybee")
