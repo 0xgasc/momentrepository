@@ -12,6 +12,7 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const compression = require('compression');
 const mongoSanitize = require('express-mongo-sanitize');
+const cookieParser = require('cookie-parser');
 const { body, validationResult } = require('express-validator');
 const User = require('./models/User');
 const Moment = require('./models/Moment');
@@ -114,6 +115,7 @@ app.use((req, res, next) => {
 app.set('trust proxy', 1); // Trust first proxy (Railway)
 app.use(compression());
 app.use(mongoSanitize());
+app.use(cookieParser());
 
 // Rate limiting
 const generalLimiter = rateLimit({
@@ -543,7 +545,7 @@ if (!PRIVATE_KEY) {
 const generateToken = (user) => {
   const token = jwt.sign({
     id: user._id,
-    userId: user._id, // Alias for community routes compatibility
+    userId: user._id,
     email: user.email,
     role: user.role || 'user'
   }, JWT_SECRET, { expiresIn: '7d' });
@@ -552,9 +554,31 @@ const generateToken = (user) => {
   return token;
 };
 
+// Set httpOnly auth cookie on response
+const setAuthCookie = (res, token) => {
+  res.cookie('auth_token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'none', // Required for cross-origin (frontend on different domain)
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/'
+  });
+};
+
+// Clear auth cookie
+const clearAuthCookie = (res) => {
+  res.clearCookie('auth_token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'none',
+    path: '/'
+  });
+};
+
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
-  const token = authHeader?.split(' ')[1];
+  // Check Authorization header first, then fall back to httpOnly cookie
+  const token = authHeader?.split(' ')[1] || req.cookies?.auth_token;
 
   // Helper to send error with explicit CORS headers (for long uploads)
   const sendAuthError = (status, message) => {
@@ -2430,6 +2454,7 @@ app.post('/register', authLimiter, [
     }
 
     const token = generateToken(user);
+    setAuthCookie(res, token);
     res.json({ token, user: { id: user._id, email: user.email, displayName: user.displayName, role: user.role || 'user' } });
   } catch (err) {
     console.error('❌ Registration Error:', err);
@@ -2482,6 +2507,7 @@ app.post('/login', authLimiter, [
     }
 
     const token = generateToken(user);
+    setAuthCookie(res, token);
     res.json({
       token,
       user: {
@@ -2495,6 +2521,12 @@ app.post('/login', authLimiter, [
     console.error('❌ Login error:', err);
     res.status(500).json({ error: 'Login failed' });
   }
+});
+
+// Logout - clear httpOnly auth cookie
+app.post('/logout', (req, res) => {
+  clearAuthCookie(res);
+  res.json({ success: true });
 });
 
 // Change password endpoint
@@ -2536,11 +2568,12 @@ app.post('/change-password', authenticateToken, [
 
     // Generate new token with updated timestamp
     const token = generateToken(user);
+    setAuthCookie(res, token);
 
     res.json({
       success: true,
       message: 'Password changed successfully',
-      token // Return new token so user stays logged in
+      token
     });
   } catch (err) {
     console.error('❌ Change password error:', err);
@@ -2605,6 +2638,7 @@ app.post('/reset-password', authLimiter, [
 
     // Generate login token so user is immediately logged in
     const authToken = generateToken(user);
+    setAuthCookie(res, authToken);
     res.json({
       success: true,
       message: 'Password reset successfully',
@@ -2708,6 +2742,7 @@ app.post('/claim-account/finalize', authenticateClaimToken, [
 
     // Generate normal auth token — user is now logged in
     const token = generateToken(user);
+    setAuthCookie(res, token);
     console.log(`✅ Proxy account "${user.displayName}" claimed by ${email}`);
     res.json({
       token,
@@ -2863,6 +2898,7 @@ app.get('/auth/google/callback', async (req, res) => {
     }));
 
     console.log(`✅ Google OAuth successful for ${email}`);
+    setAuthCookie(res, token);
     res.redirect(`${FRONTEND_URL}?auth_token=${token}&auth_user=${userData}`);
 
   } catch (err) {
@@ -2990,6 +3026,7 @@ app.get('/auth/discord/callback', async (req, res) => {
     }));
 
     console.log(`✅ Discord OAuth successful for ${email}`);
+    setAuthCookie(res, token);
     res.redirect(`${FRONTEND_URL}?auth_token=${token}&auth_user=${userData}`);
 
   } catch (err) {

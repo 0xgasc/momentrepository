@@ -179,6 +179,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
+    // Clear httpOnly cookie on server
+    fetch(`${API_BASE_URL}/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
   };
 
   return (

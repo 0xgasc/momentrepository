@@ -26,6 +26,10 @@ yarn-error.log*
 node_modules
 .env
 
+# Database backups
+/backups
+setlist-proxy/scripts/backups
+
 # Hardhat files
 /cache
 /artifacts
