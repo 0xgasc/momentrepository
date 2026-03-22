@@ -28,6 +28,15 @@ const { generateNFTCard } = require('./utils/nftCardGenerator');
 const communityRoutes = require('./routes/community');
 const upcomingShowsRoutes = require('./routes/upcomingShows');
 
+// Validate required environment variables at startup
+const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET', 'SETLIST_FM_API_KEY', 'PRIVATE_KEY'];
+const missingVars = requiredEnvVars.filter(v => !process.env[v]);
+if (missingVars.length > 0) {
+  console.error(`FATAL: Missing required environment variables: ${missingVars.join(', ')}`);
+  console.error('Server cannot start without these. Check your .env or Railway environment.');
+  process.exit(1);
+}
+
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5050;
@@ -100,10 +109,14 @@ app.use(mongoSanitize());
 // Rate limiting
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: 200, // 200 requests per 15 min per IP
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for static assets and proxy streams
+    return req.path.startsWith('/proxy/irys/') || req.path.startsWith('/static/');
+  }
 });
 
 const authLimiter = rateLimit({
@@ -118,7 +131,14 @@ const uploadLimiter = rateLimit({
   message: { error: 'Upload limit exceeded, try again later' },
 });
 
-app.use('/api/', generalLimiter);
+const viewLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // 30 view tracks per minute
+  message: { error: 'Too many view requests' },
+});
+
+// Apply general rate limit to ALL routes (except skipped ones)
+app.use(generalLimiter);
 
 // Security monitoring middleware
 app.use((req, res, next) => {
@@ -161,9 +181,14 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 console.log('🔐 CORS allowed origins:', allowedOrigins);
 
-// Use permissive CORS to fix issues - allow all origins
+// CORS with origin whitelist
 app.use(cors({
-  origin: true, // Allow all origins
+  origin: function(origin, callback) {
+    // Allow requests with no origin (server-to-server, curl, mobile apps)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
   allowedHeaders: [
@@ -300,7 +325,8 @@ async function initTusServer() {
 // Tus upload route - handles CORS and delegates to tus server
 app.all('/tus-upload', async (req, res) => {
   // CORS headers for tus protocol
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  const tusOrigin = req.headers.origin;
+  res.header('Access-Control-Allow-Origin', tusOrigin && allowedOrigins.includes(tusOrigin) ? tusOrigin : allowedOrigins[0]);
   res.header('Access-Control-Allow-Methods', 'POST, GET, HEAD, PATCH, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, X-HTTP-Method-Override, X-Requested-With');
   res.header('Access-Control-Expose-Headers', 'Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat');
@@ -330,7 +356,8 @@ app.all('/tus-upload/:id', async (req, res, next) => {
   }
 
   // CORS headers for tus protocol
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  const tusIdOrigin = req.headers.origin;
+  res.header('Access-Control-Allow-Origin', tusIdOrigin && allowedOrigins.includes(tusIdOrigin) ? tusIdOrigin : allowedOrigins[0]);
   res.header('Access-Control-Allow-Methods', 'POST, GET, HEAD, PATCH, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type, Upload-Length, Upload-Offset, Tus-Resumable, Upload-Metadata, Upload-Defer-Length, Upload-Concat, X-HTTP-Method-Override, X-Requested-With');
   res.header('Access-Control-Expose-Headers', 'Upload-Offset, Location, Upload-Length, Tus-Version, Tus-Resumable, Tus-Max-Size, Tus-Extension, Upload-Metadata, Upload-Defer-Length, Upload-Concat');
@@ -659,8 +686,13 @@ const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 console.log('📍 Using MongoDB URI:', mongoUri ? '✅ Found' : '❌ Missing');
 
 if (mongoUri) {
-  mongoose.connect(mongoUri)
-    .then(() => console.log('✅ Connected to MongoDB'))
+  mongoose.connect(mongoUri, {
+    maxPoolSize: 20,
+    minPoolSize: 5,
+    socketTimeoutMS: 45000,
+    serverSelectionTimeoutMS: 5000
+  })
+    .then(() => console.log('✅ Connected to MongoDB (pool: 5-20)'))
     .catch(err => console.error('❌ MongoDB connection error:', err));
 } else {
   console.error('❌ No MongoDB URI found in environment variables');
@@ -3344,8 +3376,9 @@ app.get('/admin/users', authenticateToken, requireAdmin, async (req, res) => {
     const users = await User.find({})
       .select('-passwordHash')
       .populate('assignedBy', 'email displayName')
-      .sort({ createdAt: -1 });
-      
+      .sort({ createdAt: -1 })
+      .limit(500);
+
     res.json({ users });
   } catch (error) {
     console.error('❌ Admin users fetch error:', error);
@@ -3467,7 +3500,8 @@ app.get('/admin/proxy-accounts', authenticateToken, requireAdmin, async (req, re
     const proxies = await User.find({ isProxy: true })
       .select('_id displayName isProxy proxyClaimed createdAt proxyCreatedBy')
       .populate('proxyCreatedBy', 'displayName')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(200);
 
     res.json({ proxyAccounts: proxies });
   } catch (error) {
@@ -4286,7 +4320,18 @@ app.delete('/moments/:momentId', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/upload-moment', authenticateToken, async (req, res) => {
+app.post('/upload-moment', authenticateToken, [
+  body('performanceId').trim().notEmpty().withMessage('Performance ID is required').isLength({ max: 100 }),
+  body('songName').trim().notEmpty().withMessage('Song name is required').isLength({ max: 200 }),
+  body('venueName').optional().trim().isLength({ max: 200 }),
+  body('venueCity').optional().trim().isLength({ max: 100 }),
+  body('venueCountry').optional().trim().isLength({ max: 100 }),
+  body('personalNote').optional().trim().isLength({ max: 2000 }),
+  body('momentDescription').optional().trim().isLength({ max: 5000 }),
+  body('emotionalTags').optional().trim().isLength({ max: 500 }),
+  body('specialOccasion').optional().trim().isLength({ max: 500 }),
+  handleValidationErrors
+], async (req, res) => {
   const { 
     performanceId, 
     performanceDate,
@@ -4591,7 +4636,7 @@ app.get('/moments/:momentId', async (req, res) => {
 // VIEW TRACKING ENDPOINT
 // Track unique views for moments
 // =====================================================
-app.post('/moments/:momentId/view', async (req, res) => {
+app.post('/moments/:momentId/view', viewLimiter, async (req, res) => {
   try {
     const { momentId } = req.params;
     const { userId, ipHash } = req.body;
@@ -4963,8 +5008,9 @@ app.post('/admin/recalculate-rarity', authenticateToken, requireAdmin, async (re
     
     await umoCache.loadCache();
     
-    const allMoments = await Moment.find({});
-    console.log(`📊 Found ${allMoments.length} moments to recalculate`);
+    const totalCount = await Moment.countDocuments({});
+    console.log(`📊 Found ${totalCount} moments to recalculate`);
+    const allMoments = await Moment.find({}).lean();  // lean() for read-only, uses less memory
     
     let updated = 0;
     let errors = 0;
@@ -5219,6 +5265,7 @@ app.get('/my-youtube-moments', authenticateToken, async (req, res) => {
       mediaSource: 'youtube'
     })
       .sort({ createdAt: -1 })
+      .limit(200)
       .populate('user', 'displayName');
 
     console.log(`🎬 Found ${moments.length} YouTube moments for user ${req.user.id}`);
@@ -5290,12 +5337,13 @@ app.delete('/admin/moments/:momentId', authenticateToken, requireAdmin, async (r
 // Get UMOTube videos (parent videos for browsing)
 app.get('/umotube/videos', async (req, res) => {
   try {
-    // Get all YouTube and Archive.org moments
+    // Get YouTube and Archive.org moments (capped)
     const videos = await Moment.find({
       mediaSource: { $in: ['youtube', 'archive'] },
       approvalStatus: 'approved'
     })
       .sort({ createdAt: -1 })
+      .limit(1000)
       .populate('user', 'displayName');
 
     // Group by externalVideoId, prioritizing parent videos (showInMoments: false)

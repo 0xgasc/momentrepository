@@ -1763,21 +1763,56 @@ const MobileBottomNav = memo(({
 MobileBottomNav.displayName = 'MobileBottomNav';
 
 // ✅ UPDATED: Main App Export with Web3 providers
+// Error Boundary - catches rendering crashes and shows fallback UI
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('App crashed:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui' }}>
+          <div style={{ textAlign: 'center', padding: '2rem' }}>
+            <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Something went wrong</h1>
+            <p style={{ color: '#888', marginBottom: '1.5rem' }}>The app encountered an unexpected error.</p>
+            <button
+              onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+              style={{ padding: '0.75rem 1.5rem', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.875rem' }}
+            >
+              Reload App
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <WagmiProvider config={wagmiConfig}>
-        <PlatformSettingsProvider>
-          <AuthProvider>
-            <ThemeProvider>
-              <TheaterQueueProvider>
-                <MainApp />
-                <CookieConsent />
-              </TheaterQueueProvider>
-            </ThemeProvider>
-          </AuthProvider>
-        </PlatformSettingsProvider>
-      </WagmiProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <WagmiProvider config={wagmiConfig}>
+          <PlatformSettingsProvider>
+            <AuthProvider>
+              <ThemeProvider>
+                <TheaterQueueProvider>
+                  <MainApp />
+                  <CookieConsent />
+                </TheaterQueueProvider>
+              </ThemeProvider>
+            </AuthProvider>
+          </PlatformSettingsProvider>
+        </WagmiProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
