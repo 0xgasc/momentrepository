@@ -81,7 +81,10 @@ const helmetMiddleware = helmet({
         "https://momentrepository-production.up.railway.app",
         "https://*.railway.app",
         "https://*.archive.org",
-        "https://archive.org"
+        "https://archive.org",
+        "https://devnet.irys.xyz",
+        "https://*.irys.xyz",
+        "wss:"
       ],
       fontSrc: ["'self'", "https:"],
       objectSrc: ["'none'"],
