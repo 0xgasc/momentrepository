@@ -160,14 +160,9 @@ app.use((req, res, next) => {
     const duration = Date.now() - startTime;
     const status = res.statusCode;
 
-    // Log security-relevant events
-    if (status >= 400 || req.path.includes('admin') || req.path.includes('auth')) {
-      console.log(`🔒 Security Log: ${req.method} ${req.path} - Status: ${status} - Duration: ${duration}ms - IP: ${req.ip} - User: ${req.user?.email || 'anonymous'}`);
-    }
-
-    // Log failed auth attempts
+    // Only log actual security events (not routine 404s or proxy errors)
     if (status === 401 || status === 403) {
-      console.log(`🚨 Auth Failure: ${req.method} ${req.path} - IP: ${req.ip} - User-Agent: ${req.get('User-Agent')?.substring(0, 100)}`);
+      console.log(`🚨 Auth: ${req.method} ${req.path} - ${status} - IP: ${req.ip}`);
     }
 
     return originalSend.call(this, body);
@@ -259,8 +254,12 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-// Create tus upload directory
+// Create upload directories
 const tusUploadDir = path.join(os.tmpdir(), 'umo-tus-uploads');
+const multerUploadDir = '/tmp/umo-multer-uploads';
+if (!fs.existsSync(multerUploadDir)) {
+  fs.mkdirSync(multerUploadDir, { recursive: true });
+}
 if (!fs.existsSync(tusUploadDir)) {
   fs.mkdirSync(tusUploadDir, { recursive: true });
 }
@@ -395,7 +394,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Multer configuration for large files
-const storage = multer.memoryStorage();
+const storage = multer.diskStorage({
+  destination: '/tmp/umo-multer-uploads',
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
+});
 const upload = multer({ 
   storage,
   limits: {
@@ -1004,85 +1006,14 @@ app.get('/api/health', (req, res) => {
 
 // IRYS DEVNET PROXY - Workaround for SSL issues on devnet.irys.xyz
 // =============================================================================
-app.get('/proxy/irys/:txId', async (req, res) => {
+// Irys proxy — now redirects instead of streaming (saves egress + memory)
+// HTTPS works on devnet.irys.xyz now, so just redirect the client there
+app.get('/proxy/irys/:txId', (req, res) => {
   const { txId } = req.params;
-
-  // Validate txId format (base58-like string)
   if (!txId || !/^[A-Za-z0-9_-]{40,50}$/.test(txId)) {
     return res.status(400).json({ error: 'Invalid transaction ID' });
   }
-
-  const irysUrl = `http://devnet.irys.xyz/${txId}`;
-  console.log(`🔄 Proxying Irys request: ${txId}`);
-
-  try {
-    const fetch = (await import('node-fetch')).default;
-
-    // Forward Range header if present (for video seeking)
-    const fetchHeaders = {
-      'User-Agent': 'UMO-Archive-Proxy/1.0'
-    };
-    if (req.headers.range) {
-      fetchHeaders['Range'] = req.headers.range;
-      console.log(`  → Range request: ${req.headers.range}`);
-    }
-
-    const response = await fetch(irysUrl, {
-      timeout: 30000,
-      headers: fetchHeaders
-    });
-
-    if (!response.ok) {
-      console.error(`❌ Irys proxy failed: ${response.status} ${response.statusText} for ${txId}`);
-      return res.status(response.status).json({
-        error: 'Failed to fetch from Irys',
-        status: response.status,
-        statusText: response.statusText
-      });
-    }
-
-    // Forward content type and other relevant headers
-    const contentType = response.headers.get('content-type');
-    const contentLength = response.headers.get('content-length');
-    const contentRange = response.headers.get('content-range');
-    const acceptRanges = response.headers.get('accept-ranges');
-
-    // Set response status (206 for range requests, 200 for full)
-    res.status(response.status);
-
-    if (contentType) res.setHeader('Content-Type', contentType);
-    if (contentLength) res.setHeader('Content-Length', contentLength);
-    if (contentRange) res.setHeader('Content-Range', contentRange);
-    if (acceptRanges) res.setHeader('Accept-Ranges', acceptRanges);
-
-    // CORS and embedding headers - required for video/audio playback cross-origin
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
-    res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-
-    console.log(`✅ Irys proxy success: ${response.status} ${contentType || 'unknown'} (${contentLength || 'unknown size'})`);
-
-    // Stream the response - use proper piping with error handling
-    response.body.on('error', (err) => {
-      console.error(`❌ Stream error for ${txId}:`, err.message);
-      if (!res.headersSent) {
-        res.status(502).json({ error: 'Stream error' });
-      }
-    });
-
-    response.body.pipe(res).on('error', (err) => {
-      console.error(`❌ Pipe error for ${txId}:`, err.message);
-    });
-
-  } catch (error) {
-    console.error(`❌ Irys proxy error for ${txId}:`, error.message, error.stack);
-    if (!res.headersSent) {
-      res.status(502).json({ error: 'Proxy error', message: error.message });
-    }
-  }
+  res.redirect(301, `https://devnet.irys.xyz/${txId}`);
 });
 
 // Handle OPTIONS preflight for the proxy
@@ -4206,41 +4137,30 @@ app.post('/upload-file', uploadLimiter, authenticateToken, (req, res, next) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const fileSizeGB = (req.file.size / 1024 / 1024 / 1024).toFixed(2);
-    console.log(`📁 File details:`, {
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size,
-      sizeGB: `${fileSizeGB}GB`,
-      bufferLength: req.file.buffer?.length,
-      bufferType: typeof req.file.buffer,
-      isBuffer: Buffer.isBuffer(req.file.buffer)
-    });
+    const fileSizeMB = (req.file.size / 1024 / 1024).toFixed(1);
+    console.log(`📁 File: ${req.file.originalname} (${fileSizeMB}MB, ${req.file.mimetype})`);
 
     if (req.file.size > 500 * 1024 * 1024) {
-      console.error(`❌ File too large: ${fileSizeGB}GB exceeds 500MB limit`);
+      // Clean up temp file
+      try { fs.unlinkSync(req.file.path); } catch {}
       return res.status(413).json({
         error: 'File too large',
-        details: `File size exceeds 500MB limit. Use resumable upload for larger files.` 
+        details: 'File size exceeds 500MB limit. Use resumable upload for larger files.'
       });
     }
 
-    if (!validateBuffer(req.file.buffer, req.file.originalname)) {
-      console.error('❌ Buffer validation failed');
-      return res.status(400).json({ error: 'Invalid file buffer' });
-    }
-
-    console.log(`🚀 Starting upload process for ${fileSizeGB}GB file...`);
-    
     let uri;
     try {
-      console.log('📤 Using Irys upload...');
-      const result = await uploadFileToIrys(req.file.buffer, req.file.originalname);
+      // Upload from disk path instead of memory buffer
+      const result = await uploadFileToIrysFromPath(req.file.path, req.file.originalname);
       uri = result.url;
       console.log('✅ Irys upload successful:', uri);
     } catch (uploadError) {
       console.error('❌ Upload failed:', uploadError);
       throw uploadError;
+    } finally {
+      // Always clean up temp file
+      try { fs.unlinkSync(req.file.path); } catch {}
     }
 
     console.log(`✅ Upload completed successfully: ${uri}`);
@@ -4638,7 +4558,7 @@ app.get('/moments', async (req, res) => {
       return momentObj;
     });
 
-    console.log(`🌍 Returning ${moments.length} moments in global feed`);
+    // High-frequency endpoint — skip logging
     res.json({ moments: momentsWithVirtuals });
   } catch (err) {
 
@@ -4683,12 +4603,6 @@ app.get('/notifications/counts', authenticateToken, async (req, res) => {
       notifications.pendingApproval = userPendingCount;
       notifications.needsRevision = userRevisionCount;
       
-      console.log('📊 User notifications:', {
-        userId,
-        userEmail: req.user.email,
-        pendingApproval: userPendingCount,
-        needsRevision: userRevisionCount
-      });
     }
 
     res.json(notifications);

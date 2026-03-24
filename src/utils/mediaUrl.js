@@ -14,19 +14,23 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://momentrepository-
 export const transformMediaUrl = (url) => {
   if (!url) return url;
 
-  // Route devnet.irys.xyz through our proxy (SSL is broken on their end)
+  // Irys HTTPS works directly now — no proxy needed
+  // Ensure we use https:// (not http://)
   if (url.includes('devnet.irys.xyz')) {
-    // Extract the transaction ID from the URL
-    const match = url.match(/devnet\.irys\.xyz\/([A-Za-z0-9_-]+)/);
-    if (match && match[1]) {
-      const txId = match[1];
-      return `${API_BASE_URL}/proxy/irys/${txId}`;
-    }
+    return url.replace('http://', 'https://');
   }
 
   // Normalize irysnetwork.com to irys.xyz (primary domain)
   if (url.includes('irysnetwork.com')) {
     return url.replace('irysnetwork.com', 'irys.xyz');
+  }
+
+  // Convert any remaining proxy URLs back to direct Irys URLs
+  if (url.includes('/proxy/irys/')) {
+    const match = url.match(/\/proxy\/irys\/([A-Za-z0-9_-]+)/);
+    if (match && match[1]) {
+      return `https://devnet.irys.xyz/${match[1]}`;
+    }
   }
 
   return url;

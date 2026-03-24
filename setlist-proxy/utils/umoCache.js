@@ -120,9 +120,7 @@ class UMOCache {
                song.length > 1; // Avoid single character splits
       });
     
-    if (songs.length > 1) {
-      console.log(`🎵 Split "${songName}" → [${songs.join(', ')}]`);
-    }
+    // Medley split logging removed to reduce log volume
     return songs;
   }
 
@@ -340,7 +338,6 @@ class UMOCache {
                 
                 // If it's a medley (multiple songs), process each individually
                 if (individualSongs.length > 1) {
-                  console.log(`🎭 Processing medley: "${song.name}" → ${individualSongs.length} songs`);
                   
                   individualSongs.forEach((individualSongName, medleyIndex) => {
                     this.addSongToDatabase(
