@@ -2023,12 +2023,15 @@ app.get('/cached/performances', async (req, res) => {
   try {
     const { page = 1, limit = 20, city } = req.query;
 
-    // If cache is still building, tell the frontend to retry
-    if (!umoCache.cache && umoCache.isLoading) {
-      return res.status(503).json({
-        error: 'Cache is building',
+    // If cache is still building, return empty but valid response
+    // so the frontend doesn't crash — it will auto-refresh
+    if (!umoCache.cache) {
+      return res.json({
+        performances: [],
+        pagination: { page: 1, total: 0, hasMore: false },
+        fromCache: true,
         cacheBuilding: true,
-        retryAfter: 10
+        lastUpdated: null
       });
     }
 

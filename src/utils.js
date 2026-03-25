@@ -247,6 +247,13 @@ export const fetchUMOSetlists = async (page = 1, apiBaseUrl) => {
 
     const data = await response.json();
 
+    // If cache is still building, auto-retry after delay
+    if (data.cacheBuilding && (!data.performances || data.performances.length === 0)) {
+      console.log('⏳ Cache is building, retrying in 8s...');
+      await new Promise(r => setTimeout(r, 8000));
+      return fetchUMOSetlists(page, apiBaseUrl);
+    }
+
     console.log(`📋 Cache data received:`, {
       total: data.pagination?.total,
       performanceCount: data.performances?.length,
