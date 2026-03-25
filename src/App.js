@@ -839,6 +839,7 @@ const ASCII_MAP = ' .:-=+*#%@';
 const MobileLandingVideo = memo(() => {
   const [videoUrl, setVideoUrl] = useState(null);
   const [asciiRows, setAsciiRows] = useState([]);
+  const [asciiFailed, setAsciiFailed] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const animRef = useRef(null);
@@ -864,44 +865,69 @@ const MobileLandingVideo = memo(() => {
   }, []);
 
   useEffect(() => {
-    if (!videoUrl) return;
+    if (!videoUrl || asciiFailed) return;
     const process = () => {
       const v = videoRef.current;
       const c = canvasRef.current;
-      if (!v || !c || v.paused || v.ended) { animRef.current = requestAnimationFrame(process); return; }
+      if (!v || !c || v.paused || v.ended || !v.videoWidth) {
+        animRef.current = requestAnimationFrame(process);
+        return;
+      }
       frameSkip.current = (frameSkip.current + 1) % 3;
       if (frameSkip.current !== 0) { animRef.current = requestAnimationFrame(process); return; }
-      const ctx = c.getContext('2d', { willReadFrequently: true });
-      const cols = 50;
-      const rows = Math.floor(cols * (v.videoHeight / (v.videoWidth || 1)) * 0.5);
-      c.width = cols; c.height = rows;
-      ctx.drawImage(v, 0, 0, cols, rows);
-      const px = ctx.getImageData(0, 0, cols, rows).data;
-      const out = [];
-      for (let y = 0; y < rows; y++) {
-        const row = [];
-        for (let x = 0; x < cols; x++) {
-          const i = (y * cols + x) * 4;
-          const r = px[i], g = px[i+1], b = px[i+2];
-          row.push({ char: ASCII_MAP[Math.floor(((r+g+b)/3/255) * (ASCII_MAP.length-1))], color: `rgb(${r},${g},${b})` });
+      try {
+        const ctx = c.getContext('2d', { willReadFrequently: true });
+        const cols = 50;
+        const rows = Math.max(1, Math.floor(cols * (v.videoHeight / (v.videoWidth || 1)) * 0.5));
+        c.width = cols; c.height = rows;
+        ctx.drawImage(v, 0, 0, cols, rows);
+        const px = ctx.getImageData(0, 0, cols, rows).data;
+        const out = [];
+        for (let y = 0; y < rows; y++) {
+          const row = [];
+          for (let x = 0; x < cols; x++) {
+            const i = (y * cols + x) * 4;
+            const r = px[i], g = px[i+1], b = px[i+2];
+            row.push({ char: ASCII_MAP[Math.floor(((r+g+b)/3/255) * (ASCII_MAP.length-1))], color: `rgb(${r},${g},${b})` });
+          }
+          out.push(row);
         }
-        out.push(row);
+        setAsciiRows(out);
+      } catch {
+        // Canvas tainted — fall back to raw video
+        setAsciiFailed(true);
+        return;
       }
-      setAsciiRows(out);
       animRef.current = requestAnimationFrame(process);
     };
     animRef.current = requestAnimationFrame(process);
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
-  }, [videoUrl]);
+  }, [videoUrl, asciiFailed]);
+
+  if (!videoUrl) return <div className="absolute inset-0 bg-gray-950" />;
+
+  // Fallback: show raw video if ASCII canvas fails (CORS taint)
+  if (asciiFailed) {
+    return (
+      <video
+        src={videoUrl}
+        autoPlay loop muted playsInline
+        className="absolute inset-0 w-full h-full object-cover opacity-40"
+      />
+    );
+  }
 
   return (
     <div className="absolute inset-0 bg-black overflow-hidden flex items-center justify-center">
-      {videoUrl && (
-        <>
-          <video ref={videoRef} src={videoUrl} autoPlay loop muted playsInline crossOrigin="anonymous" style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }} />
-          <canvas ref={canvasRef} style={{ display: 'none' }} />
-        </>
-      )}
+      <video
+        ref={videoRef}
+        src={videoUrl}
+        autoPlay loop muted playsInline
+        crossOrigin="anonymous"
+        style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+        onLoadedData={() => { videoRef.current?.play().catch(() => {}); }}
+      />
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
       {asciiRows.length > 0 ? (
         <pre style={{ fontSize: '6px', lineHeight: '7px', letterSpacing: '1px', whiteSpace: 'pre', fontFamily: 'monospace' }}>
           {asciiRows.map((row, y) => (
