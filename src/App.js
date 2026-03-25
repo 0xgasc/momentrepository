@@ -880,16 +880,20 @@ const LandingPageContent = memo(({ user, onNavigate, onLoginClick, onToggleOverl
         </div>
 
         {/* CTA nav */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-px sm:bg-gray-800 sm:border sm:border-gray-800 mb-10">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '40px' }} className="sm:grid sm:grid-cols-3 sm:gap-px sm:bg-gray-800 sm:border sm:border-gray-800">
           {ctaCards.map(({ mode, label, desc }) => (
-            <button
+            <div
               key={mode}
               onClick={() => onNavigate(mode)}
-              className="group bg-gray-900 hover:bg-gray-800 px-5 py-5 sm:p-5 transition-colors border border-gray-800 sm:border-0 rounded-sm sm:rounded-none w-full text-left"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && onNavigate(mode)}
+              style={{ display: 'flex', flexDirection: 'column', padding: '20px', cursor: 'pointer', backgroundColor: '#111827', border: '1px solid #1f2937', borderRadius: '4px' }}
+              className="sm:border-0 sm:rounded-none hover:bg-gray-800 transition-colors"
             >
-              <div style={{ display: 'block', marginBottom: '12px', fontSize: '18px', fontWeight: '700', color: '#fff' }} className="group-hover:text-blue-400 transition-colors">{label}</div>
-              <div style={{ display: 'block', fontSize: '14px', lineHeight: '1.6', color: '#6b7280' }}>{desc}</div>
-            </button>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: '#fff', marginBottom: '10px' }}>{label}</div>
+              <div style={{ fontSize: '14px', lineHeight: '1.6', color: '#6b7280' }}>{desc}</div>
+            </div>
           ))}
         </div>
 
