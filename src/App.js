@@ -581,6 +581,7 @@ const MainApp = memo(() => {
         mediaFilters={mediaFilters}
         toggleFilter={toggleFilter}
         user={user}
+        showLanding={showLanding}
         onShowAccount={() => {
           setShowMyAccount(true);
           refreshNotifications();
@@ -869,8 +870,7 @@ const LandingPageContent = memo(({ user, onNavigate, onLoginClick, onToggleOverl
 
       <div className="max-w-3xl mx-auto px-4 py-12">
         {/* Tagline */}
-        <div className="mb-10">
-          <p className="text-gray-500 text-xs uppercase tracking-widest mb-3">UMO Archive</p>
+        <div className="mb-6 sm:mb-10">
           <h2 className="text-xl sm:text-2xl font-semibold text-white mb-3 leading-snug">
             The Unknown Mortal Orchestra concert repository
           </h2>
@@ -880,7 +880,7 @@ const LandingPageContent = memo(({ user, onNavigate, onLoginClick, onToggleOverl
         </div>
 
         {/* CTA nav */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '40px' }} className="sm:grid sm:grid-cols-3 sm:gap-px sm:bg-gray-800 sm:border sm:border-gray-800">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }} className="sm:grid sm:grid-cols-3 sm:gap-px sm:bg-gray-800 sm:border sm:border-gray-800 sm:mb-10">
           {ctaCards.map(({ mode, label, desc }) => (
             <div
               key={mode}
@@ -888,11 +888,11 @@ const LandingPageContent = memo(({ user, onNavigate, onLoginClick, onToggleOverl
               role="button"
               tabIndex={0}
               onKeyDown={(e) => e.key === 'Enter' && onNavigate(mode)}
-              style={{ display: 'flex', flexDirection: 'column', padding: '20px', cursor: 'pointer', backgroundColor: '#111827', border: '1px solid #1f2937', borderRadius: '4px' }}
-              className="sm:border-0 sm:rounded-none hover:bg-gray-800 transition-colors"
+              style={{ display: 'flex', flexDirection: 'column', padding: '14px 16px', cursor: 'pointer', backgroundColor: '#111827', border: '1px solid #1f2937', borderRadius: '4px' }}
+              className="sm:p-5 sm:border-0 sm:rounded-none hover:bg-gray-800 transition-colors"
             >
-              <div style={{ fontSize: '18px', fontWeight: '700', color: '#fff', marginBottom: '10px' }}>{label}</div>
-              <div style={{ fontSize: '14px', lineHeight: '1.6', color: '#6b7280' }}>{desc}</div>
+              <div style={{ fontSize: '15px', fontWeight: '700', color: '#fff', marginBottom: '4px' }} className="sm:text-lg sm:mb-2">{label}</div>
+              <div style={{ fontSize: '13px', lineHeight: '1.5', color: '#6b7280' }} className="sm:text-sm">{desc}</div>
             </div>
           ))}
         </div>
@@ -1404,6 +1404,7 @@ const MobileBottomNav = memo(({
   mediaFilters,
   toggleFilter,
   user,
+  showLanding,
   onShowAccount,
   onLoginClick
 }) => {
@@ -1645,8 +1646,8 @@ const MobileBottomNav = memo(({
         </div>
       )}
 
-      {/* Mobile Bottom Navigation - Rotating Ribbon */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-black/60 backdrop-blur-xl border-t border-white/10" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      {/* Mobile Bottom Navigation - Hidden on landing page when not signed in */}
+      <div className={`sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-black/60 backdrop-blur-xl border-t border-white/10 transition-transform duration-300 ${showLanding && !user ? 'translate-y-full' : 'translate-y-0'}`} style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <div className="flex items-center">
           {/* Left arrow */}
           <button
