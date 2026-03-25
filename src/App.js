@@ -880,12 +880,12 @@ const LandingPageContent = memo(({ user, onNavigate, onLoginClick, onToggleOverl
         </div>
 
         {/* CTA nav */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-gray-800 border border-gray-800 mb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-px sm:bg-gray-800 sm:border sm:border-gray-800 mb-10">
           {ctaCards.map(({ mode, label, desc }) => (
             <button
               key={mode}
               onClick={() => onNavigate(mode)}
-              className="group text-left bg-gray-900 hover:bg-gray-800 p-5 transition-colors"
+              className="group text-left bg-gray-900 hover:bg-gray-800 px-5 py-4 sm:p-5 transition-colors border border-gray-800 sm:border-0 rounded-sm sm:rounded-none"
             >
               <div className="text-base font-semibold text-white mb-2 group-hover:text-blue-400 transition-colors">{label}</div>
               <div className="text-gray-500 text-sm leading-relaxed">{desc}</div>
