@@ -872,7 +872,7 @@ const LandingPageContent = memo(({ user, onNavigate, onLoginClick, onToggleOverl
         <div className="mb-10">
           <p className="text-gray-500 text-xs uppercase tracking-widest mb-3">UMO Archive</p>
           <h2 className="text-xl sm:text-2xl font-semibold text-white mb-3 leading-snug">
-            The Unknown Mortal Orchestra concert archive
+            The Unknown Mortal Orchestra concert repository
           </h2>
           <p className="text-gray-400 text-sm max-w-xl hidden sm:block">
             Fans capturing, cataloguing, and preserving live moments — from small club shows to festival stages.
