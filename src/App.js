@@ -834,9 +834,15 @@ class ModalErrorBoundary extends React.Component {
   }
 }
 
-// Mobile landing background — fetches a random approved video moment and plays it muted
+// Mobile landing background — ASCII art from a random video moment
+const ASCII_MAP = ' .:-=+*#%@';
 const MobileLandingVideo = memo(() => {
   const [videoUrl, setVideoUrl] = useState(null);
+  const [asciiRows, setAsciiRows] = useState([]);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const animRef = useRef(null);
+  const frameSkip = useRef(0);
 
   useEffect(() => {
     const fetchRandom = async () => {
@@ -857,18 +863,59 @@ const MobileLandingVideo = memo(() => {
     fetchRandom();
   }, []);
 
-  if (!videoUrl) return <div className="absolute inset-0 bg-gray-950" />;
+  useEffect(() => {
+    if (!videoUrl) return;
+    const process = () => {
+      const v = videoRef.current;
+      const c = canvasRef.current;
+      if (!v || !c || v.paused || v.ended) { animRef.current = requestAnimationFrame(process); return; }
+      frameSkip.current = (frameSkip.current + 1) % 3;
+      if (frameSkip.current !== 0) { animRef.current = requestAnimationFrame(process); return; }
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      const cols = 50;
+      const rows = Math.floor(cols * (v.videoHeight / (v.videoWidth || 1)) * 0.5);
+      c.width = cols; c.height = rows;
+      ctx.drawImage(v, 0, 0, cols, rows);
+      const px = ctx.getImageData(0, 0, cols, rows).data;
+      const out = [];
+      for (let y = 0; y < rows; y++) {
+        const row = [];
+        for (let x = 0; x < cols; x++) {
+          const i = (y * cols + x) * 4;
+          const r = px[i], g = px[i+1], b = px[i+2];
+          row.push({ char: ASCII_MAP[Math.floor(((r+g+b)/3/255) * (ASCII_MAP.length-1))], color: `rgb(${r},${g},${b})` });
+        }
+        out.push(row);
+      }
+      setAsciiRows(out);
+      animRef.current = requestAnimationFrame(process);
+    };
+    animRef.current = requestAnimationFrame(process);
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+  }, [videoUrl]);
 
   return (
-    <video
-      src={videoUrl}
-      autoPlay
-      loop
-      muted
-      playsInline
-      className="absolute inset-0 w-full h-full object-cover"
-      onError={(e) => { e.target.style.display = 'none'; }}
-    />
+    <div className="absolute inset-0 bg-black overflow-hidden flex items-center justify-center">
+      {videoUrl && (
+        <>
+          <video ref={videoRef} src={videoUrl} autoPlay loop muted playsInline crossOrigin="anonymous" style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }} />
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
+        </>
+      )}
+      {asciiRows.length > 0 ? (
+        <pre style={{ fontSize: '6px', lineHeight: '7px', letterSpacing: '1px', whiteSpace: 'pre', fontFamily: 'monospace' }}>
+          {asciiRows.map((row, y) => (
+            <div key={y} style={{ display: 'flex' }}>
+              {row.map((cell, x) => (
+                <span key={x} style={{ color: cell.color }}>{cell.char}</span>
+              ))}
+            </div>
+          ))}
+        </pre>
+      ) : (
+        <div className="absolute inset-0 bg-gray-950" />
+      )}
+    </div>
   );
 });
 MobileLandingVideo.displayName = 'MobileLandingVideo';
@@ -928,8 +975,8 @@ const LandingPageContent = memo(({ user, onNavigate, onLoginClick, onToggleOverl
               role="button"
               tabIndex={0}
               onKeyDown={(e) => e.key === 'Enter' && onNavigate(mode)}
-              style={{ display: 'flex', flexDirection: 'column', padding: '14px 16px', cursor: 'pointer', backgroundColor: '#111827', border: '1px solid #1f2937', borderRadius: '4px' }}
-              className="sm:p-5 sm:border-0 sm:rounded-none hover:bg-gray-800 transition-colors"
+              style={{ display: 'flex', flexDirection: 'column', padding: '14px 16px', cursor: 'pointer', backgroundColor: 'rgba(17, 24, 39, 0.5)', border: '1px solid rgba(31, 41, 55, 0.5)', borderRadius: '4px', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+              className="sm:!bg-gray-900 sm:p-5 sm:border-0 sm:rounded-none sm:backdrop-blur-none hover:bg-gray-800/80 transition-colors"
             >
               <div style={{ fontSize: '15px', fontWeight: '700', color: '#fff', marginBottom: '4px' }} className="sm:text-lg sm:mb-2">{label}</div>
               <div style={{ fontSize: '13px', lineHeight: '1.5', color: '#6b7280' }} className="sm:text-sm">{desc}</div>

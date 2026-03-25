@@ -1,9 +1,18 @@
 // src/components/Community/TopContributors.jsx
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, memo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Trophy, ChevronDown, ChevronUp, Eye, Film, Award } from 'lucide-react';
 import { API_BASE_URL } from '../Auth/AuthProvider';
 
 const TopContributors = memo(({ onViewUserProfile, compact = false }) => {
+  const navigate = useNavigate();
+  const handleViewProfile = useCallback((userId) => {
+    if (onViewUserProfile) {
+      onViewUserProfile(userId);
+    } else {
+      navigate(`/user/${userId}`);
+    }
+  }, [onViewUserProfile, navigate]);
   const [contributors, setContributors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -58,7 +67,7 @@ const TopContributors = memo(({ onViewUserProfile, compact = false }) => {
             key={contributor._id}
             contributor={contributor}
             rank={idx + 1}
-            onViewUserProfile={onViewUserProfile}
+            onViewUserProfile={handleViewProfile}
           />
         ))}
       </div>
@@ -94,7 +103,7 @@ const TopContributors = memo(({ onViewUserProfile, compact = false }) => {
               key={contributor._id}
               contributor={contributor}
               rank={idx + 1}
-              onViewUserProfile={onViewUserProfile}
+              onViewUserProfile={handleViewProfile}
             />
           ))}
         </div>
