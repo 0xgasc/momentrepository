@@ -102,55 +102,75 @@ const MyAccount = memo(({ onClose }) => {
   const groupedMoments = groupMomentsByStatus(myMoments);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" style={{ zIndex: 9999 }}>
-      <div className="bg-white rounded-sm shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-300" style={{ backgroundColor: 'white' }}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50 sm:p-4" style={{ zIndex: 9999 }}>
+      <div className="bg-white rounded-t-lg sm:rounded-sm shadow-xl w-full sm:max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden border border-gray-300" style={{ backgroundColor: 'white' }}>
         {/* Header */}
-        <div className="bg-gray-50 px-6 py-4 border-b flex items-center justify-between" style={{ backgroundColor: '#f9fafb' }}>
-          <div className="flex items-center gap-3">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">My Account</h2>
-              <p className="text-sm text-gray-600">{profile?.email}</p>
-            </div>
+        <div className="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 border-b flex items-center justify-between" style={{ backgroundColor: '#f9fafb' }}>
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">My Account</h2>
+            <p className="text-xs sm:text-sm text-gray-600 truncate max-w-[200px] sm:max-w-none">{profile?.email}</p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+            className="text-gray-400 hover:text-gray-600 text-2xl font-bold w-10 h-10 flex items-center justify-center"
           >
             ×
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b">
-          {[
+        {/* Tabs — Mobile: dropdown, Desktop: horizontal */}
+        {(() => {
+          const tabs = [
             { key: 'profile', label: 'Profile', count: null },
-            { key: 'favorites', label: 'Favorites', count: null, icon: Heart },
-            { key: 'uploads', label: 'My Uploads', count: myMoments.length },
+            { key: 'favorites', label: 'Favorites', count: null },
+            { key: 'uploads', label: 'Uploads', count: myMoments.length },
             { key: 'pending', label: 'Pending', count: groupedMoments.pending?.length || 0 },
-            { key: 'needs_revision', label: 'Needs Revision', count: groupedMoments.needs_revision?.length || 0 },
+            { key: 'needs_revision', label: 'Revision', count: groupedMoments.needs_revision?.length || 0 },
             { key: 'approved', label: 'Approved', count: groupedMoments.approved?.length || 0 }
-          ].map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.key
-                  ? 'border-blue-500 text-blue-600 bg-blue-50'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              {tab.label}
-              {tab.count !== null && tab.count > 0 && (
-                <span className="ml-2 bg-gray-200 text-gray-700 rounded-full px-2 py-1 text-xs">
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+          ];
+          return (
+            <>
+              {/* Mobile dropdown */}
+              <div className="md:hidden border-b px-3 py-2">
+                <select
+                  value={activeTab}
+                  onChange={(e) => setActiveTab(e.target.value)}
+                  className="w-full px-3 py-2 text-sm font-medium border border-gray-300 rounded bg-white text-gray-700"
+                >
+                  {tabs.map(tab => (
+                    <option key={tab.key} value={tab.key}>
+                      {tab.label}{tab.count > 0 ? ` (${tab.count})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* Desktop tabs */}
+              <div className="hidden md:flex border-b">
+                {tabs.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`px-4 lg:px-5 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      activeTab === tab.key
+                        ? 'border-blue-500 text-blue-600 bg-blue-50'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {tab.label}
+                    {tab.count > 0 && (
+                      <span className="ml-1.5 bg-gray-200 text-gray-700 rounded-full px-1.5 py-0.5 text-xs">
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </>
+          );
+        })()}
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[70vh] bg-white" style={{ backgroundColor: 'white' }}>
+        <div className="p-3 sm:p-6 overflow-y-auto max-h-[75vh] sm:max-h-[70vh] bg-white" style={{ backgroundColor: 'white' }}>
           {activeTab === 'profile' && (
             <ProfileTab profile={profile} roleDisplay={roleDisplay} logout={logout} onClose={onClose} />
           )}
@@ -908,14 +928,14 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
   return (
     <div className="space-y-6">
       {/* Stats Section */}
-      <div className="bg-gray-50 rounded-sm p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4" style={{ color: '#111827' }}>Your Stats</h3>
+      <div className="bg-gray-50 rounded-sm p-3 sm:p-4 border border-gray-200" style={{ backgroundColor: '#f9fafb', border: '1px solid #d1d5db' }}>
+        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4" style={{ color: '#111827' }}>Your Stats</h3>
         {statsLoading ? (
           <div className="flex items-center justify-center py-4">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <StatCard label="Uploads" value={stats?.totalUploads || 0} icon={Upload} color="blue" />
             <StatCard label="Views Received" value={stats?.totalViews || 0} icon={Eye} color="green" />
             <StatCard label="Comments" value={stats?.totalCommentsReceived || 0} icon={MessageCircle} color="purple" />
@@ -1028,8 +1048,8 @@ const ProfileTab = memo(({ profile, roleDisplay, logout, onClose }) => {
 
         <div className="space-y-3">
           {socialPlatforms.map(({ key, label, placeholder }) => (
-            <div key={key} className="flex items-center gap-3">
-              <label className="text-sm font-medium text-gray-700 w-24">{label}</label>
+            <div key={key} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+              <label className="text-sm font-medium text-gray-700 sm:w-24">{label}</label>
               {isEditing ? (
                 <input
                   type="text"
@@ -1198,11 +1218,11 @@ const UploadsTab = memo(({ moments, getStatusDisplay, formatDate }) => {
             const isDeleting_this = isDeleting === moment._id;
             
             return (
-              <div key={moment._id} className="border border-gray-200 rounded-sm p-4 bg-white">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-gray-900">{moment.songName}</h4>
-                    <p className="text-sm text-gray-600">
+              <div key={moment._id} className="border border-gray-200 rounded-sm p-3 sm:p-4 bg-white">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-gray-900 truncate">{moment.songName}</h4>
+                    <p className="text-sm text-gray-600 truncate">
                       {moment.venueName}, {moment.venueCity} • {formatDate(moment.performanceDate)}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
