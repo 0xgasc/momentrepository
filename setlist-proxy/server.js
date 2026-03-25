@@ -196,7 +196,9 @@ app.use(cors({
     // Allow requests with no origin (server-to-server, curl, mobile apps)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
+    // Reject silently (false = no CORS headers, but no error thrown)
+    console.log(`CORS blocked: ${origin}`);
+    callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
