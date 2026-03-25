@@ -58,7 +58,12 @@ const rarityConfig = {
 };
 
 // Check if mediaType is a video type (handles both 'video' and 'video/quicktime', 'video/mp4', etc.)
-const isVideoType = (mediaType) => mediaType === 'video' || mediaType?.startsWith('video/');
+// Also checks mediaUrl as fallback — Irys uploads without mediaType are almost always video
+const isVideoType = (mediaType, mediaUrl) => {
+  if (mediaType === 'video' || mediaType?.startsWith('video/')) return true;
+  if (!mediaType && mediaUrl && (mediaUrl.includes('irys.xyz') || mediaUrl.includes('arweave'))) return true;
+  return false;
+};
 const isAudioType = (mediaType) => mediaType === 'audio' || mediaType?.startsWith('audio/');
 
 // Media type icons
@@ -120,7 +125,7 @@ const MomentThumbnailCard = memo(({
   const rarity = rarityConfig[moment.rarityTier] || rarityConfig.basic;
   const duration = formatDuration(moment.duration);
   const MediaIcon = getMediaIcon(moment.mediaType);
-  const hasMedia = isYouTubeMoment(moment) || (isVideoType(moment.mediaType) && moment.mediaUrl);
+  const hasMedia = isYouTubeMoment(moment) || (isVideoType(moment.mediaType, moment.mediaUrl) && moment.mediaUrl);
 
   if (compact) {
     // Compact version for inline song lists
@@ -190,7 +195,7 @@ const MomentThumbnailCard = memo(({
               )
             ) : null;
           })()
-        ) : isVideoType(moment.mediaType) && moment.mediaUrl && !isYouTubeMoment(moment) ? (
+        ) : isVideoType(moment.mediaType, moment.mediaUrl) && moment.mediaUrl && !isYouTubeMoment(moment) ? (
           <video
             src={transformMediaUrl(moment.mediaUrl)}
             autoPlay

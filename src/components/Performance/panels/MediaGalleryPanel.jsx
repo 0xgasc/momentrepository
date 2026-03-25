@@ -86,10 +86,9 @@ const MediaGalleryPanel = memo(({
           {hasMore && !showAll && (
             <button
               onClick={() => setShowAll(true)}
-              className="aspect-video bg-gray-800/50 border border-gray-700/50 rounded-sm flex flex-col items-center justify-center gap-1 hover:bg-gray-800 transition-colors"
+              className="aspect-video bg-gray-800/30 border border-gray-700/30 rounded-sm flex items-center justify-center gap-2 hover:bg-gray-800/50 transition-colors"
             >
-              <span className="text-2xl font-bold text-gray-400">+{moments.length - previewLimit}</span>
-              <span className="text-xs text-gray-500">more moments</span>
+              <span className="text-sm font-medium text-gray-400">+{moments.length - previewLimit} more</span>
             </button>
           )}
         </div>
