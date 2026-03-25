@@ -2,6 +2,7 @@ import React, { useState, useEffect, memo, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './components/Auth/AuthProvider';
 import { slugify } from './utils/slugify';
+import { transformMediaUrl } from './utils/mediaUrl';
 import { PlatformSettingsProvider } from './contexts/PlatformSettingsContext';
 import { Menu, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Music, Video, Link2, Upload, Film, Calendar, User, LogIn, Play, Pause, SkipForward, SkipBack, Shuffle, Volume2, VolumeX, ListMusic, Trophy, Trash2, Eye, EyeOff } from 'lucide-react';
 import './styles/umo-theme.css';
@@ -833,6 +834,45 @@ class ModalErrorBoundary extends React.Component {
   }
 }
 
+// Mobile landing background — fetches a random approved video moment and plays it muted
+const MobileLandingVideo = memo(() => {
+  const [videoUrl, setVideoUrl] = useState(null);
+
+  useEffect(() => {
+    const fetchRandom = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/moments?_=${Date.now()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const videos = (data.moments || []).filter(m =>
+          m.mediaUrl && (m.mediaType === 'video' || m.mediaType?.startsWith('video/')) &&
+          !m.mediaUrl.includes('youtube.com') && !m.mediaUrl.includes('youtu.be')
+        );
+        if (videos.length > 0) {
+          const pick = videos[Math.floor(Math.random() * videos.length)];
+          setVideoUrl(transformMediaUrl(pick.mediaUrl));
+        }
+      } catch {}
+    };
+    fetchRandom();
+  }, []);
+
+  if (!videoUrl) return <div className="absolute inset-0 bg-gray-950" />;
+
+  return (
+    <video
+      src={videoUrl}
+      autoPlay
+      loop
+      muted
+      playsInline
+      className="absolute inset-0 w-full h-full object-cover"
+      onError={(e) => { e.target.style.display = 'none'; }}
+    />
+  );
+});
+MobileLandingVideo.displayName = 'MobileLandingVideo';
+
 // Landing Page Content — text, CTA cards, steps. VideoHero is rendered separately below it.
 const LandingPageContent = memo(({ user, onNavigate, onLoginClick, onToggleOverlay, overlayVisible }) => {
   const ctaCards = [
@@ -1239,7 +1279,7 @@ const MainContent = memo(({
 
       {/* VideoHero with Landing Page Overlay */}
       {showLanding ? (
-        <div className="relative">
+        <div className="relative min-h-[80vh] sm:min-h-0">
           {/* VideoHero — background video (hidden on mobile) */}
           <VideoHero
             onMomentClick={handleMomentClick}
@@ -1247,30 +1287,22 @@ const MainContent = memo(({
             noAutoMinimize={showLanding}
           />
 
-          {/* Landing page content — absolute overlay on desktop, static block on mobile */}
+          {/* Mobile background video — lightweight random clip */}
+          <div className="sm:hidden absolute inset-0 overflow-hidden">
+            <MobileLandingVideo />
+          </div>
+
+          {/* Landing page content — overlay on top of video */}
           {showLandingOverlay && (
-            <>
-              {/* Desktop: absolute overlay on top of VideoHero */}
-              <div className="hidden sm:block absolute inset-0 bg-black/70 backdrop-blur-sm overflow-y-auto pointer-events-auto transition-opacity duration-300">
-                <LandingPageContent
-                  user={user}
-                  onNavigate={(mode) => onShowLanding?.(mode)}
-                  onLoginClick={onLoginClick}
-                  onToggleOverlay={() => setShowLandingOverlay(false)}
-                  overlayVisible={true}
-                />
-              </div>
-              {/* Mobile: static block (no hero behind it) */}
-              <div className="sm:hidden bg-gray-950">
-                <LandingPageContent
-                  user={user}
-                  onNavigate={(mode) => onShowLanding?.(mode)}
-                  onLoginClick={onLoginClick}
-                  onToggleOverlay={() => {}}
-                  overlayVisible={false}
-                />
-              </div>
-            </>
+            <div className="absolute inset-0 bg-black/75 sm:bg-black/70 backdrop-blur-[2px] sm:backdrop-blur-sm overflow-y-auto pointer-events-auto transition-opacity duration-300">
+              <LandingPageContent
+                user={user}
+                onNavigate={(mode) => onShowLanding?.(mode)}
+                onLoginClick={onLoginClick}
+                onToggleOverlay={() => setShowLandingOverlay(false)}
+                overlayVisible={true}
+              />
+            </div>
           )}
 
           {/* Floating button to bring overlay back when hidden (desktop only) */}
