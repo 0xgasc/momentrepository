@@ -888,7 +888,8 @@ const MobileLandingVideo = memo(() => {
           for (let x = 0; x < cols; x++) {
             const i = (y * cols + x) * 4;
             const r = px[i], g = px[i+1], b = px[i+2];
-            row.push({ char: ASCII_MAP[Math.floor(((r+g+b)/3/255) * (ASCII_MAP.length-1))], color: `rgb(${r},${g},${b})` });
+            const br = Math.min(255, r * 1.6), bg = Math.min(255, g * 1.6), bb = Math.min(255, b * 1.6);
+            row.push({ char: ASCII_MAP[Math.floor(((r+g+b)/3/255) * (ASCII_MAP.length-1))], color: `rgb(${br|0},${bg|0},${bb|0})` });
           }
           out.push(row);
         }
@@ -1367,7 +1368,7 @@ const MainContent = memo(({
 
           {/* Landing page content — overlay on top of video */}
           {showLandingOverlay && (
-            <div className="absolute inset-0 bg-black/75 sm:bg-black/70 backdrop-blur-[2px] sm:backdrop-blur-sm overflow-y-auto pointer-events-auto transition-opacity duration-300">
+            <div className="absolute inset-0 bg-black/40 sm:bg-black/70 sm:backdrop-blur-sm overflow-y-auto pointer-events-auto transition-opacity duration-300">
               <LandingPageContent
                 user={user}
                 onNavigate={(mode) => onShowLanding?.(mode)}
