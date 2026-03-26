@@ -120,6 +120,29 @@ const MomentThumbnailCard = memo(({
   autoplayPreviews = true
 }) => {
   const [isLoading, setIsLoading] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
+  const cardRef = React.useRef(null);
+  const videoElRef = React.useRef(null);
+
+  // Only load video when card is visible in viewport
+  React.useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting);
+        // Pause video when scrolled out of view to save resources
+        if (!entry.isIntersecting && videoElRef.current) {
+          videoElRef.current.pause();
+        } else if (entry.isIntersecting && videoElRef.current) {
+          videoElRef.current.play().catch(() => {});
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const { isInQueue, addToQueue } = useTheaterQueue();
   const inQueue = isInQueue(moment._id);
   const rarity = rarityConfig[moment.rarityTier] || rarityConfig.basic;
@@ -158,6 +181,7 @@ const MomentThumbnailCard = memo(({
   // Full card version for gallery
   return (
     <button
+      ref={cardRef}
       onClick={() => onClick?.(moment)}
       className={`
         relative group flex flex-col
@@ -196,27 +220,29 @@ const MomentThumbnailCard = memo(({
             ) : null;
           })()
         ) : isVideoType(moment.mediaType, moment.mediaUrl) && moment.mediaUrl && !isYouTubeMoment(moment) ? (
-          <video
-            src={transformMediaUrl(moment.mediaUrl)}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            className="absolute inset-0 w-full h-full object-cover z-10"
-            onLoadedData={(e) => {
-              setIsLoading(false);
-              // Force play in case autoplay was blocked
-              e.target.play().catch(() => {});
-            }}
-            onLoadedMetadata={(e) => {
-              if (moment.startTime) e.target.currentTime = moment.startTime;
-            }}
-            onError={(e) => {
-              setIsLoading(false);
-              e.target.style.display = 'none';
-            }}
-          />
+          isVisible ? (
+            <video
+              ref={videoElRef}
+              src={transformMediaUrl(moment.mediaUrl)}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              className="absolute inset-0 w-full h-full object-cover z-10"
+              onLoadedData={(e) => {
+                setIsLoading(false);
+                e.target.play().catch(() => {});
+              }}
+              onLoadedMetadata={(e) => {
+                if (moment.startTime) e.target.currentTime = moment.startTime;
+              }}
+              onError={(e) => {
+                setIsLoading(false);
+                e.target.style.display = 'none';
+              }}
+            />
+          ) : null
         ) : null}
         {/* Fallback / loading state - always visible behind video as poster */}
         <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
