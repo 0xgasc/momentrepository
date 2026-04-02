@@ -1979,26 +1979,134 @@ const SettingsTab = memo(({ platformSettings, setPlatformSettings, token, isAdmi
   );
 });
 
-// Media Migration Tab
+// Media Migration Tab — Smart Migration Dashboard
 const MigrationTab = memo(({ moments, setMoments, total, setTotal, token }) => {
-  const [loading, setLoading] = useState(false);
+  const [view, setView] = useState('dashboard'); // dashboard | manual | log
+  const [scanData, setScanData] = useState(null);
+  const [scanning, setScanning] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+  const [batchSize, setBatchSize] = useState(10);
+  const [selectedSource, setSelectedSource] = useState('devnet.irys.xyz');
+  const [progress, setProgress] = useState([]);
+  const [migrationStats, setMigrationStats] = useState(null);
+  const [message, setMessage] = useState('');
+  // Manual mode state
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [sortOrder, setSortOrder] = useState('oldest');
   const [editingId, setEditingId] = useState(null);
   const [editUrl, setEditUrl] = useState('');
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
   const [bulkJson, setBulkJson] = useState('');
   const [bulkMode, setBulkMode] = useState(false);
-  const [sortOrder, setSortOrder] = useState('oldest');
 
+  // Scan all moments grouped by source
+  const runScan = async () => {
+    try {
+      setScanning(true);
+      setMessage('');
+      const response = await fetch(`${API_BASE_URL}/admin/moments/migration-scan`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setScanData(data);
+      } else {
+        setMessage('Scan failed');
+      }
+    } catch (error) {
+      setMessage('Error: ' + error.message);
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  // Auto-migrate via SSE
+  const runAutoMigrate = async (ids, dryRun = false) => {
+    setMigrating(true);
+    setProgress([]);
+    setMigrationStats(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/moments/auto-migrate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ momentIds: ids, dryRun })
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const event = JSON.parse(line.slice(6));
+              if (event.type === 'progress') {
+                setProgress(prev => {
+                  const updated = [...prev];
+                  const existing = updated.findIndex(p => p.momentId === event.momentId);
+                  if (existing >= 0) updated[existing] = event;
+                  else updated.push(event);
+                  return updated;
+                });
+              } else if (event.type === 'complete') {
+                setMigrationStats(event.results);
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch (error) {
+      setMessage('Migration error: ' + error.message);
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  // Start migration for selected source
+  const startMigration = (dryRun = false) => {
+    if (!scanData?.sources?.[selectedSource]) return;
+    const allIds = scanData.sources[selectedSource].moments.map(m => m._id);
+    const batch = allIds.slice(0, batchSize);
+    runAutoMigrate(batch, dryRun);
+  };
+
+  // Export all URLs for a source
+  const exportSource = (source) => {
+    if (!scanData?.sources?.[source]) return;
+    const data = scanData.sources[source].moments.map(m => ({
+      momentId: m._id, songName: m.songName, venueName: m.venueName,
+      currentUrl: m.mediaUrl, fileName: m.fileName, fileSize: m.fileSize
+    }));
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `moments-${source.replace(/\./g, '-')}-${data.length}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Manual mode functions
   const fetchMoments = useCallback(async (pageNum = 1) => {
     try {
       setLoading(true);
       const response = await fetch(`${API_BASE_URL}/admin/moments/all?page=${pageNum}&limit=50&sort=${sortOrder}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-
       if (response.ok) {
         const data = await response.json();
         setMoments(data.moments);
@@ -2013,253 +2121,330 @@ const MigrationTab = memo(({ moments, setMoments, total, setTotal, token }) => {
     }
   }, [token, setMoments, setTotal, sortOrder]);
 
-  useEffect(() => {
-    fetchMoments(1);
-  }, [fetchMoments]);
-
-  const handleEdit = (moment) => {
-    setEditingId(moment._id);
-    setEditUrl(moment.mediaUrl || '');
-  };
-
   const handleSave = async (momentId) => {
     try {
       setSaving(true);
       const response = await fetch(`${API_BASE_URL}/admin/moments/${momentId}/media`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ mediaUrl: editUrl })
       });
-
       if (response.ok) {
-        setMoments(prev => prev.map(m =>
-          m._id === momentId ? { ...m, mediaUrl: editUrl } : m
-        ));
+        setMoments(prev => prev.map(m => m._id === momentId ? { ...m, mediaUrl: editUrl } : m));
         setEditingId(null);
         setMessage('Updated successfully');
         setTimeout(() => setMessage(''), 3000);
-      } else {
-        setMessage('Failed to update');
       }
-    } catch (error) {
-      setMessage('Error: ' + error.message);
-    } finally {
-      setSaving(false);
-    }
+    } catch (error) { setMessage('Error: ' + error.message); }
+    finally { setSaving(false); }
   };
 
   const handleBulkMigrate = async () => {
     try {
       setSaving(true);
-      let updates;
-      try {
-        updates = JSON.parse(bulkJson);
-      } catch {
-        setMessage('Invalid JSON format');
-        setSaving(false);
-        return;
-      }
-
+      const updates = JSON.parse(bulkJson);
       const response = await fetch(`${API_BASE_URL}/admin/moments/bulk-migrate`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates })
       });
-
       if (response.ok) {
         const result = await response.json();
         setMessage(`Migrated ${result.migrated} moments, ${result.failed} failed`);
         fetchMoments(page);
         setBulkJson('');
-      } else {
-        setMessage('Bulk migration failed');
       }
-    } catch (error) {
-      setMessage('Error: ' + error.message);
-    } finally {
-      setSaving(false);
-    }
+    } catch (error) { setMessage('Error: ' + error.message); }
+    finally { setSaving(false); }
   };
 
-  const exportCurrentUrls = () => {
-    const data = moments.map(m => ({
-      momentId: m._id,
-      songName: m.songName,
-      currentUrl: m.mediaUrl
-    }));
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `moments-export-page-${page}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  useEffect(() => { if (view === 'manual') fetchMoments(1); }, [view, fetchMoments]);
+
+  const formatSize = (bytes) => {
+    if (!bytes) return '?';
+    if (bytes > 1024 * 1024 * 1024) return (bytes / 1024 / 1024 / 1024).toFixed(1) + ' GB';
+    if (bytes > 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    return (bytes / 1024).toFixed(0) + ' KB';
+  };
+
+  const statusIcon = (s) => {
+    if (s === 'done') return '\u2705';
+    if (s === 'downloading') return '\u2B07\uFE0F';
+    if (s === 'uploading') return '\u2B06\uFE0F';
+    if (s === 'skipped') return '\u23ED\uFE0F';
+    if (s === 'dry_run') return '\uD83D\uDC40';
+    if (s === 'error' || s === 'download_failed' || s === 'not_found') return '\u274C';
+    return '\u23F3';
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h3 className="text-lg font-semibold">Media Migration Tool</h3>
-        <div className="flex items-center gap-2 flex-wrap">
-          <select
-            value={sortOrder}
-            onChange={(e) => { setSortOrder(e.target.value); }}
-            className="px-3 py-1.5 text-sm rounded bg-gray-200 text-gray-700 border-0"
+    <div className="space-y-4">
+      {/* View Tabs */}
+      <div className="flex gap-2 border-b pb-2">
+        {['dashboard', 'manual', 'log'].map(v => (
+          <button key={v} onClick={() => setView(v)}
+            className={`px-3 py-1.5 text-sm rounded-t ${view === v ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
           >
-            <option value="oldest">Oldest first</option>
-            <option value="newest">Newest first</option>
-          </select>
-          <button
-            onClick={() => setBulkMode(!bulkMode)}
-            className={`px-3 py-1.5 text-sm rounded ${bulkMode ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-          >
-            {bulkMode ? 'Single Mode' : 'Bulk Mode'}
+            {v === 'dashboard' ? 'Smart Migration' : v === 'manual' ? 'Manual / Bulk' : 'Migration Log'}
           </button>
-          <button
-            onClick={exportCurrentUrls}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Export Page ({moments.length})
-          </button>
-        </div>
+        ))}
       </div>
 
       {message && (
-        <div className={`p-3 rounded ${message.includes('Error') || message.includes('failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+        <div className={`p-3 rounded text-sm ${message.includes('Error') || message.includes('failed') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
           {message}
         </div>
       )}
 
-      {bulkMode ? (
+      {/* === DASHBOARD VIEW === */}
+      {view === 'dashboard' && (
         <div className="space-y-4">
-          <div className="bg-gray-50 p-4 rounded-sm">
-            <h4 className="font-medium mb-2">Bulk Migration</h4>
-            <p className="text-sm text-gray-600 mb-3">
-              Paste JSON array (accepts exported format or <code className="bg-gray-200 px-1 rounded">{`{ "momentId": "...", "mediaUrl": "..." }`}</code>)
-            </p>
-            <textarea
-              value={bulkJson}
-              onChange={(e) => setBulkJson(e.target.value)}
-              placeholder={`[\n  { "momentId": "abc123", "mediaUrl": "https://new-url.com/video.mp4" },\n  { "momentId": "def456", "mediaUrl": "https://new-url.com/audio.mp3" }\n]`}
-              className="w-full h-48 p-3 border border-gray-300 rounded font-mono text-sm"
-            />
-            <button
-              onClick={handleBulkMigrate}
-              disabled={saving || !bulkJson.trim()}
-              className="mt-3 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
+          <div className="flex items-center gap-3 flex-wrap">
+            <button onClick={runScan} disabled={scanning}
+              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 text-sm font-medium"
             >
-              {saving ? 'Migrating...' : 'Run Bulk Migration'}
+              {scanning ? 'Scanning...' : 'Scan All Moments'}
             </button>
+            {scanData && <span className="text-sm text-gray-500">{scanData.total} total moments</span>}
           </div>
-        </div>
-      ) : (
-        <>
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="text-sm text-gray-600">
-                Showing page {page} of {pages} ({total} total moments)
-              </div>
 
-              {moments.map(moment => (
-                <div key={moment._id} className="border border-gray-200 rounded-sm p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900 truncate">{moment.songName || 'Unknown Song'}</div>
-                      <div className="text-sm text-gray-600">{moment.venueName}, {moment.venueCity}</div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        ID: {moment._id}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        Created: {moment.createdAt ? new Date(moment.createdAt).toLocaleDateString() : 'N/A'}
-                        {moment.updatedAt && moment.updatedAt !== moment.createdAt && (
-                          <> · Updated: {new Date(moment.updatedAt).toLocaleDateString()}</>
-                        )}
-                      </div>
-
-                      {editingId === moment._id ? (
-                        <div className="mt-2 flex gap-2">
-                          <input
-                            type="text"
-                            value={editUrl}
-                            onChange={(e) => setEditUrl(e.target.value)}
-                            className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded"
-                            placeholder="New media URL"
-                          />
-                          <button
-                            onClick={() => handleSave(moment._id)}
-                            disabled={saving}
-                            className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-                          >
-                            {saving ? '...' : 'Save'}
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="mt-2">
-                          <div className="text-xs text-gray-500 break-all">
-                            {moment.mediaUrl || 'No URL'}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <span className={`px-2 py-0.5 text-xs rounded ${
-                        moment.approvalStatus === 'approved' ? 'bg-green-100 text-green-700' :
-                        moment.approvalStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
-                        {moment.approvalStatus}
-                      </span>
-                      {editingId !== moment._id && (
-                        <button
-                          onClick={() => handleEdit(moment)}
-                          className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                        >
-                          Edit URL
-                        </button>
-                      )}
-                    </div>
-                  </div>
+          {/* Source breakdown */}
+          {scanData && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {Object.entries(scanData.sources).filter(([, v]) => v.count > 0).map(([source, data]) => (
+                <div key={source}
+                  className={`border rounded p-3 cursor-pointer transition ${selectedSource === source ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`}
+                  onClick={() => setSelectedSource(source)}
+                >
+                  <div className="font-medium text-sm">{source}</div>
+                  <div className="text-2xl font-bold mt-1">{data.count}</div>
+                  <div className="text-xs text-gray-500">{formatSize(data.totalSize)} total</div>
+                  <button onClick={(e) => { e.stopPropagation(); exportSource(source); }}
+                    className="mt-2 text-xs text-blue-600 hover:underline"
+                  >
+                    Export JSON
+                  </button>
                 </div>
               ))}
+            </div>
+          )}
 
-              {/* Pagination */}
-              <div className="flex items-center justify-center gap-2 mt-4">
-                <button
-                  onClick={() => fetchMoments(page - 1)}
-                  disabled={page <= 1 || loading}
-                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+          {/* Migration Controls */}
+          {scanData?.sources?.[selectedSource]?.count > 0 && (
+            <div className="bg-gray-50 border rounded p-4 space-y-3">
+              <div className="font-medium text-sm">
+                Migrate {selectedSource} ({scanData.sources[selectedSource].count} moments)
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <label className="text-sm text-gray-600">Batch size:</label>
+                <select value={batchSize} onChange={e => setBatchSize(Number(e.target.value))}
+                  className="px-2 py-1 text-sm border rounded"
                 >
-                  ← Prev
-                </button>
-                <span className="text-sm text-gray-600">Page {page} of {pages}</span>
-                <button
-                  onClick={() => fetchMoments(page + 1)}
-                  disabled={page >= pages || loading}
-                  className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+                  {[5, 10, 25, 50, 100, 200, 500].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                  <option value={scanData.sources[selectedSource].count}>
+                    All ({scanData.sources[selectedSource].count})
+                  </option>
+                </select>
+                <button onClick={() => startMigration(true)} disabled={migrating}
+                  className="px-3 py-1.5 text-sm bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50"
                 >
-                  Next →
+                  Dry Run
                 </button>
+                <button onClick={() => startMigration(false)} disabled={migrating}
+                  className="px-3 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                >
+                  {migrating ? 'Migrating...' : 'Start Migration'}
+                </button>
+              </div>
+
+              {/* Migration Stats */}
+              {migrationStats && (
+                <div className="flex gap-4 text-sm mt-2">
+                  <span className="text-green-700 font-medium">{migrationStats.success} done</span>
+                  <span className="text-red-700 font-medium">{migrationStats.failed} failed</span>
+                  <span className="text-gray-500">{migrationStats.skipped} skipped</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Live Progress */}
+          {progress.length > 0 && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Progress</span>
+                <span className="text-xs text-gray-500">
+                  {progress.filter(p => p.status === 'done').length}/{progress.length} complete
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="w-full bg-gray-200 rounded h-2">
+                <div className="bg-green-500 h-2 rounded transition-all"
+                  style={{ width: `${(progress.filter(p => ['done','skipped','error','download_failed','not_found','dry_run'].includes(p.status)).length / Math.max(progress.length, 1)) * 100}%` }}
+                />
+              </div>
+              <div className="max-h-64 overflow-y-auto space-y-1 mt-2">
+                {[...progress].reverse().map((p, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs py-1 border-b border-gray-100">
+                    <span>{statusIcon(p.status)}</span>
+                    <span className="font-medium truncate flex-1">{p.songName}</span>
+                    {p.size && <span className="text-gray-400">{p.size}MB</span>}
+                    <span className={`${p.status === 'done' ? 'text-green-600' : p.status === 'error' ? 'text-red-600' : 'text-gray-500'}`}>
+                      {p.status}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
-        </>
+
+          {/* Source moment list */}
+          {scanData?.sources?.[selectedSource]?.moments?.length > 0 && !migrating && (
+            <details className="text-sm">
+              <summary className="cursor-pointer text-gray-600 hover:text-gray-800">
+                View all {scanData.sources[selectedSource].count} moments in {selectedSource}
+              </summary>
+              <div className="mt-2 max-h-96 overflow-y-auto space-y-1">
+                {scanData.sources[selectedSource].moments.map(m => (
+                  <div key={m._id} className="flex items-center gap-2 text-xs py-1 border-b border-gray-50">
+                    <span className="font-medium truncate" style={{maxWidth: '200px'}}>{m.songName}</span>
+                    <span className="text-gray-400 truncate flex-1">{m.venueName}</span>
+                    <span className="text-gray-400">{m.fileSize ? formatSize(m.fileSize) : '?'}</span>
+                    <span className="text-gray-300">{m.createdAt ? new Date(m.createdAt).toLocaleDateString() : ''}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+
+      {/* === MANUAL VIEW === */}
+      {view === 'manual' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}
+              className="px-3 py-1.5 text-sm rounded bg-gray-200 text-gray-700 border-0"
+            >
+              <option value="oldest">Oldest first</option>
+              <option value="newest">Newest first</option>
+            </select>
+            <button onClick={() => setBulkMode(!bulkMode)}
+              className={`px-3 py-1.5 text-sm rounded ${bulkMode ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+            >
+              {bulkMode ? 'Single Mode' : 'Bulk Mode'}
+            </button>
+            <button onClick={() => {
+              const data = moments.map(m => ({ momentId: m._id, songName: m.songName, currentUrl: m.mediaUrl }));
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob); const a = document.createElement('a');
+              a.href = url; a.download = `moments-export-page-${page}.json`; a.click(); URL.revokeObjectURL(url);
+            }} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
+              Export Page ({moments.length})
+            </button>
+          </div>
+
+          {bulkMode ? (
+            <div className="bg-gray-50 p-4 rounded-sm space-y-3">
+              <h4 className="font-medium text-sm">Bulk Migration (JSON)</h4>
+              <textarea value={bulkJson} onChange={(e) => setBulkJson(e.target.value)}
+                placeholder={`[\n  { "momentId": "abc123", "mediaUrl": "https://new-url.com/video.mp4" }\n]`}
+                className="w-full h-48 p-3 border border-gray-300 rounded font-mono text-xs"
+              />
+              <button onClick={handleBulkMigrate} disabled={saving || !bulkJson.trim()}
+                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 text-sm"
+              >
+                {saving ? 'Migrating...' : 'Run Bulk Migration'}
+              </button>
+            </div>
+          ) : (
+            <>
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-600">Page {page}/{pages} ({total} total)</div>
+                  {moments.map(moment => (
+                    <div key={moment._id} className="border border-gray-200 rounded p-3 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{moment.songName || 'Unknown'}</div>
+                          <div className="text-xs text-gray-500">{moment.venueName}, {moment.venueCity}</div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            Created: {moment.createdAt ? new Date(moment.createdAt).toLocaleDateString() : 'N/A'}
+                            {moment.updatedAt && moment.updatedAt !== moment.createdAt && (
+                              <> | Updated: {new Date(moment.updatedAt).toLocaleDateString()}</>
+                            )}
+                          </div>
+                          {editingId === moment._id ? (
+                            <div className="mt-2 flex gap-2">
+                              <input type="text" value={editUrl} onChange={(e) => setEditUrl(e.target.value)}
+                                className="flex-1 px-2 py-1 text-xs border rounded" placeholder="New URL" />
+                              <button onClick={() => handleSave(moment._id)} disabled={saving}
+                                className="px-2 py-1 text-xs bg-green-600 text-white rounded">{saving ? '...' : 'Save'}</button>
+                              <button onClick={() => setEditingId(null)}
+                                className="px-2 py-1 text-xs bg-gray-400 text-white rounded">Cancel</button>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-400 break-all mt-1">{moment.mediaUrl || 'No URL'}</div>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className={`px-2 py-0.5 text-xs rounded ${
+                            moment.approvalStatus === 'approved' ? 'bg-green-100 text-green-700' :
+                            moment.approvalStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                          }`}>{moment.approvalStatus}</span>
+                          {editingId !== moment._id && (
+                            <button onClick={() => { setEditingId(moment._id); setEditUrl(moment.mediaUrl || ''); }}
+                              className="px-2 py-1 text-xs bg-blue-600 text-white rounded">Edit URL</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex justify-center gap-2 mt-4">
+                    <button onClick={() => fetchMoments(page - 1)} disabled={page <= 1}
+                      className="px-3 py-1 text-sm bg-gray-200 rounded disabled:opacity-50">Prev</button>
+                    <span className="text-sm text-gray-600 py-1">Page {page}/{pages}</span>
+                    <button onClick={() => fetchMoments(page + 1)} disabled={page >= pages}
+                      className="px-3 py-1 text-sm bg-gray-200 rounded disabled:opacity-50">Next</button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* === LOG VIEW === */}
+      {view === 'log' && (
+        <div className="space-y-3">
+          <h4 className="font-medium text-sm">Migration History</h4>
+          {progress.length === 0 ? (
+            <p className="text-sm text-gray-500">No migrations run this session. Run a scan + migration from the dashboard tab.</p>
+          ) : (
+            <div className="space-y-1">
+              {progress.map((p, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs py-1.5 border-b border-gray-100">
+                  <span>{statusIcon(p.status)}</span>
+                  <span className="font-mono text-gray-400 w-16 shrink-0">{p.momentId?.slice(-8)}</span>
+                  <span className="font-medium truncate flex-1">{p.songName}</span>
+                  {p.size && <span className="text-gray-400">{p.size}MB</span>}
+                  <span className={p.status === 'done' ? 'text-green-600' : p.status === 'error' ? 'text-red-600' : 'text-gray-500'}>
+                    {p.status}
+                  </span>
+                  {p.newUrl && (
+                    <a href={p.newUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">new</a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

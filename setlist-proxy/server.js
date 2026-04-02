@@ -3785,6 +3785,200 @@ app.post('/admin/moments/bulk-migrate', authenticateToken, requireAdmin, async (
   }
 });
 
+// =============================================================================
+// ADMIN: SMART MIGRATION SYSTEM
+// =============================================================================
+
+// Scan all moments and group by media source/URL pattern
+app.get('/admin/moments/migration-scan', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const moments = await Moment.find({}, '_id songName venueName venueCity mediaUrl mediaType fileName fileSize createdAt updatedAt')
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const sources = {
+      'devnet.irys.xyz': [],
+      'arweave.net': [],
+      'youtube': [],
+      'archive.org': [],
+      'other': []
+    };
+
+    for (const m of moments) {
+      const url = m.mediaUrl || '';
+      if (url.includes('devnet.irys.xyz')) sources['devnet.irys.xyz'].push(m);
+      else if (url.includes('arweave.net')) sources['arweave.net'].push(m);
+      else if (url.includes('youtube.com') || url.includes('youtu.be')) sources['youtube'].push(m);
+      else if (url.includes('archive.org')) sources['archive.org'].push(m);
+      else sources['other'].push(m);
+    }
+
+    const summary = {};
+    for (const [source, items] of Object.entries(sources)) {
+      summary[source] = {
+        count: items.length,
+        totalSize: items.reduce((sum, m) => sum + (m.fileSize || 0), 0),
+        moments: items.map(m => ({
+          _id: m._id,
+          songName: m.songName,
+          venueName: m.venueName,
+          venueCity: m.venueCity,
+          mediaUrl: m.mediaUrl,
+          mediaType: m.mediaType,
+          fileName: m.fileName,
+          fileSize: m.fileSize,
+          createdAt: m.createdAt,
+          updatedAt: m.updatedAt
+        }))
+      };
+    }
+
+    res.json({ total: moments.length, sources: summary });
+  } catch (error) {
+    console.error('❌ Migration scan error:', error);
+    res.status(500).json({ error: 'Failed to scan moments' });
+  }
+});
+
+// Auto-migrate: download from old URL → re-upload to Irys → update DB
+// Uses Server-Sent Events for real-time progress
+app.post('/admin/moments/auto-migrate', authenticateToken, requireAdmin, async (req, res) => {
+  const { momentIds, dryRun = false } = req.body;
+
+  if (!Array.isArray(momentIds) || momentIds.length === 0) {
+    return res.status(400).json({ error: 'momentIds array is required' });
+  }
+
+  // Set up SSE
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': req.headers.origin || '*',
+    'Access-Control-Allow-Credentials': 'true'
+  });
+
+  const send = (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  const results = { success: 0, failed: 0, skipped: 0, errors: [] };
+  const total = momentIds.length;
+  const fetch = (await import('node-fetch')).default;
+
+  send({ type: 'start', total, dryRun });
+
+  for (let i = 0; i < momentIds.length; i++) {
+    const momentId = momentIds[i];
+    try {
+      const moment = await Moment.findById(momentId);
+      if (!moment) {
+        results.failed++;
+        results.errors.push({ momentId, error: 'Not found' });
+        send({ type: 'progress', current: i + 1, total, momentId, status: 'not_found', songName: 'Unknown' });
+        continue;
+      }
+
+      const oldUrl = moment.mediaUrl;
+      const songName = moment.songName || 'Unknown';
+
+      // Skip non-Irys devnet URLs
+      if (!oldUrl || !oldUrl.includes('devnet.irys.xyz')) {
+        results.skipped++;
+        send({ type: 'progress', current: i + 1, total, momentId, status: 'skipped', songName, reason: 'Not an Irys devnet URL' });
+        continue;
+      }
+
+      if (dryRun) {
+        results.success++;
+        send({ type: 'progress', current: i + 1, total, momentId, status: 'dry_run', songName, oldUrl });
+        continue;
+      }
+
+      // Download from old URL
+      send({ type: 'progress', current: i + 1, total, momentId, status: 'downloading', songName });
+
+      const response = await fetch(oldUrl, { timeout: 120000 });
+      if (!response.ok) {
+        results.failed++;
+        results.errors.push({ momentId, songName, error: `Download failed: HTTP ${response.status}` });
+        send({ type: 'progress', current: i + 1, total, momentId, status: 'download_failed', songName });
+        continue;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const sizeInMB = (buffer.length / 1024 / 1024).toFixed(1);
+
+      send({ type: 'progress', current: i + 1, total, momentId, status: 'uploading', songName, size: sizeInMB });
+
+      // Re-upload to Irys
+      const filename = moment.fileName || `moment_${momentId}.${moment.mediaType === 'audio' ? 'mp3' : 'mp4'}`;
+      const { uploadFileToIrys } = require('./utils/irysUploader');
+      const uploadResult = await uploadFileToIrys(buffer, filename);
+
+      // Update DB record
+      await Moment.findByIdAndUpdate(momentId, {
+        $set: {
+          mediaUrl: uploadResult.url,
+          updatedAt: new Date()
+        }
+      });
+
+      results.success++;
+      send({
+        type: 'progress',
+        current: i + 1,
+        total,
+        momentId,
+        status: 'done',
+        songName,
+        oldUrl,
+        newUrl: uploadResult.url,
+        size: sizeInMB
+      });
+
+    } catch (err) {
+      results.failed++;
+      results.errors.push({ momentId, error: err.message });
+      send({ type: 'progress', current: i + 1, total, momentId, status: 'error', error: err.message });
+    }
+  }
+
+  send({ type: 'complete', results });
+  res.end();
+});
+
+// Quick export: get all moment IDs + URLs matching a pattern (no page limit)
+app.get('/admin/moments/export-urls', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { pattern = 'devnet.irys.xyz', limit = 0 } = req.query;
+    const query = pattern ? { mediaUrl: { $regex: pattern, $options: 'i' } } : {};
+    const findQuery = Moment.find(query, '_id songName venueName venueCity mediaUrl fileName fileSize createdAt')
+      .sort({ createdAt: 1 })
+      .lean();
+    if (parseInt(limit) > 0) findQuery.limit(parseInt(limit));
+
+    const moments = await findQuery;
+    res.json({
+      count: moments.length,
+      pattern,
+      moments: moments.map(m => ({
+        momentId: m._id,
+        songName: m.songName,
+        venueName: m.venueName,
+        venueCity: m.venueCity,
+        currentUrl: m.mediaUrl,
+        fileName: m.fileName,
+        fileSize: m.fileSize,
+        createdAt: m.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Export URLs error:', error);
+    res.status(500).json({ error: 'Failed to export URLs' });
+  }
+});
+
 // Admin: Batch create moments from YouTube setlist
 // Creates multiple song moments from a single YouTube video with timestamps
 app.post('/admin/moments/batch', authenticateToken, requireAdmin, async (req, res) => {
