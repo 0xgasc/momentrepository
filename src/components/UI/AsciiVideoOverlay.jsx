@@ -7,7 +7,7 @@ const AsciiVideoOverlay = ({ videoRef, active, cols: propCols, isMobile }) => {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const [asciiOutput, setAsciiOutput] = useState([]);
-  const [error, setError] = useState(false);
+  const startedRef = useRef(false);
 
   const getAsciiChar = useCallback((brightness) => {
     const index = Math.floor((brightness / 255) * (ASCII_CHARS.length - 1));
@@ -15,31 +15,36 @@ const AsciiVideoOverlay = ({ videoRef, active, cols: propCols, isMobile }) => {
   }, []);
 
   const processFrame = useCallback(() => {
-    if (!active || error) return;
+    if (!active) return;
 
     const video = videoRef?.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || video.paused || video.ended || video.readyState < 2) {
-      // Video not ready yet, retry
+    if (!video || !canvas) {
       animationRef.current = requestAnimationFrame(processFrame);
       return;
     }
 
+    // Wait for video to have actual frames
+    if (video.readyState < 2 || video.videoWidth === 0) {
+      animationRef.current = requestAnimationFrame(processFrame);
+      return;
+    }
+
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const baseCols = propCols || (isMobile ? 40 : 80);
+    const aspectRatio = video.videoHeight / video.videoWidth;
+    const rows = Math.floor(baseCols * aspectRatio * 0.5);
+
+    if (rows <= 0) {
+      animationRef.current = requestAnimationFrame(processFrame);
+      return;
+    }
+
+    canvas.width = baseCols;
+    canvas.height = rows;
+
     try {
-      const ctx = canvas.getContext('2d');
-      const baseCols = propCols || (isMobile ? 40 : 80);
-      const aspectRatio = (video.videoHeight || 720) / (video.videoWidth || 1280);
-      const rows = Math.floor(baseCols * aspectRatio * 0.5);
-
-      if (rows <= 0 || baseCols <= 0) {
-        animationRef.current = requestAnimationFrame(processFrame);
-        return;
-      }
-
-      canvas.width = baseCols;
-      canvas.height = rows;
       ctx.drawImage(video, 0, 0, baseCols, rows);
-
       const imageData = ctx.getImageData(0, 0, baseCols, rows);
       const pixels = imageData.data;
 
@@ -58,49 +63,39 @@ const AsciiVideoOverlay = ({ videoRef, active, cols: propCols, isMobile }) => {
       }
       setAsciiOutput(newRows);
     } catch (e) {
-      // Canvas tainted by cross-origin video — fall back
-      console.warn('ASCII overlay: canvas tainted, disabling', e.message);
-      setError(true);
-      return;
+      // Canvas tainted — likely CORS issue with cached video
+      // Try ONE more time by forcing video to reload with crossOrigin
+      console.warn('ASCII: canvas error —', e.message);
+      if (!startedRef.current) {
+        startedRef.current = true;
+        // Force reload video with CORS
+        const currentTime = video.currentTime;
+        const src = video.src;
+        video.crossOrigin = 'anonymous';
+        video.src = src + (src.includes('?') ? '&' : '?') + '_cors=1';
+        video.currentTime = currentTime;
+        video.play().catch(() => {});
+      }
     }
 
     animationRef.current = requestAnimationFrame(processFrame);
-  }, [videoRef, active, propCols, isMobile, getAsciiChar, error]);
+  }, [videoRef, active, propCols, isMobile, getAsciiChar]);
 
   useEffect(() => {
-    if (active && !error) {
-      // Wait for video to be playing before starting
-      const video = videoRef?.current;
-      if (video) {
-        const startLoop = () => {
-          animationRef.current = requestAnimationFrame(processFrame);
-        };
-        if (video.readyState >= 2 && !video.paused) {
-          startLoop();
-        } else {
-          video.addEventListener('playing', startLoop, { once: true });
-          // Also try to play if paused
-          if (video.paused) {
-            video.play().catch(() => {});
-          }
-          return () => video.removeEventListener('playing', startLoop);
-        }
-      }
+    if (active) {
+      startedRef.current = false;
+      animationRef.current = requestAnimationFrame(processFrame);
     }
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [active, processFrame, videoRef, error]);
+  }, [active, processFrame]);
 
   useEffect(() => {
-    if (!active) {
-      setAsciiOutput([]);
-      setError(false);
-    }
+    if (!active) setAsciiOutput([]);
   }, [active]);
 
   if (!active || asciiOutput.length === 0) return null;
-  if (error) return null;
 
   const fontSize = isMobile ? 5 : 7;
 
