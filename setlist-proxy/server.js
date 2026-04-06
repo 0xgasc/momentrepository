@@ -3538,6 +3538,7 @@ app.post('/admin/proxy-accounts', authenticateToken, requireAdmin, [
     console.log(`👤 Proxy account created: "${displayName}" by admin ${req.user.email}`);
     res.status(201).json({
       user: {
+        _id: user._id,
         id: user._id,
         displayName: user.displayName,
         email: user.email,
@@ -4632,34 +4633,37 @@ app.post('/upload-moment', authenticateToken, [
 
   const userId = req.user.id;
 
-  // Admin "upload as" — credit a different user (e.g. proxy account)
-  let effectiveUserId = userId;
-  if (uploadAsUserId) {
-    const caller = await User.findById(userId);
-    const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
-    if (!caller?.isAdmin() && !adminEmails.includes(caller?.email)) {
-      return res.status(403).json({ error: 'Only admins can upload on behalf of others' });
-    }
-    const target = await User.findById(uploadAsUserId);
-    if (!target) return res.status(404).json({ error: 'Target user not found' });
-    effectiveUserId = uploadAsUserId;
-    console.log(`👤 Admin uploading on behalf of "${target.displayName}" (${uploadAsUserId})`);
-  }
-
-  console.log('💾 Received moment upload request:', {
-    performanceId,
-    songName,
-    venueName,
-    venueCity,
-    userId: effectiveUserId,
-    contentType
-  });
-
   if (!performanceId || !songName || (!mediaUrl && !fileUri)) {
     return res.status(400).json({ error: 'Missing required fields: performanceId, songName, and media URL' });
   }
 
   try {
+    // Admin "upload as" — credit a different user (e.g. proxy account)
+    let effectiveUserId = userId;
+    if (uploadAsUserId) {
+      // Validate it looks like a MongoDB ObjectId
+      if (!/^[0-9a-fA-F]{24}$/.test(uploadAsUserId)) {
+        return res.status(400).json({ error: 'Invalid uploadAsUserId — must be a valid user ID, not a display name' });
+      }
+      const caller = await User.findById(userId);
+      const adminEmails = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',') : [];
+      if (!caller?.isAdmin() && !adminEmails.includes(caller?.email)) {
+        return res.status(403).json({ error: 'Only admins can upload on behalf of others' });
+      }
+      const target = await User.findById(uploadAsUserId);
+      if (!target) return res.status(404).json({ error: 'Target user not found' });
+      effectiveUserId = uploadAsUserId;
+      console.log(`👤 Admin uploading on behalf of "${target.displayName}" (${uploadAsUserId})`);
+    }
+
+    console.log('💾 Received moment upload request:', {
+      performanceId,
+      songName,
+      venueName,
+      venueCity,
+      userId: effectiveUserId,
+      contentType
+    });
     const moment = new Moment({
       user: effectiveUserId,
       performanceId,
