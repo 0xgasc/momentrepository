@@ -123,7 +123,7 @@ app.use(cookieParser());
 // Rate limiting
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // 200 requests per 15 min per IP
+  max: 500, // 500 requests per 15 min per IP
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -151,30 +151,7 @@ const viewLimiter = rateLimit({
   message: { error: 'Too many view requests' },
 });
 
-// Apply general rate limit to ALL routes (except skipped ones)
-app.use(generalLimiter);
-
-// Security monitoring middleware
-app.use((req, res, next) => {
-  const startTime = Date.now();
-  const originalSend = res.send;
-
-  res.send = function(body) {
-    const duration = Date.now() - startTime;
-    const status = res.statusCode;
-
-    // Only log actual security events (not routine 404s or proxy errors)
-    if (status === 401 || status === 403) {
-      console.log(`🚨 Auth: ${req.method} ${req.path} - ${status} - IP: ${req.ip}`);
-    }
-
-    return originalSend.call(this, body);
-  };
-
-  next();
-});
-
-// CORS setup
+// CORS setup — MUST be before rate limiter so 429 responses have CORS headers
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
   : [
@@ -215,6 +192,29 @@ app.use(cors({
     'Tus-Resumable', 'Tus-Max-Size', 'Tus-Extension', 'Upload-Metadata'
   ]
 }));
+
+// Apply general rate limit to ALL routes (after CORS)
+app.use(generalLimiter);
+
+// Security monitoring middleware
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  const originalSend = res.send;
+
+  res.send = function(body) {
+    const duration = Date.now() - startTime;
+    const status = res.statusCode;
+
+    // Only log actual security events (not routine 404s or proxy errors)
+    if (status === 401 || status === 403) {
+      console.log(`🚨 Auth: ${req.method} ${req.path} - ${status} - IP: ${req.ip}`);
+    }
+
+    return originalSend.call(this, body);
+  };
+
+  next();
+});
 
 // =====================================================
 // SOCKET.IO SETUP FOR LIVE CHAT
