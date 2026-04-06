@@ -654,6 +654,11 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
   const handleEditMetadata = (moment) => {
     setEditingMoment(moment._id);
     setEditedMetadata({
+      songName: moment.songName || '',
+      contentType: moment.contentType || 'song',
+      coverageType: moment.coverageType || 'full',
+      venueName: moment.venueName || '',
+      venueCity: moment.venueCity || '',
       momentDescription: moment.momentDescription || '',
       personalNote: moment.personalNote || '',
       emotionalTags: moment.emotionalTags || '',
@@ -665,6 +670,26 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
       crowdReaction: moment.crowdReaction || '',
       uniqueElements: moment.uniqueElements || ''
     });
+  };
+
+  // Quick save: admin edits without changing approval status
+  const handleQuickSave = async (momentId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/moments/${momentId}/edit`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(editedMetadata)
+      });
+      if (response.ok) {
+        setEditingMoment(null);
+        window.location.reload();
+      } else {
+        const err = await response.json();
+        console.error('Quick save failed:', err);
+      }
+    } catch (error) {
+      console.error('Quick save error:', error);
+    }
   };
   
   const sendBackForReview = async (momentId) => {
@@ -813,8 +838,54 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
                   {/* Metadata editing form */}
                   {editingMoment === moment._id && (
                     <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
-                      <h4 className="font-medium text-gray-900 mb-3">Edit Metadata (changes will be applied and sent back to uploader)</h4>
+                      <h4 className="font-medium text-gray-900 mb-3">Edit Metadata</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {/* Core fields */}
+                        <div className="col-span-1 md:col-span-2 bg-yellow-50 border border-yellow-200 rounded p-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-yellow-800 mb-1">Song Name:</label>
+                            <input type="text" value={editedMetadata.songName}
+                              onChange={(e) => setEditedMetadata({...editedMetadata, songName: e.target.value})}
+                              className="w-full p-2 border border-yellow-300 rounded text-sm" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-yellow-800 mb-1">Content Type:</label>
+                            <select value={editedMetadata.contentType}
+                              onChange={(e) => setEditedMetadata({...editedMetadata, contentType: e.target.value})}
+                              className="w-full p-2 border border-yellow-300 rounded text-sm">
+                              <option value="song">Song</option>
+                              <option value="jam">Jam</option>
+                              <option value="improv">Improv</option>
+                              <option value="intro">Intro</option>
+                              <option value="outro">Outro</option>
+                              <option value="crowd">Crowd</option>
+                              <option value="full-show">Full Show</option>
+                              <option value="other">Other</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-yellow-800 mb-1">Coverage:</label>
+                            <select value={editedMetadata.coverageType}
+                              onChange={(e) => setEditedMetadata({...editedMetadata, coverageType: e.target.value})}
+                              className="w-full p-2 border border-yellow-300 rounded text-sm">
+                              <option value="full">Full</option>
+                              <option value="clip">Clip</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-yellow-800 mb-1">Venue:</label>
+                            <input type="text" value={editedMetadata.venueName}
+                              onChange={(e) => setEditedMetadata({...editedMetadata, venueName: e.target.value})}
+                              className="w-full p-2 border border-yellow-300 rounded text-sm" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-yellow-800 mb-1">City:</label>
+                            <input type="text" value={editedMetadata.venueCity}
+                              onChange={(e) => setEditedMetadata({...editedMetadata, venueCity: e.target.value})}
+                              className="w-full p-2 border border-yellow-300 rounded text-sm" />
+                          </div>
+                        </div>
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Description:</label>
                           <textarea
@@ -932,12 +1003,18 @@ const ModerationTab = memo(({ pendingMoments, approveMoment, rejectMoment, forma
                         </div>
                       </div>
                       
-                      <div className="flex gap-2 mt-3 pt-3 border-t">
+                      <div className="flex gap-2 mt-3 pt-3 border-t flex-wrap">
+                        <button
+                          onClick={() => handleQuickSave(moment._id)}
+                          className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                        >
+                          Save (keep status)
+                        </button>
                         <button
                           onClick={() => sendBackForReview(moment._id)}
                           className="bg-orange-600 text-white px-3 py-1 rounded text-sm hover:bg-orange-700"
                         >
-                          📤 Apply Changes & Send Back
+                          Save & Send Back
                         </button>
                         <button
                           onClick={() => setEditingMoment(null)}

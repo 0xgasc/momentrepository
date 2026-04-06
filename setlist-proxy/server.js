@@ -4297,6 +4297,34 @@ app.put('/moderation/moments/:momentId/send-back', authenticateToken, requireMod
   }
 });
 
+// Admin: Quick-edit moment fields WITHOUT changing approval status
+app.put('/admin/moments/:momentId/edit', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { momentId } = req.params;
+    const allowedFields = [
+      'songName', 'contentType', 'coverageType', 'venueName', 'venueCity',
+      'momentDescription', 'personalNote', 'emotionalTags', 'specialOccasion',
+      'audioQuality', 'videoQuality', 'instruments', 'guestAppearances',
+      'crowdReaction', 'uniqueElements', 'setName', 'mediaType'
+    ];
+    const updates = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    }
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+    updates.updatedAt = new Date();
+    const moment = await Moment.findByIdAndUpdate(momentId, { $set: updates }, { new: true });
+    if (!moment) return res.status(404).json({ error: 'Moment not found' });
+    console.log(`✏️ Admin ${req.user.email} edited moment ${momentId}: ${Object.keys(updates).join(', ')}`);
+    res.json({ success: true, moment });
+  } catch (error) {
+    console.error('❌ Admin edit moment error:', error);
+    res.status(500).json({ error: 'Failed to edit moment' });
+  }
+});
+
 // User: Get my moments with approval status
 app.get('/moments/my-status', authenticateToken, async (req, res) => {
   try {
