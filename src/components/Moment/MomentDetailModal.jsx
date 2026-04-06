@@ -501,47 +501,22 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
 
     if (isVideo) {
       return (
-        <div className="media-container relative">
-          {asciiMode ? (
-            <div style={{ position: 'relative', maxHeight: '500px', width: '100%', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#000' }}>
-              <video
-                ref={asciiVideoRef}
-                src={transformMediaUrl(moment.mediaUrl)}
-                style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', opacity: 0.05 }}
-                controls
-                autoPlay
-                muted
-                playsInline
-                crossOrigin="anonymous"
-                onError={() => { setMediaError(true); }}
-              />
-              <AsciiVideoOverlay videoRef={asciiVideoRef} active={asciiMode} isMobile={isMobile} />
-            </div>
-          ) : (
-            <LazyMedia
-              type="video"
+        <div className="media-container relative" style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', maxHeight: '500px', width: '100%', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#000' }}>
+            <video
+              ref={asciiVideoRef}
               src={transformMediaUrl(moment.mediaUrl)}
-              className="media-element w-full"
-              style={{ maxHeight: '500px', width: '100%', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
-              controls={true}
-              autoPlay={true}
-              muted={true}
-              unmuteAfterPlay={true}
-              preload="auto"
-              playsInline={true}
-              startTime={moment.startTime || 0}
-              onLoad={() => { setVideoLoaded(true); setMediaError(false); }}
+              style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', opacity: asciiMode ? 0.05 : 1 }}
+              controls
+              autoPlay
+              muted
+              playsInline
+              crossOrigin="anonymous"
+              onLoadedData={() => { setVideoLoaded(true); setMediaError(false); }}
               onError={() => { setMediaError(true); setVideoLoaded(false); }}
-              placeholder={
-                <div className="media-loading flex items-center justify-center" style={{ height: '300px' }}>
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                    <p className="text-sm text-gray-500">Loading video...</p>
-                  </div>
-                </div>
-              }
             />
-          )}
+            <AsciiVideoOverlay videoRef={asciiVideoRef} active={asciiMode} isMobile={isMobile} />
+          </div>
           {/* ASCII toggle */}
           <button
             onClick={() => setAsciiMode(!asciiMode)}
