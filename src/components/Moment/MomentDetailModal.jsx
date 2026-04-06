@@ -12,6 +12,7 @@ import AudioPlayer from '../UI/AudioPlayer';
 import MomentCommentsSection from './MomentCommentsSection';
 import FavoriteButton from '../UI/FavoriteButton';
 import { transformMediaUrl } from '../../utils/mediaUrl';
+import AsciiVideoOverlay from '../UI/AsciiVideoOverlay';
 
 const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProfile }) => {
   const navigate = useNavigate();
@@ -78,6 +79,8 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
   // eslint-disable-next-line no-unused-vars
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [mediaError, setMediaError] = useState(false);
+  const [asciiMode, setAsciiMode] = useState(false);
+  const asciiVideoRef = useRef(null);
   const [showNftPanel, setShowNftPanel] = useState(false);
   const [ytLoaded, setYtLoaded] = useState(false);
 
@@ -499,29 +502,68 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
     if (isVideo) {
       return (
         <div className="media-container relative">
-          <LazyMedia
-            type="video"
-            src={transformMediaUrl(moment.mediaUrl)}
-            className="media-element w-full"
-            style={{ maxHeight: '500px', width: '100%', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
-            controls={true}
-            autoPlay={true}
-            muted={true}
-            unmuteAfterPlay={true}
-            preload="auto"
-            playsInline={true}
-            startTime={moment.startTime || 0}
-            onLoad={() => { setVideoLoaded(true); setMediaError(false); }}
-            onError={() => { setMediaError(true); setVideoLoaded(false); }}
-            placeholder={
-              <div className="media-loading flex items-center justify-center" style={{ height: '300px' }}>
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p className="text-sm text-gray-500">Loading video...</p>
+          {asciiMode ? (
+            <div style={{ position: 'relative', maxHeight: '500px', width: '100%', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#000' }}>
+              <video
+                ref={asciiVideoRef}
+                src={transformMediaUrl(moment.mediaUrl)}
+                style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', opacity: 0.05 }}
+                controls
+                autoPlay
+                muted
+                playsInline
+                crossOrigin="anonymous"
+                onError={() => { setMediaError(true); }}
+              />
+              <AsciiVideoOverlay videoRef={asciiVideoRef} active={asciiMode} isMobile={isMobile} />
+            </div>
+          ) : (
+            <LazyMedia
+              type="video"
+              src={transformMediaUrl(moment.mediaUrl)}
+              className="media-element w-full"
+              style={{ maxHeight: '500px', width: '100%', borderRadius: '8px', backgroundColor: '#000', objectFit: 'contain' }}
+              controls={true}
+              autoPlay={true}
+              muted={true}
+              unmuteAfterPlay={true}
+              preload="auto"
+              playsInline={true}
+              startTime={moment.startTime || 0}
+              onLoad={() => { setVideoLoaded(true); setMediaError(false); }}
+              onError={() => { setMediaError(true); setVideoLoaded(false); }}
+              placeholder={
+                <div className="media-loading flex items-center justify-center" style={{ height: '300px' }}>
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-500">Loading video...</p>
+                  </div>
                 </div>
-              </div>
-            }
-          />
+              }
+            />
+          )}
+          {/* ASCII toggle */}
+          <button
+            onClick={() => setAsciiMode(!asciiMode)}
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              zIndex: 20,
+              padding: '4px 10px',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              fontWeight: 'bold',
+              backgroundColor: asciiMode ? '#22c55e' : 'rgba(0,0,0,0.6)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              letterSpacing: '1px'
+            }}
+          >
+            {asciiMode ? 'ASCII ON' : 'ASCII'}
+          </button>
           {mediaError && (
             <div className="media-error mt-2 text-center">
               <p className="text-sm text-red-600 mb-2">Unable to load video preview</p>
