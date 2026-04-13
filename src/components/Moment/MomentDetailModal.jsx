@@ -511,11 +511,10 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
               autoPlay
               muted
               playsInline
-              crossOrigin="anonymous"
               onLoadedData={() => { setVideoLoaded(true); setMediaError(false); }}
               onError={() => { setMediaError(true); setVideoLoaded(false); }}
             />
-            <AsciiVideoOverlay videoRef={asciiVideoRef} active={asciiMode} isMobile={isMobile} />
+            <AsciiVideoOverlay videoRef={asciiVideoRef} active={asciiMode} isMobile={isMobile} src={transformMediaUrl(moment.mediaUrl)} />
           </div>
           {/* ASCII toggle */}
           <button

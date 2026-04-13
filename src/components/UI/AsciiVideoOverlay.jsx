@@ -1,33 +1,71 @@
-// src/components/UI/AsciiVideoOverlay.jsx — Reusable ASCII effect overlay for video elements
+// src/components/UI/AsciiVideoOverlay.jsx — ASCII effect overlay using blob URL to bypass CORS taint
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 const ASCII_CHARS = ' .:-=+*#%@';
 
-const AsciiVideoOverlay = ({ videoRef, active, cols: propCols, isMobile }) => {
+const AsciiVideoOverlay = ({ videoRef, active, cols: propCols, isMobile, src }) => {
   const canvasRef = useRef(null);
+  const blobVideoRef = useRef(null);
   const animationRef = useRef(null);
   const [asciiOutput, setAsciiOutput] = useState([]);
-  const startedRef = useRef(false);
+  const [blobUrl, setBlobUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const getAsciiChar = useCallback((brightness) => {
     const index = Math.floor((brightness / 255) * (ASCII_CHARS.length - 1));
     return ASCII_CHARS[index];
   }, []);
 
+  // Fetch video as blob to get same-origin URL (bypasses canvas taint)
+  useEffect(() => {
+    if (!active || !src || blobUrl) return;
+    let cancelled = false;
+    setLoading(true);
+    setFailed(false);
+
+    fetch(src)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.blob();
+      })
+      .then(blob => {
+        if (cancelled) return;
+        const url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFailed(true);
+        setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [active, src, blobUrl]);
+
+  // Clean up blob URL
+  useEffect(() => {
+    if (!active && blobUrl) {
+      URL.revokeObjectURL(blobUrl);
+      setBlobUrl(null);
+    }
+  }, [active, blobUrl]);
+
   const processFrame = useCallback(() => {
     if (!active) return;
 
-    const video = videoRef?.current;
+    const video = blobVideoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas) {
+    if (!video || !canvas || video.paused || video.ended || video.readyState < 2 || video.videoWidth === 0) {
       animationRef.current = requestAnimationFrame(processFrame);
       return;
     }
 
-    // Wait for video to have actual frames
-    if (video.readyState < 2 || video.videoWidth === 0) {
-      animationRef.current = requestAnimationFrame(processFrame);
-      return;
+    // Sync blob video time with the main video
+    const mainVideo = videoRef?.current;
+    if (mainVideo && Math.abs(video.currentTime - mainVideo.currentTime) > 0.5) {
+      video.currentTime = mainVideo.currentTime;
     }
 
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -63,45 +101,70 @@ const AsciiVideoOverlay = ({ videoRef, active, cols: propCols, isMobile }) => {
       }
       setAsciiOutput(newRows);
     } catch (e) {
-      // Canvas tainted — likely CORS issue with cached video
-      // Try ONE more time by forcing video to reload with crossOrigin
-      console.warn('ASCII: canvas error —', e.message);
-      if (!startedRef.current) {
-        startedRef.current = true;
-        // Force reload video with CORS
-        const currentTime = video.currentTime;
-        const src = video.src;
-        video.crossOrigin = 'anonymous';
-        video.src = src + (src.includes('?') ? '&' : '?') + '_cors=1';
-        video.currentTime = currentTime;
-        video.play().catch(() => {});
-      }
+      console.warn('ASCII frame error:', e.message);
     }
 
     animationRef.current = requestAnimationFrame(processFrame);
   }, [videoRef, active, propCols, isMobile, getAsciiChar]);
 
+  // Start animation loop when blob video is playing
   useEffect(() => {
-    if (active) {
-      startedRef.current = false;
+    if (!active || !blobUrl) return;
+
+    const video = blobVideoRef.current;
+    if (!video) return;
+
+    const startLoop = () => {
       animationRef.current = requestAnimationFrame(processFrame);
+    };
+
+    // Sync with main video position
+    const mainVideo = videoRef?.current;
+    if (mainVideo) {
+      video.currentTime = mainVideo.currentTime;
+      video.muted = true;
+      video.play().then(startLoop).catch(() => {
+        // Autoplay blocked, start loop anyway (will wait for readyState)
+        startLoop();
+      });
+    } else {
+      video.muted = true;
+      video.play().then(startLoop).catch(startLoop);
     }
+
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [active, processFrame]);
+  }, [active, blobUrl, processFrame, videoRef]);
 
+  // Clean up on deactivate
   useEffect(() => {
-    if (!active) setAsciiOutput([]);
+    if (!active) {
+      setAsciiOutput([]);
+      if (blobVideoRef.current) {
+        blobVideoRef.current.pause();
+      }
+    }
   }, [active]);
 
-  if (!active || asciiOutput.length === 0) return null;
+  if (!active) return null;
 
   const fontSize = isMobile ? 5 : 7;
 
   return (
     <>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
+      {/* Hidden blob video for canvas reading (same-origin, no taint) */}
+      {blobUrl && (
+        <video
+          ref={blobVideoRef}
+          src={blobUrl}
+          muted
+          playsInline
+          style={{ display: 'none' }}
+        />
+      )}
+
       <div
         style={{
           position: 'absolute',
@@ -116,22 +179,34 @@ const AsciiVideoOverlay = ({ videoRef, active, cols: propCols, isMobile }) => {
           pointerEvents: 'none'
         }}
       >
-        <pre style={{
-          fontFamily: 'monospace',
-          fontSize: `${fontSize}px`,
-          lineHeight: `${fontSize + 1}px`,
-          letterSpacing: '1px',
-          whiteSpace: 'pre',
-          margin: 0
-        }}>
-          {asciiOutput.map((row, y) => (
-            <div key={y} style={{ display: 'flex' }}>
-              {row.map((pixel, x) => (
-                <span key={x} style={{ color: pixel.color }}>{pixel.char}</span>
-              ))}
-            </div>
-          ))}
-        </pre>
+        {loading && (
+          <div style={{ color: '#22c55e', fontFamily: 'monospace', fontSize: '14px' }}>
+            Loading ASCII...
+          </div>
+        )}
+        {failed && (
+          <div style={{ color: '#ef4444', fontFamily: 'monospace', fontSize: '12px' }}>
+            ASCII unavailable for this video
+          </div>
+        )}
+        {asciiOutput.length > 0 && (
+          <pre style={{
+            fontFamily: 'monospace',
+            fontSize: `${fontSize}px`,
+            lineHeight: `${fontSize + 1}px`,
+            letterSpacing: '1px',
+            whiteSpace: 'pre',
+            margin: 0
+          }}>
+            {asciiOutput.map((row, y) => (
+              <div key={y} style={{ display: 'flex' }}>
+                {row.map((pixel, x) => (
+                  <span key={x} style={{ color: pixel.color }}>{pixel.char}</span>
+                ))}
+              </div>
+            ))}
+          </pre>
+        )}
       </div>
     </>
   );
