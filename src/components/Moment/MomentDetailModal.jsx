@@ -516,28 +516,7 @@ const MomentDetailModal = memo(({ moment: initialMoment, onClose, onViewUserProf
             />
             <AsciiVideoOverlay videoRef={asciiVideoRef} active={asciiMode} isMobile={isMobile} src={transformMediaUrl(moment.mediaUrl)} />
           </div>
-          {/* ASCII toggle */}
-          <button
-            onClick={() => setAsciiMode(!asciiMode)}
-            style={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              zIndex: 20,
-              padding: '4px 10px',
-              fontSize: '11px',
-              fontFamily: 'monospace',
-              fontWeight: 'bold',
-              backgroundColor: asciiMode ? '#22c55e' : 'rgba(0,0,0,0.6)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              letterSpacing: '1px'
-            }}
-          >
-            {asciiMode ? 'ASCII ON' : 'ASCII'}
-          </button>
+          {/* ASCII toggle — hidden for now, coming back later */}
           {mediaError && (
             <div className="media-error mt-2 text-center">
               <p className="text-sm text-red-600 mb-2">Unable to load video preview</p>
